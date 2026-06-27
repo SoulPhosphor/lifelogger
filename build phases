@@ -1,0 +1,241 @@
+# Build Phases
+
+Build this app in small, testable phases.
+
+Do not attempt to build every feature at once.
+
+Each phase should produce a working app state before moving to the next phase.
+
+## Phase 1: Navigation Skeleton
+
+Goal: Prove the app structure and navigation.
+
+Build:
+
+* Android project setup
+* Kotlin
+* Jetpack Compose
+* Material 3
+* Home screen
+* Top-right plus button
+* Placeholder list of log cards
+* Right-side plus button on each log card
+* Navigation routes:
+
+  * Home
+  * Create/Edit Log System
+  * Entry List
+  * New Entry
+
+Required behavior:
+
+* Top-right plus opens Create/Edit Log System screen.
+* Tapping a log card opens Entry List screen.
+* Tapping the right-side plus on a log card opens New Entry screen.
+* New Entry screen is full-screen, not a dialog.
+
+No database required yet. Placeholder data is acceptable in this phase.
+
+## Phase 2: Local Database for Log Systems
+
+Goal: Save custom log systems locally.
+
+Build:
+
+* Room database
+* LogTemplate entity
+* DAO for creating, reading, updating, deleting log templates
+* Repository layer if useful
+* Home screen loads log systems from database
+* Create/Edit Log System screen saves a real log template
+
+Fields for LogTemplate:
+
+* id
+* name
+* description
+* createdAt
+* updatedAt
+* schemaJson
+
+Manual field editing can be minimal at this phase.
+
+## Phase 3: Manual Custom Fields
+
+Goal: Allow the user to define fields for a log system.
+
+Supported field types:
+
+* text
+* single choice
+* multiple choice
+* scale 1 to 5
+* date
+* time
+* datetime
+* yes/no
+
+Build:
+
+* Field creation UI
+* Add/remove/reorder fields
+* Save fields into schemaJson
+* Preview generated form if practical
+
+Do not add Form Markdown yet.
+
+## Phase 4: Dynamic Entry Forms
+
+Goal: Generate entry forms from each log system.
+
+Build:
+
+* LogEntry entity
+* DAO for creating, reading, updating, deleting entries
+* New Entry screen generated from schemaJson
+* Save entries as valuesJson
+* Auto-created timestamp
+* Entry List screen shows saved entries in reverse chronological order
+* Entry Detail/Edit screen if needed
+
+Fields for LogEntry:
+
+* id
+* templateId
+* createdAt
+* updatedAt
+* valuesJson
+
+Required behavior:
+
+* Tapping the right-side plus on a log card opens a generated full-screen form.
+* Saving the form creates a LogEntry.
+* Tapping a log card opens the list of entries for that log.
+
+## Phase 5: Readable Report Export
+
+Goal: Export a human-readable report for one log.
+
+Build:
+
+* Export button on Entry List screen
+* Markdown export for one log
+* Plain text export for one log
+* Android share/save intent
+
+Report should include:
+
+* Log name
+* Date range
+* Total entries
+* Counts by severity if a severity field exists
+* Counts by common choice fields if practical
+* Entries listed vertically, field by field
+* Notes displayed as block text
+
+CSV is not required in this phase.
+
+PDF is not required in this phase.
+
+## Phase 6: JSON Backup and Restore
+
+Goal: Protect all app data.
+
+Build:
+
+* Backup all data as JSON
+* Restore all data from JSON
+* Include all log templates
+* Include all log entries
+* Include schemaJson for each log system
+* Add backup/restore option in a menu or backup screen
+
+JSON is for backup and restore, not normal sharing.
+
+## Phase 7: Form Markdown Import
+
+Goal: Let the user paste a structured Markdown-like template to create a log system.
+
+Supported format:
+
+# Log Name
+
+## Field Label
+
+type: single
+
+* Option A
+* Option B
+
+## Field Label
+
+type: multiple
+
+* Option A
+* Option B
+
+## Severity
+
+type: scale
+min: 1
+max: 5
+
+## Notes
+
+type: text
+
+Build:
+
+* Paste Form Markdown screen
+* Parser that converts Form Markdown into schemaJson
+* Preview generated fields before saving
+* Store original Form Markdown if desired
+
+Do not make this parser more complex than necessary.
+
+## Phase 8: CSV Export
+
+Goal: Provide spreadsheet-compatible export.
+
+Build:
+
+* Export one log as CSV
+* Export all logs as separate CSV files if practical
+* Multiple-choice values can be joined with semicolons
+* Notes should be quoted safely
+* CSV is secondary and not the main readable format
+
+Each log should export separately because different logs can have different fields.
+
+## Phase 9: PDF Export
+
+Goal: Provide polished readable reports.
+
+Build:
+
+* Convert readable report to PDF
+* Use one-column layout first
+* Consider two-column layout only later
+* Keep notes readable
+* Avoid cramped table layouts
+
+PDF export should be based on the readable report, not the CSV.
+
+## Worklog Requirement
+
+After every meaningful coding session or agent run, update:
+
+docs/CHANGELOG_WORKLOG.md
+
+Each entry should include:
+
+* Date
+* Summary
+* Changed
+* Added
+* Fixed
+* Notes
+* Next steps
+* Known issues
+
+Do not leave the worklog vague. It should be useful to a future coding agent and to the user.
