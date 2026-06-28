@@ -284,7 +284,7 @@ Opened by the `↓` on Home. Backs up all logs and entries at once.
 | `datetime` | A date and time picker combined. Can default to the current time. |
 | `dropdown` | A dropdown list. User picks one. |
 | `scale` | Tappable pills if 5 or fewer numbers; dropdown if 6 or more. |
-| `yesno` | Four options: Yes, No, Unknown, Not Applicable. |
+| `yesno` | A dropdown with four options: Yes, No, Unknown, Not Applicable. |
 | `number` | A box where the user types a number. |
 | `multiple` | Tappable chips (multiple can be selected). Selected items display on one line separated by commas. |
 
