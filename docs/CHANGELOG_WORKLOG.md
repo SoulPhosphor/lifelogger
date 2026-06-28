@@ -4,6 +4,44 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-06-28 — Phase 4: Dynamic entry forms
+
+**Summary**
+
+Entries are now real: the New Entry screen is generated from each log's
+`schemaJson`, entries save to the database, and the entry list shows them
+newest-first.
+
+- `LogEntry` entity (`id`, `templateId`, `createdAt`, `updatedAt`, `valuesJson`)
+  plus `LogEntryDao` with the full CRUD surface (insert / update / delete /
+  observe). Database bumped to **v4** with a real `MIGRATION_3_4` that creates the
+  `log_entries` table and its `templateId` index (no template data lost).
+- `createdAt` is stored as **ISO-8601 with offset** per FORMATTING_SPEC §1
+  (machine-readable storage; 12h/24h is applied only at display time). The DAO
+  orders entries `createdAt DESC, id DESC` for reverse-chronological listing.
+- `EntryValues` owns the shape of `valuesJson` (a JSON object keyed by field
+  label) and all read-time formatting: `multiple` → JSON array, `scale`/`number`
+  → raw text, `date`/`time`/`datetime` → machine patterns; rendered back as
+  `4 / 5`, `Jun 27, 2:14 PM`, etc.
+- New Entry screen generates a control per field type (FORM_MARKDOWN_SPEC /
+  UI_SPEC §10): text, multiline (height from `lines`), number (digit-limited),
+  dropdown, yesno (4-option dropdown), scale (≤5 pills / ≥6 dropdown), multiple
+  (chips), and date / time / datetime pickers. `datetime` with `default: now`
+  pre-fills. Required fields block Save. A free-text **Notes** box is stored under
+  a reserved key so it can never collide with a user field.
+- Log screen lists entries (timestamp, value summary, notes preview). Home rows
+  now show real "N entries · last entry today/yesterday/MMM d".
+
+**Scope notes (respecting the phase plan)**
+
+- Tap-an-entry-to-edit and the per-entry `🗑` delete are **Phase 7** — entry rows
+  are display-only for now. The DAO's `update`/`delete` exist ready for it.
+- Export (`↓`), backup, and restore remain later-phase stubs.
+- The Settings 12h/24h toggle still isn't persisted, so all times render 12-hour
+  (the documented default) for now; wiring the stored preference is a later phase.
+
+---
+
 ## 2026-06-28 — Remove the description (user instruction)
 
 Per the user's explicit instruction, logs have **no description** anywhere. The

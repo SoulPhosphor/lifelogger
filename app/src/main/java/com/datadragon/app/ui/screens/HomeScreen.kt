@@ -32,7 +32,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.datadragon.app.data.LogTemplate
+import com.datadragon.app.data.EntryValues
+import com.datadragon.app.ui.HomeLog
 import com.datadragon.app.ui.HomeViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,7 +46,7 @@ fun HomeScreen(
     onAddEntry: (Long) -> Unit,
     viewModel: HomeViewModel = viewModel(),
 ) {
-    val logs by viewModel.templates.collectAsStateWithLifecycle()
+    val logs by viewModel.logs.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -79,11 +80,11 @@ fun HomeScreen(
                 contentPadding = PaddingValues(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                items(logs, key = { it.id }) { log ->
+                items(logs, key = { it.template.id }) { log ->
                     LogRow(
                         log = log,
-                        onOpen = { onOpenLog(log.id) },
-                        onAddEntry = { onAddEntry(log.id) },
+                        onOpen = { onOpenLog(log.template.id) },
+                        onAddEntry = { onAddEntry(log.template.id) },
                     )
                 }
             }
@@ -93,7 +94,7 @@ fun HomeScreen(
 
 @Composable
 private fun LogRow(
-    log: LogTemplate,
+    log: HomeLog,
     onOpen: () -> Unit,
     onAddEntry: () -> Unit,
 ) {
@@ -108,25 +109,31 @@ private fun LogRow(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = log.name,
+                    text = log.template.name,
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                // Entry counts arrive with LogEntry in Phase 4; until then every
-                // log has no entries.
                 Text(
-                    text = "No entries yet",
+                    text = entrySummaryLine(log),
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
             // Per-row add-entry button stays on the far right so the everyday
             // action is consistent and far from any destructive control.
             IconButton(onClick = onAddEntry) {
-                Icon(Icons.Filled.Add, contentDescription = "Add entry to ${log.name}")
+                Icon(Icons.Filled.Add, contentDescription = "Add entry to ${log.template.name}")
             }
         }
     }
+}
+
+/** "No entries yet" / "1 entry" / "14 entries · last entry today" (docs/UI_SPEC.md §2). */
+private fun entrySummaryLine(log: HomeLog): String {
+    if (log.entryCount == 0) return "No entries yet"
+    val count = if (log.entryCount == 1) "1 entry" else "${log.entryCount} entries"
+    val last = EntryValues.displayLastEntry(log.lastEntryAt)
+    return if (last != null) "$count · last entry $last" else count
 }
 
 @Composable
