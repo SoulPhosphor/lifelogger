@@ -133,9 +133,6 @@ Once a log is created, it cannot be edited. It can only be deleted.
 │ Log name                                        │
 │ [____________________________________]          │
 │                                                 │
-│ Description (optional)                           │
-│ [____________________________________]          │
-│                                                 │
 │ Define fields            [ Field types ▸ ]      │
 │ ┌──────────────────────────────────────┐       │
 │ │ Paste Form Markdown here…            │       │
@@ -145,7 +142,7 @@ Once a log is created, it cannot be edited. It can only be deleted.
 └──────────────────────────────────────────────┘
 ```
 
-- **Log name** (required), **Description** (optional).
+- **Log name** (required). Logs have no description field.
 - **Define fields:** a text box where the user pastes Form Markdown (see docs/FORM_MARKDOWN_SPEC.md). The **Preview form** button shows what the form will look like before saving.
 - **Field types reference** (`[ Field types ▸ ]`): an expandable panel the user can open to see what field types are available and how to write them. Contents:
 

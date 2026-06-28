@@ -9,13 +9,11 @@ This file is the authoritative list of field types. The **Field-types reference 
 ## 1. Basic structure
 
 - The **first line** beginning with `#` is the **log name**.
-- An optional line beginning with `>` is the **log description**.
 - Each field starts with `##` followed by the **field label** the user will see.
 - Under each field, a `type:` line sets what kind of field it is. Some field types take extra lines for their options.
 
 ```
 # My Log
-> A short description
 
 ## Rating
 type: scale
@@ -120,7 +118,7 @@ default: now
 
 ## 4. Parser rules
 
-- The first `#` line is the log name; an optional `>` line is the description.
+- The first `#` line is the log name.
 - Each `##` starts a new field; its label is the text after `##`.
 - `options:` is followed by `-` list items.
 - Lines the parser doesn't recognize are ignored, and the preview lists what was skipped — the parser never crashes on bad input.

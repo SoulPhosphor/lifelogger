@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base application theme. The Compose UI supplies the real Material 3 colors;
+         this theme only needs to be a valid Material 3 parent so the activity can start. -->
+    <style name="Theme.DataDragon" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>
