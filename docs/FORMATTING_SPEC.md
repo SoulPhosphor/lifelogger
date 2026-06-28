@@ -1,0 +1,122 @@
+# Formatting Specification
+
+This document is the single source of truth for how the app stores, displays, and exports data. The coding agent must follow this exactly and must not improvise formatting.
+
+> **Internal storage never stores a display choice.** The database keeps clean, machine-readable data. Formatting (12-hour vs 24-hour, report layout, CSV escaping) is applied only at display or export time.
+
+---
+
+## 1. Dates and times
+
+### Internal storage
+
+- Store all timestamps as **ISO-8601 strings with a timezone offset**, e.g. `2026-06-27T14:14:00-05:00`.
+- `createdAt` is set automatically when an entry is saved. `updatedAt` is set on edit.
+
+### Display
+
+- The user can choose **12-hour (AM/PM)** or **24-hour** in Settings.
+- **Default is 12-hour.**
+- The choice affects display only, never the stored value.
+
+| Setting | Time | Date | Combined |
+|---------|------|------|----------|
+| 12-hour (default) | `2:14 PM` | `June 27, 2026` | `June 27, 2026, 2:14 PM` |
+| 24-hour | `14:14` | `2026-06-27` | `2026-06-27 14:14` |
+
+---
+
+## 2. Readable report (primary export)
+
+This is the format for sharing with other people. It reads cleanly top-to-bottom. **It is not a spreadsheet.** Each entry is laid out vertically, field by field.
+
+### Structure
+
+```
+# {Log Name} Report
+Date range: {first entry date} – {last entry date}
+Total entries: {n}
+
+---
+
+## Entry — {entry date and time}
+
+**{Field label}:** {value}
+**{Field label}:** {value}
+
+**Notes:**
+{notes text on its own lines}
+
+---
+
+## Entry — {next entry date and time}
+...
+```
+
+### How each field type renders in the report
+
+| Field type | Rendered as |
+|------------|-------------|
+| `text` | The text value. |
+| `multiline` | Shown as a block on its own lines. |
+| `date` / `time` | Formatted per the user's 12h/24h setting. |
+| `dropdown` | The selected value. |
+| `multiple` | Selected values joined with `, ` (comma-space). |
+| `scale` | `{value} / {max}` (e.g. `4 / 5`). |
+| `number` | The number as typed. |
+| `yesno` | `Yes`, `No`, `Unknown`, or `Not Applicable`. |
+
+- Empty optional fields are omitted from the report.
+- Always show date range and total entries at the top.
+
+### Plain-text vs Markdown
+
+- `.md` export uses `#`, `##`, and `**bold**` formatting.
+- `.txt` export drops the markdown markers but keeps the same vertical layout and spacing.
+
+---
+
+## 3. CSV export (compatibility format)
+
+CSV is for users who want spreadsheet-compatible data. It is not the primary reading format.
+
+### Rules
+
+- **One CSV file per log** (different logs have different fields).
+- Encoding: UTF-8, with a header row.
+- Follow **RFC 4180**: wrap cells containing commas, double-quotes, or newlines in double quotes. Escape internal double-quotes by doubling them.
+- `multiple` values join with `; ` (semicolon-space) so they don't collide with the CSV comma.
+- `scale` exports as the raw number only (e.g. `4`), not `4 / 5`.
+- Date/time columns export as ISO-8601 strings so spreadsheets can sort them.
+- Empty optional fields export as empty cells.
+
+### Column order
+
+```
+entry_id, created_at, {field 1}, {field 2}, ..., {field n}
+```
+
+---
+
+## 4. JSON exports
+
+### Full backup (Home → Backup screen)
+
+One file containing all log templates (with their field definitions and original Form Markdown if used) and all entries. This is what Restore in Settings reads.
+
+### Single-log export (Log screen → download → .json)
+
+One file containing one template and that log's entries. Same structure as one log inside a full backup, so it can be re-imported.
+
+Timestamps stay in ISO-8601 exactly as stored. JSON files are for backup and data portability, not for human reading.
+
+---
+
+## 5. Export file naming
+
+- Lowercase the log name.
+- Replace spaces with underscores.
+- Strip punctuation other than underscores.
+- Example: `My Log` → `my_log_report.md`, `my_log.csv`
+
+Files are saved through the Android share/save sheet. The user picks where they go.
