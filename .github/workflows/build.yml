@@ -31,3 +31,38 @@ jobs:
           name: data-dragon-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+
+  # On every push to main, publish a GitHub Release with the APK attached so it
+  # can be downloaded and installed directly (no need to dig into CI artifacts).
+  release:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download built APK
+        uses: actions/download-artifact@v4
+        with:
+          name: data-dragon-debug-apk
+          path: apk
+
+      - name: Name the APK after this build
+        run: |
+          mkdir -p dist
+          cp apk/*.apk "dist/data-dragon-debug-build-${{ github.run_number }}.apk"
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Data Dragon build ${{ github.run_number }}
+          body: >
+            Automated **debug** build from
+            [`${{ github.sha }}`](https://github.com/${{ github.repository }}/commit/${{ github.sha }}).
+            Debug-signed, so it installs directly on a device (enable "install
+            unknown apps"). Not a signed production release.
+          files: dist/*.apk
+          generate_release_notes: true
+          prerelease: false

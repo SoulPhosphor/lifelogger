@@ -4,6 +4,18 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-06-28 — Release on push to main (CI)
+
+Added a `release` job to `.github/workflows/build.yml`: on every push to `main`
+it reuses the built debug APK and publishes a GitHub Release (tag
+`build-<run_number>`) with the APK attached, so it can be installed directly
+instead of being dug out of CI artifacts. Needs the repo's Actions token to have
+**read & write** permission (Settings → Actions → General → Workflow
+permissions). The APK is debug-signed (installable), not a signed production
+build.
+
+---
+
 ## 2026-06-28 — Phase 7: Delete entries and logs
 
 **Summary**
