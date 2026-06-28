@@ -4,6 +4,25 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-06-28 — Phase 7: Delete entries and logs
+
+**Summary**
+
+Entries and whole logs can now be deleted, each behind a confirmation. No
+editing — entries and logs remain create-once.
+
+- Each entry row gets a `🗑` that opens a "Delete this entry?" confirmation;
+  confirming removes just that entry (the list updates live).
+- The Log screen's `🗑` now actually deletes the log: a warning confirms it
+  removes the log and all its entries, then it deletes both in one transaction
+  and navigates back Home.
+- `LogEntryDao.deleteForTemplate(templateId)` added; `LogViewModel` gained
+  `deleteEntry` and a transactional `deleteLog`.
+
+There is intentionally no edit path for entries or logs.
+
+---
+
 ## 2026-06-28 — Entries are never editable (user correction)
 
 Per the user, **entries can only be added or deleted, never edited** — the

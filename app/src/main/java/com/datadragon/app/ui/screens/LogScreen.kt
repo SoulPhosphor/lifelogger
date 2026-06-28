@@ -36,7 +36,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -72,9 +71,9 @@ fun LogScreen(
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    // Phase 1 proved the confirmation flow exists; wiring real deletion is Phase 7.
     var confirmDeleteLog by remember { mutableStateOf(false) }
     var showFormatChooser by remember { mutableStateOf(false) }
+    var entryToDelete by remember { mutableStateOf<LogEntry?>(null) }
 
     Scaffold(
         topBar = {
@@ -117,7 +116,11 @@ fun LogScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 items(entries, key = { it.id }) { entry ->
-                    EntryRow(entry = entry, fields = fields)
+                    EntryRow(
+                        entry = entry,
+                        fields = fields,
+                        onDelete = { entryToDelete = entry },
+                    )
                 }
             }
         }
@@ -205,8 +208,11 @@ fun LogScreen(
             title = { Text("Delete \"${template?.name ?: "this log"}\"?") },
             text = { Text("This permanently deletes this log and all of its entries. This can't be undone.") },
             confirmButton = {
-                TextButton(onClick = { confirmDeleteLog = false }) {
-                    Text("Delete log", color = Color(0xFFC62828))
+                TextButton(onClick = {
+                    confirmDeleteLog = false
+                    viewModel.deleteLog(onDeleted = onBack)
+                }) {
+                    Text("Delete log", color = DeleteRed)
                 }
             },
             dismissButton = {
@@ -214,40 +220,67 @@ fun LogScreen(
             },
         )
     }
+
+    entryToDelete?.let { entry ->
+        AlertDialog(
+            onDismissRequest = { entryToDelete = null },
+            title = { Text("Delete this entry?") },
+            text = { Text("This permanently deletes this entry. This can't be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    entryToDelete = null
+                    viewModel.deleteEntry(entry)
+                }) {
+                    Text("Delete entry", color = DeleteRed)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { entryToDelete = null }) { Text("Cancel") }
+            },
+        )
+    }
 }
 
 /**
  * One entry row: timestamp, a one-line summary of field values, and a notes
- * preview if present (docs/UI_SPEC.md §3). Tap-to-edit and per-row delete arrive
- * in Phase 7.
+ * preview if present (docs/UI_SPEC.md §3), with a `🗑` to delete it. Entries are
+ * never edited — only added or deleted.
  */
 @Composable
-private fun EntryRow(entry: LogEntry, fields: List<FieldDef>) {
+private fun EntryRow(entry: LogEntry, fields: List<FieldDef>, onDelete: () -> Unit) {
     val values = remember(entry.valuesJson) { EntryValues.decode(entry.valuesJson) }
     val summary = remember(values, fields) { EntryValues.summaryLine(fields, values) }
     val notes = remember(values) { EntryValues.notes(values) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
-            Text(
-                text = EntryValues.displayEntryTimestamp(entry.createdAt),
-                style = MaterialTheme.typography.titleSmall,
-            )
-            if (summary.isNotEmpty()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 12.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = summary,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
+                    text = EntryValues.displayEntryTimestamp(entry.createdAt),
+                    style = MaterialTheme.typography.titleSmall,
                 )
+                if (summary.isNotEmpty()) {
+                    Text(
+                        text = summary,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                if (notes != null) {
+                    Text(
+                        text = notes,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
-            if (notes != null) {
-                Text(
-                    text = notes,
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Filled.Delete, contentDescription = "Delete entry", tint = DeleteRed)
             }
         }
     }

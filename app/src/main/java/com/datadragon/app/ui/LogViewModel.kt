@@ -7,6 +7,7 @@ import com.datadragon.app.data.AppDatabase
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.LogEntry
 import com.datadragon.app.data.LogTemplate
+import androidx.room.withTransaction
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -25,8 +26,9 @@ import kotlinx.serialization.json.Json
 @OptIn(ExperimentalCoroutinesApi::class)
 class LogViewModel(app: Application) : AndroidViewModel(app) {
 
-    private val templateDao = AppDatabase.getInstance(app).logTemplateDao()
-    private val entryDao = AppDatabase.getInstance(app).logEntryDao()
+    private val db = AppDatabase.getInstance(app)
+    private val templateDao = db.logTemplateDao()
+    private val entryDao = db.logEntryDao()
     private val json = Json { ignoreUnknownKeys = true }
 
     private val _template = MutableStateFlow<LogTemplate?>(null)
@@ -51,6 +53,26 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
             _fields.value = template
                 ?.let { runCatching { json.decodeFromString<List<FieldDef>>(it.schemaJson) }.getOrNull() }
                 ?: emptyList()
+        }
+    }
+
+    /** Delete one entry. The entry list updates automatically. */
+    fun deleteEntry(entry: LogEntry) {
+        viewModelScope.launch { entryDao.delete(entry) }
+    }
+
+    /**
+     * Delete this whole log and all of its entries, then invoke [onDeleted]
+     * (used to navigate away). Runs in one transaction.
+     */
+    fun deleteLog(onDeleted: () -> Unit) {
+        val template = _template.value ?: return
+        viewModelScope.launch {
+            db.withTransaction {
+                entryDao.deleteForTemplate(template.id)
+                templateDao.delete(template)
+            }
+            onDeleted()
         }
     }
 }

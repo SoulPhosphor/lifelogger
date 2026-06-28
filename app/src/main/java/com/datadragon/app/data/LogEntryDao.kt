@@ -39,6 +39,10 @@ interface LogEntryDao {
     @Query("DELETE FROM log_entries")
     suspend fun deleteAll()
 
+    /** Removes every entry for one log — used when deleting the log itself. */
+    @Query("DELETE FROM log_entries WHERE templateId = :templateId")
+    suspend fun deleteForTemplate(templateId: Long)
+
     /**
      * Per-log count and most-recent timestamp, so the Home screen can show
      * "N entries · last entry …" without loading every entry (docs/UI_SPEC.md §2).
