@@ -237,18 +237,13 @@ Same layout, pre-filled with the entry's current values. Save updates the entry.
 ┌──────────────────────────────────────────────┐
 │ <    Settings                                   │
 ├──────────────────────────────────────────────┤
-│ Time format                                     │
-│   ( ) 12-hour (2:14 PM)     ← default          │
-│   ( ) 24-hour (14:14)                           │
-│                                                 │
-│ ─────────────────────────────────────────       │
 │ Restore from backup                              │
 │ [ Choose backup file… ]                          │
 │ Loads data from a .json backup file.             │
 └──────────────────────────────────────────────┘
 ```
 
-- **Time format** toggle: 12-hour (default) / 24-hour.
+- Times are always shown in **12-hour (AM/PM)** format. There is no time-format setting.
 - **Restore from backup** sits at the bottom, away from everyday controls. Restoring **replaces all current data** with the backup contents. A confirmation dialog warns the user before proceeding.
 
 ---

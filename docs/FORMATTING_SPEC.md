@@ -2,7 +2,7 @@
 
 This document is the single source of truth for how the app stores, displays, and exports data. The coding agent must follow this exactly and must not improvise formatting.
 
-> **Internal storage never stores a display choice.** The database keeps clean, machine-readable data. Formatting (12-hour vs 24-hour, report layout, CSV escaping) is applied only at display or export time.
+> **Internal storage stays machine-readable.** The database keeps clean, machine-readable data (ISO-8601 timestamps, clean JSON). Formatting (12-hour AM/PM display, report layout, CSV escaping) is applied only at display or export time.
 
 ---
 
@@ -15,14 +15,12 @@ This document is the single source of truth for how the app stores, displays, an
 
 ### Display
 
-- The user can choose **12-hour (AM/PM)** or **24-hour** in Settings.
-- **Default is 12-hour.**
-- The choice affects display only, never the stored value.
+- Times are always displayed in **12-hour (AM/PM)** format. There is no user setting.
+- Formatting affects display only, never the stored value.
 
-| Setting | Time | Date | Combined |
-|---------|------|------|----------|
-| 12-hour (default) | `2:14 PM` | `June 27, 2026` | `June 27, 2026, 2:14 PM` |
-| 24-hour | `14:14` | `2026-06-27` | `2026-06-27 14:14` |
+| Time | Date | Combined |
+|------|------|----------|
+| `2:14 PM` | `June 27, 2026` | `June 27, 2026, 2:14 PM` |
 
 ---
 
@@ -59,7 +57,7 @@ Total entries: {n}
 |------------|-------------|
 | `text` | The text value. |
 | `multiline` | Shown as a block on its own lines. |
-| `date` / `time` | Formatted per the user's 12h/24h setting. |
+| `date` / `time` | Formatted as 12-hour (AM/PM). |
 | `dropdown` | The selected value. |
 | `multiple` | Selected values joined with `, ` (comma-space). |
 | `scale` | `{value} / {max}` (e.g. `4 / 5`). |

@@ -37,8 +37,20 @@ newest-first.
 - Tap-an-entry-to-edit and the per-entry `🗑` delete are **Phase 7** — entry rows
   are display-only for now. The DAO's `update`/`delete` exist ready for it.
 - Export (`↓`), backup, and restore remain later-phase stubs.
-- The Settings 12h/24h toggle still isn't persisted, so all times render 12-hour
-  (the documented default) for now; wiring the stored preference is a later phase.
+- All times render 12-hour (AM/PM); see the time-format removal entry below.
+
+---
+
+## 2026-06-28 — Remove the 24-hour time option (user instruction)
+
+Per the user's instruction, the app uses **12-hour (AM/PM) time only** — there is
+no 24-hour option.
+
+- Removed the time-format toggle from the Settings screen; Settings now holds
+  only Restore-from-backup. (Display was already 12-hour everywhere, so no
+  formatting logic changed — `EntryValues` and the time picker stay 12-hour.)
+- Updated UI_SPEC §8 (no time-format setting) and FORMATTING_SPEC §1 (12-hour is
+  the only display format) to match.
 
 ---
 

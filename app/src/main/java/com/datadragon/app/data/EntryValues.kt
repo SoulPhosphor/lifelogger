@@ -21,9 +21,9 @@ import java.util.Locale
  * - `multiple` fields are stored as a JSON array of the selected option strings.
  * - every other type is stored as a JSON string in a machine-readable form
  *   (`date` as `yyyy-MM-dd`, `time` as `HH:mm`, `datetime` as `yyyy-MM-dd'T'HH:mm`,
- *   `scale`/`number` as the raw number text). Display formatting (12h/24h, the
- *   `4 / 5` scale form) is applied here at read time, never at storage time
- *   (docs/FORMATTING_SPEC.md §1).
+ *   `scale`/`number` as the raw number text). Display formatting (12-hour
+ *   AM/PM times, the `4 / 5` scale form) is applied here at read time, never at
+ *   storage time (docs/FORMATTING_SPEC.md §1).
  *
  * Empty optional fields are simply absent from the object.
  *
@@ -41,7 +41,7 @@ object EntryValues {
     val TIME_STORAGE: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
     val DATETIME_STORAGE: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")
 
-    // 12-hour display (the default; the 24-hour preference is wired in a later phase).
+    // Times always display as 12-hour with AM/PM.
     private val dateDisplay = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.getDefault())
     private val timeDisplay = DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault())
     private val dateTimeDisplay = DateTimeFormatter.ofPattern("MMM d, yyyy, h:mm a", Locale.getDefault())

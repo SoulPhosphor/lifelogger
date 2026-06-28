@@ -12,8 +12,8 @@ import androidx.room.PrimaryKey
  * `createdAt` is set automatically when the entry is first saved and
  * `updatedAt` when it is later edited (Phase 7). Both are ISO-8601 strings with
  * a timezone offset, e.g. `2026-06-28T14:14:00-05:00`, per
- * docs/FORMATTING_SPEC.md §1 — storage stays machine-readable; the 12h/24h
- * choice is applied only at display time.
+ * docs/FORMATTING_SPEC.md §1 — storage stays machine-readable; the 12-hour
+ * AM/PM display format is applied only at read time.
  *
  * `valuesJson` holds the field values keyed by field label (a JSON object). Its
  * shape is owned by [EntryValues]; the user's free-text Notes live there too,
