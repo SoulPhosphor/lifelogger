@@ -4,6 +4,59 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-06-28 — Phase 3: Form Markdown import
+
+**Summary**
+
+Pasting Form Markdown now produces a real schema and a preview before saving.
+
+- `FieldType` (the ten types from FORM_MARKDOWN_SPEC §2) and a `@Serializable`
+  `FieldDef` model; added kotlinx.serialization (plugin + json) per the README
+  tech stack.
+- `FormMarkdownParser` converts Form Markdown into a list of `FieldDef`
+  (serialized to `schemaJson`). It follows the spec's parser rules: first `#` is
+  the name, `>` is the description, `##` starts a field, `options:` + `-` items,
+  bare `required`, scale `from`/`to`, `lines`, `digits`, `default: now`.
+  Unrecognized lines are collected as "skipped" and duplicate / invalid fields as
+  "issues" — it never throws on bad input.
+- Create Log screen: "Preview form" parses the text and shows each parsed field,
+  plus any skipped lines and problems. Save is enabled only after a preview and
+  stores the parsed `schemaJson` **and** the original Form Markdown text.
+- `LogTemplate` gained a `formMarkdown` column; database bumped to v2 with a
+  proper `MIGRATION_1_2` (no data loss).
+
+**Conflict noted (per README "if two documents conflict… note it and ask")**
+
+- UI_SPEC §5 gives the Create Log screen separate **Log name** and
+  **Description** fields, while FORM_MARKDOWN_SPEC §1 says the pasted Markdown's
+  `#`/`>` lines are the name/description. Both can set the same thing.
+- **Resolution chosen (pending user confirmation):** the dedicated boxes are
+  authoritative; if a box is empty and the paste has a `#`/`>` line, the box is
+  auto-filled from it. This keeps both documents working. Easy to switch to
+  "paste is the single source" or "ignore `#`/`>`" if the user prefers.
+
+**Scope notes (respecting the phase plan)**
+
+- Entry forms are **not** generated from `schemaJson` yet — rendering controls
+  from the schema is **Phase 4**.
+- Real log deletion is still **Phase 7** (DAO method exists, UI shows the
+  confirmation dialog only).
+
+**Known issues**
+
+- Same later-phase stubs remain (download, restore, entry save, real delete).
+- Full compile/APK happens on GitHub Actions (sandbox blocks Android deps).
+
+**Next steps**
+
+- Confirm CI is green.
+- Then **Phase 4**: `LogEntry` entity + DAO, generate the New Entry form from
+  `schemaJson`, save entries with an auto `createdAt`, and show them newest-first
+  on the Log screen. (This is the first genuinely usable version — worth a
+  hands-on test.)
+
+---
+
 ## 2026-06-28 — Phase 2: Local database for log systems
 
 **Summary**

@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -34,6 +35,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.datadragon.app.data.FieldDef
+import com.datadragon.app.data.FieldType
+import com.datadragon.app.data.FormMarkdownParser
 import com.datadragon.app.ui.CreateLogViewModel
 
 private const val FIELD_TYPES_REFERENCE = """text         — a single line of text
@@ -58,7 +62,11 @@ fun CreateLogScreen(
     var description by remember { mutableStateOf("") }
     var formMarkdown by remember { mutableStateOf("") }
     var showFieldTypes by remember { mutableStateOf(false) }
-    val canSave = name.isNotBlank()
+    // Null until the user previews; cleared whenever the Form Markdown changes so
+    // the preview always reflects the current text (FORM_MARKDOWN_SPEC §5).
+    var preview by remember { mutableStateOf<FormMarkdownParser.ParseResult?>(null) }
+
+    val canSave = name.isNotBlank() && preview != null
 
     Scaffold(
         topBar = {
@@ -70,10 +78,19 @@ fun CreateLogScreen(
                     }
                 },
                 actions = {
-                    // Save persists the template, then returns to Home where it
-                    // appears in the list. Name is required.
+                    // Save persists the template (name from the box, fields from the
+                    // parsed schema, plus the original Form Markdown), then returns
+                    // Home. Enabled only after a preview.
                     TextButton(
-                        onClick = { viewModel.save(name, description, onSaved = onBack) },
+                        onClick = {
+                            viewModel.save(
+                                name = name,
+                                description = description,
+                                schemaJson = preview?.toSchemaJson() ?: "[]",
+                                formMarkdown = formMarkdown,
+                                onSaved = onBack,
+                            )
+                        },
                         enabled = canSave,
                     ) { Text("Save") }
                 },
@@ -131,17 +148,85 @@ fun CreateLogScreen(
 
             OutlinedTextField(
                 value = formMarkdown,
-                onValueChange = { formMarkdown = it },
+                onValueChange = {
+                    formMarkdown = it
+                    preview = null // force a fresh preview before saving
+                },
                 modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp),
                 placeholder = { Text("Paste Form Markdown here…") },
             )
 
             OutlinedButton(
-                onClick = { /* Phase 3: parse + preview the form */ },
+                onClick = {
+                    val result = FormMarkdownParser.parse(formMarkdown)
+                    // Boxes win, but auto-fill an empty box from the pasted #/> lines.
+                    if (name.isBlank()) result.name?.let { name = it }
+                    if (description.isBlank()) result.description?.let { description = it }
+                    preview = result
+                },
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("Preview form")
             }
+
+            preview?.let { PreviewSection(it) }
         }
     }
+}
+
+@Composable
+private fun PreviewSection(result: FormMarkdownParser.ParseResult) {
+    HorizontalDivider()
+    Text("Preview", style = MaterialTheme.typography.titleMedium)
+
+    if (result.fields.isEmpty()) {
+        Text(
+            "No fields defined yet. You can still save a log with no fields.",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    } else {
+        result.fields.forEach { field ->
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text(field.label, style = MaterialTheme.typography.titleSmall)
+                    Text(field.summary(), style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+    }
+
+    if (result.issues.isNotEmpty()) {
+        Text(
+            "Problems",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+        result.issues.forEach { issue ->
+            Text("• $issue", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        }
+    }
+
+    if (result.skipped.isNotEmpty()) {
+        Text("Skipped lines", style = MaterialTheme.typography.titleSmall)
+        result.skipped.forEach { line ->
+            Text("• $line", style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+/** A short human-readable description of a parsed field for the preview. */
+private fun FieldDef.summary(): String {
+    val base = when (type) {
+        FieldType.TEXT -> "Single line of text"
+        FieldType.MULTILINE -> "Multi-line text" + (lines?.let { " ($it lines)" } ?: "")
+        FieldType.NUMBER -> "Number" + (digits?.let { " (up to $it digits)" } ?: "")
+        FieldType.DROPDOWN -> "Pick one: " + options.joinToString(", ")
+        FieldType.MULTIPLE -> "Pick several: " + options.joinToString(", ")
+        FieldType.SCALE -> "Scale $from–$to"
+        FieldType.YESNO -> "Yes / No / Unknown / Not Applicable"
+        FieldType.DATE -> "Date"
+        FieldType.TIME -> "Time"
+        FieldType.DATETIME -> "Date & time" + (if (defaultNow) " (defaults to now)" else "")
+    }
+    return if (required) "$base · required" else base
 }

@@ -14,17 +14,25 @@ class CreateLogViewModel(app: Application) : AndroidViewModel(app) {
     /**
      * Persist a new log template, then invoke [onSaved] on the main thread.
      *
-     * The schema is stored empty for now; the Form Markdown parser that fills it
-     * is Phase 3. Templates are write-once and cannot be edited afterwards.
+     * Stores the parsed [schemaJson] together with the original [formMarkdown] so
+     * the source text can be shown again and included in exports. Templates are
+     * write-once and cannot be edited afterwards.
      */
-    fun save(name: String, description: String, onSaved: () -> Unit) {
+    fun save(
+        name: String,
+        description: String,
+        schemaJson: String,
+        formMarkdown: String,
+        onSaved: () -> Unit,
+    ) {
         viewModelScope.launch {
             dao.insert(
                 LogTemplate(
                     name = name.trim(),
                     description = description.trim(),
                     createdAt = System.currentTimeMillis(),
-                    schemaJson = "[]",
+                    schemaJson = schemaJson,
+                    formMarkdown = formMarkdown,
                 )
             )
             onSaved()

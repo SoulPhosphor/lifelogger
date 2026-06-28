@@ -9,9 +9,9 @@ import androidx.room.PrimaryKey
  * Fields are exactly those required by Phase 2 of docs/BUILD_PHASES.md:
  * id, name, description, createdAt, schemaJson.
  *
- * `schemaJson` holds the parsed field definitions. The Form Markdown parser that
- * fills it arrives in Phase 3; until then new templates are stored with an empty
- * schema (`"[]"`).
+ * `schemaJson` holds the parsed field definitions (a JSON array of [FieldDef]).
+ * `formMarkdown` keeps the original pasted text so it can be shown again and
+ * included in `.json` exports (docs/FORM_MARKDOWN_SPEC.md §6).
  *
  * Templates cannot be edited after creation — only created, read, and deleted.
  */
@@ -22,4 +22,5 @@ data class LogTemplate(
     val description: String,
     val createdAt: Long,
     val schemaJson: String,
+    val formMarkdown: String = "",
 )
