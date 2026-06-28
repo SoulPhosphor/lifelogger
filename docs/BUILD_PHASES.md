@@ -14,15 +14,15 @@ Build:
 
 * Android project setup (Kotlin, Jetpack Compose, Material 3)
 * Home screen with top-right plus button
-* Placeholder list of log cards
-* Right-side plus button on each log card
+* Placeholder list of log rows
+* Right-side plus button on each log row
 * Navigation routes: Home, Create Log, Entry List, New Entry
 
 Required behavior:
 
 * Top-right plus opens Create Log screen.
-* Tapping a log card opens Entry List screen.
-* Tapping the right-side plus on a log card opens New Entry screen.
+* Tapping a log row opens Entry List screen.
+* Tapping the right-side plus on a log row opens New Entry screen.
 * New Entry screen is full-screen, not a dialog.
 
 No database required yet. Placeholder data is acceptable.
@@ -34,10 +34,12 @@ Goal: Save custom log systems locally.
 Build:
 
 * Room database
-* LogTemplate entity (id, name, description, createdAt, updatedAt, schemaJson)
+* LogTemplate entity (id, name, description, createdAt, schemaJson)
 * DAO for creating, reading, deleting log templates
 * Home screen loads log systems from database
 * Create Log screen saves a real log template
+
+Logs cannot be edited after creation. They can only be deleted.
 
 ## Phase 3: Form Markdown Import
 
@@ -48,13 +50,13 @@ Build:
 * Paste screen for Form Markdown
 * Parser that converts Form Markdown into schemaJson
 * Preview generated fields before saving
-* Store original Form Markdown if desired
+* Store original Form Markdown with the template
 
 Supported field types (must match FORM_MARKDOWN_SPEC):
 
 * text
-* multiline
-* number
+* multiline (with lines)
+* number (with digits)
 * dropdown (with options)
 * multiple (with options)
 * scale (with from/to)
@@ -82,7 +84,7 @@ Goal: Export a human-readable report for one log.
 
 Build:
 
-* Export button on Entry List screen
+* Download icon (`↓`) on the Log screen opens format chooser
 * Markdown and plain text export for one log
 * Android share/save intent
 
@@ -101,21 +103,22 @@ Goal: Protect all app data.
 
 Build:
 
-* Backup all data as JSON (all templates, entries, schemas)
-* Restore all data from JSON
-* Backup/restore option accessible from Settings
+* Backup (`↓` on Home screen) saves all data as JSON (all templates, entries, schemas)
+* Restore (in Settings, at the bottom) loads data from a JSON file
+* Restoring replaces all current data with the backup contents, with a confirmation warning
 
 JSON is for backup and restore, not normal sharing.
 
-## Phase 7: Edit and Delete
+## Phase 7: Edit Entries and Delete
 
-Goal: Allow editing and deleting entries and logs.
+Goal: Allow editing entries, and deleting entries and logs.
 
 Build:
 
-* Edit existing entries
+* Edit existing entries (tap an entry row to open it pre-filled, save updates it)
 * Delete entries with confirmation
-* Delete entire logs with warning that all entries will be removed
+* Delete entire logs with confirmation warning that all entries will be removed
+* Logs themselves cannot be edited after creation
 
 ## Phase 8: CSV Export
 
