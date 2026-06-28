@@ -6,7 +6,7 @@ Conventions used below:
 
 - `[X]` = a tappable button/icon.
 - A box `┌─┐` is a screen or a card.
-- Icons: `⚙` settings, `↓` download/backup, `🗑` delete, `+` add, `←` back, `✎` edit.
+- Icons: `⚙` settings, `↓` download/backup, `🗑` delete, `+` add, `<` back.
 
 All primary screens are **full-screen**. The only floating dialogs allowed are **destructive-action confirmations** (deleting a log or an entry) and the **format chooser** for downloads.
 
@@ -24,10 +24,9 @@ All primary screens are **full-screen**. The only floating dialogs allowed are *
 
 **Log screen (one log's entries)**
 
-- **Top-left `←`** → back to Home.
+- **Top-left `<`** → back to Home.
 - **`↓` (next to back)** → download this log (choose format).
 - **`🗑` (next to download, still on the left)** → delete this whole log (always confirms first).
-- **`✎` (next to delete, still on the left)** → edit this log's name, description, or fields (opens Create/Edit Log screen).
 - **Top-center** → the log's name.
 - **Top-right `+`** → add a new entry to this log.
 - **`🗑` on the right side of an entry card** → delete that entry (always confirms first).
@@ -82,22 +81,20 @@ All primary screens are **full-screen**. The only floating dialogs allowed are *
 
 ```
 ┌──────────────────────────────────────────────┐
-│  ← ↓ 🗑 ✎       My Log                   +   │
+│  < ↓ 🗑          My Log                   +   │
 ├──────────────────────────────────────────────┤
 │  ┌────────────────────────────────────────┐   │
 │  │ Jun 27, 2:14 PM                    🗑  │   │
-│  │ A preview of the entry's values        │   │
 │  └────────────────────────────────────────┘   │
 │  ┌────────────────────────────────────────┐   │
 │  │ Jun 26, 11:20 PM                   🗑  │   │
-│  │ A preview of the entry's values        │   │
 │  └────────────────────────────────────────┘   │
 └──────────────────────────────────────────────┘
 ```
 
 - Entries listed newest first.
-- Each card shows the date/time and a short preview of the entry's values.
-- Tapping a card opens it for viewing/editing. Tapping `🗑` confirms then deletes.
+- Each entry's box shows the date and time it was created.
+- Tapping an entry opens it for viewing/editing. Tapping `🗑` confirms then deletes.
 - Empty state: `No entries yet. Tap + to add one.`
 
 ---
@@ -122,11 +119,13 @@ Opened by the `↓` on the Log screen.
 
 ---
 
-## 5. Screen — Create / Edit Log
+## 5. Screen — Create Log
+
+Once a log is created, it cannot be edited. It can only be deleted.
 
 ```
 ┌──────────────────────────────────────────────┐
-│ ←   New Log                            Save    │
+│ <    New Log                           Save    │
 ├──────────────────────────────────────────────┤
 │ Log name                                        │
 │ [____________________________________]          │
@@ -169,7 +168,7 @@ Any field can add "required" to prevent saving without it.
 
 ```
 ┌──────────────────────────────────────────────┐
-│ ←   New Entry                          Save    │
+│ <    New Entry                          Save    │
 ├──────────────────────────────────────────────┤
 │ Date / time:  Jun 27, 2026, 2:14 PM (auto)     │
 │                                                │
@@ -236,7 +235,7 @@ Same layout, pre-filled with the entry's current values. Save updates the entry.
 
 ```
 ┌──────────────────────────────────────────────┐
-│ ←   Settings                                   │
+│ <    Settings                                   │
 ├──────────────────────────────────────────────┤
 │ Time format                                     │
 │   ( ) 12-hour (2:14 PM)     ← default          │
@@ -260,7 +259,7 @@ Opened by the `↓` on Home. Backs up all logs and entries at once.
 
 ```
 ┌──────────────────────────────────────────────┐
-│ ←   Backup all data                            │
+│ <    Backup all data                            │
 ├──────────────────────────────────────────────┤
 │ This saves every log and every entry into a    │
 │ single .json file you can store safely.        │

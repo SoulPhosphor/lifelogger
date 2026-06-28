@@ -29,6 +29,7 @@ This is the spine of the app. Do not redesign it.
 - **Top-right `+`** on the home screen → create a **new log system / template**. This corner is reserved for this action only.
 - **Right-side `+` on a log row** → add a **new entry** to that specific log (opens a **full-screen** form, never a floating dialog).
 - **Tapping the log row itself** → open the **entry list** for that log.
+- **Logs cannot be edited after creation.** They can only be deleted.
 
 ---
 
@@ -53,7 +54,7 @@ This is the spine of the app. Do not redesign it.
 | 4 | Dynamic entry forms + entries | `LogEntry` persists; the New-Entry screen renders controls from `schemaJson`; entries save with an auto `createdAt`; the entry list shows them newest-first. **This is the first genuinely usable version.** |
 | 5 | Readable report export | One log exports to a readable Markdown/plain-text report, via the Android share sheet. |
 | 6 | JSON backup & restore | All templates + entries + schemas export to one JSON file and restore from it. |
-| 7 | Edit & delete (with confirmation) | Entries and whole logs can be edited/deleted; deleting a log warns it removes all its entries. |
+| 7 | Edit entries & delete (with confirmation) | Entries can be edited; entries and whole logs can be deleted; deleting a log warns it removes all its entries. Logs themselves cannot be edited after creation. |
 | 8 | CSV export | Each log exports to its own CSV (RFC-4180-safe). |
 | 9 | PDF export | The readable report renders to a one-column PDF. |
 | 10 | Visual / manual field builder | Optional UI to build templates without writing Form Markdown. Comfort feature only; never blocks earlier phases. |

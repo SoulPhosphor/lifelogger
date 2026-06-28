@@ -16,11 +16,11 @@ Build:
 * Home screen with top-right plus button
 * Placeholder list of log cards
 * Right-side plus button on each log card
-* Navigation routes: Home, Create/Edit Log System, Entry List, New Entry
+* Navigation routes: Home, Create Log, Entry List, New Entry
 
 Required behavior:
 
-* Top-right plus opens Create/Edit Log System screen.
+* Top-right plus opens Create Log screen.
 * Tapping a log card opens Entry List screen.
 * Tapping the right-side plus on a log card opens New Entry screen.
 * New Entry screen is full-screen, not a dialog.
@@ -35,9 +35,9 @@ Build:
 
 * Room database
 * LogTemplate entity (id, name, description, createdAt, updatedAt, schemaJson)
-* DAO for creating, reading, updating, deleting log templates
+* DAO for creating, reading, deleting log templates
 * Home screen loads log systems from database
-* Create/Edit Log System screen saves a real log template
+* Create Log screen saves a real log template
 
 ## Phase 3: Form Markdown Import
 
