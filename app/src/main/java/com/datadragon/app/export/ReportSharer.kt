@@ -15,15 +15,21 @@ fun shareReport(context: Context, report: ReportBuilder.Report) {
 }
 
 /**
- * Writes [text] to a cache file named [fileName] and shares it via a
- * FileProvider content URI. Used for report (.txt/.md) and single-log .json
- * exports.
+ * Writes [text] to a cache file named [fileName] and shares it. Used for the
+ * report (.txt/.md), single-log .json, and .csv exports.
  */
 fun shareTextFile(context: Context, fileName: String, mimeType: String, text: String) {
     val dir = File(context.cacheDir, "exports").apply { mkdirs() }
     val file = File(dir, fileName)
     file.writeText(text)
+    shareFile(context, file, mimeType)
+}
 
+/**
+ * Shares an existing cache file via a FileProvider content URI. Used for binary
+ * exports (PDF) that are written directly rather than from a String.
+ */
+fun shareFile(context: Context, file: File, mimeType: String) {
     val uri = FileProvider.getUriForFile(
         context,
         "${context.packageName}.fileprovider",
@@ -33,7 +39,7 @@ fun shareTextFile(context: Context, fileName: String, mimeType: String, text: St
     val sendIntent = Intent(Intent.ACTION_SEND).apply {
         type = mimeType
         putExtra(Intent.EXTRA_STREAM, uri)
-        putExtra(Intent.EXTRA_TITLE, fileName)
+        putExtra(Intent.EXTRA_TITLE, file.name)
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
 

@@ -50,6 +50,8 @@ import com.datadragon.app.data.ExportNaming
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.LogEntry
 import com.datadragon.app.data.ReportBuilder
+import com.datadragon.app.export.PdfReport
+import com.datadragon.app.export.shareFile
 import com.datadragon.app.export.shareReport
 import com.datadragon.app.export.shareTextFile
 import com.datadragon.app.ui.LogViewModel
@@ -173,9 +175,18 @@ fun LogScreen(
                                 showFormatChooser = false
                             },
                         ) { Text(".csv") }
+                        OutlinedButton(
+                            onClick = {
+                                if (current != null) {
+                                    val file = PdfReport.writeToFile(context, current, fields, entries)
+                                    shareFile(context, file, "application/pdf")
+                                }
+                                showFormatChooser = false
+                            },
+                        ) { Text(".pdf") }
                     }
                     Text(
-                        ".md and .txt are readable reports; .json re-imports this log; " +
+                        ".md, .txt and .pdf are readable reports; .json re-imports this log; " +
                             ".csv is for spreadsheets.",
                         style = MaterialTheme.typography.bodySmall,
                     )

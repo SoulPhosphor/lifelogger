@@ -111,13 +111,13 @@ Opened by the `↓` on the Log screen.
 │  Download "My Log"                │
 │  Choose a format:                 │
 │                                   │
-│   [ .md ] [ .json ] [ .txt ] [ .csv ] │
+│  [ .md ] [ .json ] [ .txt ] [ .csv ] [ .pdf ] │
 │                                   │
 │              [ Cancel ]           │
 └──────────────────────────────────┘
 ```
 
-- `.md` and `.txt` → a readable report.
+- `.md`, `.txt`, and `.pdf` → a readable report.
 - `.json` → this log's data (template + entries) for backup/re-import.
 - `.csv` → spreadsheet-compatible rows for this log.
 

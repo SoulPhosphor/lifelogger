@@ -4,6 +4,30 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-06-28 — Phase 9: PDF export
+
+**Summary**
+
+The download chooser now offers `.pdf`, a one-column readable report.
+
+- `PdfReport` renders the same readable report (FORMATTING_SPEC §2) to a PDF
+  using the framework's `android.graphics.pdf.PdfDocument` + `Canvas` — **no
+  third-party PDF library**. Title, date range, total entries, then each entry
+  field-by-field with a Notes block; bold title/headings/labels, a thin rule
+  between entries.
+- A4 pages (595×842 pt), 40 pt margins. Long lines word-wrap (with a hard-break
+  fallback for over-long words) and content paginates when a page fills.
+- The PDF is written to `cacheDir/exports/{name}_report.pdf` and shared via the
+  existing FileProvider path (`shareFile` added for binary files).
+- It is based on the readable report, not the CSV (per the phase).
+
+**Scope notes**
+
+- Phase 10 (visual field builder) is intentionally **not** built — the user
+  wants to test first.
+
+---
+
 ## 2026-06-28 — Phase 8: CSV export + fix download-chooser order
 
 **Summary**
