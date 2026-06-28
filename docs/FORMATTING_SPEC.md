@@ -11,7 +11,7 @@ This document is the single source of truth for how the app stores, displays, an
 ### Internal storage
 
 - Store all timestamps as **ISO-8601 strings with a timezone offset**, e.g. `2026-06-27T14:14:00-05:00`.
-- `createdAt` is set automatically when an entry is saved. `updatedAt` is set on edit.
+- `createdAt` is set automatically when an entry is saved. Entries are never edited, so there is no `updatedAt`.
 
 ### Display
 

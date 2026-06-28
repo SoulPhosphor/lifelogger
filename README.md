@@ -54,7 +54,7 @@ This is the spine of the app. Do not redesign it.
 | 4 | Dynamic entry forms + entries | `LogEntry` persists; the New-Entry screen renders controls from `schemaJson`; entries save with an auto `createdAt`; the entry list shows them newest-first. **This is the first genuinely usable version.** |
 | 5 | Readable report export | One log exports to a readable Markdown/plain-text report, via the Android share sheet. |
 | 6 | JSON backup & restore | All templates + entries + schemas export to one JSON file and restore from it. |
-| 7 | Edit entries & delete (with confirmation) | Entries can be edited; entries and whole logs can be deleted; deleting a log warns it removes all its entries. Logs themselves cannot be edited after creation. |
+| 7 | Delete entries & logs (with confirmation) | Entries and whole logs can be deleted; deleting a log warns it removes all its entries. **Entries cannot be edited after creation** — only added or deleted — and neither can logs. |
 | 8 | CSV export | Each log exports to its own CSV (RFC-4180-safe). |
 | 9 | PDF export | The readable report renders to a one-column PDF. |
 | 10 | Visual / manual field builder | Optional UI to build templates without writing Form Markdown. Comfort feature only; never blocks earlier phases. |

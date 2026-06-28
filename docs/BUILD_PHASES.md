@@ -109,16 +109,18 @@ Build:
 
 JSON is for backup and restore, not normal sharing.
 
-## Phase 7: Edit Entries and Delete
+## Phase 7: Delete Entries and Logs
 
-Goal: Allow editing entries, and deleting entries and logs.
+Goal: Allow deleting entries and logs.
 
 Build:
 
-* Edit existing entries (tap an entry row to open it pre-filled, save updates it)
 * Delete entries with confirmation
 * Delete entire logs with confirmation warning that all entries will be removed
-* Logs themselves cannot be edited after creation
+
+Entries cannot be edited after creation — only added or deleted. Logs cannot be
+edited after creation either. (Tapping an entry row may open a read-only view, but
+there is no edit.)
 
 ## Phase 8: CSV Export
 

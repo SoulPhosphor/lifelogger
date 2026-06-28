@@ -30,7 +30,7 @@ All primary screens are **full-screen**. The only floating dialogs allowed are *
 - **Top-center** → the log's name.
 - **Top-right `+`** → add a new entry to this log.
 - **`🗑` on the right side of an entry row** → delete that entry (always confirms first).
-- **Tap an entry row** → open it to view/edit.
+- **Tap an entry row** → open it as a read-only view (entries cannot be edited).
 
 > **Design principle: high-use buttons and destructive buttons stay far apart.** The everyday `+` is always far right; delete actions live on the left and always require confirmation.
 
@@ -97,7 +97,7 @@ All primary screens are **full-screen**. The only floating dialogs allowed are *
 
 - Entries listed newest first.
 - Each entry row shows the date/time, a short summary of field values, and a notes preview if there are notes.
-- Tapping an entry row opens it for viewing/editing. Tapping `🗑` confirms then deletes.
+- Tapping an entry row opens a read-only view (entries can't be edited). Tapping `🗑` confirms then deletes.
 - Empty state: `No entries yet. Tap + to add one.`
 
 ---
@@ -188,15 +188,16 @@ Any field can add "required" to prevent saving without it.
 ```
 
 - **Full-screen. Never a dialog or bottom sheet.**
-- Title: `New Entry` (or `Edit Entry` when editing).
+- Title: `New Entry`.
 - Date/time auto-fills with the current time, shown at the top.
 - Controls are generated from the log's field definitions.
 - Big, easy-to-tap controls. Typing is only needed for text and number fields.
 - **Save** writes the entry and returns to the previous screen.
 
-### Editing an existing entry
+### Entries cannot be edited
 
-Same layout, pre-filled with the entry's current values. Save updates the entry.
+Once saved, an entry cannot be edited — only added or deleted. There is no
+`Edit Entry` screen.
 
 ---
 

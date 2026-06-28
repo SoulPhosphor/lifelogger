@@ -4,6 +4,26 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-06-28 — Entries are never editable (user correction)
+
+Per the user, **entries can only be added or deleted, never edited** — the
+earlier docs (written before this rule) wrongly listed entry editing as part of
+Phase 7. No editing was ever built, so this is a docs + intent cleanup:
+
+- Phase 7 is now **"Delete Entries and Logs"** (delete only). Removed every
+  "edit entry / Edit Entry screen / save updates the entry" reference from
+  README, BUILD_PHASES §7, and UI_SPEC §1/§3/§6. Tapping an entry row is a
+  read-only view.
+- Removed the unused `@Update` method from `LogEntryDao` so the edit capability
+  doesn't exist in code either.
+- `LogEntry.updatedAt` is now documented as vestigial (always null); kept as a
+  column only so existing backups round-trip. FORMATTING_SPEC §1 updated to drop
+  the "`updatedAt` is set on edit" line.
+
+Logs were already create-once (cannot be edited); entries now match that rule.
+
+---
+
 ## 2026-06-28 — Phase 9: PDF export
 
 **Summary**

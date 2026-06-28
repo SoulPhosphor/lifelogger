@@ -4,23 +4,19 @@ import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Query
-import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
 /**
  * Data access for [LogEntry].
  *
- * Phase 4 needs create + read (the entry list). The update and delete methods
- * round out the CRUD surface that Phase 7 (edit / delete entries) will drive.
+ * Entries are create / read / delete only — they are never edited (only added or
+ * deleted), so there is deliberately no update. Delete is wired in Phase 7.
  */
 @Dao
 interface LogEntryDao {
 
     @Insert
     suspend fun insert(entry: LogEntry): Long
-
-    @Update
-    suspend fun update(entry: LogEntry)
 
     @Delete
     suspend fun delete(entry: LogEntry)
