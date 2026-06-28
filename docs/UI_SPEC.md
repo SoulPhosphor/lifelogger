@@ -155,7 +155,7 @@ dropdown     — pick one item from a list
 scale        — pick a number in a range. Set "from" and "to"
 yesno        — Yes / No / Unknown / Not Applicable
 number       — type a number
-multiple     — pick several items from a list (checkboxes)
+multiple     — pick several items from a list (tappable chips)
 
 Any field can add "required" to prevent saving without it.
 ```
@@ -282,7 +282,7 @@ Opened by the `↓` on Home. Backs up all logs and entries at once.
 | `scale` | A row of tappable numbers from `from` to `to`. |
 | `yesno` | Four options: Yes, No, Unknown, Not Applicable. |
 | `number` | A box where the user types a number. |
-| `multiple` | A list with checkboxes. Selected items display on one line separated by commas. |
+| `multiple` | Tappable chips (multiple can be selected). Selected items display on one line separated by commas. |
 
 - Required fields are marked and block saving until filled.
 - Controls should be large and easy to tap.
