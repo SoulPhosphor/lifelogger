@@ -20,9 +20,27 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // A stable, checked-in key so every build (especially the CI debug APKs that
+    // ship as GitHub Releases) is signed identically. Without this, AGP's
+    // auto-generated debug keystore differs on each CI runner, so a new build
+    // can't install over a previously installed one (signature mismatch). A
+    // debug keystore is not a secret, so committing it is safe.
+    signingConfigs {
+        create("stable") {
+            storeFile = file("datadragon-debug.keystore")
+            storePassword = "datadragon"
+            keyAlias = "datadragon"
+            keyPassword = "datadragon"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("stable")
+        }
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("stable")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
