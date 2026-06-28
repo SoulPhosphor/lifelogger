@@ -85,15 +85,18 @@ All primary screens are **full-screen**. The only floating dialogs allowed are *
 ├──────────────────────────────────────────────┤
 │  ┌────────────────────────────────────────┐   │
 │  │ Jun 27, 2:14 PM                    🗑  │   │
+│  │ Field 1 value · Field 2 value          │   │
+│  │ Notes preview text here…               │   │
 │  └────────────────────────────────────────┘   │
 │  ┌────────────────────────────────────────┐   │
 │  │ Jun 26, 11:20 PM                   🗑  │   │
+│  │ Field 1 value · Field 2 value          │   │
 │  └────────────────────────────────────────┘   │
 └──────────────────────────────────────────────┘
 ```
 
 - Entries listed newest first.
-- Each entry row shows the date and time it was created.
+- Each entry row shows the date/time, a short summary of field values, and a notes preview if there are notes.
 - Tapping an entry row opens it for viewing/editing. Tapping `🗑` confirms then deletes.
 - Empty state: `No entries yet. Tap + to add one.`
 
