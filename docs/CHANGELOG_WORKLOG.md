@@ -4,6 +4,24 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-06-28 — Remove the description (user instruction)
+
+Per the user's explicit instruction, logs have **no description** anywhere. The
+description was specified in the original docs (UI_SPEC §5, BUILD_PHASES entity,
+FORM_MARKDOWN_SPEC `>` line); all of that has been removed:
+
+- Dropped the Description box from the Create Log screen and the `description`
+  column from `LogTemplate` (database v3; recreated cleanly on upgrade).
+- The parser no longer reads `>` lines as a description — they are now ignored
+  and listed under skipped lines.
+- Updated UI_SPEC, BUILD_PHASES, and FORM_MARKDOWN_SPEC to match (this resolves
+  and supersedes the earlier name/description conflict — there is no description
+  to reconcile anymore).
+
+This also settles the open question from the Phase 3 entry below.
+
+---
+
 ## 2026-06-28 — Phase 3: Form Markdown import
 
 **Summary**

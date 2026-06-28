@@ -59,7 +59,6 @@ fun CreateLogScreen(
     viewModel: CreateLogViewModel = viewModel(),
 ) {
     var name by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
     var formMarkdown by remember { mutableStateOf("") }
     var showFieldTypes by remember { mutableStateOf(false) }
     // Null until the user previews; cleared whenever the Form Markdown changes so
@@ -85,7 +84,6 @@ fun CreateLogScreen(
                         onClick = {
                             viewModel.save(
                                 name = name,
-                                description = description,
                                 schemaJson = preview?.toSchemaJson() ?: "[]",
                                 formMarkdown = formMarkdown,
                                 onSaved = onBack,
@@ -109,14 +107,6 @@ fun CreateLogScreen(
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-            )
-
-            Text("Description (optional)", style = MaterialTheme.typography.labelLarge)
-            OutlinedTextField(
-                value = description,
-                onValueChange = { description = it },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
             )
@@ -159,9 +149,8 @@ fun CreateLogScreen(
             OutlinedButton(
                 onClick = {
                     val result = FormMarkdownParser.parse(formMarkdown)
-                    // Boxes win, but auto-fill an empty box from the pasted #/> lines.
+                    // The Name box wins, but auto-fill it from a pasted "#" line if empty.
                     if (name.isBlank()) result.name?.let { name = it }
-                    if (description.isBlank()) result.description?.let { description = it }
                     preview = result
                 },
                 modifier = Modifier.fillMaxWidth(),

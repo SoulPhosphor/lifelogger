@@ -15,7 +15,6 @@ object FormMarkdownParser {
 
     data class ParseResult(
         val name: String?,
-        val description: String?,
         val fields: List<FieldDef>,
         /** Lines that were not recognized and had no effect. */
         val skipped: List<String>,
@@ -44,7 +43,6 @@ object FormMarkdownParser {
         val seenLabels = mutableSetOf<String>()
 
         var name: String? = null
-        var description: String? = null
         var builder: Builder? = null
         var inOptions = false
 
@@ -82,11 +80,9 @@ object FormMarkdownParser {
                     else skipped.add("Line $lineNo: extra heading ignored (\"$line\")")
                 }
 
-                // Log description.
+                // Logs have no description; `>` lines are ignored.
                 line.startsWith(">") -> {
-                    val value = line.removePrefix(">").trim()
-                    if (description == null) description = value
-                    else skipped.add("Line $lineNo: extra description ignored (\"$line\")")
+                    skipped.add("Line $lineNo: \">\" lines aren't used (\"$line\")")
                 }
 
                 // Option list items.
@@ -152,7 +148,6 @@ object FormMarkdownParser {
 
         return ParseResult(
             name = name?.ifEmpty { null },
-            description = description?.ifEmpty { null },
             fields = fields,
             skipped = skipped,
             issues = issues,

@@ -34,7 +34,7 @@ Goal: Save custom log systems locally.
 Build:
 
 * Room database
-* LogTemplate entity (id, name, description, createdAt, schemaJson)
+* LogTemplate entity (id, name, createdAt, schemaJson)
 * DAO for creating, reading, deleting log templates
 * Home screen loads log systems from database
 * Create Log screen saves a real log template

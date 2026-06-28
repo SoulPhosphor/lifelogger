@@ -20,7 +20,6 @@ class CreateLogViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun save(
         name: String,
-        description: String,
         schemaJson: String,
         formMarkdown: String,
         onSaved: () -> Unit,
@@ -29,7 +28,6 @@ class CreateLogViewModel(app: Application) : AndroidViewModel(app) {
             dao.insert(
                 LogTemplate(
                     name = name.trim(),
-                    description = description.trim(),
                     createdAt = System.currentTimeMillis(),
                     schemaJson = schemaJson,
                     formMarkdown = formMarkdown,
