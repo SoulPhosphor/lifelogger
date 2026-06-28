@@ -80,11 +80,6 @@ object FormMarkdownParser {
                     else skipped.add("Line $lineNo: extra heading ignored (\"$line\")")
                 }
 
-                // Logs have no description; `>` lines are ignored.
-                line.startsWith(">") -> {
-                    skipped.add("Line $lineNo: \">\" lines aren't used (\"$line\")")
-                }
-
                 // Option list items.
                 line.startsWith("-") -> {
                     val b = builder
