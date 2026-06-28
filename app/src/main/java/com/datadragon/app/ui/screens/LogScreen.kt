@@ -3,6 +3,8 @@ package com.datadragon.app.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -42,6 +44,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.BackupCodec
 import com.datadragon.app.data.BackupRepository
+import com.datadragon.app.data.CsvBuilder
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.ExportNaming
 import com.datadragon.app.data.FieldDef
@@ -52,7 +55,7 @@ import com.datadragon.app.export.shareTextFile
 import com.datadragon.app.ui.LogViewModel
 import com.datadragon.app.ui.theme.DeleteRed
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun LogScreen(
     logId: String?,
@@ -126,15 +129,7 @@ fun LogScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Choose a format:")
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(
-                            onClick = {
-                                if (current != null) {
-                                    shareReport(context, ReportBuilder.build(current, fields, entries, markdown = false))
-                                }
-                                showFormatChooser = false
-                            },
-                        ) { Text(".txt") }
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(
                             onClick = {
                                 if (current != null) {
@@ -157,9 +152,31 @@ fun LogScreen(
                                 showFormatChooser = false
                             },
                         ) { Text(".json") }
+                        OutlinedButton(
+                            onClick = {
+                                if (current != null) {
+                                    shareReport(context, ReportBuilder.build(current, fields, entries, markdown = false))
+                                }
+                                showFormatChooser = false
+                            },
+                        ) { Text(".txt") }
+                        OutlinedButton(
+                            onClick = {
+                                if (current != null) {
+                                    shareTextFile(
+                                        context,
+                                        "${ExportNaming.base(current.name)}.csv",
+                                        "text/csv",
+                                        CsvBuilder.build(fields, entries),
+                                    )
+                                }
+                                showFormatChooser = false
+                            },
+                        ) { Text(".csv") }
                     }
                     Text(
-                        ".txt and .md are readable reports; .json is this log's data for re-import.",
+                        ".md and .txt are readable reports; .json re-imports this log; " +
+                            ".csv is for spreadsheets.",
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }

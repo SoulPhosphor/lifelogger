@@ -4,6 +4,34 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-06-28 — Phase 8: CSV export + fix download-chooser order
+
+**Summary**
+
+Added per-log CSV export and corrected the download chooser to the approved
+order.
+
+- The download chooser order is now **.md, .json, .txt** (then **.csv**),
+  matching what the user approved — previously it followed UI_SPEC's
+  `.txt/.md/.json` ordering. Updated UI_SPEC §4 to match. All three readable/data
+  formats were already present; this only reorders them and adds CSV.
+- `CsvBuilder` produces one CSV per log (FORMATTING_SPEC §3): header row, then
+  one row per entry. RFC-4180 quoting (cells with comma / quote / newline are
+  quoted, internal quotes doubled); `multiple` joins with `; `; `scale` exports
+  the bare number; date/time export the stored ISO-8601 string. Columns are
+  `entry_id, created_at, {fields…}, notes`.
+
+**Decision to confirm**
+
+- A trailing **`notes`** column was added so notes aren't lost in CSV. §3's column
+  list doesn't mention notes; say the word and I'll drop the column.
+
+**Scope notes**
+
+- PDF (Phase 9) is intentionally **not** built; the user asked to ignore it.
+
+---
+
 ## 2026-06-28 — Phase 6: JSON backup and restore
 
 **Summary**

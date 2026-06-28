@@ -107,18 +107,19 @@ All primary screens are **full-screen**. The only floating dialogs allowed are *
 Opened by the `↓` on the Log screen.
 
 ```
-┌──────────────────────────────┐
-│  Download "My Log"            │
-│  Choose a format:             │
-│                               │
-│   [ .txt ]   [ .md ]   [ .json ] │
-│                               │
-│            [ Cancel ]         │
-└──────────────────────────────┘
+┌──────────────────────────────────┐
+│  Download "My Log"                │
+│  Choose a format:                 │
+│                                   │
+│   [ .md ] [ .json ] [ .txt ] [ .csv ] │
+│                                   │
+│              [ Cancel ]           │
+└──────────────────────────────────┘
 ```
 
-- `.txt` and `.md` → a readable report.
+- `.md` and `.txt` → a readable report.
 - `.json` → this log's data (template + entries) for backup/re-import.
+- `.csv` → spreadsheet-compatible rows for this log.
 
 ---
 
