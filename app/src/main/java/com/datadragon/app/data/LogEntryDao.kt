@@ -35,6 +35,14 @@ interface LogEntryDao {
     @Query("SELECT * FROM log_entries WHERE id = :id")
     suspend fun getById(id: Long): LogEntry?
 
+    /** One-shot snapshot of every entry, for building a backup. */
+    @Query("SELECT * FROM log_entries ORDER BY createdAt ASC, id ASC")
+    suspend fun getAllOnce(): List<LogEntry>
+
+    /** Clears all entries — used by Restore, which replaces all data. */
+    @Query("DELETE FROM log_entries")
+    suspend fun deleteAll()
+
     /**
      * Per-log count and most-recent timestamp, so the Home screen can show
      * "N entries · last entry …" without loading every entry (docs/UI_SPEC.md §2).

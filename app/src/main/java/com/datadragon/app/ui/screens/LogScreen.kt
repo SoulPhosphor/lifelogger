@@ -40,11 +40,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.datadragon.app.data.BackupCodec
+import com.datadragon.app.data.BackupRepository
 import com.datadragon.app.data.EntryValues
+import com.datadragon.app.data.ExportNaming
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.LogEntry
 import com.datadragon.app.data.ReportBuilder
 import com.datadragon.app.export.shareReport
+import com.datadragon.app.export.shareTextFile
 import com.datadragon.app.ui.LogViewModel
 import com.datadragon.app.ui.theme.DeleteRed
 
@@ -139,9 +143,23 @@ fun LogScreen(
                                 showFormatChooser = false
                             },
                         ) { Text(".md") }
+                        OutlinedButton(
+                            onClick = {
+                                if (current != null) {
+                                    val json = BackupCodec.encodeSingleLog(current, entries, BackupRepository.now())
+                                    shareTextFile(
+                                        context,
+                                        "${ExportNaming.base(current.name)}.json",
+                                        "application/json",
+                                        json,
+                                    )
+                                }
+                                showFormatChooser = false
+                            },
+                        ) { Text(".json") }
                     }
                     Text(
-                        "A readable report. (.json export arrives with Backup.)",
+                        ".txt and .md are readable reports; .json is this log's data for re-import.",
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }

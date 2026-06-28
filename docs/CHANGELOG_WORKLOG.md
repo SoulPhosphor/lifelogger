@@ -4,6 +4,35 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-06-28 — Phase 6: JSON backup and restore
+
+**Summary**
+
+All app data can now be backed up to a single `.json` file and restored from
+one, and a single log can be exported as `.json` for re-import.
+
+- `BackupFile` / `BackupCodec` define the on-disk shape (FORMATTING_SPEC §4): a
+  format/version header plus every log (template fields + original Form Markdown)
+  and its entries. `schemaJson`/`valuesJson` are kept verbatim and timestamps
+  stay ISO-8601, so a backup → restore round-trip is lossless.
+- `BackupRepository` builds the full backup and restores in one transaction
+  (`withTransaction`): it clears both tables and re-inserts, preserving ids so
+  entry → log links survive.
+- **Backup** (Home `↓` → Backup screen "Back up now") writes the JSON to a
+  user-chosen location via the system create-document sheet.
+- **Restore** (bottom of Settings) opens a file via the system picker, then shows
+  a confirmation warning that it **replaces all current data** before applying it.
+- **Single-log `.json`** is now the third option in the Log screen's download
+  chooser (alongside `.txt`/`.md`); it shares one log's template + entries via the
+  existing FileProvider share path. File naming centralized in `ExportNaming`.
+
+**Scope notes**
+
+- No schema/version change — only new read/delete DAO queries were added.
+- CSV export is **Phase 8**, PDF **Phase 9**.
+
+---
+
 ## 2026-06-28 — Phase 5: Readable report export
 
 **Summary**

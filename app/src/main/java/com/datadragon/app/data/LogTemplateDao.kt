@@ -25,6 +25,14 @@ interface LogTemplateDao {
     @Query("SELECT * FROM log_templates WHERE id = :id")
     suspend fun getById(id: Long): LogTemplate?
 
+    /** One-shot snapshot of every template, for building a backup. */
+    @Query("SELECT * FROM log_templates ORDER BY createdAt ASC, id ASC")
+    suspend fun getAllOnce(): List<LogTemplate>
+
     @Delete
     suspend fun delete(template: LogTemplate)
+
+    /** Clears all templates — used by Restore, which replaces all data. */
+    @Query("DELETE FROM log_templates")
+    suspend fun deleteAll()
 }

@@ -42,7 +42,7 @@ object ReportBuilder {
         val ext = if (markdown) "md" else "txt"
         val mime = if (markdown) "text/markdown" else "text/plain"
         return Report(
-            fileName = "${sanitize(template.name)}_report.$ext",
+            fileName = "${ExportNaming.base(template.name)}_report.$ext",
             mimeType = mime,
             text = sb.toString(),
         )
@@ -82,17 +82,5 @@ object ReportBuilder {
             sb.append(if (markdown) "**Notes:**" else "Notes:").append('\n')
             sb.append(notes).append('\n')
         }
-    }
-
-    /**
-     * Export file naming (docs/FORMATTING_SPEC.md §5): lowercase, spaces to
-     * underscores, strip punctuation other than underscores.
-     */
-    private fun sanitize(name: String): String {
-        val cleaned = name.trim().lowercase()
-            .replace(Regex("\\s+"), "_")
-            .replace(Regex("[^a-z0-9_]"), "")
-            .trim('_')
-        return cleaned.ifEmpty { "log" }
     }
 }
