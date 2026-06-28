@@ -1,222 +1,89 @@
-# lifelogger
-Android App for low friction logging of life events
-# Project Goal: Custom Log Builder
+# Custom Log Builder
 
-## Purpose
+A local-first Android app for creating custom logs and recording entries with as little friction as possible.
 
-This project is a local-first Android app for creating custom logs and recording entries with as little friction as possible.
+The first use case is tracking apartment-related **smell** and **sound** incidents, but the app is **not** hardcoded for those. The user can create any log type (smell, sound, landlord contact, maintenance, sleep, blood pressure, blood sugar, medication side effects, etc.). Smell and Sound are just the first two templates.
 
-The first use case is tracking apartment-related smell and sound incidents, but the app must not be hardcoded only for those categories. The app should allow the user to create any kind of log system, such as:
+---
 
-* Smell log
-* Sound log
-* Landlord contact log
-* Maintenance issue log
-* Sleep disruption log
-* Health/symptom impact log
-* General incident log
+## Read these docs in this order
 
-The app is intended for tired, stressed, or overloaded users who need to record structured information quickly without using spreadsheets directly.
+A coding agent (Claude Code, Codex, etc.) should read the repo docs in this order before writing any code:
 
-## Core Design Principle
+1. **README.md** (this file) — what the app is, how to behave, what to build first.
+2. **docs/PROJECT_GOAL.md** — the locked design decisions. The north star.
+3. **docs/UI_SPEC.md** — the locked, screen-by-screen interface. The single source of truth for layout and navigation.
+4. **docs/FORMATTING_SPEC.md** — how dates/times, reports, and CSV must be formatted. The single source of truth for output.
+5. **docs/FORM_MARKDOWN_SPEC.md** — the format users paste to define a log template.
+6. **docs/BUILD_PHASES.md** — detailed phase-by-phase roadmap.
 
-The app should prioritize low friction.
+If any two documents conflict, **this README's phase order, the UI_SPEC, and the FORMATTING_SPEC win**, and the agent should note the conflict in the worklog rather than guessing.
 
-The user should be able to open the app, tap one button, fill out a simple full-screen form, and save an entry.
+---
 
-Avoid clutter, dashboards, complex setup, hidden workflows, or unnecessary typing.
+## The one UI rule that must not be broken
 
-## Required Home Screen Behavior
+This is the spine of the app. Do not redesign it.
 
-The home screen shows a list of log systems.
+- **Top-left `⚙`** → Settings (Restore-from-backup lives at the bottom of Settings).
+- **`↓` (next to the cog)** → Backup screen (mass backup of every log).
+- **Top-right `+`** on the home screen → create a **new log system / template**. This corner is reserved for this action only.
+- **Right-side `+` on a log row** → add a **new entry** to that specific log (opens a **full-screen** form, never a floating dialog).
+- **Tapping the log row itself** → open the **entry list** for that log.
 
-The top-right plus button creates a new log system/template.
+---
 
-Each log row/card has its own plus button on the right side. That button creates a new entry inside that specific log.
+## How the agent should work
 
-Tapping the log row/card itself opens the entry list for that log.
+- **Build one phase at a time.** Finish a phase, make sure the app compiles and runs, commit, then stop. Do not build multiple phases in one pass.
+- **Respect the phase order below.** It is dependency-correct. Do not jump ahead to CSV, PDF, or a visual form builder early.
+- **Update the worklog every session.** After meaningful changes, *append* a new dated entry to `docs/CHANGELOG_WORKLOG.md`. Do not overwrite the file. Do not skip it.
+- **Do not overbuild.** No cloud sync, no accounts, no ads, no analytics, no network calls. All data stays on the device unless the user exports it.
+- **Ask before changing a locked decision.** If a design decision in PROJECT_GOAL or this README seems wrong, raise it in the worklog and ask — do not silently change it.
+- **Honor the FORMATTING_SPEC exactly.** Times, dates, report layout, and CSV rules are specified there. Do not improvise formatting.
 
-Required behavior:
+---
 
-* Top-right plus = create a new log system/template
-* Log row/card tap = view entries for that log
-* Log row/card right-side plus = add a new entry to that log
+## Canonical phase order (this supersedes any conflicting order in BUILD_PHASES.md)
 
-## Required Screen Structure
+The original phase notes contradicted themselves on when to add Form Markdown. This is the corrected, dependency-correct order. The key change: **Form Markdown comes early** (it is simpler to build and more useful than a manual field-builder UI), and the **manual/visual field builder is deferred to the end** as a comfort feature.
 
-### Home Screen
+| Phase | Goal | Done when |
+|-------|------|-----------|
+| 1 | Navigation skeleton | Home, Create-Log, Entry-List, New-Entry screens exist and route correctly with placeholder data. New-Entry is full-screen. |
+| 2 | Room DB + log templates | `LogTemplate` persists locally; home screen loads real templates from the DB. |
+| 3 | Form Markdown parser | Pasting Form Markdown produces a valid `schemaJson`; a preview screen lists the parsed fields; bad input shows a friendly error, never a crash. |
+| 4 | Dynamic entry forms + entries | `LogEntry` persists; the New-Entry screen renders controls from `schemaJson`; entries save with an auto `createdAt`; the entry list shows them newest-first. **This is the first genuinely usable version.** |
+| 5 | Readable report export | One log exports to a readable Markdown/plain-text report per FORMATTING_SPEC, via the Android share sheet. |
+| 6 | JSON backup & restore | All templates + entries + schemas export to one JSON file and restore from it. |
+| 7 | Edit & delete (with confirmation) | Entries and whole logs can be edited/deleted; deleting a log warns it removes all its entries. |
+| 8 | CSV export | Each log exports to its own CSV per FORMATTING_SPEC (RFC-4180-safe). |
+| 9 | PDF export | The readable report renders to a one-column PDF. |
+| 10 | Visual / manual field builder | Optional UI to build templates without writing Form Markdown. Comfort feature only; never blocks earlier phases. |
 
-Shows:
+---
 
-* App title
-* Top-right plus button for creating a new log system
-* List of existing log systems
-* Each log row/card shows:
+## Tech stack
 
-  * Log name
-  * Optional description or entry count
-  * Right-side plus button for adding an entry
+- **Language:** Kotlin
+- **UI:** Jetpack Compose + Material 3
+- **Navigation:** Navigation Compose
+- **Database:** Room (local only)
+- **JSON:** kotlinx.serialization (for `schemaJson`, `valuesJson`, and backups)
+- **JDK:** 17
+- **minSdk:** 26 (Android 8.0 — gives `java.time` for clean ISO-8601 handling)
+- **targetSdk:** latest stable at build time
+- **Build:** single-module Gradle project with a version catalog (`libs.versions.toml`). Pin all library versions there; use the latest stable releases available at build time.
+- **CI:** GitHub Actions workflow that builds a **debug APK** and uploads it as a downloadable artifact on every push (so the APK can be installed on the user's Android phone without a Play Store release).
 
-### Create/Edit Log System Screen
+---
 
-Allows the user to create or edit a log system.
+## Paste-ready kickoff prompt for the coding agent
 
-Fields should include:
+> You are building an Android app from the docs in this repository. Before writing any code, read `README.md`, then `docs/PROJECT_GOAL.md`, `docs/FORMATTING_SPEC.md`, `docs/FORM_MARKDOWN_SPEC.md`, and `docs/BUILD_PHASES.md`.
+>
+> Build **only Phase 1** from the canonical phase order in the README. Do not start later phases. When Phase 1 compiles and runs, append a dated entry to `docs/CHANGELOG_WORKLOG.md` describing what you added, any known issues, and the recommended next step, then stop and tell me it's ready to review.
+>
+> Hard rules: keep all data on the device (no cloud, accounts, ads, analytics, or network calls); the top-right `+` creates a new log system and the per-row `+` adds an entry; the new-entry screen is full-screen, not a dialog; follow `docs/FORMATTING_SPEC.md` exactly for any dates, times, reports, or CSV. If any decision seems wrong, note it in the worklog and ask before changing it.
 
-* Log name
-* Optional description
-* Field definitions
-
-Initial versions may use manual field creation. Later versions may support Form Markdown import.
-
-### New Entry Screen
-
-When the user taps the plus button on a log row/card, the app opens a full-screen new entry form for that log.
-
-This must not be a floating dialog.
-
-The form should show only the fields for that log system.
-
-Every entry should automatically record a created timestamp.
-
-The form should use large, easy controls where possible:
-
-* Buttons
-* Chips
-* Single-choice selectors
-* Multi-choice selectors
-* Scale selectors
-* Large notes box
-
-### Entry List Screen
-
-When the user taps the log row/card itself, the app opens a list of entries for that log.
-
-The entry list should show entries in reverse chronological order.
-
-Each entry card should show a short readable preview.
-
-The screen should include:
-
-* Log name
-* Plus button for adding a new entry
-* Export button for exporting that log
-* Entry cards
-* Edit/delete options
-
-## Export Philosophy
-
-CSV is not the primary human-readable format.
-
-The main export should be a readable report where each entry is shown vertically, field by field.
-
-Example:
-
-Date: June 27, 2026
-Time: 2:14 PM
-Severity: 4
-Location: Bedroom
-Smell type: Smoke, chemical
-
-Notes:
-Smell strongest near bathroom fan area.
-
-## Export Types
-
-The app should eventually support:
-
-### Readable Report
-
-Primary sharing format.
-
-Formats:
-
-* Markdown
-* Plain text
-* Later PDF
-
-This is for landlords, doctors, housing agencies, legal aid, advocates, or personal review.
-
-### JSON Backup
-
-Backup and restore format.
-
-This should include:
-
-* All log systems/templates
-* All entries
-* All field definitions
-* App settings if needed
-
-JSON is for protecting/restoring app data, not for normal human sharing.
-
-### CSV Export
-
-Compatibility format.
-
-CSV should be available later for users who need spreadsheet-compatible structured data.
-
-CSV is not the main reading format.
-
-Each log should export to its own CSV because different logs may have different fields.
-
-## Internal Data Storage
-
-Do not store working app data as CSV.
-
-Use a local Room database.
-
-The app should store log templates and entries locally on the device.
-
-Suggested data model:
-
-### LogTemplate
-
-* id
-* name
-* description
-* createdAt
-* updatedAt
-* schemaJson
-* optional formMarkdown
-
-### LogEntry
-
-* id
-* templateId
-* createdAt
-* updatedAt
-* valuesJson
-
-The valuesJson field stores the user's answers for that entry.
-
-This allows different log systems to have different fields without changing the database schema every time.
-
-## Privacy Requirements
-
-The app must be local-first.
-
-Do not include:
-
-* Ads
-* Analytics
-* Cloud sync
-* Account system
-* External tracking
-* Automatic network transmission
-
-The user's data should stay on the device unless they intentionally export it.
-
-## Build Requirements
-
-Use:
-
-* Kotlin
-* Jetpack Compose
-* Material 3
-* Room database
-* GitHub Actions to build a debug APK artifact
-
-The app should be simple, maintainable, and built in phases.
-
-Avoid unnecessary architecture complexity.
+After Phase 1 is reviewed, send the same prompt but say "Build only Phase 2," and so on.
