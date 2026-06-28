@@ -157,7 +157,7 @@ time         — 12-hour time with AM/PM
 dropdown     — pick one item from a list
 scale        — pick a number in a range. Set "from" and "to"
 yesno        — Yes / No / Unknown / Not Applicable
-number       — type a number
+number       — type a number. Set "digits" for max digits allowed
 multiple     — pick several items from a list (tappable chips)
 
 Any field can add "required" to prevent saving without it.
@@ -285,7 +285,7 @@ Opened by the `↓` on Home. Backs up all logs and entries at once.
 | `dropdown` | A dropdown list. User picks one. |
 | `scale` | Tappable pills if 5 or fewer numbers; dropdown if 6 or more. |
 | `yesno` | A dropdown with four options: Yes, No, Unknown, Not Applicable. |
-| `number` | A box where the user types a number. |
+| `number` | A box where the user types a number. Limited to the max digits specified. |
 | `multiple` | Tappable chips (multiple can be selected). Selected items display on one line separated by commas. |
 
 - Required fields are marked and block saving until filled.

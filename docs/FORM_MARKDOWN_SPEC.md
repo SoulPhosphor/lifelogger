@@ -35,7 +35,7 @@ lines: 4
 |------|-----------|-----------|
 | `text` | A single line of text | none |
 | `multiline` | Multi-line text box | `lines` — visible height |
-| `number` | Type any number | none |
+| `number` | Type any number | `digits` — max number of digits allowed |
 | `dropdown` | Pick one from a list | the list of choices |
 | `multiple` | Pick several from a list | the list of choices |
 | `scale` | Pick a number in a range | `from` and `to` |
@@ -71,6 +71,7 @@ lines: 4
 ```
 ## Amount
 type: number
+digits: 3
 ```
 
 ### dropdown / multiple
