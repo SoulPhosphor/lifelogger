@@ -25,8 +25,8 @@ fun DataDragonNavHost(
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                 onOpenBackup = { navController.navigate(Routes.BACKUP) },
                 onCreateLog = { navController.navigate(Routes.CREATE_LOG) },
-                onOpenLog = { logId -> navController.navigate(Routes.log(logId)) },
-                onAddEntry = { logId -> navController.navigate(Routes.newEntry(logId)) },
+                onOpenLog = { logId -> navController.navigate(Routes.log(logId.toString())) },
+                onAddEntry = { logId -> navController.navigate(Routes.newEntry(logId.toString())) },
             )
         }
 

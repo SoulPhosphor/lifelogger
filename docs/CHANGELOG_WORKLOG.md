@@ -4,6 +4,63 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-06-28 — Phase 2: Local database for log systems
+
+**Summary**
+
+Added the local Room database and made log templates persist. Home now loads
+real templates from the database and Create Log saves real records.
+
+- Dependencies: Room (runtime + ktx + compiler via KSP), KSP plugin, and the
+  Compose `lifecycle-viewmodel-compose` / `lifecycle-runtime-compose` helpers.
+  All versions pinned in `gradle/libs.versions.toml`.
+- `LogTemplate` entity with exactly the Phase 2 fields: `id`, `name`,
+  `description`, `createdAt`, `schemaJson`.
+- `LogTemplateDao` with create / read / delete only — **no update**, because
+  logs cannot be edited after creation.
+- `AppDatabase` (Room, local only, singleton).
+- ViewModels (`HomeViewModel`, `CreateLogViewModel`, `LogViewModel`) using
+  `AndroidViewModel` + the default factory — no DI library added.
+- Home screen observes templates from the DB and renders them in creation order;
+  empty state shown when there are none.
+- Create Log "Save" inserts a real template (name required) and returns Home,
+  where it appears immediately.
+- Log screen loads the real template so its title shows the saved log name.
+- Removed the Phase 1 in-memory `Placeholder.kt`.
+
+**Security fix folded in (from PR review)**
+
+- Set `android:allowBackup="false"` (plus `fullBackupContent="false"` and an
+  explicit `data_extraction_rules.xml` that excludes all data from cloud backup
+  and device transfer). This enforces the README's local-first rule now that a
+  real database exists, so app data cannot leave the device via a system path.
+
+**Scope notes (respecting the phase plan)**
+
+- The Form Markdown paste box is saved-around for now: new templates store an
+  empty schema (`"[]"`). The parser that turns Form Markdown into `schemaJson`
+  is **Phase 3**, and storing the original Form Markdown text is also Phase 3.
+- Entries do not exist yet (Phase 4), so log rows show "No entries yet" and the
+  Log screen shows the empty-entries state.
+- The delete-log button still only shows its confirmation dialog; wiring real
+  deletion is **Phase 7**. The DAO delete method exists per the Phase 2 spec but
+  is intentionally not yet connected to the UI.
+
+**Known issues**
+
+- Same as above: later-phase buttons (download, preview, restore, real delete,
+  entry save) remain intentional stubs.
+- Full compile/APK still happens on GitHub Actions (the dev sandbox blocks
+  Android dependency downloads).
+
+**Next steps**
+
+- Confirm CI is green and the debug APK builds with Room.
+- Then **Phase 3**: Form Markdown paste screen + parser → `schemaJson`, a field
+  preview, and storing the original Form Markdown with the template.
+
+---
+
 ## 2026-06-28 — Phase 1: Navigation skeleton
 
 **Summary**

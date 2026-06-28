@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,13 +24,16 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.datadragon.app.data.PlaceholderData
-import com.datadragon.app.data.PlaceholderLog
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.datadragon.app.data.LogTemplate
+import com.datadragon.app.ui.HomeViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,10 +41,11 @@ fun HomeScreen(
     onOpenSettings: () -> Unit,
     onOpenBackup: () -> Unit,
     onCreateLog: () -> Unit,
-    onOpenLog: (String) -> Unit,
-    onAddEntry: (String) -> Unit,
+    onOpenLog: (Long) -> Unit,
+    onAddEntry: (Long) -> Unit,
+    viewModel: HomeViewModel = viewModel(),
 ) {
-    val logs = PlaceholderData.logs
+    val logs by viewModel.templates.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -71,7 +76,7 @@ fun HomeScreen(
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
+                contentPadding = PaddingValues(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 items(logs, key = { it.id }) { log ->
@@ -88,7 +93,7 @@ fun HomeScreen(
 
 @Composable
 private fun LogRow(
-    log: PlaceholderLog,
+    log: LogTemplate,
     onOpen: () -> Unit,
     onAddEntry: () -> Unit,
 ) {
@@ -108,8 +113,10 @@ private fun LogRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                // Entry counts arrive with LogEntry in Phase 4; until then every
+                // log has no entries.
                 Text(
-                    text = "${log.entryCount} entries · ${log.lastEntryLabel}",
+                    text = "No entries yet",
                     style = MaterialTheme.typography.bodySmall,
                 )
             }

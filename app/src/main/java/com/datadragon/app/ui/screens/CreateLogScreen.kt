@@ -33,6 +33,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.datadragon.app.ui.CreateLogViewModel
 
 private const val FIELD_TYPES_REFERENCE = """text         — a single line of text
 multiline    — multi-line text box. Set "lines" for visible height
@@ -50,11 +52,13 @@ Any field can add "required" to prevent saving without it."""
 @Composable
 fun CreateLogScreen(
     onBack: () -> Unit,
+    viewModel: CreateLogViewModel = viewModel(),
 ) {
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var formMarkdown by remember { mutableStateOf("") }
     var showFieldTypes by remember { mutableStateOf(false) }
+    val canSave = name.isNotBlank()
 
     Scaffold(
         topBar = {
@@ -66,8 +70,12 @@ fun CreateLogScreen(
                     }
                 },
                 actions = {
-                    // Phase 2 wires Save to persistence; for now it returns Home.
-                    TextButton(onClick = onBack) { Text("Save") }
+                    // Save persists the template, then returns to Home where it
+                    // appears in the list. Name is required.
+                    TextButton(
+                        onClick = { viewModel.save(name, description, onSaved = onBack) },
+                        enabled = canSave,
+                    ) { Text("Save") }
                 },
             )
         },
