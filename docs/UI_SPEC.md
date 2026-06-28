@@ -279,7 +279,7 @@ Opened by the `↓` on Home. Backs up all logs and entries at once.
 | `date` | A date picker (month/day/year). |
 | `time` | A time picker (12-hour with AM/PM). |
 | `dropdown` | A dropdown list. User picks one. |
-| `scale` | A row of tappable numbers from `from` to `to`. |
+| `scale` | Tappable pills if 5 or fewer numbers; dropdown if 6 or more. |
 | `yesno` | Four options: Yes, No, Unknown, Not Applicable. |
 | `number` | A box where the user types a number. |
 | `multiple` | Tappable chips (multiple can be selected). Selected items display on one line separated by commas. |
