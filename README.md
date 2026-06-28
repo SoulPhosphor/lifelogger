@@ -1,4 +1,4 @@
-# Custom Log Builder
+# Data Dragon
 
 A local-first Android app for creating custom logs and recording entries with as little friction as possible.
 
@@ -11,7 +11,10 @@ The user can create any log type with custom fields, then add entries quickly th
 A coding agent (Claude Code, Codex, etc.) should read the repo docs in this order before writing any code:
 
 1. **README.md** (this file) — what the app is, how to behave, what to build first.
-2. **docs/BUILD_PHASES.md** — detailed phase-by-phase roadmap.
+2. **docs/UI_SPEC.md** — the locked, screen-by-screen interface. The single source of truth for layout and navigation.
+3. **docs/FORMATTING_SPEC.md** — how dates/times, reports, and CSV must be formatted.
+4. **docs/FORM_MARKDOWN_SPEC.md** — the format users paste to define a log template.
+5. **docs/BUILD_PHASES.md** — detailed phase-by-phase roadmap.
 
 If any two documents conflict, **this README wins**, and the agent should note the conflict in the worklog rather than guessing.
 
@@ -74,7 +77,7 @@ This is the spine of the app. Do not redesign it.
 
 ## Paste-ready kickoff prompt for the coding agent
 
-> You are building an Android app from the docs in this repository. Before writing any code, read `README.md`, then `docs/BUILD_PHASES.md`.
+> You are building an Android app called Data Dragon from the docs in this repository. Before writing any code, read `README.md`, then `docs/UI_SPEC.md`, `docs/FORMATTING_SPEC.md`, `docs/FORM_MARKDOWN_SPEC.md`, and `docs/BUILD_PHASES.md`.
 >
 > Build **only Phase 1** from the canonical phase order in the README. Do not start later phases. When Phase 1 compiles and runs, append a dated entry to `docs/CHANGELOG_WORKLOG.md` describing what you added, any known issues, and the recommended next step, then stop and tell me it's ready to review.
 >

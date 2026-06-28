@@ -33,7 +33,7 @@ lines: 4
 
 | Type | What it is | Variables |
 |------|-----------|-----------|
-| `text` | A single line of text | `lines` — visible height (default 1) |
+| `text` | A single line of text | none |
 | `multiline` | Multi-line text box | `lines` — visible height |
 | `number` | Type any number | none |
 | `dropdown` | Pick one from a list | the list of choices |

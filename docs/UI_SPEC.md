@@ -6,7 +6,7 @@ Conventions used below:
 
 - `[X]` = a tappable button/icon.
 - A box `┌─┐` is a screen or a card.
-- Icons: `⚙` settings, `↓` download/backup, `🗑` delete, `+` add, `←` back.
+- Icons: `⚙` settings, `↓` download/backup, `🗑` delete, `+` add, `←` back, `✎` edit.
 
 All primary screens are **full-screen**. The only floating dialogs allowed are **destructive-action confirmations** (deleting a log or an entry) and the **format chooser** for downloads.
 
@@ -24,8 +24,10 @@ All primary screens are **full-screen**. The only floating dialogs allowed are *
 
 **Log screen (one log's entries)**
 
-- **Top-left `↓`** → download this log (choose format).
-- **`🗑` (next to the download icon, still on the left)** → delete this whole log (always confirms first).
+- **Top-left `←`** → back to Home.
+- **`↓` (next to back)** → download this log (choose format).
+- **`🗑` (next to download, still on the left)** → delete this whole log (always confirms first).
+- **`✎` (next to delete, still on the left)** → edit this log's name, description, or fields (opens Create/Edit Log screen).
 - **Top-center** → the log's name.
 - **Top-right `+`** → add a new entry to this log.
 - **`🗑` on the right side of an entry card** → delete that entry (always confirms first).
@@ -41,7 +43,7 @@ All primary screens are **full-screen**. The only floating dialogs allowed are *
 
 ```
 ┌──────────────────────────────────────────────┐
-│  ⚙   ↓          My Logs                   +   │
+│  ⚙   ↓          Data Dragon                   +   │
 ├──────────────────────────────────────────────┤
 │  ┌────────────────────────────────────────┐   │
 │  │ My Log                             [+] │   │
@@ -64,7 +66,7 @@ All primary screens are **full-screen**. The only floating dialogs allowed are *
 
 ```
 ┌──────────────────────────────────────────────┐
-│  ⚙   ↓          My Logs                   +   │
+│  ⚙   ↓          Data Dragon                   +   │
 ├──────────────────────────────────────────────┤
 │                                                │
 │              No logs yet.                       │
@@ -80,22 +82,21 @@ All primary screens are **full-screen**. The only floating dialogs allowed are *
 
 ```
 ┌──────────────────────────────────────────────┐
-│  ↓  🗑          My Log                     +   │
+│  ← ↓ 🗑 ✎       My Log                   +   │
 ├──────────────────────────────────────────────┤
 │  ┌────────────────────────────────────────┐   │
 │  │ Jun 27, 2:14 PM                    🗑  │   │
-│  │ Field 1 value · Field 2 value          │   │
-│  │ Notes preview text here…               │   │
+│  │ A preview of the entry's values        │   │
 │  └────────────────────────────────────────┘   │
 │  ┌────────────────────────────────────────┐   │
 │  │ Jun 26, 11:20 PM                   🗑  │   │
-│  │ Field 1 value · Field 2 value          │   │
+│  │ A preview of the entry's values        │   │
 │  └────────────────────────────────────────┘   │
 └──────────────────────────────────────────────┘
 ```
 
 - Entries listed newest first.
-- Each card shows the date/time, a short summary of key field values, and a notes preview if there are notes.
+- Each card shows the date/time and a short preview of the entry's values.
 - Tapping a card opens it for viewing/editing. Tapping `🗑` confirms then deletes.
 - Empty state: `No entries yet. Tap + to add one.`
 
@@ -249,7 +250,7 @@ Same layout, pre-filled with the entry's current values. Save updates the entry.
 ```
 
 - **Time format** toggle: 12-hour (default) / 24-hour.
-- **Restore from backup** sits at the bottom, away from everyday controls.
+- **Restore from backup** sits at the bottom, away from everyday controls. Restoring **replaces all current data** with the backup contents. A confirmation dialog warns the user before proceeding.
 
 ---
 
@@ -278,6 +279,7 @@ Opened by the `↓` on Home. Backs up all logs and entries at once.
 | `multiline` | A multi-line text box. Height matches the `lines` value. |
 | `date` | A date picker (month/day/year). |
 | `time` | A time picker (12-hour with AM/PM). |
+| `datetime` | A date and time picker combined. Can default to the current time. |
 | `dropdown` | A dropdown list. User picks one. |
 | `scale` | Tappable pills if 5 or fewer numbers; dropdown if 6 or more. |
 | `yesno` | Four options: Yes, No, Unknown, Not Applicable. |

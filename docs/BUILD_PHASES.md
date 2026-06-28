@@ -50,16 +50,18 @@ Build:
 * Preview generated fields before saving
 * Store original Form Markdown if desired
 
-Supported field types:
+Supported field types (must match FORM_MARKDOWN_SPEC):
 
 * text
-* single choice (with options)
-* multiple choice (with options)
-* scale (with min/max)
+* multiline
+* number
+* dropdown (with options)
+* multiple (with options)
+* scale (with from/to)
+* yesno
 * date
 * time
 * datetime
-* yes/no
 
 ## Phase 4: Dynamic Entry Forms
 
