@@ -85,19 +85,34 @@ All primary screens are **full-screen**. The only floating dialogs allowed are *
 ├──────────────────────────────────────────────┤
 │  ┌────────────────────────────────────────┐   │
 │  │ Jun 27, 2:14 PM                    🗑  │   │
-│  │ Field 1 value · Field 2 value          │   │
-│  │ Notes preview text here…               │   │
+│  │                                        │   │
+│  │ Field 1 label                          │   │
+│  │ Field 1 value                          │   │
+│  │                                        │   │
+│  │ Field 2 label                          │   │
+│  │ Field 2 value                          │   │
+│  │                                        │   │
+│  │ Notes                                  │   │
+│  │ Notes text here in full                │   │
 │  └────────────────────────────────────────┘   │
 │  ┌────────────────────────────────────────┐   │
 │  │ Jun 26, 11:20 PM                   🗑  │   │
-│  │ Field 1 value · Field 2 value          │   │
+│  │                                        │   │
+│  │ Field 1 label                          │   │
+│  │ Field 1 value                          │   │
 │  └────────────────────────────────────────┘   │
 └──────────────────────────────────────────────┘
 ```
 
 - Entries listed newest first.
-- Each entry row shows the date/time, a short summary of field values, and a notes preview if there are notes.
-- Tapping an entry row opens a read-only view (entries can't be edited). Tapping `🗑` confirms then deletes.
+- The top line of each card holds the entry's date/time with the delete `🗑`
+  across from it on the right. The `🗑` uses the default icon color (it is **not**
+  tinted red).
+- Below the top line, every field that has a value is shown as its own block: a
+  small muted **label** with the **full value** on the line beneath it, stacked
+  vertically down the card. Values are never truncated or crunched onto one line.
+  Notes, when present, appear last under a `Notes` label.
+- Tapping `🗑` confirms then deletes. Entries can't be edited — only added or deleted.
 - Empty state: `No entries yet. Tap + to add one.`
 
 ---

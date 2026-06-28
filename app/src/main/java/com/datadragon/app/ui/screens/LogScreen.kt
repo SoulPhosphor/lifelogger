@@ -37,7 +37,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -90,7 +89,7 @@ fun LogScreen(
                             Icon(Icons.Filled.FileDownload, contentDescription = "Download this log")
                         }
                         IconButton(onClick = { confirmDeleteLog = true }) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Delete this log", tint = DeleteRed)
+                            Icon(Icons.Filled.Delete, contentDescription = "Delete this log")
                         }
                     }
                 },
@@ -242,46 +241,58 @@ fun LogScreen(
 }
 
 /**
- * One entry row: timestamp, a one-line summary of field values, and a notes
- * preview if present (docs/UI_SPEC.md §3), with a `🗑` to delete it. Entries are
- * never edited — only added or deleted.
+ * One entry card (docs/UI_SPEC.md §3). The top line holds the entry's timestamp
+ * with the delete `🗑` across from it; every field with a value is then listed
+ * below as a clean label-over-value block, stacked vertically. Entries are never
+ * edited — only added or deleted.
  */
 @Composable
 private fun EntryRow(entry: LogEntry, fields: List<FieldDef>, onDelete: () -> Unit) {
     val values = remember(entry.valuesJson) { EntryValues.decode(entry.valuesJson) }
-    val summary = remember(values, fields) { EntryValues.summaryLine(fields, values) }
     val notes = remember(values) { EntryValues.notes(values) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 12.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 8.dp, end = 4.dp, bottom = 16.dp),
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            // Top line: timestamp on the left, delete across from it on the right.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text(
                     text = EntryValues.displayEntryTimestamp(entry.createdAt),
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
                 )
-                if (summary.isNotEmpty()) {
-                    Text(
-                        text = summary,
-                        style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                if (notes != null) {
-                    Text(
-                        text = notes,
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Filled.Delete, contentDescription = "Delete entry")
                 }
             }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Filled.Delete, contentDescription = "Delete entry", tint = DeleteRed)
+
+            // One label-over-value block per field that has a value, going down.
+            fields.forEach { field ->
+                EntryValues.displayValue(field, values)?.let { value ->
+                    FieldReadout(label = field.label, value = value)
+                }
             }
+            notes?.let { FieldReadout(label = "Notes", value = it) }
         }
+    }
+}
+
+/** A single field shown as a muted label with its full value on the line below. */
+@Composable
+private fun FieldReadout(label: String, value: String) {
+    Column(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyLarge,
+        )
     }
 }
