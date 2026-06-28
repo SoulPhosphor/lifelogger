@@ -4,6 +4,35 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-06-28 — Phase 5: Readable report export
+
+**Summary**
+
+The Log screen's `↓` now exports a readable report for that log as `.txt` or
+`.md` through the Android share/save sheet.
+
+- `ReportBuilder` produces the vertical, field-by-field report from
+  FORMATTING_SPEC §2: `# {name} Report`, date range (first → last entry), total
+  entries, then one block per entry (`## Entry — {date, time}`, each field as
+  `**Label:** value`, multiline values as their own block, and a `**Notes:**`
+  block). Plain text uses the same layout without the Markdown markers. Empty
+  optional fields are omitted.
+- Entries read chronologically (oldest first) in the report; the date range still
+  runs first → last.
+- File naming follows §5 (lowercase, spaces → `_`, punctuation stripped):
+  `my_log_report.md` / `.txt`.
+- `↓` on the Log screen opens a format chooser (`.txt` / `.md`); the chosen
+  report is written to `cacheDir/exports` and shared via a `FileProvider` content
+  URI (provider + `res/xml/file_paths.xml` added).
+
+**Scope notes (respecting the phase plan)**
+
+- Single-log `.json` export is shown as deferred in the chooser — it lands with
+  **Phase 6** (JSON backup & restore). CSV is **Phase 8**, PDF **Phase 9**.
+- Times in the report use 12-hour (AM/PM), matching the rest of the app.
+
+---
+
 ## 2026-06-28 — Phase 4: Dynamic entry forms
 
 **Summary**

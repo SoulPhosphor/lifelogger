@@ -54,8 +54,17 @@ object EntryValues {
      * row. Falls back to the raw string if it doesn't parse.
      */
     fun displayEntryTimestamp(iso: String): String =
+        formatEntry(iso, rowTimestampDisplay)
+
+    /** Full date for a stored `createdAt`, e.g. `June 27, 2026` (report header). */
+    fun displayEntryDate(iso: String): String = formatEntry(iso, dateDisplay)
+
+    /** Full date and time for a stored `createdAt`, e.g. `June 27, 2026, 2:14 PM`. */
+    fun displayEntryDateTime(iso: String): String = formatEntry(iso, dateTimeDisplay)
+
+    private fun formatEntry(iso: String, formatter: DateTimeFormatter): String =
         try {
-            OffsetDateTime.parse(iso).format(rowTimestampDisplay)
+            OffsetDateTime.parse(iso).format(formatter)
         } catch (_: Exception) {
             iso
         }
