@@ -29,3 +29,16 @@
 
 ### Recommended next step
 - Re-run the pull request creation with the binary wrapper removed, then let GitHub Actions compile the debug APK.
+
+## 2026-06-28 — CI version compatibility fix
+
+### Summary of changes
+- Changed Android and Gradle version pins to conservative stable versions that are available in public CI: AGP 8.7.3, Kotlin 2.0.21, Compose BOM 2024.12.01, Navigation Compose 2.8.5, Gradle 8.9, and Android SDK 35.
+- Updated app compile and target SDK values to 35 to match the SDK package installed by GitHub Actions.
+
+### Known issues
+- Local compilation remains blocked by this environment's inability to download Android Gradle Plugin artifacts from Google's Maven repository.
+- Phase 1 remains a placeholder navigation skeleton only.
+
+### Recommended next step
+- Re-run GitHub Actions for this branch; the workflow now uses stable Android/Gradle versions instead of speculative future versions.

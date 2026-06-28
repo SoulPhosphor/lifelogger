@@ -6,12 +6,12 @@ plugins {
 
 android {
     namespace = "com.datadragon.lifelogger"
-    compileSdk = 37
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.datadragon.lifelogger"
         minSdk = 26
-        targetSdk = 37
+        targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
     }
