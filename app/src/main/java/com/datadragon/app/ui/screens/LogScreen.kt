@@ -37,6 +37,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -281,18 +285,21 @@ private fun EntryRow(entry: LogEntry, fields: List<FieldDef>, onDelete: () -> Un
     }
 }
 
-/** A single field shown as a muted label with its full value on the line below. */
+/**
+ * A single field shown inline as `label: value` on one line. The label is muted,
+ * the value normal weight, and long values (like notes) wrap onto further lines.
+ */
 @Composable
 private fun FieldReadout(label: String, value: String) {
-    Column(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyLarge,
-        )
-    }
+    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    Text(
+        text = buildAnnotatedString {
+            withStyle(SpanStyle(color = labelColor, fontWeight = FontWeight.Medium)) {
+                append("$label: ")
+            }
+            append(value)
+        },
+        style = MaterialTheme.typography.bodyLarge,
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+    )
 }

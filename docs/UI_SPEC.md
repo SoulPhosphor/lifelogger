@@ -85,21 +85,14 @@ All primary screens are **full-screen**. The only floating dialogs allowed are *
 ├──────────────────────────────────────────────┤
 │  ┌────────────────────────────────────────┐   │
 │  │ Jun 27, 2:14 PM                    🗑  │   │
-│  │                                        │   │
-│  │ Field 1 label                          │   │
-│  │ Field 1 value                          │   │
-│  │                                        │   │
-│  │ Field 2 label                          │   │
-│  │ Field 2 value                          │   │
-│  │                                        │   │
-│  │ Notes                                  │   │
-│  │ Notes text here in full                │   │
+│  │ Sleep: 5                               │   │
+│  │ Activities: exercise, sleep, art       │   │
+│  │ Notes: longer text wraps onto the      │   │
+│  │   next line as needed                  │   │
 │  └────────────────────────────────────────┘   │
 │  ┌────────────────────────────────────────┐   │
 │  │ Jun 26, 11:20 PM                   🗑  │   │
-│  │                                        │   │
-│  │ Field 1 label                          │   │
-│  │ Field 1 value                          │   │
+│  │ Sleep: 7                               │   │
 │  └────────────────────────────────────────┘   │
 └──────────────────────────────────────────────┘
 ```
@@ -108,10 +101,10 @@ All primary screens are **full-screen**. The only floating dialogs allowed are *
 - The top line of each card holds the entry's date/time with the delete `🗑`
   across from it on the right. The `🗑` uses the default icon color (it is **not**
   tinted red).
-- Below the top line, every field that has a value is shown as its own block: a
-  small muted **label** with the **full value** on the line beneath it, stacked
-  vertically down the card. Values are never truncated or crunched onto one line.
-  Notes, when present, appear last under a `Notes` label.
+- Below the top line, every field that has a value is shown on its own line,
+  inline as `label: value` (the label muted, the value normal). One field per
+  line, going down the card. Long values wrap onto further lines; nothing is
+  truncated. Notes, when present, appear last as `Notes: …`.
 - Tapping `🗑` confirms then deletes. Entries can't be edited — only added or deleted.
 - Empty state: `No entries yet. Tap + to add one.`
 
