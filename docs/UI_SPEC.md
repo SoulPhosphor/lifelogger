@@ -5,7 +5,7 @@ This document locks the user interface. Every screen below is a **decision, not 
 Conventions used below:
 
 - `[X]` = a tappable button/icon.
-- A box `┌─┐` is a screen or a card.
+- A box `┌─┐` is a screen or a row in a list.
 - Icons: `⚙` settings, `↓` download/backup, `🗑` delete, `+` add, `<` back.
 
 All primary screens are **full-screen**. The only floating dialogs allowed are **destructive-action confirmations** (deleting a log or an entry) and the **format chooser** for downloads.
@@ -19,8 +19,8 @@ All primary screens are **full-screen**. The only floating dialogs allowed are *
 - **Top-left `⚙`** → Settings (restore-from-backup lives at the bottom of Settings).
 - **`↓` (next to the cog)** → Backup screen (backs up every log at once).
 - **Top-right `+`** → create a **new log**. This corner is reserved for this action only.
-- **Tap a log card's name** → open that log's **entry list**.
-- **`+` on the right side of a log card** → add a **new entry** to that log.
+- **Tap a log row's name** → open that log's **entry list**.
+- **`+` on the right side of a log row** → add a **new entry** to that log.
 
 **Log screen (one log's entries)**
 
@@ -29,8 +29,8 @@ All primary screens are **full-screen**. The only floating dialogs allowed are *
 - **`🗑` (next to download, still on the left)** → delete this whole log (always confirms first).
 - **Top-center** → the log's name.
 - **Top-right `+`** → add a new entry to this log.
-- **`🗑` on the right side of an entry card** → delete that entry (always confirms first).
-- **Tap an entry card** → open it to view/edit.
+- **`🗑` on the right side of an entry row** → delete that entry (always confirms first).
+- **Tap an entry row** → open it to view/edit.
 
 > **Design principle: high-use buttons and destructive buttons stay far apart.** The everyday `+` is always far right; delete actions live on the left and always require confirmation.
 
@@ -55,9 +55,9 @@ All primary screens are **full-screen**. The only floating dialogs allowed are *
 └──────────────────────────────────────────────┘
 ```
 
-- Each card shows the log name and an add-entry `[+]` on the same line.
+- Each row shows the log name and an add-entry `[+]` on the same line.
 - Below that, a line showing entry count and when the last entry was added.
-- Tapping the card body opens the log. Tapping `[+]` adds a new entry.
+- Tapping the row opens the log. Tapping `[+]` adds a new entry.
 - Logs stay in the order they were created (no automatic resorting).
 - Long log names truncate with an ellipsis so the `[+]` always stays visible.
 
@@ -93,8 +93,8 @@ All primary screens are **full-screen**. The only floating dialogs allowed are *
 ```
 
 - Entries listed newest first.
-- Each entry's box shows the date and time it was created.
-- Tapping an entry opens it for viewing/editing. Tapping `🗑` confirms then deletes.
+- Each entry row shows the date and time it was created.
+- Tapping an entry row opens it for viewing/editing. Tapping `🗑` confirms then deletes.
 - Empty state: `No entries yet. Tap + to add one.`
 
 ---
@@ -296,7 +296,7 @@ Opened by the `↓` on Home. Backs up all logs and entries at once.
 - Do **not** put delete near the `+`.
 - Do **not** make any delete instant — always confirm first.
 - Do **not** make New Entry a dialog or bottom sheet — it is full-screen.
-- Do **not** reorder log cards based on activity — order is fixed.
+- Do **not** reorder log rows based on activity — order is fixed.
 - Do **not** add dashboards, charts, or summary panels.
 - Do **not** add the visual field builder before its phase.
 - Do **not** add pre-built templates or example logs. The app starts empty.
