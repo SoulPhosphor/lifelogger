@@ -9,6 +9,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.datadragon.app.ui.screens.BackupScreen
 import com.datadragon.app.ui.screens.CreateLogScreen
+import com.datadragon.app.ui.screens.EditFormScreen
 import com.datadragon.app.ui.screens.HomeScreen
 import com.datadragon.app.ui.screens.LogScreen
 import com.datadragon.app.ui.screens.NewEntryScreen
@@ -54,6 +55,7 @@ fun DataDragonNavHost(
                 onEditEntry = { entryId ->
                     navController.navigate(Routes.editEntry(logId.orEmpty(), entryId))
                 },
+                onEditForm = { navController.navigate(Routes.editForm(logId.orEmpty())) },
             )
         }
 
@@ -80,6 +82,17 @@ fun DataDragonNavHost(
             NewEntryScreen(
                 logId = logId,
                 entryId = entryId,
+                onBack = { navController.popBackStack() },
+            )
+        }
+
+        composable(
+            route = Routes.EDIT_FORM,
+            arguments = listOf(navArgument(Routes.LOG_ARG) { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val logId = backStackEntry.arguments?.getString(Routes.LOG_ARG)
+            EditFormScreen(
+                logId = logId,
                 onBack = { navController.popBackStack() },
             )
         }

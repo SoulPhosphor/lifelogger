@@ -4,6 +4,32 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-06-29 — Edit-form (add/reorder), gear menu, chevron icons
+
+**Summary**
+
+- **Edit form.** New "Edit form" flow (from the log's gear menu) lets a log gain
+  fields after creation: existing fields are read-only but reorderable; new
+  fields are fully editable; both reorder with ∧/∨ chevrons. Save writes a new
+  schema via `LogTemplateDao.updateSchema` and regenerates the Form Markdown.
+  Only add + reorder are allowed (never rename/delete an existing field), so
+  stored entry values stay keyed correctly. New entries get the new fields
+  immediately; once a log is unlocked, editing an old entry shows the new fields
+  to backfill. New `EditFormScreen` + `EditFormViewModel` + `editForm` route.
+- **Gear menu.** The log screen's separate download/delete icons are replaced by
+  a left-aligned **gear** (⚙) menu holding Export / Edit form / Delete log.
+- **Icons, per request.** All back arrows are now a left chevron (no arrows
+  anywhere); reorder uses chevrons (∧/∨), not arrows. On each entry card the edit
+  pencil now sits to the right of the trash can (both right-aligned) with a small
+  gap so they're easy to tap apart.
+
+**Known issues / next steps**
+
+- Reorder isn't offered in the initial Create Log builder yet (only Edit form);
+  could be added there too if wanted.
+
+---
+
 ## 2026-06-29 — Per-log locked / editable mode + append-only follow-up notes
 
 **Summary**

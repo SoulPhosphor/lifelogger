@@ -22,6 +22,14 @@ interface LogTemplateDao {
     @Query("UPDATE log_templates SET locked = 0 WHERE id = :id")
     suspend fun unlock(id: Long)
 
+    /**
+     * Replace a log's field schema (and its source Form Markdown). Used by "Edit
+     * form", which may only add fields and reorder them — never rename or delete
+     * an existing field — so stored entry values stay keyed correctly.
+     */
+    @Query("UPDATE log_templates SET schemaJson = :schemaJson, formMarkdown = :formMarkdown WHERE id = :id")
+    suspend fun updateSchema(id: Long, schemaJson: String, formMarkdown: String)
+
     /** Templates in creation order — never resorted (docs/UI_SPEC.md §2). */
     @Query("SELECT * FROM log_templates ORDER BY createdAt ASC, id ASC")
     fun observeAll(): Flow<List<LogTemplate>>

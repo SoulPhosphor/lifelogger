@@ -10,20 +10,24 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -66,6 +70,7 @@ fun LogScreen(
     onBack: () -> Unit,
     onAddEntry: () -> Unit,
     onEditEntry: (Long) -> Unit,
+    onEditForm: () -> Unit,
     viewModel: LogViewModel = viewModel(),
 ) {
     val id = logId?.toLongOrNull()
@@ -83,6 +88,7 @@ fun LogScreen(
     var showFormatChooser by remember { mutableStateOf(false) }
     var entryToDelete by remember { mutableStateOf<LogEntry?>(null) }
     var showUnlock by remember { mutableStateOf(false) }
+    var gearMenuOpen by remember { mutableStateOf(false) }
     // The entry a follow-up note is being added to, plus the in-progress text.
     var noteFor by remember { mutableStateOf<LogEntry?>(null) }
     var noteText by remember { mutableStateOf("") }
@@ -129,17 +135,42 @@ fun LogScreen(
                     }
                 },
                 navigationIcon = {
-                    // Left cluster: back, download, delete — destructive control kept far
-                    // from the everyday "+" on the right.
+                    // Left cluster: back, then a gear menu holding the log-level
+                    // actions (export, edit form, delete).
                     Row {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            Icon(Icons.Filled.ChevronLeft, contentDescription = "Back")
                         }
-                        IconButton(onClick = { showFormatChooser = true }) {
-                            Icon(Icons.Filled.FileDownload, contentDescription = "Download this log")
-                        }
-                        IconButton(onClick = { confirmDeleteLog = true }) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Delete this log")
+                        Box {
+                            IconButton(onClick = { gearMenuOpen = true }) {
+                                Icon(Icons.Filled.Settings, contentDescription = "Log options")
+                            }
+                            DropdownMenu(
+                                expanded = gearMenuOpen,
+                                onDismissRequest = { gearMenuOpen = false },
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Export") },
+                                    onClick = {
+                                        gearMenuOpen = false
+                                        showFormatChooser = true
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Edit form") },
+                                    onClick = {
+                                        gearMenuOpen = false
+                                        onEditForm()
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Delete log") },
+                                    onClick = {
+                                        gearMenuOpen = false
+                                        confirmDeleteLog = true
+                                    },
+                                )
+                            }
                         }
                     }
                 },
@@ -352,13 +383,16 @@ private fun EntryRow(
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f),
                 )
+                // Trash on the left of the pencil, both right-aligned, with a small
+                // gap so the two are easy to tap apart.
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Filled.Delete, contentDescription = "Delete entry")
+                }
                 if (editable) {
+                    Spacer(Modifier.width(4.dp))
                     IconButton(onClick = onEdit) {
                         Icon(Icons.Filled.Edit, contentDescription = "Edit entry")
                     }
-                }
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Delete entry")
                 }
             }
 
