@@ -1,5 +1,8 @@
 package com.datadragon.app.ui.screens
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,18 +47,11 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.datadragon.app.data.BackupCodec
-import com.datadragon.app.data.BackupRepository
-import com.datadragon.app.data.CsvBuilder
 import com.datadragon.app.data.EntryValues
-import com.datadragon.app.data.ExportNaming
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.LogEntry
-import com.datadragon.app.data.ReportBuilder
-import com.datadragon.app.export.PdfReport
-import com.datadragon.app.export.shareFile
-import com.datadragon.app.export.shareReport
-import com.datadragon.app.export.shareTextFile
+import com.datadragon.app.export.ExportContent
+import com.datadragon.app.export.LogExport
 import com.datadragon.app.ui.LogViewModel
 import com.datadragon.app.ui.theme.DeleteRed
 
@@ -77,6 +73,32 @@ fun LogScreen(
     var confirmDeleteLog by remember { mutableStateOf(false) }
     var showFormatChooser by remember { mutableStateOf(false) }
     var entryToDelete by remember { mutableStateOf<LogEntry?>(null) }
+
+    // The file the user is saving. They choose the destination and name via the
+    // system "Save to…" sheet; we write the bytes to whatever location it returns.
+    var pendingExport by remember { mutableStateOf<ExportContent?>(null) }
+    val saveDocument = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("*/*"),
+    ) { uri ->
+        val export = pendingExport
+        pendingExport = null
+        if (uri != null && export != null) {
+            val ok = runCatching {
+                context.contentResolver.openOutputStream(uri)?.use { it.write(export.bytes) }
+                    ?: error("No output stream")
+            }.isSuccess
+            Toast.makeText(
+                context,
+                if (ok) "Saved ${export.suggestedName}" else "Couldn't save file",
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+    }
+    val startSave: (ExportContent) -> Unit = { content ->
+        pendingExport = content
+        showFormatChooser = false
+        saveDocument.launch(content.suggestedName)
+    }
 
     Scaffold(
         topBar = {
@@ -136,59 +158,22 @@ fun LogScreen(
             title = { Text("Download \"${current?.name ?: "log"}\"") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Choose a format:")
+                    Text("Choose a format, then pick where to save it:")
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(
-                            onClick = {
-                                if (current != null) {
-                                    shareReport(context, ReportBuilder.build(current, fields, entries, markdown = true))
-                                }
-                                showFormatChooser = false
-                            },
+                            onClick = { if (current != null) startSave(LogExport.markdown(current, fields, entries)) },
                         ) { Text(".md") }
                         OutlinedButton(
-                            onClick = {
-                                if (current != null) {
-                                    val json = BackupCodec.encodeSingleLog(current, entries, BackupRepository.now())
-                                    shareTextFile(
-                                        context,
-                                        "${ExportNaming.base(current.name)}.json",
-                                        "application/json",
-                                        json,
-                                    )
-                                }
-                                showFormatChooser = false
-                            },
+                            onClick = { if (current != null) startSave(LogExport.json(current, entries)) },
                         ) { Text(".json") }
                         OutlinedButton(
-                            onClick = {
-                                if (current != null) {
-                                    shareReport(context, ReportBuilder.build(current, fields, entries, markdown = false))
-                                }
-                                showFormatChooser = false
-                            },
+                            onClick = { if (current != null) startSave(LogExport.text(current, fields, entries)) },
                         ) { Text(".txt") }
                         OutlinedButton(
-                            onClick = {
-                                if (current != null) {
-                                    shareTextFile(
-                                        context,
-                                        "${ExportNaming.base(current.name)}.csv",
-                                        "text/csv",
-                                        CsvBuilder.build(fields, entries),
-                                    )
-                                }
-                                showFormatChooser = false
-                            },
+                            onClick = { if (current != null) startSave(LogExport.csv(current, fields, entries)) },
                         ) { Text(".csv") }
                         OutlinedButton(
-                            onClick = {
-                                if (current != null) {
-                                    val file = PdfReport.writeToFile(context, current, fields, entries)
-                                    shareFile(context, file, "application/pdf")
-                                }
-                                showFormatChooser = false
-                            },
+                            onClick = { if (current != null) startSave(LogExport.pdf(current, fields, entries)) },
                         ) { Text(".pdf") }
                     }
                     Text(

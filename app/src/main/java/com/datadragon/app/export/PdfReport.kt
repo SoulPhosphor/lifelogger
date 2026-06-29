@@ -1,17 +1,14 @@
 package com.datadragon.app.export
 
-import android.content.Context
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import com.datadragon.app.data.EntryValues
-import com.datadragon.app.data.ExportNaming
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.LogEntry
 import com.datadragon.app.data.LogTemplate
-import java.io.File
-import java.io.FileOutputStream
+import java.io.ByteArrayOutputStream
 
 /**
  * Renders the readable report (docs/FORMATTING_SPEC.md §2) to a one-column PDF
@@ -26,12 +23,11 @@ object PdfReport {
     private const val PAGE_HEIGHT = 842
     private const val MARGIN = 40f
 
-    fun writeToFile(
-        context: Context,
+    fun writeToBytes(
         template: LogTemplate,
         fields: List<FieldDef>,
         entries: List<LogEntry>,
-    ): File {
+    ): ByteArray {
         val titlePaint = paint(20f, bold = true)
         val metaPaint = paint(11f).apply { color = 0xFF555555.toInt() }
         val headingPaint = paint(14f, bold = true)
@@ -54,7 +50,7 @@ object PdfReport {
             writer.gap(8f)
             writer.rule()
             writer.gap(8f)
-            writer.text(headingPaint, "Entry — ${EntryValues.displayEntryDateTime(entry.createdAt)}")
+            writer.text(headingPaint, EntryValues.displayEntryDateTime(entry.createdAt))
             writer.gap(4f)
 
             val values = EntryValues.decode(entry.valuesJson)
@@ -76,11 +72,10 @@ object PdfReport {
 
         writer.finish()
 
-        val dir = File(context.cacheDir, "exports").apply { mkdirs() }
-        val file = File(dir, "${ExportNaming.base(template.name)}_report.pdf")
-        FileOutputStream(file).use { doc.writeTo(it) }
+        val out = ByteArrayOutputStream()
+        doc.writeTo(out)
         doc.close()
-        return file
+        return out.toByteArray()
     }
 
     private fun paint(size: Float, bold: Boolean = false) = Paint().apply {

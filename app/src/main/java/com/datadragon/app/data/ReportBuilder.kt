@@ -61,7 +61,7 @@ object ReportBuilder {
         markdown: Boolean,
     ) {
         val values = EntryValues.decode(entry.valuesJson)
-        val heading = "Entry — ${EntryValues.displayEntryDateTime(entry.createdAt)}"
+        val heading = EntryValues.displayEntryDateTime(entry.createdAt)
         sb.append('\n')
         if (markdown) sb.append("## ").append(heading).append('\n') else sb.append(heading).append('\n')
         sb.append('\n')

@@ -37,7 +37,7 @@ Total entries: {n}
 
 ---
 
-## Entry — {entry date and time}
+## {entry date and time}
 
 **{Field label}:** {value}
 **{Field label}:** {value}
@@ -47,9 +47,11 @@ Total entries: {n}
 
 ---
 
-## Entry — {next entry date and time}
+## {next entry date and time}
 ...
 ```
+
+The entry heading is just the date and time — there is no `Entry` prefix.
 
 ### How each field type renders in the report
 
@@ -117,4 +119,8 @@ Timestamps stay in ISO-8601 exactly as stored. JSON files are for backup and dat
 - Strip punctuation other than underscores.
 - Example: `My Log` → `my_log_report.md`, `my_log.csv`
 
-Files are saved through the Android share/save sheet. The user picks where they go.
+Files are saved through the Android system "Save to…" document picker
+(`ACTION_CREATE_DOCUMENT`): the user chooses the destination folder (Drive,
+Downloads, etc.) and confirms the file name, and the bytes are written there. A
+short toast confirms the save. This is a real save-to-location flow, not the
+"share" sheet.
