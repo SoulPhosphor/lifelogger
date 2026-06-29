@@ -7,7 +7,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.datadragon.app.ui.screens.BackupScreen
 import com.datadragon.app.ui.screens.CreateLogScreen
 import com.datadragon.app.ui.screens.EditFormScreen
 import com.datadragon.app.ui.screens.HomeScreen
@@ -24,7 +23,6 @@ fun DataDragonNavHost(
         composable(Routes.HOME) {
             HomeScreen(
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-                onOpenBackup = { navController.navigate(Routes.BACKUP) },
                 onCreateLog = { navController.navigate(Routes.CREATE_LOG) },
                 onOpenLog = { logId -> navController.navigate(Routes.log(logId.toString())) },
                 onAddEntry = { logId -> navController.navigate(Routes.newEntry(logId.toString())) },
@@ -37,10 +35,6 @@ fun DataDragonNavHost(
 
         composable(Routes.SETTINGS) {
             SettingsScreen(onBack = { navController.popBackStack() })
-        }
-
-        composable(Routes.BACKUP) {
-            BackupScreen(onBack = { navController.popBackStack() })
         }
 
         composable(

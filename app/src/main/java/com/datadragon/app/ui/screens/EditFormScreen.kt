@@ -12,10 +12,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuItem
@@ -49,11 +49,13 @@ import com.datadragon.app.data.FieldType
 import com.datadragon.app.ui.EditFormViewModel
 
 /**
- * Edit a log's fields after creation. Only two changes are allowed, so stored
- * entries stay valid: **add** new fields and **reorder** any field. Existing
- * fields are shown read-only (they can be moved but not renamed, retyped, or
- * removed). New entries get the new fields immediately; if the log is unlocked,
- * old entries can be edited to fill them in too.
+ * Edit a log's fields after creation. To keep stored entries valid, the field's
+ * **name** and **type** can never change, and existing fields can't be deleted.
+ * What you *can* do: **add** new fields, **reorder** any field, and change the
+ * adjustable **settings** of fields that have them — options for dropdown/multiple,
+ * the range for a scale, line height for multiline, max digits for number, and
+ * whether the field is required. Fixed types (text, date, time, yes/no) have
+ * nothing to adjust and show read-only.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,18 +72,19 @@ fun EditFormScreen(
     // schema before the existing fields have been read in.
     val name by viewModel.name.collectAsStateWithLifecycle()
 
-    // One row per field: existing fields are read-only, new ones are editable.
-    val rows = remember { mutableStateListOf<FormRow>() }
+    // Every field is an editable draft; existing ones are flagged so their name
+    // and type stay locked. Seeded once from the loaded schema.
+    val rows = remember { mutableStateListOf<EditDraft>() }
     var seeded by remember { mutableStateOf(false) }
     LaunchedEffect(loadedFields) {
         if (!seeded && loadedFields.isNotEmpty()) {
             rows.clear()
-            loadedFields.forEach { rows.add(FormRow(existing = it, draft = null)) }
+            loadedFields.forEach { rows.add(draftOf(it)) }
             seeded = true
         }
     }
 
-    val canSave = name != null && rows.all { it.existing != null || it.draft?.isValid() == true }
+    val canSave = name != null && rows.all { it.isValid() }
 
     fun move(index: Int, delta: Int) {
         val target = index + delta
@@ -97,15 +100,14 @@ fun EditFormScreen(
                 title = { Text("Edit form") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ChevronLeft, contentDescription = "Back")
+                        Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
                     }
                 },
                 actions = {
                     TextButton(
                         enabled = canSave,
                         onClick = {
-                            val fields = rows.map { it.existing ?: it.draft!!.toFieldDef() }
-                            viewModel.save(fields, onSaved = onBack)
+                            viewModel.save(rows.map { it.toFieldDef() }, onSaved = onBack)
                         },
                     ) { Text("Save") }
                 },
@@ -121,37 +123,27 @@ fun EditFormScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                "You can add new fields and reorder them. Existing fields can be " +
-                    "moved but not renamed or removed, so past entries stay intact.",
+                "Add new fields, reorder them, and adjust the settings of existing " +
+                    "fields. A field's name and type can't change, and existing fields " +
+                    "can't be removed, so past entries stay intact.",
                 style = MaterialTheme.typography.bodyMedium,
             )
 
-            rows.forEachIndexed { index, row ->
-                val existing = row.existing
-                if (existing != null) {
-                    ExistingFieldCard(
-                        field = existing,
-                        title = "Field ${index + 1}",
-                        canMoveUp = index > 0,
-                        canMoveDown = index < rows.lastIndex,
-                        onMoveUp = { move(index, -1) },
-                        onMoveDown = { move(index, 1) },
-                    )
-                } else {
-                    NewFieldCard(
-                        field = row.draft!!,
-                        title = "Field ${index + 1} (new)",
-                        canMoveUp = index > 0,
-                        canMoveDown = index < rows.lastIndex,
-                        onMoveUp = { move(index, -1) },
-                        onMoveDown = { move(index, 1) },
-                        onDelete = { rows.removeAt(index) },
-                    )
-                }
+            rows.forEachIndexed { index, field ->
+                FieldCard(
+                    field = field,
+                    canMoveUp = index > 0,
+                    canMoveDown = index < rows.lastIndex,
+                    onMoveUp = { move(index, -1) },
+                    onMoveDown = { move(index, 1) },
+                    // Only new fields can be deleted here.
+                    deletable = !field.existing,
+                    onDelete = { rows.removeAt(index) },
+                )
             }
 
             OutlinedButton(
-                onClick = { rows.add(FormRow(existing = null, draft = EditDraft())) },
+                onClick = { rows.add(EditDraft()) },
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Icon(Icons.Filled.Add, contentDescription = null)
@@ -161,8 +153,115 @@ fun EditFormScreen(
     }
 }
 
-/** A row in the editor: either a pre-existing field or a new editable draft. */
-private class FormRow(val existing: FieldDef?, val draft: EditDraft?)
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FieldCard(
+    field: EditDraft,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+    deletable: Boolean,
+    onDelete: () -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = if (field.existing) field.label else "New field",
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.weight(1f),
+                )
+                ReorderControls(canMoveUp, canMoveDown, onMoveUp, onMoveDown)
+                if (deletable) {
+                    IconButton(onClick = onDelete) {
+                        Icon(Icons.Filled.Delete, contentDescription = "Delete field")
+                    }
+                }
+            }
+
+            if (field.existing) {
+                // Name is the header; type is fixed. Only adjustable settings show.
+                Text(
+                    "Type: ${field.type.editFriendly()}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (field.type.hasEditableSettings()) {
+                    SettingsControls(field)
+                    RequiredRow(field)
+                    field.validationHint()?.let { hint ->
+                        Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            } else {
+                OutlinedTextField(
+                    value = field.label,
+                    onValueChange = { field.label = it },
+                    label = { Text("Label") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                EditTypeDropdown(selected = field.type, onSelected = { field.type = it })
+                SettingsControls(field)
+                RequiredRow(field)
+                field.validationHint()?.let { hint ->
+                    Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+    }
+}
+
+/** The type-specific adjustable settings shared by new and existing fields. */
+@Composable
+private fun SettingsControls(field: EditDraft) {
+    when (field.type) {
+        FieldType.MULTILINE -> EditNumberField(
+            value = field.lines,
+            onChange = { field.lines = it },
+            label = "Lines (height, optional)",
+        )
+        FieldType.NUMBER -> EditNumberField(
+            value = field.digits,
+            onChange = { field.digits = it },
+            label = "Max digits (optional)",
+        )
+        FieldType.SCALE -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            EditNumberField(
+                value = field.from,
+                onChange = { field.from = it },
+                label = "From",
+                modifier = Modifier.weight(1f),
+            )
+            EditNumberField(
+                value = field.to,
+                onChange = { field.to = it },
+                label = "To",
+                modifier = Modifier.weight(1f),
+            )
+        }
+        FieldType.DROPDOWN, FieldType.MULTIPLE -> OutlinedTextField(
+            value = field.optionsText,
+            onValueChange = { field.optionsText = it },
+            label = { Text("Options (one per line)") },
+            modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp),
+        )
+        FieldType.DATETIME -> Row(verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(checked = field.defaultNow, onCheckedChange = { field.defaultNow = it })
+            Text("Default to the current date & time")
+        }
+        else -> Unit
+    }
+}
+
+@Composable
+private fun RequiredRow(field: EditDraft) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(checked = field.required, onCheckedChange = { field.required = it })
+        Text("Required")
+    }
+}
 
 @Composable
 private fun ReorderControls(
@@ -177,112 +276,6 @@ private fun ReorderControls(
     }
     IconButton(onClick = onMoveDown, enabled = canMoveDown) {
         Icon(Icons.Filled.ExpandMore, contentDescription = "Move down")
-    }
-}
-
-@Composable
-private fun ExistingFieldCard(
-    field: FieldDef,
-    title: String,
-    canMoveUp: Boolean,
-    canMoveDown: Boolean,
-    onMoveUp: () -> Unit,
-    onMoveDown: () -> Unit,
-) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(title, style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
-                ReorderControls(canMoveUp, canMoveDown, onMoveUp, onMoveDown)
-            }
-            Text(field.label, style = MaterialTheme.typography.titleSmall)
-            Text(
-                field.editSummary(),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun NewFieldCard(
-    field: EditDraft,
-    title: String,
-    canMoveUp: Boolean,
-    canMoveDown: Boolean,
-    onMoveUp: () -> Unit,
-    onMoveDown: () -> Unit,
-    onDelete: () -> Unit,
-) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                ReorderControls(canMoveUp, canMoveDown, onMoveUp, onMoveDown)
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Delete field")
-                }
-            }
-
-            OutlinedTextField(
-                value = field.label,
-                onValueChange = { field.label = it },
-                label = { Text("Label") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            EditTypeDropdown(selected = field.type, onSelected = { field.type = it })
-
-            when (field.type) {
-                FieldType.MULTILINE -> EditNumberField(
-                    value = field.lines,
-                    onChange = { field.lines = it },
-                    label = "Lines (height, optional)",
-                )
-                FieldType.NUMBER -> EditNumberField(
-                    value = field.digits,
-                    onChange = { field.digits = it },
-                    label = "Max digits (optional)",
-                )
-                FieldType.SCALE -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    EditNumberField(
-                        value = field.from,
-                        onChange = { field.from = it },
-                        label = "From",
-                        modifier = Modifier.weight(1f),
-                    )
-                    EditNumberField(
-                        value = field.to,
-                        onChange = { field.to = it },
-                        label = "To",
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                FieldType.DROPDOWN, FieldType.MULTIPLE -> OutlinedTextField(
-                    value = field.optionsText,
-                    onValueChange = { field.optionsText = it },
-                    label = { Text("Options (one per line)") },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp),
-                )
-                FieldType.DATETIME -> Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = field.defaultNow, onCheckedChange = { field.defaultNow = it })
-                    Text("Default to the current date & time")
-                }
-                else -> Unit
-            }
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = field.required, onCheckedChange = { field.required = it })
-                Text("Required")
-            }
-
-            field.validationHint()?.let { hint ->
-                Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-            }
-        }
     }
 }
 
@@ -332,7 +325,7 @@ private fun EditTypeDropdown(selected: FieldType, onSelected: (FieldType) -> Uni
 
 // ---- Draft model + helpers (self-contained for this screen) -----------------
 
-/** Mutable, Compose-observable editing state for one new field. */
+/** Mutable, Compose-observable editing state for one field. */
 private class EditDraft(
     label: String = "",
     type: FieldType = FieldType.TEXT,
@@ -343,6 +336,8 @@ private class EditDraft(
     to: String = "",
     optionsText: String = "",
     defaultNow: Boolean = false,
+    /** True for a field that already exists in the saved schema (name/type locked). */
+    val existing: Boolean = false,
 ) {
     var label by mutableStateOf(label)
     var type by mutableStateOf(type)
@@ -391,6 +386,26 @@ private class EditDraft(
     )
 }
 
+/** Seed an [EditDraft] from a saved field (marked existing — name/type locked). */
+private fun draftOf(f: FieldDef): EditDraft = EditDraft(
+    label = f.label,
+    type = f.type,
+    required = f.required,
+    lines = f.lines?.toString() ?: "",
+    digits = f.digits?.toString() ?: "",
+    from = f.from?.toString() ?: "",
+    to = f.to?.toString() ?: "",
+    optionsText = f.options.joinToString("\n"),
+    defaultNow = f.defaultNow,
+    existing = true,
+)
+
+/** Types whose settings can be adjusted after creation. */
+private fun FieldType.hasEditableSettings(): Boolean = when (this) {
+    FieldType.MULTILINE, FieldType.NUMBER, FieldType.DROPDOWN, FieldType.MULTIPLE, FieldType.SCALE -> true
+    else -> false
+}
+
 private fun FieldType.editFriendly(): String = when (this) {
     FieldType.TEXT -> "Text (one line)"
     FieldType.MULTILINE -> "Text (multi-line)"
@@ -402,21 +417,4 @@ private fun FieldType.editFriendly(): String = when (this) {
     FieldType.DATE -> "Date"
     FieldType.TIME -> "Time"
     FieldType.DATETIME -> "Date & time"
-}
-
-/** A short read-only description of an existing field. */
-private fun FieldDef.editSummary(): String {
-    val base = when (type) {
-        FieldType.TEXT -> "Single line of text"
-        FieldType.MULTILINE -> "Multi-line text" + (lines?.let { " ($it lines)" } ?: "")
-        FieldType.NUMBER -> "Number" + (digits?.let { " (up to $it digits)" } ?: "")
-        FieldType.DROPDOWN -> "Pick one: " + options.joinToString(", ")
-        FieldType.MULTIPLE -> "Pick several: " + options.joinToString(", ")
-        FieldType.SCALE -> "Scale $from–$to"
-        FieldType.YESNO -> "Yes / No / Unknown / Not Applicable"
-        FieldType.DATE -> "Date"
-        FieldType.TIME -> "Time"
-        FieldType.DATETIME -> "Date & time" + (if (defaultNow) " (defaults to now)" else "")
-    }
-    return if (required) "$base · required" else base
 }

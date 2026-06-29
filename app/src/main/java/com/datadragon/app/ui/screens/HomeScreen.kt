@@ -14,7 +14,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
@@ -42,7 +41,6 @@ import com.datadragon.app.ui.HomeViewModel
 @Composable
 fun HomeScreen(
     onOpenSettings: () -> Unit,
-    onOpenBackup: () -> Unit,
     onCreateLog: () -> Unit,
     onOpenLog: (Long) -> Unit,
     onAddEntry: (Long) -> Unit,
@@ -55,14 +53,9 @@ fun HomeScreen(
             TopAppBar(
                 title = { Text("Data Dragon") },
                 navigationIcon = {
-                    // Top-left settings, then download/backup, in that order.
-                    Row {
-                        IconButton(onClick = onOpenSettings) {
-                            Icon(Icons.Filled.Settings, contentDescription = "Settings")
-                        }
-                        IconButton(onClick = onOpenBackup) {
-                            Icon(Icons.Filled.FileDownload, contentDescription = "Back up all data")
-                        }
+                    // Settings holds backup/restore; the top-right "+" creates a log.
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(Icons.Filled.Settings, contentDescription = "Settings")
                     }
                 },
                 actions = {

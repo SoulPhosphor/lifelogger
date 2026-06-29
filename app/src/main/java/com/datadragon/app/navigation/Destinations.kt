@@ -10,7 +10,6 @@ object Routes {
     const val HOME = "home"
     const val CREATE_LOG = "createLog"
     const val SETTINGS = "settings"
-    const val BACKUP = "backup"
 
     // Parameterised routes.
     const val LOG_ARG = "logId"

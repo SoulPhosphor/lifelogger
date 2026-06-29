@@ -7,9 +7,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -34,6 +35,7 @@ import com.datadragon.app.ui.RestoreResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,13 +63,32 @@ fun SettingsScreen(
         }
     }
 
+    // Backup writes the whole database to a .json file the user places via the
+    // system "Save to…" sheet. Lives here in Settings (not on the Home bar).
+    val createDocument = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val json = viewModel.buildBackupJson()
+                status = runCatching {
+                    context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
+                        ?: error("No output stream")
+                }.fold(
+                    onSuccess = { "Backup saved." },
+                    onFailure = { "Couldn't save backup: ${it.message}" },
+                )
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Settings") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ChevronLeft, contentDescription = "Back")
+                        Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
                     }
                 },
             )
@@ -77,6 +98,20 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            Text("Back up all data", style = MaterialTheme.typography.labelLarge)
+            OutlinedButton(onClick = {
+                status = null
+                createDocument.launch("datadragon_backup_${LocalDate.now()}.json")
+            }) {
+                Text("Back up now…")
+            }
+            Text(
+                "Saves every log and entry into a single .json file you choose the location for.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
             // Restore lives at the bottom, away from everyday controls. Times are
             // always 12-hour (AM/PM), so there is no time-format choice here.
             Text("Restore from backup", style = MaterialTheme.typography.labelLarge)

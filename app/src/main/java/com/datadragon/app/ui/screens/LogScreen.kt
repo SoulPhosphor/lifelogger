@@ -10,19 +10,16 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -142,7 +139,7 @@ fun LogScreen(
                     // actions (export, edit form, delete).
                     Row {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.Filled.ChevronLeft, contentDescription = "Back")
+                            Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
                         }
                         Box {
                             IconButton(onClick = { gearMenuOpen = true }) {
@@ -381,10 +378,9 @@ fun LogScreen(
 
 /**
  * One entry card (docs/UI_SPEC.md §3). The top line holds the entry's timestamp
- * with the delete `🗑` across from it (and an edit pencil when the log is
- * unlocked); every field with a value is listed below as `label: value`. Any
- * append-only follow-up notes show at the bottom with their own timestamps, and
- * — when the log allows them — an "Add follow-up note" action.
+ * with a `⋮` menu across from it — Edit (when unlocked), Add follow-up note (when
+ * the log allows them), and Delete. Every field with a value is listed below as
+ * `label: value`, then any append-only follow-up notes with their timestamps.
  */
 @Composable
 private fun EntryRow(
@@ -399,12 +395,13 @@ private fun EntryRow(
 ) {
     val values = remember(entry.valuesJson) { EntryValues.decode(entry.valuesJson) }
     val notes = remember(values) { EntryValues.notes(values) }
+    var menuOpen by remember { mutableStateOf(false) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 8.dp, end = 4.dp, bottom = 16.dp),
         ) {
-            // Top line: timestamp on the left; edit (if unlocked) and delete on the right.
+            // Top line: timestamp on the left; a ⋮ menu across from it on the right.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -414,15 +411,27 @@ private fun EntryRow(
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f),
                 )
-                // Trash on the left of the pencil, both right-aligned, with a small
-                // gap so the two are easy to tap apart.
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Delete entry")
-                }
-                if (editable) {
-                    Spacer(Modifier.width(4.dp))
-                    IconButton(onClick = onEdit) {
-                        Icon(Icons.Filled.Edit, contentDescription = "Edit entry")
+                Box {
+                    IconButton(onClick = { menuOpen = true }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "Entry options")
+                    }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        if (editable) {
+                            DropdownMenuItem(
+                                text = { Text("Edit") },
+                                onClick = { menuOpen = false; onEdit() },
+                            )
+                        }
+                        if (appendable) {
+                            DropdownMenuItem(
+                                text = { Text("Add follow-up note") },
+                                onClick = { menuOpen = false; onAddNote() },
+                            )
+                        }
+                        DropdownMenuItem(
+                            text = { Text("Delete") },
+                            onClick = { menuOpen = false; onDelete() },
+                        )
                     }
                 }
             }
@@ -437,16 +446,6 @@ private fun EntryRow(
 
             appendedNotes.forEach { note ->
                 FollowUpNote(note)
-            }
-
-            if (appendable) {
-                TextButton(
-                    onClick = onAddNote,
-                    modifier = Modifier.padding(top = 4.dp),
-                ) {
-                    Icon(Icons.Filled.Add, contentDescription = null)
-                    Text("  Add follow-up note")
-                }
             }
         }
     }

@@ -4,6 +4,26 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-06-29 — UI corrections (back chevron, gear/backup, entry menu, edit-form settings)
+
+Fixing several things that were missed or half-done:
+
+- **Back button** is now a **double chevron** (`KeyboardDoubleArrowLeft`) on every
+  screen, not a single chevron.
+- **Backup moved into Settings.** The whole-database backup now lives in the
+  Settings screen (alongside Restore); the separate backup icon and screen/route
+  were removed from Home.
+- **Entry cards use a `⋮` menu** (Delete · Edit when unlocked · Add follow-up
+  note when the log allows them) instead of inline trash/pencil icons and a
+  bottom button. This also makes "add follow-up note" discoverable.
+- **Edit form** now lets you change the **adjustable settings** of existing
+  fields — options (dropdown/multiple), scale from/to, multiline lines, number
+  digits, and required — while name and type stay locked. Each field shows its
+  **name as the header** (no more "Field 1/2"); fixed types (text/date/time/
+  yes-no) show read-only.
+
+---
+
 ## 2026-06-29 — Export option: include follow-up notes
 
 The per-log export dialog gains an **"Include follow-up notes"** checkbox (default
