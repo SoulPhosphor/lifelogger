@@ -13,6 +13,9 @@ object FormMarkdownParser {
 
     private val json = Json { prettyPrint = false }
 
+    /** Encode a field list to the same schema JSON a parsed result would produce. */
+    fun encodeFields(fields: List<FieldDef>): String = json.encodeToString(fields)
+
     data class ParseResult(
         val name: String?,
         val fields: List<FieldDef>,

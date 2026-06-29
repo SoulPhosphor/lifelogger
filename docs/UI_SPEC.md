@@ -142,18 +142,36 @@ Once a log is created, it cannot be edited. It can only be deleted.
 │ Log name                                        │
 │ [____________________________________]          │
 │                                                 │
-│ Define fields            [ Field types ▸ ]      │
-│ ┌──────────────────────────────────────┐       │
-│ │ Paste Form Markdown here…            │       │
-│ │                                      │       │
-│ └──────────────────────────────────────┘       │
-│ [ Preview form ]                                 │
+│ [   Build   |   Paste   ]   ← style toggle      │
+│                                                 │
+│  (Build)                                        │
+│  ┌──────────────────────────────────────┐      │
+│  │ Field 1                          [🗑] │      │
+│  │ Label: [ Mood                     ]   │      │
+│  │ Type:  [ Scale (number range)   ▾ ]   │      │
+│  │ From [1]   To [5]                     │      │
+│  │ [ ] Required                          │      │
+│  └──────────────────────────────────────┘      │
+│  [ + Add field ]                                │
 └──────────────────────────────────────────────┘
 ```
 
 - **Log name** (required). Logs have no description field.
-- **Define fields:** a text box where the user pastes Form Markdown (see docs/FORM_MARKDOWN_SPEC.md). The **Preview form** button shows what the form will look like before saving.
-- **Field types reference** (`[ Field types ▸ ]`): an expandable panel the user can open to see what field types are available and how to write them. Contents:
+- **Style toggle (`[ Build | Paste ]`)** picks how fields are defined. **Build is
+  the default.** Switching tabs converts between the two: Paste → Build parses the
+  Markdown into editable cards; Build → Paste writes the equivalent Markdown.
+- **Build:** a list of field cards. Each has a Label, a Type dropdown, the inputs
+  that type needs (options list, scale from/to, multiline lines, number digits,
+  datetime "default to now"), and a Required checkbox. `+ Add field` appends one;
+  the 🗑 removes one. Invalid cards show an inline hint and block Save.
+- **Paste:** a text box for Form Markdown (see docs/FORM_MARKDOWN_SPEC.md) with a
+  **"How to write it"** help panel showing the syntax and a worked example.
+- **Save does not require a preview.** In Paste mode the text is parsed on Save;
+  `Preview form` is an optional helper that shows the parsed fields and any
+  problems. Save is enabled once there is a name (Build also requires every field
+  card to be valid).
+- **Field types reference**: shown inside the Paste "How to write it" panel.
+  Contents:
 
 ```
 text         — a single line of text
@@ -169,7 +187,8 @@ multiple     — pick several items from a list (tappable chips)
 Any field can add "required" to prevent saving without it.
 ```
 
-- A visual field builder (add fields by tapping instead of pasting) may be added in a later phase as an alternative. It would not replace the paste box.
+- The visual field builder (Build tab) is the default way to define fields; the
+  paste box remains available under the Paste tab as an alternative.
 
 ---
 

@@ -4,6 +4,33 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-06-29 — Phase 10: Visual field builder + UX fixes
+
+**Summary**
+
+- **Phase 10 (visual field builder).** Create Log now has a `[ Build | Paste ]`
+  style toggle, defaulting to **Build**. Build is a tap-driven editor: field
+  cards with a Label, a Type dropdown (friendly names), the inputs each type
+  needs (options one-per-line, scale from/to, multiline lines, number digits,
+  datetime default-now), a Required checkbox, and add/delete. It produces the
+  same `FieldDef` schema as the parser. New `FormMarkdownGenerator` renders a
+  field list back to Form Markdown, used both to store readable Markdown for
+  Build-made logs and to convert Build → Paste; Paste → Build uses the parser.
+- **Paste help.** The Paste tab gained a "How to write it" panel with the Form
+  Markdown syntax and a worked example (it previously only listed the field
+  types, not how to write them).
+- **Save no longer needs Preview.** Paste parses on Save; `Preview form` is now
+  an optional helper. Save is enabled once there's a name (Build also requires
+  every field card to be valid, with inline hints).
+
+**Known issues / next steps**
+
+- Build → Paste generates Markdown only from cards that have a label; fully blank
+  in-progress cards are dropped on conversion.
+- Templates remain create-once (no editing an existing log's fields).
+
+---
+
 ## 2026-06-28 — Release on push to main (CI)
 
 Added a `release` job to `.github/workflows/build.yml`: on every push to `main`

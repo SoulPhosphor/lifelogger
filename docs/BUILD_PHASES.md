@@ -146,11 +146,19 @@ Build:
 
 PDF export should be based on the readable report, not the CSV.
 
-## Phase 10: Visual Field Builder
+## Phase 10: Visual Field Builder ✅
 
 Goal: Optional UI to build templates without writing Form Markdown.
 
 This is a comfort feature. It should never block earlier phases.
+
+Implemented: the Create Log screen has a `[ Build | Paste ]` style toggle,
+defaulting to **Build**. Build is a visual editor — a list of field cards (Label,
+Type dropdown, type-specific inputs, Required checkbox, add/delete) that produces
+the same `FieldDef` schema as the parser. Paste keeps the Form Markdown box (now
+with a "How to write it" syntax panel). Switching tabs converts between the two
+via `FormMarkdownParser` (Paste → Build) and `FormMarkdownGenerator` (Build →
+Paste). Saving no longer requires pressing Preview; Paste parses on Save.
 
 ## Worklog Requirement
 
