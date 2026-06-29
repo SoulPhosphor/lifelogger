@@ -151,7 +151,7 @@ fun EditFormScreen(
             }
 
             OutlinedButton(
-                onClick = { rows.add(FormRow(existing = null, draft = DraftField())) },
+                onClick = { rows.add(FormRow(existing = null, draft = EditDraft())) },
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Icon(Icons.Filled.Add, contentDescription = null)
@@ -162,7 +162,7 @@ fun EditFormScreen(
 }
 
 /** A row in the editor: either a pre-existing field or a new editable draft. */
-private class FormRow(val existing: FieldDef?, val draft: DraftField?)
+private class FormRow(val existing: FieldDef?, val draft: EditDraft?)
 
 @Composable
 private fun ReorderControls(
@@ -197,7 +197,7 @@ private fun ExistingFieldCard(
             }
             Text(field.label, style = MaterialTheme.typography.titleSmall)
             Text(
-                field.summary(),
+                field.editSummary(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -208,7 +208,7 @@ private fun ExistingFieldCard(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NewFieldCard(
-    field: DraftField,
+    field: EditDraft,
     title: String,
     canMoveUp: Boolean,
     canMoveDown: Boolean,
@@ -234,27 +234,27 @@ private fun NewFieldCard(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            TypeDropdown(selected = field.type, onSelected = { field.type = it })
+            EditTypeDropdown(selected = field.type, onSelected = { field.type = it })
 
             when (field.type) {
-                FieldType.MULTILINE -> NumberField(
+                FieldType.MULTILINE -> EditNumberField(
                     value = field.lines,
                     onChange = { field.lines = it },
                     label = "Lines (height, optional)",
                 )
-                FieldType.NUMBER -> NumberField(
+                FieldType.NUMBER -> EditNumberField(
                     value = field.digits,
                     onChange = { field.digits = it },
                     label = "Max digits (optional)",
                 )
                 FieldType.SCALE -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    NumberField(
+                    EditNumberField(
                         value = field.from,
                         onChange = { field.from = it },
                         label = "From",
                         modifier = Modifier.weight(1f),
                     )
-                    NumberField(
+                    EditNumberField(
                         value = field.to,
                         onChange = { field.to = it },
                         label = "To",
@@ -287,7 +287,7 @@ private fun NewFieldCard(
 }
 
 @Composable
-private fun NumberField(
+private fun EditNumberField(
     value: String,
     onChange: (String) -> Unit,
     label: String,
@@ -305,11 +305,11 @@ private fun NumberField(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TypeDropdown(selected: FieldType, onSelected: (FieldType) -> Unit) {
+private fun EditTypeDropdown(selected: FieldType, onSelected: (FieldType) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
         OutlinedTextField(
-            value = selected.friendly(),
+            value = selected.editFriendly(),
             onValueChange = {},
             readOnly = true,
             label = { Text("Type") },
@@ -319,7 +319,7 @@ private fun TypeDropdown(selected: FieldType, onSelected: (FieldType) -> Unit) {
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             FieldType.entries.forEach { type ->
                 DropdownMenuItem(
-                    text = { Text(type.friendly()) },
+                    text = { Text(type.editFriendly()) },
                     onClick = {
                         onSelected(type)
                         expanded = false
@@ -333,7 +333,7 @@ private fun TypeDropdown(selected: FieldType, onSelected: (FieldType) -> Unit) {
 // ---- Draft model + helpers (self-contained for this screen) -----------------
 
 /** Mutable, Compose-observable editing state for one new field. */
-private class DraftField(
+private class EditDraft(
     label: String = "",
     type: FieldType = FieldType.TEXT,
     required: Boolean = false,
@@ -391,7 +391,7 @@ private class DraftField(
     )
 }
 
-private fun FieldType.friendly(): String = when (this) {
+private fun FieldType.editFriendly(): String = when (this) {
     FieldType.TEXT -> "Text (one line)"
     FieldType.MULTILINE -> "Text (multi-line)"
     FieldType.NUMBER -> "Number"
@@ -405,7 +405,7 @@ private fun FieldType.friendly(): String = when (this) {
 }
 
 /** A short read-only description of an existing field. */
-private fun FieldDef.summary(): String {
+private fun FieldDef.editSummary(): String {
     val base = when (type) {
         FieldType.TEXT -> "Single line of text"
         FieldType.MULTILINE -> "Multi-line text" + (lines?.let { " ($it lines)" } ?: "")
