@@ -1,6 +1,7 @@
 package com.datadragon.app.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -32,6 +33,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -179,19 +181,19 @@ fun CreateLogScreen(
                 singleLine = true,
             )
 
-            CheckboxRow(
+            SettingSwitchRow(
                 checked = locked,
                 onCheckedChange = { locked = it },
                 title = "Locked log",
                 subtitle = "Entries can't be edited after saving. You can unlock it " +
                     "later, but only once — it can never be re-locked.",
             )
-            CheckboxRow(
+            SettingSwitchRow(
                 checked = allowAppendedNotes,
                 onCheckedChange = { allowAppendedNotes = it },
-                title = "Allow follow-up notes",
-                subtitle = "Add time-stamped notes to an entry later without changing " +
-                    "the original.",
+                title = "Follow-Up Notes",
+                subtitle = "Let entries get time-stamped notes added later, without " +
+                    "changing the original. (Can also be toggled later.)",
             )
 
             // Style toggle. Switching converts between the two representations so
@@ -248,17 +250,23 @@ fun CreateLogScreen(
     }
 }
 
+/** A settings row with a label + description on the left and a Switch on the
+ *  right. The whole row is tappable to toggle, which is easier to hit. */
 @Composable
-private fun CheckboxRow(
+private fun SettingSwitchRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     title: String,
     subtitle: String,
 ) {
-    Row(verticalAlignment = Alignment.Top) {
-        Checkbox(checked = checked, onCheckedChange = onCheckedChange)
-        Spacer(Modifier.width(4.dp))
-        Column(modifier = Modifier.padding(top = 12.dp)) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
             Text(
                 subtitle,
@@ -266,6 +274,8 @@ private fun CheckboxRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        Spacer(Modifier.width(12.dp))
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 

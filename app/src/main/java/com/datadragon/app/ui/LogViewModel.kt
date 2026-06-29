@@ -102,6 +102,15 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Turn follow-up notes on/off for this log (toggleable any time). */
+    fun setAllowAppendedNotes(allow: Boolean) {
+        val current = _template.value ?: return
+        viewModelScope.launch {
+            templateDao.setAllowAppendedNotes(current.id, allow)
+            _template.value = current.copy(allowAppendedNotes = allow)
+        }
+    }
+
     /**
      * Delete this whole log and all of its entries, then invoke [onDeleted]
      * (used to navigate away). Runs in one transaction.

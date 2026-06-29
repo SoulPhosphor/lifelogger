@@ -75,7 +75,7 @@ object PdfReport {
             val followUps = if (includeFollowUps) entryNotes[entry.id].orEmpty() else emptyList()
             if (followUps.isNotEmpty()) {
                 writer.gap(4f)
-                writer.text(labelPaint, "Follow-up notes:")
+                writer.text(labelPaint, "Follow-Up Notes:")
                 followUps.forEach { note ->
                     writer.text(
                         bodyPaint,

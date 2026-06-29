@@ -89,7 +89,7 @@ object ReportBuilder {
 
         if (followUps.isNotEmpty()) {
             sb.append('\n')
-            sb.append(if (markdown) "**Follow-up notes:**" else "Follow-up notes:").append('\n')
+            sb.append(if (markdown) "**Follow-Up Notes:**" else "Follow-Up Notes:").append('\n')
             followUps.forEach { note ->
                 sb.append("- ")
                     .append(EntryValues.displayEntryDateTime(note.createdAt))

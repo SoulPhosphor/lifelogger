@@ -22,6 +22,10 @@ interface LogTemplateDao {
     @Query("UPDATE log_templates SET locked = 0 WHERE id = :id")
     suspend fun unlock(id: Long)
 
+    /** Turn follow-up notes on or off for a log (toggleable after creation). */
+    @Query("UPDATE log_templates SET allowAppendedNotes = :allow WHERE id = :id")
+    suspend fun setAllowAppendedNotes(id: Long, allow: Boolean)
+
     /**
      * Replace a log's field schema (and its source Form Markdown). Used by "Edit
      * form", which may only add fields and reorder them — never rename or delete

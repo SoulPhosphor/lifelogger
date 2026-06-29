@@ -17,8 +17,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -122,21 +122,10 @@ fun LogScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(template?.name ?: "Log")
-                        // A locked log shows a lock by its name; tapping it offers the
-                        // one-way unlock.
-                        if (locked) {
-                            IconButton(onClick = { showUnlock = true }) {
-                                Icon(Icons.Filled.Lock, contentDescription = "Locked — tap to unlock")
-                            }
-                        }
-                    }
-                },
+                title = { Text(template?.name ?: "Log") },
                 navigationIcon = {
                     // Left cluster: back, then a gear menu holding the log-level
-                    // actions (export, edit form, delete).
+                    // actions (export, edit form, follow-up notes, unlock, delete).
                     Row {
                         IconButton(onClick = onBack) {
                             Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
@@ -163,6 +152,28 @@ fun LogScreen(
                                         onEditForm()
                                     },
                                 )
+                                // Toggle follow-up notes on/off (a check marks "on").
+                                DropdownMenuItem(
+                                    text = { Text("Follow-Up Notes") },
+                                    trailingIcon = {
+                                        if (allowAppendedNotes) {
+                                            Icon(Icons.Filled.Check, contentDescription = "On")
+                                        }
+                                    },
+                                    onClick = {
+                                        gearMenuOpen = false
+                                        viewModel.setAllowAppendedNotes(!allowAppendedNotes)
+                                    },
+                                )
+                                if (locked) {
+                                    DropdownMenuItem(
+                                        text = { Text("Unlock log") },
+                                        onClick = {
+                                            gearMenuOpen = false
+                                            showUnlock = true
+                                        },
+                                    )
+                                }
                                 DropdownMenuItem(
                                     text = { Text("Delete log") },
                                     onClick = {
@@ -230,7 +241,7 @@ fun LogScreen(
                                 checked = includeFollowUps,
                                 onCheckedChange = { includeFollowUps = it },
                             )
-                            Text("Include follow-up notes")
+                            Text("Include Follow-Up Notes")
                         }
                     }
 
@@ -344,7 +355,7 @@ fun LogScreen(
     noteFor?.let { entry ->
         AlertDialog(
             onDismissRequest = { noteFor = null },
-            title = { Text("Add follow-up note") },
+            title = { Text("Add Follow-Up Note") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
@@ -424,7 +435,7 @@ private fun EntryRow(
                         }
                         if (appendable) {
                             DropdownMenuItem(
-                                text = { Text("Add follow-up note") },
+                                text = { Text("Add Follow-Up Note") },
                                 onClick = { menuOpen = false; onAddNote() },
                             )
                         }
@@ -436,6 +447,17 @@ private fun EntryRow(
                 }
             }
 
+            // Follow-Up Notes sit at the top, under their own heading, so they're
+            // visible without scrolling past the rest of the entry's data.
+            if (appendedNotes.isNotEmpty()) {
+                Text(
+                    "Follow-Up Notes",
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                appendedNotes.forEach { note -> FollowUpNote(note) }
+            }
+
             // One label-over-value block per field that has a value, going down.
             fields.forEach { field ->
                 EntryValues.displayValue(field, values)?.let { value ->
@@ -443,27 +465,23 @@ private fun EntryRow(
                 }
             }
             notes?.let { FieldReadout(label = "Notes", value = it) }
-
-            appendedNotes.forEach { note ->
-                FollowUpNote(note)
-            }
         }
     }
 }
 
-/** An append-only follow-up note: a "↳" marker, its own timestamp, then the text. */
+/** One Follow-Up Note: its own timestamp (muted) followed by the note text. */
 @Composable
 private fun FollowUpNote(note: EntryNote) {
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     Text(
         text = buildAnnotatedString {
             withStyle(SpanStyle(color = labelColor, fontWeight = FontWeight.Medium)) {
-                append("↳ ${EntryValues.displayEntryTimestamp(note.createdAt)}: ")
+                append("${EntryValues.displayEntryTimestamp(note.createdAt)}: ")
             }
             append(note.text)
         },
         style = MaterialTheme.typography.bodyMedium,
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
     )
 }
 
