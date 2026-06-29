@@ -4,19 +4,24 @@ import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
 /**
  * Data access for [LogEntry].
  *
- * Entries are create / read / delete only — they are never edited (only added or
- * deleted), so there is deliberately no update. Delete is wired in Phase 7.
+ * Entries in a locked log are create / read / delete only. [update] is used only
+ * for entries in an unlocked (editable) log.
  */
 @Dao
 interface LogEntryDao {
 
     @Insert
     suspend fun insert(entry: LogEntry): Long
+
+    /** Edit an existing entry — only used for entries in an unlocked log. */
+    @Update
+    suspend fun update(entry: LogEntry)
 
     @Delete
     suspend fun delete(entry: LogEntry)

@@ -13,13 +13,17 @@ class BackupRepository(private val db: AppDatabase) {
 
     private val templateDao = db.logTemplateDao()
     private val entryDao = db.logEntryDao()
+    private val noteDao = db.entryNoteDao()
 
-    /** Snapshot every log and entry into a [BackupFile]. */
+    /** Snapshot every log, entry, and follow-up note into a [BackupFile]. */
     suspend fun buildFull(): BackupFile {
         val templates = templateDao.getAllOnce()
         val entriesByTemplate = entryDao.getAllOnce().groupBy { it.templateId }
+        val notesByEntry = noteDao.getAllOnce().groupBy { it.entryId }
         val logs = templates.map { template ->
-            BackupCodec.logOf(template, entriesByTemplate[template.id].orEmpty())
+            val entries = entriesByTemplate[template.id].orEmpty()
+            val notes = entries.flatMap { notesByEntry[it.id].orEmpty() }
+            BackupCodec.logOf(template, entries, notes)
         }
         return BackupFile(exportedAt = now(), logs = logs)
     }
@@ -29,11 +33,13 @@ class BackupRepository(private val db: AppDatabase) {
      * Runs in one transaction so a failure leaves the database untouched.
      */
     suspend fun restore(backup: BackupFile): Int = db.withTransaction {
+        noteDao.deleteAll()
         entryDao.deleteAll()
         templateDao.deleteAll()
         backup.logs.forEach { log ->
             templateDao.insert(BackupCodec.templateOf(log))
             BackupCodec.entriesOf(log).forEach { entryDao.insert(it) }
+            BackupCodec.notesOf(log).forEach { noteDao.insert(it) }
         }
         backup.logs.size
     }

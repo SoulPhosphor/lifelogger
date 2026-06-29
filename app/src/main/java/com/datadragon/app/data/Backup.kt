@@ -31,6 +31,9 @@ data class BackupLog(
     val createdAt: Long,
     val schemaJson: String,
     val formMarkdown: String = "",
+    // Default to the prior behavior so older backups round-trip: locked, no notes.
+    val locked: Boolean = true,
+    val allowAppendedNotes: Boolean = false,
     val entries: List<BackupEntry> = emptyList(),
 )
 
@@ -40,6 +43,13 @@ data class BackupEntry(
     val createdAt: String,
     val updatedAt: String? = null,
     val valuesJson: String,
+    val notes: List<BackupNote> = emptyList(),
+)
+
+@Serializable
+data class BackupNote(
+    val createdAt: String,
+    val text: String,
 )
 
 /** Encodes / decodes [BackupFile] and converts to and from the Room entities. */
@@ -54,22 +64,33 @@ object BackupCodec {
 
     fun decode(text: String): BackupFile = json.decodeFromString(BackupFile.serializer(), text)
 
-    fun logOf(template: LogTemplate, entries: List<LogEntry>): BackupLog =
-        BackupLog(
+    fun logOf(
+        template: LogTemplate,
+        entries: List<LogEntry>,
+        notes: List<EntryNote> = emptyList(),
+    ): BackupLog {
+        val notesByEntry = notes.groupBy { it.entryId }
+        return BackupLog(
             id = template.id,
             name = template.name,
             createdAt = template.createdAt,
             schemaJson = template.schemaJson,
             formMarkdown = template.formMarkdown,
-            entries = entries.map {
+            locked = template.locked,
+            allowAppendedNotes = template.allowAppendedNotes,
+            entries = entries.map { entry ->
                 BackupEntry(
-                    id = it.id,
-                    createdAt = it.createdAt,
-                    updatedAt = it.updatedAt,
-                    valuesJson = it.valuesJson,
+                    id = entry.id,
+                    createdAt = entry.createdAt,
+                    updatedAt = entry.updatedAt,
+                    valuesJson = entry.valuesJson,
+                    notes = notesByEntry[entry.id].orEmpty().map {
+                        BackupNote(createdAt = it.createdAt, text = it.text)
+                    },
                 )
             },
         )
+    }
 
     fun templateOf(log: BackupLog): LogTemplate =
         LogTemplate(
@@ -78,6 +99,8 @@ object BackupCodec {
             createdAt = log.createdAt,
             schemaJson = log.schemaJson,
             formMarkdown = log.formMarkdown,
+            locked = log.locked,
+            allowAppendedNotes = log.allowAppendedNotes,
         )
 
     fun entriesOf(log: BackupLog): List<LogEntry> =
@@ -91,7 +114,18 @@ object BackupCodec {
             )
         }
 
+    /** The append-only notes for a restored log, keyed to their entries' ids. */
+    fun notesOf(log: BackupLog): List<EntryNote> =
+        log.entries.flatMap { entry ->
+            entry.notes.map { EntryNote(entryId = entry.id, createdAt = it.createdAt, text = it.text) }
+        }
+
     /** A one-log export built from already-loaded objects (no database read). */
-    fun encodeSingleLog(template: LogTemplate, entries: List<LogEntry>, exportedAt: String): String =
-        encode(BackupFile(exportedAt = exportedAt, logs = listOf(logOf(template, entries))))
+    fun encodeSingleLog(
+        template: LogTemplate,
+        entries: List<LogEntry>,
+        exportedAt: String,
+        notes: List<EntryNote> = emptyList(),
+    ): String =
+        encode(BackupFile(exportedAt = exportedAt, logs = listOf(logOf(template, entries, notes))))
 }

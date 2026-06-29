@@ -17,6 +17,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuItem
@@ -105,6 +107,11 @@ fun CreateLogScreen(
     var name by remember { mutableStateOf("") }
     var mode by remember { mutableStateOf(BuilderMode.BUILD) }
 
+    // Per-log behavior, chosen once at creation. Locked (create-once entries) is
+    // the default; it can later be unlocked one-way from the log screen.
+    var locked by remember { mutableStateOf(true) }
+    var allowAppendedNotes by remember { mutableStateOf(false) }
+
     // Build tab: the editable field list is the source of truth.
     val draftFields = remember { mutableStateListOf<DraftField>() }
 
@@ -146,6 +153,8 @@ fun CreateLogScreen(
                                 name = finalName,
                                 schemaJson = FormMarkdownParser.encodeFields(fields),
                                 formMarkdown = markdown,
+                                locked = locked,
+                                allowAppendedNotes = allowAppendedNotes,
                                 onSaved = onBack,
                             )
                         },
@@ -168,6 +177,21 @@ fun CreateLogScreen(
                 onValueChange = { name = it },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
+            )
+
+            CheckboxRow(
+                checked = locked,
+                onCheckedChange = { locked = it },
+                title = "Locked log",
+                subtitle = "Entries can't be edited after saving. You can unlock it " +
+                    "later, but only once — it can never be re-locked.",
+            )
+            CheckboxRow(
+                checked = allowAppendedNotes,
+                onCheckedChange = { allowAppendedNotes = it },
+                title = "Allow follow-up notes",
+                subtitle = "Add time-stamped notes to an entry later without changing " +
+                    "the original.",
             )
 
             // Style toggle. Switching converts between the two representations so
@@ -220,6 +244,27 @@ fun CreateLogScreen(
                     onPreview = { preview = FormMarkdownParser.parse(pasteText) },
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun CheckboxRow(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    title: String,
+    subtitle: String,
+) {
+    Row(verticalAlignment = Alignment.Top) {
+        Checkbox(checked = checked, onCheckedChange = onCheckedChange)
+        Spacer(Modifier.width(4.dp))
+        Column(modifier = Modifier.padding(top = 12.dp)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

@@ -51,12 +51,16 @@ import java.util.Locale
 fun NewEntryScreen(
     logId: String?,
     onBack: () -> Unit,
+    entryId: String? = null,
     viewModel: NewEntryViewModel = viewModel(),
 ) {
     val id = logId?.toLongOrNull()
-    LaunchedEffect(id) { id?.let { viewModel.load(it) } }
+    val editEntryId = entryId?.toLongOrNull()
+    val isEditing = editEntryId != null
+    LaunchedEffect(id, editEntryId) { id?.let { viewModel.load(it, editEntryId) } }
 
     val fields by viewModel.fields.collectAsStateWithLifecycle()
+    val initialValues by viewModel.initialValues.collectAsStateWithLifecycle()
 
     val timestamp = remember {
         LocalDateTime.now().format(
@@ -70,8 +74,24 @@ fun NewEntryScreen(
     val multiValues = remember { mutableStateMapOf<String, Set<String>>() }
     var notes by remember { mutableStateOf("") }
 
-    // Pre-fill any `datetime` field flagged `default: now` with the current time.
-    LaunchedEffect(fields) {
+    // When editing, pre-fill the form from the entry's stored values once loaded.
+    LaunchedEffect(initialValues, fields) {
+        val values = initialValues ?: return@LaunchedEffect
+        fields.forEach { field ->
+            if (field.type == FieldType.MULTIPLE) {
+                val selected = EntryValues.selectedOptions(values, field.label)
+                if (selected.isNotEmpty()) multiValues[field.label] = selected
+            } else {
+                EntryValues.rawValue(values, field.label)?.let { textValues[field.label] = it }
+            }
+        }
+        EntryValues.notes(values)?.let { notes = it }
+    }
+
+    // Pre-fill any `datetime` field flagged `default: now` with the current time
+    // (new entries only — when editing, the stored value is loaded above instead).
+    LaunchedEffect(fields, isEditing) {
+        if (isEditing) return@LaunchedEffect
         fields.forEach { field ->
             if (field.type == FieldType.DATETIME && field.defaultNow && textValues[field.label] == null) {
                 textValues[field.label] = LocalDateTime.now()
@@ -93,7 +113,7 @@ fun NewEntryScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("New Entry") },
+                title = { Text(if (isEditing) "Edit Entry" else "New Entry") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -122,7 +142,11 @@ fun NewEntryScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(
-                text = "Date / time:  $timestamp (auto)",
+                text = if (isEditing) {
+                    "Editing entry · its original date & time is kept"
+                } else {
+                    "Date / time:  $timestamp (auto)"
+                },
                 style = MaterialTheme.typography.bodyMedium,
             )
 

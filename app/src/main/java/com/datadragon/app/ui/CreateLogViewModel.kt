@@ -22,6 +22,8 @@ class CreateLogViewModel(app: Application) : AndroidViewModel(app) {
         name: String,
         schemaJson: String,
         formMarkdown: String,
+        locked: Boolean,
+        allowAppendedNotes: Boolean,
         onSaved: () -> Unit,
     ) {
         viewModelScope.launch {
@@ -31,6 +33,8 @@ class CreateLogViewModel(app: Application) : AndroidViewModel(app) {
                     createdAt = System.currentTimeMillis(),
                     schemaJson = schemaJson,
                     formMarkdown = formMarkdown,
+                    locked = locked,
+                    allowAppendedNotes = allowAppendedNotes,
                 )
             )
             onSaved()

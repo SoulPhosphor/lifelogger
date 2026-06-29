@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.datadragon.app.data.AppDatabase
+import com.datadragon.app.data.BackupRepository
+import com.datadragon.app.data.EntryNote
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.LogEntry
 import com.datadragon.app.data.LogTemplate
@@ -14,6 +16,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
@@ -29,6 +32,7 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
     private val db = AppDatabase.getInstance(app)
     private val templateDao = db.logTemplateDao()
     private val entryDao = db.logEntryDao()
+    private val noteDao = db.entryNoteDao()
     private val json = Json { ignoreUnknownKeys = true }
 
     private val _template = MutableStateFlow<LogTemplate?>(null)
@@ -45,6 +49,14 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** Append-only follow-up notes for this log, grouped by the entry they belong to. */
+    val notesByEntry: StateFlow<Map<Long, List<EntryNote>>> = templateId
+        .flatMapLatest { id ->
+            if (id == null) flowOf(emptyList()) else noteDao.observeForTemplate(id)
+        }
+        .map { notes -> notes.groupBy { it.entryId } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
     fun load(id: Long) {
         templateId.value = id
         viewModelScope.launch {
@@ -56,9 +68,38 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Delete one entry. The entry list updates automatically. */
+    /** Delete one entry and any follow-up notes attached to it. */
     fun deleteEntry(entry: LogEntry) {
-        viewModelScope.launch { entryDao.delete(entry) }
+        viewModelScope.launch {
+            db.withTransaction {
+                noteDao.deleteForEntry(entry.id)
+                entryDao.delete(entry)
+            }
+        }
+    }
+
+    /** Append a time-stamped follow-up note to an entry (append-only). */
+    fun addNote(entry: LogEntry, text: String) {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch {
+            noteDao.insert(
+                EntryNote(entryId = entry.id, createdAt = BackupRepository.now(), text = trimmed)
+            )
+        }
+    }
+
+    /**
+     * One-way unlock: a locked log becomes editable. It can never be re-locked,
+     * so a log still showing as locked has never been editable.
+     */
+    fun unlockLog() {
+        val current = _template.value ?: return
+        if (!current.locked) return
+        viewModelScope.launch {
+            templateDao.unlock(current.id)
+            _template.value = current.copy(locked = false)
+        }
     }
 
     /**
@@ -69,6 +110,7 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
         val template = _template.value ?: return
         viewModelScope.launch {
             db.withTransaction {
+                noteDao.deleteForTemplate(template.id)
                 entryDao.deleteForTemplate(template.id)
                 templateDao.delete(template)
             }

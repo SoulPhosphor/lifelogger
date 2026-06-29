@@ -4,6 +4,37 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-06-29 — Per-log locked / editable mode + append-only follow-up notes
+
+**Summary**
+
+Logs now carry two flags chosen at creation (Create Log gained two checkboxes):
+
+- **`locked`** (default true): entries are create-once and can't be edited. It is
+  **one-way** — a locked log can be unlocked from its screen (a lock icon by the
+  name → confirm dialog warning it's permanent), but an unlocked log can never be
+  re-locked, so a log still showing locked has never been editable. Unlocking
+  enables an edit pencil on each entry that reopens the entry form pre-filled and
+  saves via `LogEntryDao.update` (original `createdAt` kept, `updatedAt` stamped).
+- **`allowAppendedNotes`** (default false): each entry gets an "Add follow-up
+  note" action that appends a separate, time-stamped `EntryNote`. Notes are
+  append-only (insert/read only) so they never alter the original entry; they
+  render under the entry as "↳ {time}: {text}".
+
+Data: new `EntryNote` entity + DAO, DB **v4 → v5** migration (adds the two
+template columns and the `entry_notes` table; existing logs default to locked so
+prior behavior is preserved). Backup/restore round-trips the flags and notes.
+A 🔒 shows next to locked logs on Home.
+
+**Known issues / next steps**
+
+- Single-log `.json` export doesn't yet include follow-up notes (the full backup
+  does); fine for re-import of the log + entries.
+- A log created unlocked (editable) and one that was unlocked later are
+  indistinguishable (neither shows a lock) — intentional.
+
+---
+
 ## 2026-06-29 — Phase 10: Visual field builder + UX fixes
 
 **Summary**

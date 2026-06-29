@@ -9,14 +9,18 @@ import kotlinx.coroutines.flow.Flow
 /**
  * Data access for [LogTemplate].
  *
- * Phase 2 needs create, read, and delete only. There is deliberately no update:
- * logs cannot be edited after creation (README / docs/UI_SPEC.md).
+ * A template's fields and name are never edited after creation. The only
+ * permitted mutation is [unlock]: a one-way flip of `locked` from true to false.
  */
 @Dao
 interface LogTemplateDao {
 
     @Insert
     suspend fun insert(template: LogTemplate): Long
+
+    /** One-way unlock: a locked log becomes editable and can never be re-locked. */
+    @Query("UPDATE log_templates SET locked = 0 WHERE id = :id")
+    suspend fun unlock(id: Long)
 
     /** Templates in creation order — never resorted (docs/UI_SPEC.md §2). */
     @Query("SELECT * FROM log_templates ORDER BY createdAt ASC, id ASC")

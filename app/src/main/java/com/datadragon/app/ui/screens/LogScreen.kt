@@ -19,7 +19,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -27,6 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -47,6 +50,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.datadragon.app.data.EntryNote
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.LogEntry
@@ -61,6 +65,7 @@ fun LogScreen(
     logId: String?,
     onBack: () -> Unit,
     onAddEntry: () -> Unit,
+    onEditEntry: (Long) -> Unit,
     viewModel: LogViewModel = viewModel(),
 ) {
     val id = logId?.toLongOrNull()
@@ -68,11 +73,19 @@ fun LogScreen(
     val template by viewModel.template.collectAsStateWithLifecycle()
     val fields by viewModel.fields.collectAsStateWithLifecycle()
     val entries by viewModel.entries.collectAsStateWithLifecycle()
+    val notesByEntry by viewModel.notesByEntry.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
+    val locked = template?.locked ?: true
+    val allowAppendedNotes = template?.allowAppendedNotes ?: false
 
     var confirmDeleteLog by remember { mutableStateOf(false) }
     var showFormatChooser by remember { mutableStateOf(false) }
     var entryToDelete by remember { mutableStateOf<LogEntry?>(null) }
+    var showUnlock by remember { mutableStateOf(false) }
+    // The entry a follow-up note is being added to, plus the in-progress text.
+    var noteFor by remember { mutableStateOf<LogEntry?>(null) }
+    var noteText by remember { mutableStateOf("") }
 
     // The file the user is saving. They choose the destination and name via the
     // system "Save to…" sheet; we write the bytes to whatever location it returns.
@@ -103,7 +116,18 @@ fun LogScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(template?.name ?: "Log") },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(template?.name ?: "Log")
+                        // A locked log shows a lock by its name; tapping it offers the
+                        // one-way unlock.
+                        if (locked) {
+                            IconButton(onClick = { showUnlock = true }) {
+                                Icon(Icons.Filled.Lock, contentDescription = "Locked — tap to unlock")
+                            }
+                        }
+                    }
+                },
                 navigationIcon = {
                     // Left cluster: back, download, delete — destructive control kept far
                     // from the everyday "+" on the right.
@@ -144,7 +168,15 @@ fun LogScreen(
                     EntryRow(
                         entry = entry,
                         fields = fields,
+                        appendedNotes = notesByEntry[entry.id].orEmpty(),
+                        editable = !locked,
+                        appendable = allowAppendedNotes,
                         onDelete = { entryToDelete = entry },
+                        onEdit = { onEditEntry(entry.id) },
+                        onAddNote = {
+                            noteText = ""
+                            noteFor = entry
+                        },
                     )
                 }
             }
@@ -227,16 +259,82 @@ fun LogScreen(
             },
         )
     }
+
+    if (showUnlock) {
+        AlertDialog(
+            onDismissRequest = { showUnlock = false },
+            title = { Text("Unlock this log?") },
+            text = {
+                Text(
+                    "Unlocking lets you edit its entries. This is permanent — once " +
+                        "unlocked, the log can never be re-locked.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showUnlock = false
+                    viewModel.unlockLog()
+                }) { Text("Unlock") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showUnlock = false }) { Text("Cancel") }
+            },
+        )
+    }
+
+    noteFor?.let { entry ->
+        AlertDialog(
+            onDismissRequest = { noteFor = null },
+            title = { Text("Add follow-up note") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "This is added as a separate, time-stamped note. The original " +
+                            "entry isn't changed.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    OutlinedTextField(
+                        value = noteText,
+                        onValueChange = { noteText = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("What happened…") },
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = noteText.isNotBlank(),
+                    onClick = {
+                        viewModel.addNote(entry, noteText)
+                        noteFor = null
+                    },
+                ) { Text("Add note") }
+            },
+            dismissButton = {
+                TextButton(onClick = { noteFor = null }) { Text("Cancel") }
+            },
+        )
+    }
 }
 
 /**
  * One entry card (docs/UI_SPEC.md §3). The top line holds the entry's timestamp
- * with the delete `🗑` across from it; every field with a value is then listed
- * below as a clean label-over-value block, stacked vertically. Entries are never
- * edited — only added or deleted.
+ * with the delete `🗑` across from it (and an edit pencil when the log is
+ * unlocked); every field with a value is listed below as `label: value`. Any
+ * append-only follow-up notes show at the bottom with their own timestamps, and
+ * — when the log allows them — an "Add follow-up note" action.
  */
 @Composable
-private fun EntryRow(entry: LogEntry, fields: List<FieldDef>, onDelete: () -> Unit) {
+private fun EntryRow(
+    entry: LogEntry,
+    fields: List<FieldDef>,
+    appendedNotes: List<EntryNote>,
+    editable: Boolean,
+    appendable: Boolean,
+    onDelete: () -> Unit,
+    onEdit: () -> Unit,
+    onAddNote: () -> Unit,
+) {
     val values = remember(entry.valuesJson) { EntryValues.decode(entry.valuesJson) }
     val notes = remember(values) { EntryValues.notes(values) }
 
@@ -244,7 +342,7 @@ private fun EntryRow(entry: LogEntry, fields: List<FieldDef>, onDelete: () -> Un
         Column(
             modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 8.dp, end = 4.dp, bottom = 16.dp),
         ) {
-            // Top line: timestamp on the left, delete across from it on the right.
+            // Top line: timestamp on the left; edit (if unlocked) and delete on the right.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -254,6 +352,11 @@ private fun EntryRow(entry: LogEntry, fields: List<FieldDef>, onDelete: () -> Un
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f),
                 )
+                if (editable) {
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Filled.Edit, contentDescription = "Edit entry")
+                    }
+                }
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Filled.Delete, contentDescription = "Delete entry")
                 }
@@ -266,8 +369,38 @@ private fun EntryRow(entry: LogEntry, fields: List<FieldDef>, onDelete: () -> Un
                 }
             }
             notes?.let { FieldReadout(label = "Notes", value = it) }
+
+            appendedNotes.forEach { note ->
+                FollowUpNote(note)
+            }
+
+            if (appendable) {
+                TextButton(
+                    onClick = onAddNote,
+                    modifier = Modifier.padding(top = 4.dp),
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = null)
+                    Text("  Add follow-up note")
+                }
+            }
         }
     }
+}
+
+/** An append-only follow-up note: a "↳" marker, its own timestamp, then the text. */
+@Composable
+private fun FollowUpNote(note: EntryNote) {
+    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    Text(
+        text = buildAnnotatedString {
+            withStyle(SpanStyle(color = labelColor, fontWeight = FontWeight.Medium)) {
+                append("↳ ${EntryValues.displayEntryTimestamp(note.createdAt)}: ")
+            }
+            append(note.text)
+        },
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+    )
 }
 
 /**

@@ -105,7 +105,17 @@ All primary screens are **full-screen**. The only floating dialogs allowed are *
   inline as `label: value` (the label muted, the value normal). One field per
   line, going down the card. Long values wrap onto further lines; nothing is
   truncated. Notes, when present, appear last as `Notes: …`.
-- Tapping `🗑` confirms then deletes. Entries can't be edited — only added or deleted.
+- Tapping `🗑` confirms then deletes.
+- **Locked vs unlocked.** A locked log shows a 🔒 next to its name (and on the
+  Home list). Tapping the 🔒 offers a one-way **unlock** (confirm dialog warns it
+  can't be re-locked). While a log is **unlocked**, each entry shows an edit
+  pencil that reopens the entry form pre-filled; saving keeps the original
+  date/time and stamps an edit time. Locked entries can't be edited — only added,
+  deleted, or (if enabled) appended to.
+- **Follow-up notes.** When the log allows them, each entry has an "Add follow-up
+  note" action. A note is a separate, time-stamped line shown under the entry as
+  `↳ {time}: {text}`. Notes are append-only — they never change the original
+  entry and can't themselves be edited.
 - Empty state: `No entries yet. Tap + to add one.`
 
 ---
@@ -157,6 +167,11 @@ Once a log is created, it cannot be edited. It can only be deleted.
 ```
 
 - **Log name** (required). Logs have no description field.
+- **Two behavior checkboxes**, chosen once at creation:
+  - **Locked log** (default on): entries are create-once and can't be edited.
+    One-way — it can be unlocked later from the log screen, but never re-locked.
+  - **Allow follow-up notes** (default off): entries can have time-stamped notes
+    appended later without changing the original.
 - **Style toggle (`[ Build | Paste ]`)** picks how fields are defined. **Build is
   the default.** Switching tabs converts between the two: Paste → Build parses the
   Markdown into editable cards; Build → Paste writes the equivalent Markdown.

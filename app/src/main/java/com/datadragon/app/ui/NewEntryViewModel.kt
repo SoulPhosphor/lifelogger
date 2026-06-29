@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.datadragon.app.data.AppDatabase
+import com.datadragon.app.data.BackupRepository
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.LogEntry
@@ -13,6 +14,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
@@ -35,7 +37,14 @@ class NewEntryViewModel(app: Application) : AndroidViewModel(app) {
     private val _logName = MutableStateFlow<String?>(null)
     val logName: StateFlow<String?> = _logName
 
-    fun load(id: Long) {
+    // The entry being edited, when this screen was opened for an existing entry.
+    private var editing: LogEntry? = null
+    private val _initialValues = MutableStateFlow<JsonObject?>(null)
+    /** Stored values to pre-fill the form when editing; null for a new entry. */
+    val initialValues: StateFlow<JsonObject?> = _initialValues
+
+    /** [entryId] is null for a new entry, or the id of an entry being edited. */
+    fun load(id: Long, entryId: Long? = null) {
         templateId = id
         viewModelScope.launch {
             val template = templateDao.getById(id)
@@ -43,26 +52,43 @@ class NewEntryViewModel(app: Application) : AndroidViewModel(app) {
             _fields.value = template
                 ?.let { runCatching { json.decodeFromString<List<FieldDef>>(it.schemaJson) }.getOrNull() }
                 ?: emptyList()
+            if (entryId != null) {
+                val entry = entryDao.getById(entryId)
+                editing = entry
+                _initialValues.value = entry?.let { EntryValues.decode(it.valuesJson) }
+            }
         }
     }
 
     /**
-     * Persist a new entry. [values] is keyed by field label (plus the reserved
-     * notes key); the timestamp is generated here, ISO-8601 with offset.
+     * Persist the entry. When editing an existing entry its original `createdAt`
+     * is kept and `updatedAt` is stamped; otherwise a new entry is inserted with
+     * the current time. [values] is keyed by field label plus the reserved notes
+     * key; timestamps are ISO-8601 with offset.
      */
     fun save(values: Map<String, JsonElement>, onSaved: () -> Unit) {
         if (templateId < 0) return
         viewModelScope.launch {
-            val now = OffsetDateTime.now()
-                .truncatedTo(ChronoUnit.SECONDS)
-                .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-            entryDao.insert(
-                LogEntry(
-                    templateId = templateId,
-                    createdAt = now,
-                    valuesJson = EntryValues.encode(values),
+            val existing = editing
+            if (existing != null) {
+                entryDao.update(
+                    existing.copy(
+                        valuesJson = EntryValues.encode(values),
+                        updatedAt = BackupRepository.now(),
+                    )
                 )
-            )
+            } else {
+                val now = OffsetDateTime.now()
+                    .truncatedTo(ChronoUnit.SECONDS)
+                    .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                entryDao.insert(
+                    LogEntry(
+                        templateId = templateId,
+                        createdAt = now,
+                        valuesJson = EntryValues.encode(values),
+                    )
+                )
+            }
             onSaved()
         }
     }

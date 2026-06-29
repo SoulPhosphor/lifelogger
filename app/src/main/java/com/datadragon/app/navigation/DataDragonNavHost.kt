@@ -51,6 +51,9 @@ fun DataDragonNavHost(
                 logId = logId,
                 onBack = { navController.popBackStack() },
                 onAddEntry = { navController.navigate(Routes.newEntry(logId.orEmpty())) },
+                onEditEntry = { entryId ->
+                    navController.navigate(Routes.editEntry(logId.orEmpty(), entryId))
+                },
             )
         }
 
@@ -61,6 +64,22 @@ fun DataDragonNavHost(
             val logId = backStackEntry.arguments?.getString(Routes.LOG_ARG)
             NewEntryScreen(
                 logId = logId,
+                onBack = { navController.popBackStack() },
+            )
+        }
+
+        composable(
+            route = Routes.EDIT_ENTRY,
+            arguments = listOf(
+                navArgument(Routes.LOG_ARG) { type = NavType.StringType },
+                navArgument(Routes.ENTRY_ARG) { type = NavType.StringType },
+            ),
+        ) { backStackEntry ->
+            val logId = backStackEntry.arguments?.getString(Routes.LOG_ARG)
+            val entryId = backStackEntry.arguments?.getString(Routes.ENTRY_ARG)
+            NewEntryScreen(
+                logId = logId,
+                entryId = entryId,
                 onBack = { navController.popBackStack() },
             )
         }

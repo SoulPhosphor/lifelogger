@@ -14,9 +14,12 @@ object Routes {
 
     // Parameterised routes.
     const val LOG_ARG = "logId"
+    const val ENTRY_ARG = "entryId"
     const val LOG = "log/{$LOG_ARG}"
     const val NEW_ENTRY = "log/{$LOG_ARG}/newEntry"
+    const val EDIT_ENTRY = "log/{$LOG_ARG}/entry/{$ENTRY_ARG}/edit"
 
     fun log(logId: String) = "log/$logId"
     fun newEntry(logId: String) = "log/$logId/newEntry"
+    fun editEntry(logId: String, entryId: Long) = "log/$logId/entry/$entryId/edit"
 }

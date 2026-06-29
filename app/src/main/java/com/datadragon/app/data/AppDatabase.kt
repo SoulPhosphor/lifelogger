@@ -10,12 +10,18 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 /**
  * The app's local Room database. Local only — no network, no sync.
  */
-@Database(entities = [LogTemplate::class, LogEntry::class], version = 4, exportSchema = false)
+@Database(
+    entities = [LogTemplate::class, LogEntry::class, EntryNote::class],
+    version = 5,
+    exportSchema = false,
+)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun logTemplateDao(): LogTemplateDao
 
     abstract fun logEntryDao(): LogEntryDao
+
+    abstract fun entryNoteDao(): EntryNoteDao
 
     companion object {
         @Volatile
@@ -48,6 +54,33 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v5 added per-log `locked` / `allowAppendedNotes` flags and the
+         * `entry_notes` table (append-only follow-up notes). Existing logs default
+         * to locked, preserving the prior create-once behavior.
+         */
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE log_templates ADD COLUMN locked INTEGER NOT NULL DEFAULT 1"
+                )
+                db.execSQL(
+                    "ALTER TABLE log_templates ADD COLUMN allowAppendedNotes INTEGER NOT NULL DEFAULT 0"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `entry_notes` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`entryId` INTEGER NOT NULL, " +
+                        "`createdAt` TEXT NOT NULL, " +
+                        "`text` TEXT NOT NULL)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_entry_notes_entryId` " +
+                        "ON `entry_notes` (`entryId`)"
+                )
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -55,7 +88,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "data_dragon.db",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_3_4, MIGRATION_4_5)
                     // v3 removed the unused description column. There is no
                     // released data to preserve, so recreate cleanly on any
                     // upgrade path not covered by an explicit migration.
