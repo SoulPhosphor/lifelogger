@@ -167,8 +167,15 @@ private fun FieldCard(
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // Header says "Edit" for fields whose settings can change, and
+                // nothing for fixed ones. The field name is shown as content below,
+                // not as the header.
                 Text(
-                    text = if (field.existing) field.label else "New field",
+                    text = when {
+                        !field.existing -> "New field"
+                        field.type.hasEditableSettings() -> "Edit"
+                        else -> ""
+                    },
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.weight(1f),
                 )
@@ -181,7 +188,8 @@ private fun FieldCard(
             }
 
             if (field.existing) {
-                // Name is the header; type is fixed. Only adjustable settings show.
+                // The field name as plain content (name and type are locked).
+                Text(field.label, style = MaterialTheme.typography.bodyLarge)
                 Text(
                     "Type: ${field.type.editFriendly()}",
                     style = MaterialTheme.typography.bodySmall,
