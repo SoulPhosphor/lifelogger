@@ -4,6 +4,21 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-06-29 — Export option: include follow-up notes
+
+The per-log export dialog gains an **"Include follow-up notes"** checkbox (default
+on, shown only when the log has any follow-up notes). Follow-up notes are now
+threaded into the `.md`, `.txt`, `.pdf`, and `.json` exports and rendered under
+each entry ("Follow-up notes:" with each note's own timestamp); unchecking omits
+them. `.csv` is unchanged (notes don't map to columns). The per-entry free-text
+Notes box is still always included — it's part of the entry, not an annotation.
+
+ReportBuilder.build and PdfReport.writeToBytes gained `entryNotes` +
+`includeFollowUps` params; LogExport threads `notesByEntry`/`includeFollowUps`
+through.
+
+---
+
 ## 2026-06-29 — Edit-form (add/reorder), gear menu, chevron icons
 
 **Summary**

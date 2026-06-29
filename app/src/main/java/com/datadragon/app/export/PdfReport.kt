@@ -3,6 +3,7 @@ package com.datadragon.app.export
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
+import com.datadragon.app.data.EntryNote
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.FieldType
@@ -27,6 +28,8 @@ object PdfReport {
         template: LogTemplate,
         fields: List<FieldDef>,
         entries: List<LogEntry>,
+        entryNotes: Map<Long, List<EntryNote>> = emptyMap(),
+        includeFollowUps: Boolean = false,
     ): ByteArray {
         val titlePaint = paint(20f, bold = true)
         val metaPaint = paint(11f).apply { color = 0xFF555555.toInt() }
@@ -67,6 +70,18 @@ object PdfReport {
                 writer.gap(4f)
                 writer.text(labelPaint, "Notes:")
                 writer.text(bodyPaint, notes)
+            }
+
+            val followUps = if (includeFollowUps) entryNotes[entry.id].orEmpty() else emptyList()
+            if (followUps.isNotEmpty()) {
+                writer.gap(4f)
+                writer.text(labelPaint, "Follow-up notes:")
+                followUps.forEach { note ->
+                    writer.text(
+                        bodyPaint,
+                        "• ${EntryValues.displayEntryDateTime(note.createdAt)}: ${note.text}",
+                    )
+                }
             }
         }
 

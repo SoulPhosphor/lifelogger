@@ -17,6 +17,8 @@ object ReportBuilder {
         fields: List<FieldDef>,
         entries: List<LogEntry>,
         markdown: Boolean,
+        entryNotes: Map<Long, List<EntryNote>> = emptyMap(),
+        includeFollowUps: Boolean = false,
     ): Report {
         // The report reads chronologically (oldest first); the date range still
         // runs first entry → last entry.
@@ -36,7 +38,8 @@ object ReportBuilder {
 
         ordered.forEach { entry ->
             appendSeparator(sb, markdown)
-            appendEntry(sb, entry, fields, markdown)
+            val followUps = if (includeFollowUps) entryNotes[entry.id].orEmpty() else emptyList()
+            appendEntry(sb, entry, fields, markdown, followUps)
         }
 
         val ext = if (markdown) "md" else "txt"
@@ -59,6 +62,7 @@ object ReportBuilder {
         entry: LogEntry,
         fields: List<FieldDef>,
         markdown: Boolean,
+        followUps: List<EntryNote>,
     ) {
         val values = EntryValues.decode(entry.valuesJson)
         val heading = EntryValues.displayEntryDateTime(entry.createdAt)
@@ -81,6 +85,18 @@ object ReportBuilder {
             sb.append('\n')
             sb.append(if (markdown) "**Notes:**" else "Notes:").append('\n')
             sb.append(notes).append('\n')
+        }
+
+        if (followUps.isNotEmpty()) {
+            sb.append('\n')
+            sb.append(if (markdown) "**Follow-up notes:**" else "Follow-up notes:").append('\n')
+            followUps.forEach { note ->
+                sb.append("- ")
+                    .append(EntryValues.displayEntryDateTime(note.createdAt))
+                    .append(": ")
+                    .append(note.text)
+                    .append('\n')
+            }
         }
     }
 }

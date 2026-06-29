@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -89,6 +90,8 @@ fun LogScreen(
     var entryToDelete by remember { mutableStateOf<LogEntry?>(null) }
     var showUnlock by remember { mutableStateOf(false) }
     var gearMenuOpen by remember { mutableStateOf(false) }
+    // Export dialog: whether to include append-only follow-up notes.
+    var includeFollowUps by remember { mutableStateOf(true) }
     // The entry a follow-up note is being added to, plus the in-progress text.
     var noteFor by remember { mutableStateOf<LogEntry?>(null) }
     var noteText by remember { mutableStateOf("") }
@@ -222,26 +225,54 @@ fun LogScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Choose a format, then pick where to save it:")
+
+                    // Only meaningful when this log actually has follow-up notes.
+                    if (notesByEntry.isNotEmpty()) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(
+                                checked = includeFollowUps,
+                                onCheckedChange = { includeFollowUps = it },
+                            )
+                            Text("Include follow-up notes")
+                        }
+                    }
+
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(
-                            onClick = { if (current != null) startSave(LogExport.markdown(current, fields, entries)) },
+                            onClick = {
+                                if (current != null) {
+                                    startSave(LogExport.markdown(current, fields, entries, notesByEntry, includeFollowUps))
+                                }
+                            },
                         ) { Text(".md") }
                         OutlinedButton(
-                            onClick = { if (current != null) startSave(LogExport.json(current, entries)) },
+                            onClick = {
+                                if (current != null) {
+                                    startSave(LogExport.json(current, entries, notesByEntry, includeFollowUps))
+                                }
+                            },
                         ) { Text(".json") }
                         OutlinedButton(
-                            onClick = { if (current != null) startSave(LogExport.text(current, fields, entries)) },
+                            onClick = {
+                                if (current != null) {
+                                    startSave(LogExport.text(current, fields, entries, notesByEntry, includeFollowUps))
+                                }
+                            },
                         ) { Text(".txt") }
                         OutlinedButton(
                             onClick = { if (current != null) startSave(LogExport.csv(current, fields, entries)) },
                         ) { Text(".csv") }
                         OutlinedButton(
-                            onClick = { if (current != null) startSave(LogExport.pdf(current, fields, entries)) },
+                            onClick = {
+                                if (current != null) {
+                                    startSave(LogExport.pdf(current, fields, entries, notesByEntry, includeFollowUps))
+                                }
+                            },
                         ) { Text(".pdf") }
                     }
                     Text(
                         ".md, .txt and .pdf are readable reports; .json re-imports this log; " +
-                            ".csv is for spreadsheets.",
+                            ".csv is for spreadsheets (no follow-up notes).",
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
