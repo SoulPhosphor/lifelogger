@@ -158,6 +158,52 @@ object EntryValues {
         }
     }
 
+    /**
+     * Re-key a stored value object after a form edit renamed a field label or an
+     * option, so previously-submitted data stays attached under the new spelling.
+     * The values themselves are never altered — only the keys (field labels) and
+     * the option strings that stand in for a choice are rewritten.
+     *
+     * - [labelRenames] maps an old field label to its new one; the value moves to
+     *   the new key (only if the old key is present and the new key isn't already
+     *   taken, so an unrelated field is never clobbered).
+     * - [optionRenames] is keyed by a field's *current* label (after any label
+     *   rename) and maps an old option string to its new one. A single-valued
+     *   field's stored string is replaced when it matches; a `multiple` field's
+     *   array has each matching element replaced.
+     *
+     * Returns the re-encoded JSON, or the input unchanged when nothing applied.
+     */
+    fun rekey(
+        valuesJson: String,
+        labelRenames: Map<String, String>,
+        optionRenames: Map<String, Map<String, String>>,
+    ): String {
+        if (labelRenames.isEmpty() && optionRenames.isEmpty()) return valuesJson
+        val values = decode(valuesJson).toMutableMap()
+
+        labelRenames.forEach { (old, new) ->
+            if (old != new && values.containsKey(old) && !values.containsKey(new)) {
+                values[new] = values.remove(old)!!
+            }
+        }
+
+        optionRenames.forEach { (label, renames) ->
+            val current = values[label] ?: return@forEach
+            values[label] = when (current) {
+                is JsonArray -> JsonArray(current.map { it.renamedOption(renames) })
+                else -> current.renamedOption(renames)
+            }
+        }
+
+        return encode(values)
+    }
+
+    private fun JsonElement.renamedOption(renames: Map<String, String>): JsonElement {
+        val text = (this as? JsonPrimitive)?.contentOrNull ?: return this
+        return renames[text]?.let { JsonPrimitive(it) } ?: this
+    }
+
     /** Convenience for callers building a value map. */
     fun string(value: String): JsonElement = JsonPrimitive(value)
 

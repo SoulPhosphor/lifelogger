@@ -36,6 +36,13 @@ interface LogEntryDao {
     @Query("SELECT * FROM log_entries WHERE id = :id")
     suspend fun getById(id: Long): LogEntry?
 
+    /**
+     * One-shot snapshot of every entry for one log. Used when a form edit renames
+     * a field label or option and the stored values need re-keying to match.
+     */
+    @Query("SELECT * FROM log_entries WHERE templateId = :templateId")
+    suspend fun getForTemplateOnce(templateId: Long): List<LogEntry>
+
     /** One-shot snapshot of every entry, for building a backup. */
     @Query("SELECT * FROM log_entries ORDER BY createdAt ASC, id ASC")
     suspend fun getAllOnce(): List<LogEntry>

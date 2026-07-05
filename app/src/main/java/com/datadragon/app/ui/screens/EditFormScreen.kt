@@ -1,5 +1,7 @@
 package com.datadragon.app.ui.screens
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -49,13 +51,17 @@ import com.datadragon.app.data.FieldType
 import com.datadragon.app.ui.EditFormViewModel
 
 /**
- * Edit a log's fields after creation. To keep stored entries valid, the field's
- * **name** and **type** can never change, and existing fields can't be deleted.
- * What you *can* do: **add** new fields, **reorder** any field, and change the
- * adjustable **settings** of fields that have them — options for dropdown/multiple,
- * the range for a scale, line height for multiline, max digits for number, and
- * whether the field is required. Fixed types (text, date, time, yes/no) have
- * nothing to adjust and show read-only.
+ * Edit a log's fields after creation. To keep stored entries valid, a field's
+ * **type** can never change and existing fields can't be deleted. What you *can*
+ * do: **add** new fields, **reorder** any field, and open a field to edit its
+ * content — its label (spelling), options, and adjustable settings. Renaming a
+ * label or an option re-keys the already-submitted entries so their values stay
+ * attached under the new spelling; the values themselves are never changed.
+ *
+ * The list is a set of tappable summary cards; tapping a card (anywhere but its
+ * reorder/delete buttons) opens a full-screen **field editor** with the block
+ * pre-filled. That editor's **Save** writes the change to the log immediately and
+ * returns here.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,8 +78,9 @@ fun EditFormScreen(
     // schema before the existing fields have been read in.
     val name by viewModel.name.collectAsStateWithLifecycle()
 
-    // Every field is an editable draft; existing ones are flagged so their name
-    // and type stay locked. Seeded once from the loaded schema.
+    // Every field is an editable draft; existing ones are flagged so their type
+    // stays locked and their original label/options are remembered for re-keying.
+    // Seeded once from the loaded schema.
     val rows = remember { mutableStateListOf<EditDraft>() }
     var seeded by remember { mutableStateOf(false) }
     LaunchedEffect(loadedFields) {
@@ -84,6 +91,10 @@ fun EditFormScreen(
         }
     }
 
+    // Which field's editor is open, or null for the list. Opening a field shows a
+    // full-screen editor in place of the list.
+    var editingIndex by remember { mutableStateOf<Int?>(null) }
+
     val canSave = name != null && rows.all { it.isValid() }
 
     fun move(index: Int, delta: Int) {
@@ -92,6 +103,63 @@ fun EditFormScreen(
             val row = rows.removeAt(index)
             rows.add(target, row)
         }
+    }
+
+    // Rename maps derived from what each existing field started as vs. what it is
+    // now, so the ViewModel can re-key submitted entries before writing the schema.
+    fun labelRenames(): Map<String, String> =
+        rows.filter { it.existing }
+            .mapNotNull { d ->
+                val original = d.originalLabel ?: return@mapNotNull null
+                val current = d.label.trim()
+                if (original != current) original to current else null
+            }
+            .toMap()
+
+    fun optionRenames(): Map<String, Map<String, String>> =
+        rows.filter { it.existing && (it.type == FieldType.DROPDOWN || it.type == FieldType.MULTIPLE) }
+            .mapNotNull { d ->
+                val map = optionRenameMap(d.originalOptions, d.optionList())
+                if (map.isEmpty()) null else d.label.trim() to map
+            }
+            .toMap()
+
+    // Persist the current schema, re-keying submitted entries for any rename, then
+    // realign each existing field's "original" to what was just saved so a second
+    // edit computes its rename fresh rather than re-applying the last one.
+    fun persist(onDone: () -> Unit) {
+        viewModel.save(
+            fields = rows.map { it.toFieldDef() },
+            labelRenames = labelRenames(),
+            optionRenames = optionRenames(),
+            onSaved = {
+                rows.forEach { d ->
+                    if (d.existing) {
+                        d.originalLabel = d.label.trim()
+                        d.originalOptions = d.optionList()
+                    }
+                }
+                onDone()
+            },
+        )
+    }
+
+    val openIndex = editingIndex
+    if (openIndex != null && openIndex in rows.indices) {
+        val draft = rows[openIndex]
+        FieldEditorScreen(
+            source = draft,
+            number = openIndex + 1,
+            canSave = { it.isValid() },
+            onSave = { persist { editingIndex = null } },
+            onCancel = {
+                // A brand-new field that was never filled in is discarded on cancel
+                // so the list isn't left with an empty card.
+                if (!draft.existing && draft.label.isBlank()) rows.removeAt(openIndex)
+                editingIndex = null
+            },
+        )
+        return
     }
 
     Scaffold(
@@ -106,9 +174,7 @@ fun EditFormScreen(
                 actions = {
                     TextButton(
                         enabled = canSave,
-                        onClick = {
-                            viewModel.save(rows.map { it.toFieldDef() }, onSaved = onBack)
-                        },
+                        onClick = { persist(onBack) },
                     ) { Text("Save") }
                 },
             )
@@ -123,15 +189,16 @@ fun EditFormScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                "Add new fields, reorder them, and adjust the settings of existing " +
-                    "fields. A field's name and type can't change, and existing fields " +
+                "Tap a field to edit its label, options, and settings. Add new fields " +
+                    "or reorder them. A field's type can't change and existing fields " +
                     "can't be removed, so past entries stay intact.",
                 style = MaterialTheme.typography.bodyMedium,
             )
 
             rows.forEachIndexed { index, field ->
-                FieldCard(
+                FieldSummaryCard(
                     field = field,
+                    number = index + 1,
                     canMoveUp = index > 0,
                     canMoveDown = index < rows.lastIndex,
                     onMoveUp = { move(index, -1) },
@@ -139,11 +206,15 @@ fun EditFormScreen(
                     // Only new fields can be deleted here.
                     deletable = !field.existing,
                     onDelete = { rows.removeAt(index) },
+                    onOpen = { editingIndex = index },
                 )
             }
 
             OutlinedButton(
-                onClick = { rows.add(EditDraft()) },
+                onClick = {
+                    rows.add(EditDraft())
+                    editingIndex = rows.lastIndex
+                },
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Icon(Icons.Filled.Add, contentDescription = null)
@@ -153,32 +224,41 @@ fun EditFormScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * A read-only summary of one field in the list. The whole card is tappable to
+ * open the field editor; the reorder chevrons and the delete button handle their
+ * own taps and don't trigger the card.
+ */
 @Composable
-private fun FieldCard(
+private fun FieldSummaryCard(
     field: EditDraft,
+    number: Int,
     canMoveUp: Boolean,
     canMoveDown: Boolean,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
     deletable: Boolean,
     onDelete: () -> Unit,
+    onOpen: () -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpen),
+    ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Header says "Edit" for fields whose settings can change, and
-                // nothing for fixed ones. The field name is shown as content below,
-                // not as the header.
-                Text(
-                    text = when {
-                        !field.existing -> "New field"
-                        field.type.hasEditableSettings() -> "Edit"
-                        else -> ""
-                    },
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.weight(1f),
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = field.label.ifBlank { "Field $number" },
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    Text(
+                        field.summaryText(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 ReorderControls(canMoveUp, canMoveDown, onMoveUp, onMoveDown)
                 if (deletable) {
                     IconButton(onClick = onDelete) {
@@ -186,36 +266,85 @@ private fun FieldCard(
                     }
                 }
             }
+            field.validationHint()?.let { hint ->
+                Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            }
+        }
+    }
+}
 
-            if (field.existing) {
-                // The field name as plain content (name and type are locked).
-                Text(field.label, style = MaterialTheme.typography.bodyLarge)
+/**
+ * Full-screen editor for a single field, reached by tapping its card. It mirrors
+ * the "New Log" field block, fully pre-filled. The top bar shows "Field N" with
+ * **Save** across from it; Save commits the edit (the caller persists it) and
+ * closes back to the list. Editing works on a copy, so backing out cancels.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FieldEditorScreen(
+    source: EditDraft,
+    number: Int,
+    canSave: (EditDraft) -> Boolean,
+    onSave: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val draft = remember(source) { source.copy() }
+
+    BackHandler(onBack = onCancel)
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Field $number") },
+                navigationIcon = {
+                    IconButton(onClick = onCancel) {
+                        Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    TextButton(
+                        enabled = canSave(draft),
+                        onClick = {
+                            source.applyFrom(draft)
+                            onSave()
+                        },
+                    ) { Text("Save") }
+                },
+            )
+        },
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            OutlinedTextField(
+                value = draft.label,
+                onValueChange = { draft.label = it },
+                label = { Text("Label") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            if (draft.existing) {
+                // Type is locked for existing fields so stored values stay valid.
                 Text(
-                    "Type: ${field.type.editFriendly()}",
+                    "Type: ${draft.type.editFriendly()}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                if (field.type.hasEditableSettings()) {
-                    SettingsControls(field)
-                    RequiredRow(field)
-                    field.validationHint()?.let { hint ->
-                        Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                    }
-                }
             } else {
-                OutlinedTextField(
-                    value = field.label,
-                    onValueChange = { field.label = it },
-                    label = { Text("Label") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                EditTypeDropdown(selected = field.type, onSelected = { field.type = it })
-                SettingsControls(field)
-                RequiredRow(field)
-                field.validationHint()?.let { hint ->
-                    Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                }
+                EditTypeDropdown(selected = draft.type, onSelected = { draft.type = it })
+            }
+
+            SettingsControls(draft)
+            RequiredRow(draft)
+
+            draft.validationHint()?.let { hint ->
+                Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
             }
         }
     }
@@ -344,8 +473,12 @@ private class EditDraft(
     to: String = "",
     optionsText: String = "",
     defaultNow: Boolean = false,
-    /** True for a field that already exists in the saved schema (name/type locked). */
+    /** True for a field that already exists in the saved schema (type locked). */
     val existing: Boolean = false,
+    /** The label this field was loaded with, for re-keying entries on rename. */
+    originalLabel: String? = null,
+    /** The options this field was loaded with, for re-keying entries on rename. */
+    originalOptions: List<String> = emptyList(),
 ) {
     var label by mutableStateOf(label)
     var type by mutableStateOf(type)
@@ -356,6 +489,10 @@ private class EditDraft(
     var to by mutableStateOf(to)
     var optionsText by mutableStateOf(optionsText)
     var defaultNow by mutableStateOf(defaultNow)
+
+    // Baselines for rename detection; realigned after each save.
+    var originalLabel by mutableStateOf(originalLabel)
+    var originalOptions by mutableStateOf(originalOptions)
 
     fun optionList(): List<String> =
         optionsText.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
@@ -381,6 +518,57 @@ private class EditDraft(
         else -> null
     }
 
+    /** A short summary of the field's type and settings for the list card. */
+    fun summaryText(): String {
+        val base = when (type) {
+            FieldType.TEXT -> "Text (one line)"
+            FieldType.MULTILINE -> "Text (multi-line)" + (lines.toIntOrNull()?.let { " · $it lines" } ?: "")
+            FieldType.NUMBER -> "Number" + (digits.toIntOrNull()?.let { " · up to $it digits" } ?: "")
+            FieldType.DROPDOWN -> "Dropdown" + optionsSummary()
+            FieldType.MULTIPLE -> "Multiple" + optionsSummary()
+            FieldType.SCALE -> "Scale ${from.ifBlank { "?" }}–${to.ifBlank { "?" }}"
+            FieldType.YESNO -> "Yes / No / Unknown / N/A"
+            FieldType.DATE -> "Date"
+            FieldType.TIME -> "Time"
+            FieldType.DATETIME -> "Date & time" + (if (defaultNow) " · defaults to now" else "")
+        }
+        return if (required) "$base · required" else base
+    }
+
+    private fun optionsSummary(): String {
+        val opts = optionList()
+        return if (opts.isEmpty()) "" else " · " + opts.joinToString(", ")
+    }
+
+    /** A detached duplicate so the field editor can cancel without side effects. */
+    fun copy(): EditDraft = EditDraft(
+        label = label,
+        type = type,
+        required = required,
+        lines = lines,
+        digits = digits,
+        from = from,
+        to = to,
+        optionsText = optionsText,
+        defaultNow = defaultNow,
+        existing = existing,
+        originalLabel = originalLabel,
+        originalOptions = originalOptions,
+    )
+
+    /** Copy the editable values from [other] onto this draft (identity kept). */
+    fun applyFrom(other: EditDraft) {
+        label = other.label
+        type = other.type
+        required = other.required
+        lines = other.lines
+        digits = other.digits
+        from = other.from
+        to = other.to
+        optionsText = other.optionsText
+        defaultNow = other.defaultNow
+    }
+
     fun toFieldDef(): FieldDef = FieldDef(
         label = label.trim(),
         type = type,
@@ -394,7 +582,7 @@ private class EditDraft(
     )
 }
 
-/** Seed an [EditDraft] from a saved field (marked existing — name/type locked). */
+/** Seed an [EditDraft] from a saved field (marked existing — type locked). */
 private fun draftOf(f: FieldDef): EditDraft = EditDraft(
     label = f.label,
     type = f.type,
@@ -406,12 +594,25 @@ private fun draftOf(f: FieldDef): EditDraft = EditDraft(
     optionsText = f.options.joinToString("\n"),
     defaultNow = f.defaultNow,
     existing = true,
+    originalLabel = f.label,
+    originalOptions = f.options,
 )
 
-/** Types whose settings can be adjusted after creation. */
-private fun FieldType.hasEditableSettings(): Boolean = when (this) {
-    FieldType.MULTILINE, FieldType.NUMBER, FieldType.DROPDOWN, FieldType.MULTIPLE, FieldType.SCALE -> true
-    else -> false
+/**
+ * Pair up options that were renamed between [old] and [new]. An option present in
+ * one list but not the other is treated as removed/added; when the counts of
+ * removed and added match, they pair up in order (the common case being a single
+ * spelling fix). A pure reorder or a bare add/remove yields no renames, so stored
+ * values are never mis-mapped.
+ */
+private fun optionRenameMap(old: List<String>, new: List<String>): Map<String, String> {
+    val removed = old.filter { it !in new }
+    val added = new.filter { it !in old }
+    return if (removed.isNotEmpty() && removed.size == added.size) {
+        removed.zip(added).toMap()
+    } else {
+        emptyMap()
+    }
 }
 
 private fun FieldType.editFriendly(): String = when (this) {

@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.datadragon.app.data.AppDatabase
+import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.FormMarkdownGenerator
 import com.datadragon.app.data.FormMarkdownParser
@@ -21,6 +22,7 @@ import kotlinx.serialization.json.Json
 class EditFormViewModel(app: Application) : AndroidViewModel(app) {
 
     private val dao = AppDatabase.getInstance(app).logTemplateDao()
+    private val entryDao = AppDatabase.getInstance(app).logEntryDao()
     private val json = Json { ignoreUnknownKeys = true }
     private var templateId: Long = -1
 
@@ -41,11 +43,31 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun save(fields: List<FieldDef>, onSaved: () -> Unit) {
+    /**
+     * Write back the edited schema. When a field's label or an option was renamed,
+     * [labelRenames] (old→new label) and [optionRenames] (current label → old→new
+     * option) re-key the already-submitted entries first, so their values stay
+     * attached under the new spelling without changing the values themselves.
+     */
+    fun save(
+        fields: List<FieldDef>,
+        labelRenames: Map<String, String> = emptyMap(),
+        optionRenames: Map<String, Map<String, String>> = emptyMap(),
+        onSaved: () -> Unit,
+    ) {
         if (templateId < 0) return
         viewModelScope.launch {
+            if (labelRenames.isNotEmpty() || optionRenames.isNotEmpty()) {
+                entryDao.getForTemplateOnce(templateId).forEach { entry ->
+                    val rekeyed = EntryValues.rekey(entry.valuesJson, labelRenames, optionRenames)
+                    if (rekeyed != entry.valuesJson) {
+                        entryDao.update(entry.copy(valuesJson = rekeyed))
+                    }
+                }
+            }
             val markdown = FormMarkdownGenerator.generate(_name.value.orEmpty(), fields)
             dao.updateSchema(templateId, FormMarkdownParser.encodeFields(fields), markdown)
+            _fields.value = fields
             onSaved()
         }
     }
