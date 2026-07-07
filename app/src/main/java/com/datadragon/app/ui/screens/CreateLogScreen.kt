@@ -163,8 +163,15 @@ fun CreateLogScreen(
                                     }
                                 markdown = FormMarkdownGenerator.generate(name, fields)
                             } else {
-                                fields = FormMarkdownParser.parse(pasteText).fields
-                                markdown = pasteText
+                                // Fix the casing of pasted markdown in place (labels
+                                // and options), leaving all other text untouched, then
+                                // parse it so the saved schema matches.
+                                markdown = capitalizeMarkdown(
+                                    text = pasteText,
+                                    labels = settings.autoCapitalizeLabels,
+                                    options = settings.autoCapitalizeOptions,
+                                )
+                                fields = FormMarkdownParser.parse(markdown).fields
                             }
                             val finalName = name.ifBlank { firstMarkdownName(pasteText) ?: "" }
                             viewModel.save(
@@ -597,6 +604,36 @@ private class DraftField(
         options = if (type == FieldType.DROPDOWN || type == FieldType.MULTIPLE) optionList() else emptyList(),
         defaultNow = type == FieldType.DATETIME && defaultNow,
     )
+}
+
+/**
+ * Return the pasted Form Markdown unchanged except for casing: each field-label
+ * line ("## …") is title-cased when [labels] is on, and each option line
+ * ("- …") when [options] is on. All other text, spacing, blank lines, and line
+ * breaks are left exactly as pasted. Leading indentation and the spacing after
+ * the "##"/"-" marker are preserved; only the letters of the label/option change.
+ */
+private fun capitalizeMarkdown(text: String, labels: Boolean, options: Boolean): String {
+    if (!labels && !options) return text
+    return text.split("\n").joinToString("\n") { raw ->
+        val indent = raw.takeWhile { it == ' ' || it == '\t' }
+        val content = raw.substring(indent.length)
+        when {
+            // "## Label" (field header) — but not a lone "#" log-name line.
+            labels && content.startsWith("##") -> {
+                val after = content.substring(2)
+                val gap = after.takeWhile { it == ' ' || it == '\t' }
+                indent + "##" + gap + TitleCase.apply(after.substring(gap.length))
+            }
+            // "- Option" (list item).
+            options && content.startsWith("-") -> {
+                val after = content.substring(1)
+                val gap = after.takeWhile { it == ' ' || it == '\t' }
+                indent + "-" + gap + TitleCase.apply(after.substring(gap.length))
+            }
+            else -> raw
+        }
+    }
 }
 
 /**
