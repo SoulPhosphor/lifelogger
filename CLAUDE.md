@@ -7,6 +7,13 @@ Guidance for Claude when working in this repository.
 - **Do not make assumptions about what I want.** Do exactly what I ask — no more
   and no less. When any part of a request is unclear or ambiguous, ask me before
   proceeding rather than guessing.
+- **Stop and ask before any decision I did not explicitly specify — it is not
+  yours to make.** Anything about behavior, UX, scope, which cases a rule does or
+  doesn't apply to, data shape, or a trade-off is a *design decision*. The moment
+  you notice one, stop and ask in chat **before writing any code**. Do not pick a
+  default and implement it. Do not implement a choice and tell me afterward. Never
+  bury a decision inside a summary — if I had to read to the end to find out what
+  you decided, you did it wrong.
 - **Ask questions in chat, as plain text.** Do not use the pop-up / multiple-
   choice question screen (the `AskUserQuestion` tool) to ask me things. Put your
   questions directly in your normal chat reply.
