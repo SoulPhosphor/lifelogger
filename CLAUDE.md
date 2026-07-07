@@ -39,3 +39,16 @@ Guidance for Claude when working in this repository.
   commit and confirm it passed before calling the work done. If it failed, read
   the logs, fix, and push again. Don't pile on more pushes beyond what's needed
   to get that run green unless I ask.
+- **New builds install over the top of an existing install; data is preserved.**
+  Every build — including CI — is signed with a stable, committed keystore
+  (`app/datadragon-debug.keystore`) and shares one applicationId
+  (`com.datadragon.app`), so a freshly built APK installs as an update over the
+  current install without uninstalling, and the local database (logs, entries,
+  follow-up notes) survives. This is **not** related to git commit signing — the
+  user does not need to deal with any signing keys to update the app. Data is
+  only at risk if a change alters the Room schema without a migration (bump the
+  DB version and add a `Migration`), or if the currently-installed app was signed
+  with a different key (that shows as "app not installed" / signature mismatch and
+  forces a one-time uninstall). So: prefer schema-compatible changes, and when a
+  schema change is unavoidable, add a proper migration so existing data isn't
+  wiped on update.
