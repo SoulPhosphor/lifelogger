@@ -4,6 +4,24 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-07-07 — Keep the keyboard from covering form fields
+
+The app runs edge-to-edge (`enableEdgeToEdge()`), so the window doesn't resize
+when the soft keyboard opens — a focused field low on a long form (or a
+multi-line box you're typing into) could end up hidden behind the keyboard.
+
+Fix: add `Modifier.imePadding()` **before** `verticalScroll(...)` on every
+scrollable form column, so the scroll viewport shrinks to the space above the
+keyboard. A focused text field's built-in bring-into-view then scrolls it into
+the still-visible area, so what you're typing is always on screen. Applied to
+**New/Edit Entry** (`NewEntryScreen`), **New Log** (`CreateLogScreen`), and both
+the field list and the single-field editor in **Edit form** (`EditFormScreen`).
+
+Follow-up-note entry is untouched: it lives in an `AlertDialog`, whose own
+window already lifts above the keyboard.
+
+---
+
 ## 2026-06-29 — UI corrections (back chevron, gear/backup, entry menu, edit-form settings)
 
 Fixing several things that were missed or half-done:

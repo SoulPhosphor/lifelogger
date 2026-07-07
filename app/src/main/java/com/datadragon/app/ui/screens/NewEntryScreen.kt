@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -137,6 +138,10 @@ fun NewEntryScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                // Shrink the scroll viewport to the space above the on-screen
+                // keyboard so a focused field is never hidden behind it — the
+                // text field's own bring-into-view then scrolls it into sight.
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
