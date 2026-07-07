@@ -4,6 +4,43 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-07-07 — Follow-up notes get a full screen; auto-capitalize settings; Title Case pass
+
+**Follow-up notes are now a full screen, not a pop-up, and are editable.**
+
+- The "Add Follow-Up Note" pop-up is gone. Adding a note (from an entry's ⋮
+  menu) and editing an existing note (tap the note on the entry card) both open a
+  new full-screen `FollowUpNoteScreen` titled "Follow-Up Note".
+- The screen shows the entry's own data above the note box. When the log is
+  **locked**, that data is a read-only readout (the same `label: value` layout as
+  the entry cards). When the log is **unlocked**, the entry's fields are shown as
+  the editable entry form, so Save also writes any field edits — mirroring the
+  New/Edit Entry screen. The note box is a multi-line field (min 144.dp, i.e. a
+  bit taller than the ~120.dp entry Notes box).
+- **Spec change:** follow-up notes are no longer append-only — a note's text can
+  be edited at any time, regardless of the log's lock state. "Locked" now only
+  keeps the entry's *field content* from changing. `EntryNoteDao` gained
+  `update`/`getById`; a note keeps its original timestamp when edited. New
+  `FollowUpNoteViewModel`; new `note` route with an optional `noteId`.
+
+**New Settings toggles (global Settings, under "Text Formatting"):**
+
+- "Auto capitalize major words of label titles" and "Auto capitalize major words
+  of drop-down and multiple choice options" (titles kept as sentences on purpose
+  — they're long). Each notes "Only applies to future items." Both default on.
+- They title-case user-entered field labels / options **as new items are
+  created** (in New Log's Build tab and when adding a new field in Edit form) —
+  never retroactively, and existing fields in Edit form are left untouched so
+  their entries are never re-keyed. Backed by a small `SettingsRepository`
+  (SharedPreferences) + `SettingsViewModel`; casing logic in `TitleCase`.
+
+**Text house style retrofit.** The app's own labels/buttons/menu items are now
+Title Case ("Edit Form", "Add Field", "Delete Log", "Back Up Now…", "Options
+(One per Line)", …), per the new CLAUDE.md rule. Long descriptive/help sentences
+are left as sentences.
+
+---
+
 ## 2026-07-07 — Keep the keyboard from covering form fields
 
 The app runs edge-to-edge (`enableEdgeToEdge()`), so the window doesn't resize

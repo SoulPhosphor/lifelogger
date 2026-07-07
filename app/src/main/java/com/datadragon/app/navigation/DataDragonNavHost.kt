@@ -9,6 +9,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.datadragon.app.ui.screens.CreateLogScreen
 import com.datadragon.app.ui.screens.EditFormScreen
+import com.datadragon.app.ui.screens.FollowUpNoteScreen
 import com.datadragon.app.ui.screens.HomeScreen
 import com.datadragon.app.ui.screens.LogScreen
 import com.datadragon.app.ui.screens.NewEntryScreen
@@ -50,6 +51,9 @@ fun DataDragonNavHost(
                     navController.navigate(Routes.editEntry(logId.orEmpty(), entryId))
                 },
                 onEditForm = { navController.navigate(Routes.editForm(logId.orEmpty())) },
+                onOpenFollowUp = { entryId, noteId ->
+                    navController.navigate(Routes.followUp(logId.orEmpty(), entryId, noteId))
+                },
             )
         }
 
@@ -87,6 +91,26 @@ fun DataDragonNavHost(
             val logId = backStackEntry.arguments?.getString(Routes.LOG_ARG)
             EditFormScreen(
                 logId = logId,
+                onBack = { navController.popBackStack() },
+            )
+        }
+
+        composable(
+            route = Routes.FOLLOW_UP,
+            arguments = listOf(
+                navArgument(Routes.LOG_ARG) { type = NavType.StringType },
+                navArgument(Routes.ENTRY_ARG) { type = NavType.StringType },
+                navArgument(Routes.NOTE_ARG) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+            ),
+        ) { backStackEntry ->
+            FollowUpNoteScreen(
+                logId = backStackEntry.arguments?.getString(Routes.LOG_ARG),
+                entryId = backStackEntry.arguments?.getString(Routes.ENTRY_ARG),
+                noteId = backStackEntry.arguments?.getString(Routes.NOTE_ARG),
                 onBack = { navController.popBackStack() },
             )
         }

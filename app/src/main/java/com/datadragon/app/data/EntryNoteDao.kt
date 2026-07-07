@@ -3,17 +3,27 @@ package com.datadragon.app.data
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Data access for [EntryNote]. Notes are append-only: insert and read, no update.
- * They are removed only when their entry or whole log is deleted.
+ * Data access for [EntryNote]. Notes can be added, read, and edited; each keeps
+ * its original timestamp when its text is changed. They are removed only when
+ * their entry or whole log is deleted.
  */
 @Dao
 interface EntryNoteDao {
 
     @Insert
     suspend fun insert(note: EntryNote): Long
+
+    /** Edit an existing follow-up note's text (its timestamp is kept). */
+    @Update
+    suspend fun update(note: EntryNote)
+
+    /** One follow-up note by id, for loading it into the edit screen. */
+    @Query("SELECT * FROM entry_notes WHERE id = :id")
+    suspend fun getById(id: Long): EntryNote?
 
     /** All follow-up notes for one log's entries, oldest first, for display. */
     @Query(

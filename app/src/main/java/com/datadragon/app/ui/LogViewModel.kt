@@ -4,7 +4,6 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.datadragon.app.data.AppDatabase
-import com.datadragon.app.data.BackupRepository
 import com.datadragon.app.data.EntryNote
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.LogEntry
@@ -75,17 +74,6 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
                 noteDao.deleteForEntry(entry.id)
                 entryDao.delete(entry)
             }
-        }
-    }
-
-    /** Append a time-stamped follow-up note to an entry (append-only). */
-    fun addNote(entry: LogEntry, text: String) {
-        val trimmed = text.trim()
-        if (trimmed.isEmpty()) return
-        viewModelScope.launch {
-            noteDao.insert(
-                EntryNote(entryId = entry.id, createdAt = BackupRepository.now(), text = trimmed)
-            )
         }
     }
 

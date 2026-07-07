@@ -3,6 +3,7 @@ package com.datadragon.app.ui.screens
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,7 +32,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -69,6 +69,7 @@ fun LogScreen(
     onAddEntry: () -> Unit,
     onEditEntry: (Long) -> Unit,
     onEditForm: () -> Unit,
+    onOpenFollowUp: (entryId: Long, noteId: Long?) -> Unit,
     viewModel: LogViewModel = viewModel(),
 ) {
     val id = logId?.toLongOrNull()
@@ -87,11 +88,8 @@ fun LogScreen(
     var entryToDelete by remember { mutableStateOf<LogEntry?>(null) }
     var showUnlock by remember { mutableStateOf(false) }
     var gearMenuOpen by remember { mutableStateOf(false) }
-    // Export dialog: whether to include append-only follow-up notes.
+    // Export dialog: whether to include follow-up notes.
     var includeFollowUps by remember { mutableStateOf(true) }
-    // The entry a follow-up note is being added to, plus the in-progress text.
-    var noteFor by remember { mutableStateOf<LogEntry?>(null) }
-    var noteText by remember { mutableStateOf("") }
 
     // The file the user is saving. They choose the destination and name via the
     // system "Save to…" sheet; we write the bytes to whatever location it returns.
@@ -146,7 +144,7 @@ fun LogScreen(
                                     },
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Edit form") },
+                                    text = { Text("Edit Form") },
                                     onClick = {
                                         gearMenuOpen = false
                                         onEditForm()
@@ -167,7 +165,7 @@ fun LogScreen(
                                 )
                                 if (locked) {
                                     DropdownMenuItem(
-                                        text = { Text("Unlock log") },
+                                        text = { Text("Unlock Log") },
                                         onClick = {
                                             gearMenuOpen = false
                                             showUnlock = true
@@ -175,7 +173,7 @@ fun LogScreen(
                                     )
                                 }
                                 DropdownMenuItem(
-                                    text = { Text("Delete log") },
+                                    text = { Text("Delete Log") },
                                     onClick = {
                                         gearMenuOpen = false
                                         confirmDeleteLog = true
@@ -215,10 +213,8 @@ fun LogScreen(
                         appendable = allowAppendedNotes,
                         onDelete = { entryToDelete = entry },
                         onEdit = { onEditEntry(entry.id) },
-                        onAddNote = {
-                            noteText = ""
-                            noteFor = entry
-                        },
+                        onAddNote = { onOpenFollowUp(entry.id, null) },
+                        onEditNote = { noteId -> onOpenFollowUp(entry.id, noteId) },
                     )
                 }
             }
@@ -302,7 +298,7 @@ fun LogScreen(
                     confirmDeleteLog = false
                     viewModel.deleteLog(onDeleted = onBack)
                 }) {
-                    Text("Delete log", color = DeleteRed)
+                    Text("Delete Log", color = DeleteRed)
                 }
             },
             dismissButton = {
@@ -321,7 +317,7 @@ fun LogScreen(
                     entryToDelete = null
                     viewModel.deleteEntry(entry)
                 }) {
-                    Text("Delete entry", color = DeleteRed)
+                    Text("Delete Entry", color = DeleteRed)
                 }
             },
             dismissButton = {
@@ -352,39 +348,6 @@ fun LogScreen(
         )
     }
 
-    noteFor?.let { entry ->
-        AlertDialog(
-            onDismissRequest = { noteFor = null },
-            title = { Text("Add Follow-Up Note") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        "This is added as a separate, time-stamped note. The original " +
-                            "entry isn't changed.",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    OutlinedTextField(
-                        value = noteText,
-                        onValueChange = { noteText = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("What happened…") },
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = noteText.isNotBlank(),
-                    onClick = {
-                        viewModel.addNote(entry, noteText)
-                        noteFor = null
-                    },
-                ) { Text("Add note") }
-            },
-            dismissButton = {
-                TextButton(onClick = { noteFor = null }) { Text("Cancel") }
-            },
-        )
-    }
 }
 
 /**
@@ -403,6 +366,7 @@ private fun EntryRow(
     onDelete: () -> Unit,
     onEdit: () -> Unit,
     onAddNote: () -> Unit,
+    onEditNote: (Long) -> Unit,
 ) {
     val values = remember(entry.valuesJson) { EntryValues.decode(entry.valuesJson) }
     val notes = remember(values) { EntryValues.notes(values) }
@@ -455,7 +419,9 @@ private fun EntryRow(
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.padding(top = 8.dp),
                 )
-                appendedNotes.forEach { note -> FollowUpNote(note) }
+                appendedNotes.forEach { note ->
+                    FollowUpNote(note, onClick = { onEditNote(note.id) })
+                }
             }
 
             // One label-over-value block per field that has a value, going down.
@@ -469,9 +435,12 @@ private fun EntryRow(
     }
 }
 
-/** One Follow-Up Note: its own timestamp (muted) followed by the note text. */
+/**
+ * One Follow-Up Note: its own timestamp (muted) followed by the note text.
+ * Tapping it opens the follow-up note screen to edit it.
+ */
 @Composable
-private fun FollowUpNote(note: EntryNote) {
+private fun FollowUpNote(note: EntryNote, onClick: () -> Unit) {
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     Text(
         text = buildAnnotatedString {
@@ -481,7 +450,10 @@ private fun FollowUpNote(note: EntryNote) {
             append(note.text)
         },
         style = MaterialTheme.typography.bodyMedium,
-        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(top = 4.dp),
     )
 }
 

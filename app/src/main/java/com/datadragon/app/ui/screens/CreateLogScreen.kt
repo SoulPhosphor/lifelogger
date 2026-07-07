@@ -48,6 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -55,6 +56,8 @@ import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.FormMarkdownGenerator
 import com.datadragon.app.data.FormMarkdownParser
+import com.datadragon.app.data.SettingsRepository
+import com.datadragon.app.data.TitleCase
 import com.datadragon.app.ui.CreateLogViewModel
 
 /** Which editor is showing. Build (visual taps) is the default. */
@@ -107,6 +110,9 @@ fun CreateLogScreen(
     onBack: () -> Unit,
     viewModel: CreateLogViewModel = viewModel(),
 ) {
+    val context = LocalContext.current
+    val settings = remember { SettingsRepository(context) }
+
     var name by remember { mutableStateOf("") }
     var mode by remember { mutableStateOf(BuilderMode.BUILD) }
 
@@ -145,7 +151,16 @@ fun CreateLogScreen(
                             val fields: List<FieldDef>
                             val markdown: String
                             if (mode == BuilderMode.BUILD) {
-                                fields = draftFields.filter { it.isValid() }.map { it.toFieldDef() }
+                                // Every field here is newly created, so apply the
+                                // auto-capitalize settings before saving.
+                                fields = draftFields.filter { it.isValid() }
+                                    .map { it.toFieldDef() }
+                                    .map {
+                                        it.autoCapitalized(
+                                            labels = settings.autoCapitalizeLabels,
+                                            options = settings.autoCapitalizeOptions,
+                                        )
+                                    }
                                 markdown = FormMarkdownGenerator.generate(name, fields)
                             } else {
                                 fields = FormMarkdownParser.parse(pasteText).fields
@@ -178,7 +193,7 @@ fun CreateLogScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Log name", style = MaterialTheme.typography.labelLarge)
+            Text("Log Name", style = MaterialTheme.typography.labelLarge)
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
@@ -189,7 +204,7 @@ fun CreateLogScreen(
             SettingSwitchRow(
                 checked = locked,
                 onCheckedChange = { locked = it },
-                title = "Locked log",
+                title = "Locked Log",
                 subtitle = "Entries can't be edited after saving. You can unlock it " +
                     "later, but only once — it can never be re-locked.",
             )
@@ -295,7 +310,7 @@ private fun BuildEditor(
     Text("Fields", style = MaterialTheme.typography.labelLarge)
     if (fields.isEmpty()) {
         Text(
-            "No fields yet. Tap “Add field” to build your form. You can also save a log with no fields.",
+            "No fields yet. Tap “Add Field” to build your form. You can also save a log with no fields.",
             style = MaterialTheme.typography.bodyMedium,
         )
     }
@@ -304,7 +319,7 @@ private fun BuildEditor(
     }
     OutlinedButton(onClick = onAdd, modifier = Modifier.fillMaxWidth()) {
         Icon(Icons.Filled.Add, contentDescription = null)
-        Text("  Add field")
+        Text("  Add Field")
     }
 }
 
@@ -341,12 +356,12 @@ private fun FieldEditorCard(field: DraftField, index: Int, onDelete: () -> Unit)
                 FieldType.MULTILINE -> NumberField(
                     value = field.lines,
                     onChange = { field.lines = it },
-                    label = "Lines (height, optional)",
+                    label = "Lines (Height, Optional)",
                 )
                 FieldType.NUMBER -> NumberField(
                     value = field.digits,
                     onChange = { field.digits = it },
-                    label = "Max digits (optional)",
+                    label = "Max Digits (Optional)",
                 )
                 FieldType.SCALE -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     NumberField(
@@ -365,12 +380,12 @@ private fun FieldEditorCard(field: DraftField, index: Int, onDelete: () -> Unit)
                 FieldType.DROPDOWN, FieldType.MULTIPLE -> OutlinedTextField(
                     value = field.optionsText,
                     onValueChange = { field.optionsText = it },
-                    label = { Text("Options (one per line)") },
+                    label = { Text("Options (One per Line)") },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp),
                 )
                 FieldType.DATETIME -> Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = field.defaultNow, onCheckedChange = { field.defaultNow = it })
-                    Text("Default to the current date & time")
+                    Text("Default to the Current Date & Time")
                 }
                 else -> Unit
             }
@@ -449,7 +464,7 @@ private fun PasteEditor(
     ) {
         Text("Form Markdown", style = MaterialTheme.typography.labelLarge)
         TextButton(onClick = onToggleHelp) {
-            Text("How to write it")
+            Text("How to Write It")
             Icon(
                 imageVector = if (showHelp) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
                 contentDescription = if (showHelp) "Hide help" else "Show help",
@@ -462,7 +477,7 @@ private fun PasteEditor(
             Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(FORM_MARKDOWN_HELP, style = MaterialTheme.typography.bodySmall)
                 HorizontalDivider()
-                Text("Field types", style = MaterialTheme.typography.labelMedium)
+                Text("Field Types", style = MaterialTheme.typography.labelMedium)
                 Text(FIELD_TYPES_REFERENCE, style = MaterialTheme.typography.bodySmall)
             }
         }
@@ -476,7 +491,7 @@ private fun PasteEditor(
     )
 
     OutlinedButton(onClick = onPreview, modifier = Modifier.fillMaxWidth()) {
-        Text("Preview form (optional)")
+        Text("Preview Form (Optional)")
     }
 
     preview?.let { PreviewSection(it) }
@@ -515,7 +530,7 @@ private fun PreviewSection(result: FormMarkdownParser.ParseResult) {
     }
 
     if (result.skipped.isNotEmpty()) {
-        Text("Skipped lines", style = MaterialTheme.typography.titleSmall)
+        Text("Skipped Lines", style = MaterialTheme.typography.titleSmall)
         result.skipped.forEach { line ->
             Text("• $line", style = MaterialTheme.typography.bodySmall)
         }
@@ -583,6 +598,20 @@ private class DraftField(
         defaultNow = type == FieldType.DATETIME && defaultNow,
     )
 }
+
+/**
+ * Return a copy with major words title-cased, per the auto-capitalize settings:
+ * [labels] title-cases the field label; [options] title-cases each dropdown or
+ * multiple option. Other field types keep their (empty) option list unchanged.
+ */
+private fun FieldDef.autoCapitalized(labels: Boolean, options: Boolean): FieldDef = copy(
+    label = if (labels) TitleCase.apply(label) else label,
+    options = if (options && (type == FieldType.DROPDOWN || type == FieldType.MULTIPLE)) {
+        this.options.map { TitleCase.apply(it) }
+    } else {
+        this.options
+    },
+)
 
 private fun FieldDef.toDraft(): DraftField = DraftField(
     label = label,

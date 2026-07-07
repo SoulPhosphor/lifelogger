@@ -5,12 +5,13 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * An append-only follow-up note attached to a [LogEntry] after it was created.
+ * A follow-up note attached to a [LogEntry] after it was created.
  *
- * Only offered when the entry's log has `allowAppendedNotes` set. Notes are
- * insert-only — never edited — so each one is a fixed, separately time-stamped
- * addition that never alters the original entry. This keeps a locked log honest:
- * later information shows up as a dated addendum, not a silent change. `createdAt`
+ * Offered when the entry's log has `allowAppendedNotes` set. Each note is a
+ * separately time-stamped addition that lives alongside the original entry
+ * rather than changing it, so later information shows up as a dated addendum.
+ * A note's text can be edited at any time (regardless of whether the log is
+ * locked); its `createdAt` timestamp is kept when the text changes. `createdAt`
  * is ISO-8601 with offset, matching [LogEntry.createdAt].
  */
 @Entity(

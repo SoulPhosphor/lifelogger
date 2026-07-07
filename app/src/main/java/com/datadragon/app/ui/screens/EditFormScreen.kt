@@ -43,12 +43,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.FieldType
+import com.datadragon.app.data.SettingsRepository
+import com.datadragon.app.data.TitleCase
 import com.datadragon.app.ui.EditFormViewModel
 
 /**
@@ -166,7 +169,7 @@ fun EditFormScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Edit form") },
+                title = { Text("Edit Form") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
@@ -223,7 +226,7 @@ fun EditFormScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Icon(Icons.Filled.Add, contentDescription = null)
-                Text("  Add field")
+                Text("  Add Field")
             }
         }
     }
@@ -294,6 +297,8 @@ private fun FieldEditorScreen(
     onCancel: () -> Unit,
 ) {
     val draft = remember(source) { source.copy() }
+    val context = LocalContext.current
+    val settings = remember { SettingsRepository(context) }
 
     BackHandler(onBack = onCancel)
 
@@ -311,6 +316,18 @@ private fun FieldEditorScreen(
                         enabled = canSave(draft),
                         onClick = {
                             source.applyFrom(draft)
+                            // Auto-capitalize only newly added fields; existing
+                            // fields are left as-is so their entries aren't re-keyed.
+                            if (!source.existing) {
+                                if (settings.autoCapitalizeLabels) {
+                                    source.label = TitleCase.apply(source.label)
+                                }
+                                val hasOptions = source.type == FieldType.DROPDOWN ||
+                                    source.type == FieldType.MULTIPLE
+                                if (settings.autoCapitalizeOptions && hasOptions) {
+                                    source.optionsText = TitleCase.applyLines(source.optionsText)
+                                }
+                            }
                             onSave()
                         },
                     ) { Text("Save") }
@@ -366,12 +383,12 @@ private fun SettingsControls(field: EditDraft) {
         FieldType.MULTILINE -> EditNumberField(
             value = field.lines,
             onChange = { field.lines = it },
-            label = "Lines (height, optional)",
+            label = "Lines (Height, Optional)",
         )
         FieldType.NUMBER -> EditNumberField(
             value = field.digits,
             onChange = { field.digits = it },
-            label = "Max digits (optional)",
+            label = "Max Digits (Optional)",
         )
         FieldType.SCALE -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             EditNumberField(
@@ -390,12 +407,12 @@ private fun SettingsControls(field: EditDraft) {
         FieldType.DROPDOWN, FieldType.MULTIPLE -> OutlinedTextField(
             value = field.optionsText,
             onValueChange = { field.optionsText = it },
-            label = { Text("Options (one per line)") },
+            label = { Text("Options (One per Line)") },
             modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp),
         )
         FieldType.DATETIME -> Row(verticalAlignment = Alignment.CenterVertically) {
             Checkbox(checked = field.defaultNow, onCheckedChange = { field.defaultNow = it })
-            Text("Default to the current date & time")
+            Text("Default to the Current Date & Time")
         }
         else -> Unit
     }

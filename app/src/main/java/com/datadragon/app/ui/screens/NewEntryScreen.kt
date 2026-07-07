@@ -176,7 +176,7 @@ fun NewEntryScreen(
 }
 
 /** Build the value map that gets serialized into the entry's valuesJson. */
-private fun collectValues(
+internal fun collectValues(
     fields: List<com.datadragon.app.data.FieldDef>,
     textValues: Map<String, String>,
     multiValues: Map<String, Set<String>>,

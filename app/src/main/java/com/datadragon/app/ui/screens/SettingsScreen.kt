@@ -2,10 +2,15 @@ package com.datadragon.app.ui.screens
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material3.AlertDialog
@@ -16,6 +21,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -25,13 +31,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.ui.BackupViewModel
 import com.datadragon.app.ui.RestoreResult
+import com.datadragon.app.ui.SettingsViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -42,9 +51,12 @@ import java.time.LocalDate
 fun SettingsScreen(
     onBack: () -> Unit,
     viewModel: BackupViewModel = viewModel(),
+    settingsViewModel: SettingsViewModel = viewModel(),
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val autoCapitalizeLabels by settingsViewModel.autoCapitalizeLabels.collectAsStateWithLifecycle()
+    val autoCapitalizeOptions by settingsViewModel.autoCapitalizeOptions.collectAsStateWithLifecycle()
     var pendingJson by remember { mutableStateOf<String?>(null) }
     var status by remember { mutableStateOf<String?>(null) }
 
@@ -98,12 +110,30 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("Back up all data", style = MaterialTheme.typography.labelLarge)
+            // Text-formatting preferences. Their titles are deliberately kept as
+            // sentences (not Title Case) because they're long.
+            Text("Text Formatting", style = MaterialTheme.typography.labelLarge)
+            SettingToggleRow(
+                checked = autoCapitalizeLabels,
+                onCheckedChange = settingsViewModel::setAutoCapitalizeLabels,
+                title = "Auto capitalize major words of label titles",
+                subtitle = "Only applies to future items.",
+            )
+            SettingToggleRow(
+                checked = autoCapitalizeOptions,
+                onCheckedChange = settingsViewModel::setAutoCapitalizeOptions,
+                title = "Auto capitalize major words of drop-down and multiple choice options",
+                subtitle = "Only applies to future items.",
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            Text("Back Up All Data", style = MaterialTheme.typography.labelLarge)
             OutlinedButton(onClick = {
                 status = null
                 createDocument.launch("datadragon_backup_${LocalDate.now()}.json")
             }) {
-                Text("Back up now…")
+                Text("Back Up Now…")
             }
             Text(
                 "Saves every log and entry into a single .json file you choose the location for.",
@@ -114,14 +144,14 @@ fun SettingsScreen(
 
             // Restore lives at the bottom, away from everyday controls. Times are
             // always 12-hour (AM/PM), so there is no time-format choice here.
-            Text("Restore from backup", style = MaterialTheme.typography.labelLarge)
+            Text("Restore from Backup", style = MaterialTheme.typography.labelLarge)
             OutlinedButton(onClick = {
                 status = null
                 openDocument.launch(
                     arrayOf("application/json", "application/octet-stream", "text/plain"),
                 )
             }) {
-                Text("Choose backup file…")
+                Text("Choose Backup File…")
             }
             Text(
                 "Loads data from a .json backup file. This replaces everything currently in the app.",
@@ -164,5 +194,38 @@ fun SettingsScreen(
                 TextButton(onClick = { pendingJson = null }) { Text("Cancel") }
             },
         )
+    }
+}
+
+/**
+ * A settings row: a title (and optional subtitle) on the left with a Switch on
+ * the right. The whole row is tappable to toggle, which is an easier target.
+ */
+@Composable
+private fun SettingToggleRow(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    title: String,
+    subtitle: String? = null,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            if (subtitle != null) {
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
