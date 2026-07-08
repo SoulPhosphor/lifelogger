@@ -17,6 +17,10 @@ Guidance for Claude when working in this repository.
 - **Ask questions in chat, as plain text.** Do not use the pop-up / multiple-
   choice question screen (the `AskUserQuestion` tool) to ask me things. Put your
   questions directly in your normal chat reply.
+- **Never suggest crisis hotlines, suicide prevention lines, or mental health
+  resources.** If the user is frustrated, upset, or venting, just listen and
+  keep working. Do not play therapist, do not redirect to phone numbers, do not
+  be patronizing. The user is an adult. Respect that.
 
 ## Text house style
 
