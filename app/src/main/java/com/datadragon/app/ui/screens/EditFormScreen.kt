@@ -7,15 +7,20 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
@@ -53,6 +58,8 @@ import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.SettingsRepository
 import com.datadragon.app.data.TitleCase
 import com.datadragon.app.ui.EditFormViewModel
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 
 /**
  * Edit a log's fields after creation. To keep stored entries valid, a field's
@@ -177,6 +184,20 @@ fun EditFormScreen(
     fun attemptBack() { if (dirty) showDiscard = true else onBack() }
     BackHandler { attemptBack() }
 
+    val lazyListState = rememberLazyListState()
+    val reorderState = rememberReorderableLazyListState(lazyListState) { from, to ->
+        val fromKey = from.key
+        val toKey = to.key
+        // Only the field rows carry Long keys; the header/add rows are ignored.
+        if (fromKey is Long && toKey is Long) {
+            val fromIdx = rows.indexOfFirst { it.uid == fromKey }
+            val toIdx = rows.indexOfFirst { it.uid == toKey }
+            if (fromIdx >= 0 && toIdx >= 0) {
+                rows.add(toIdx, rows.removeAt(fromIdx))
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -195,49 +216,51 @@ fun EditFormScreen(
             )
         },
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                // Shrink the scroll viewport to the space above the on-screen
-                // keyboard so a focused field is never hidden behind it — the
-                // text field's own bring-into-view then scrolls it into sight.
-                .imePadding()
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+        LazyColumn(
+            state = lazyListState,
+            modifier = Modifier.fillMaxSize().padding(padding).imePadding(),
+            contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                "Tap a field to edit its label, options, and settings. Add new fields " +
-                    "or reorder them. A field's type can't change and existing fields " +
-                    "can't be removed, so past entries stay intact.",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-
-            rows.forEachIndexed { index, field ->
-                FieldSummaryCard(
-                    field = field,
-                    number = index + 1,
-                    canMoveUp = index > 0,
-                    canMoveDown = index < rows.lastIndex,
-                    onMoveUp = { move(index, -1) },
-                    onMoveDown = { move(index, 1) },
-                    // Only new fields can be deleted here.
-                    deletable = !field.existing,
-                    onDelete = { rows.removeAt(index) },
-                    onOpen = { editingIndex = index },
+            item(key = "header") {
+                Text(
+                    "Tap a field to edit its label, options, and settings. Add new fields " +
+                        "or reorder them. A field's type can't change and existing fields " +
+                        "can't be removed, so past entries stay intact.",
+                    style = MaterialTheme.typography.bodyMedium,
                 )
             }
 
-            OutlinedButton(
-                onClick = {
-                    rows.add(EditDraft())
-                    editingIndex = rows.lastIndex
-                },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = null)
-                Text("  Add Field")
+            itemsIndexed(rows, key = { _, field -> field.uid }) { index, field ->
+                ReorderableItem(reorderState, key = field.uid) { _ ->
+                    val handle = Modifier.draggableHandle()
+                    FieldSummaryCard(
+                        field = field,
+                        number = index + 1,
+                        canMoveUp = index > 0,
+                        canMoveDown = index < rows.lastIndex,
+                        onMoveUp = { move(index, -1) },
+                        onMoveDown = { move(index, 1) },
+                        // Only new fields can be deleted here.
+                        deletable = !field.existing,
+                        onDelete = { rows.remove(field) },
+                        onOpen = { editingIndex = rows.indexOf(field) },
+                        dragHandleModifier = handle,
+                    )
+                }
+            }
+
+            item(key = "add") {
+                OutlinedButton(
+                    onClick = {
+                        rows.add(EditDraft())
+                        editingIndex = rows.lastIndex
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = null)
+                    Text("  Add Field")
+                }
             }
         }
     }
@@ -266,6 +289,7 @@ private fun FieldSummaryCard(
     deletable: Boolean,
     onDelete: () -> Unit,
     onOpen: () -> Unit,
+    dragHandleModifier: Modifier = Modifier,
 ) {
     Card(
         modifier = Modifier
@@ -291,6 +315,13 @@ private fun FieldSummaryCard(
                         Icon(Icons.Filled.Delete, contentDescription = "Delete field")
                     }
                 }
+                // Press-and-drag handle at the far right to reorder the field.
+                Icon(
+                    imageVector = Icons.Filled.DragIndicator,
+                    contentDescription = "Drag to reorder",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = dragHandleModifier.padding(start = 4.dp),
+                )
             }
             field.validationHint()?.let { hint ->
                 Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
@@ -318,14 +349,18 @@ private fun FieldEditorScreen(
     val context = LocalContext.current
     val settings = remember { SettingsRepository(context) }
 
-    BackHandler(onBack = onCancel)
+    // Editing works on a copy; warn before dropping unsaved edits to this field.
+    var showDiscard by remember { mutableStateOf(false) }
+    val dirty = !draft.sameContentAs(source)
+    fun attemptCancel() { if (dirty) showDiscard = true else onCancel() }
+    BackHandler { attemptCancel() }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Field $number") },
                 navigationIcon = {
-                    IconButton(onClick = onCancel) {
+                    IconButton(onClick = { attemptCancel() }) {
                         Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
                     }
                 },
@@ -391,6 +426,13 @@ private fun FieldEditorScreen(
                 Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
             }
         }
+    }
+
+    if (showDiscard) {
+        DiscardChangesDialog(
+            onConfirm = { showDiscard = false; onCancel() },
+            onDismiss = { showDiscard = false },
+        )
     }
 }
 
@@ -506,6 +548,9 @@ private fun EditTypeDropdown(selected: FieldType, onSelected: (FieldType) -> Uni
 
 // ---- Draft model + helpers (self-contained for this screen) -----------------
 
+/** Hands out a stable id per draft so the reorderable list has unique keys. */
+private var editDraftCounter = 0L
+
 /** Mutable, Compose-observable editing state for one field. */
 private class EditDraft(
     label: String = "",
@@ -537,6 +582,15 @@ private class EditDraft(
     // Baselines for rename detection; realigned after each save.
     var originalLabel by mutableStateOf(originalLabel)
     var originalOptions by mutableStateOf(originalOptions)
+
+    /** Stable identity for list keys; survives reordering, unique per draft. */
+    val uid: Long = editDraftCounter++
+
+    /** True when [o] holds the same editable content (used to detect edits). */
+    fun sameContentAs(o: EditDraft): Boolean =
+        label == o.label && type == o.type && required == o.required &&
+            lines == o.lines && digits == o.digits && from == o.from && to == o.to &&
+            optionsText == o.optionsText && defaultNow == o.defaultNow
 
     fun optionList(): List<String> =
         optionsText.split("\n").map { it.trim() }.filter { it.isNotEmpty() }

@@ -2,6 +2,7 @@ package com.datadragon.app.ui.screens
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,7 +13,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
@@ -39,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.CompleteIcon
@@ -118,25 +122,29 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             // Text-formatting preferences. Their titles are deliberately kept as
-            // sentences (not Title Case) because they're long.
-            Text("Text Formatting", style = MaterialTheme.typography.labelLarge)
+            // sentences (not Title Case) because they're long. The "future items"
+            // note applies to both toggles, so it sits once under the header.
+            SectionHeader("Text Formatting")
+            Text(
+                "Only applies to future items.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             SettingToggleRow(
                 checked = autoCapitalizeLabels,
                 onCheckedChange = settingsViewModel::setAutoCapitalizeLabels,
                 title = "Auto capitalize major words of label titles",
-                subtitle = "Only applies to future items.",
             )
             SettingToggleRow(
                 checked = autoCapitalizeOptions,
                 onCheckedChange = settingsViewModel::setAutoCapitalizeOptions,
                 title = "Auto capitalize major words of drop-down and multiple choice options",
-                subtitle = "Only applies to future items.",
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
             // Global behavior for every list.
-            Text("Lists", style = MaterialTheme.typography.labelLarge)
+            SectionHeader("Lists")
             CompleteIconRow(
                 selected = completeIcon,
                 onSelected = settingsViewModel::setCompleteIcon,
@@ -154,7 +162,7 @@ fun SettingsScreen(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            Text("Back Up All Data", style = MaterialTheme.typography.labelLarge)
+            SectionHeader("Back Up All Data")
             OutlinedButton(onClick = {
                 status = null
                 createDocument.launch("datadragon_backup_${LocalDate.now()}.json")
@@ -170,7 +178,7 @@ fun SettingsScreen(
 
             // Restore lives at the bottom, away from everyday controls. Times are
             // always 12-hour (AM/PM), so there is no time-format choice here.
-            Text("Restore from Backup", style = MaterialTheme.typography.labelLarge)
+            SectionHeader("Restore from Backup")
             OutlinedButton(onClick = {
                 status = null
                 openDocument.launch(
@@ -221,6 +229,15 @@ fun SettingsScreen(
             },
         )
     }
+}
+
+/**
+ * A section heading, sized a touch smaller than the "Settings" title up top so
+ * the sections are easy to scan.
+ */
+@Composable
+private fun SectionHeader(text: String) {
+    Text(text, style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp))
 }
 
 /**
@@ -275,7 +292,6 @@ private fun CompleteIconRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { expanded = true }
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -286,7 +302,18 @@ private fun CompleteIconRow(
         )
         Spacer(Modifier.width(12.dp))
         Box {
-            Text(selected.label(), style = MaterialTheme.typography.bodyLarge)
+            // The current choice sits in a lightly outlined, slightly rounded box
+            // that opens the drop-down when tapped.
+            Row(
+                modifier = Modifier
+                    .clickable { expanded = true }
+                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
+                    .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(selected.label(), style = MaterialTheme.typography.bodyLarge)
+                Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+            }
             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 CompleteIcon.entries.forEach { option ->
                     DropdownMenuItem(
