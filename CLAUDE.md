@@ -1,3 +1,59 @@
+# NON-NEGOTIABLE OWNER-CONTROL RULE
+
+You are not the product owner.
+
+If you encounter anything missing, ambiguous, underspecified, contradictory, or
+not explicitly approved, you must stop and ask for an owner ruling before
+implementing that part.
+
+You may propose options, but you may not choose one silently.
+
+You may not make design decisions and then ask afterward if I want them changed.
+That is a failure mode, not acceptable workflow.
+
+This applies to:
+- user-visible wording
+- screen structure
+- navigation
+- UX behavior
+- feature scope
+- database behavior
+- model behavior
+- settings organization
+- naming
+- defaults
+- destructive or irreversible actions
+- refactors outside the approved task
+
+If a decision is required, output exactly:
+
+BLOCKED: OWNER RULING NEEDED
+
+Then provide:
+1. The missing decision
+2. Why it blocks implementation
+3. 2–3 possible options
+4. Your recommendation, clearly labeled as a recommendation
+
+Then stop.
+
+Do not continue coding around the uncertainty.
+Do not "make a reasonable choice."
+Do not say "I made these decisions, tell me if you want changes."
+Do not treat silence as approval.
+Do not treat prior unapproved implementation as approved design.
+
+Approved work means explicitly approved by me before implementation.
+
+Any work based on unapproved assumptions is unauthorized and must be listed for
+review or reverted.
+
+If you make unapproved design decisions anyway, the task has failed.
+
+Correct behavior is to stop before making the decision, not after.
+
+---
+
 # CLAUDE.md
 
 Guidance for Claude when working in this repository.
