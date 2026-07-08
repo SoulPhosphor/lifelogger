@@ -162,6 +162,15 @@ fun FollowUpNoteScreen(
                 )
             }
 
+            Text("Follow-Up Note", style = MaterialTheme.typography.labelLarge)
+            OutlinedTextField(
+                value = noteText,
+                onValueChange = { noteText = it },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 144.dp),
+            )
+
+            HorizontalDivider()
+
             if (locked) {
                 // Read-only copy of the entry's data, as shown on the log screen.
                 val values = entryValues
@@ -190,15 +199,6 @@ fun FollowUpNoteScreen(
                     modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp),
                 )
             }
-
-            HorizontalDivider()
-
-            Text("Follow-Up Note", style = MaterialTheme.typography.labelLarge)
-            OutlinedTextField(
-                value = noteText,
-                onValueChange = { noteText = it },
-                modifier = Modifier.fillMaxWidth().heightIn(min = 144.dp),
-            )
         }
     }
 }
