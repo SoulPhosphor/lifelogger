@@ -46,6 +46,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.CompleteIcon
+import com.datadragon.app.data.SettingsRepository
+import com.datadragon.app.export.CreateDocumentInFolder
+import com.datadragon.app.export.ExportLocation
 import com.datadragon.app.ui.BackupViewModel
 import com.datadragon.app.ui.RestoreResult
 import com.datadragon.app.ui.SettingsViewModel
@@ -63,6 +66,7 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val settings = remember { SettingsRepository(context) }
     val autoCapitalizeLabels by settingsViewModel.autoCapitalizeLabels.collectAsStateWithLifecycle()
     val autoCapitalizeOptions by settingsViewModel.autoCapitalizeOptions.collectAsStateWithLifecycle()
     val completeIcon by settingsViewModel.completeIcon.collectAsStateWithLifecycle()
@@ -89,7 +93,7 @@ fun SettingsScreen(
     // Backup writes the whole database to a .json file the user places via the
     // system "Save to…" sheet. Lives here in Settings (not on the Home bar).
     val createDocument = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/json"),
+        remember { CreateDocumentInFolder("application/json") { ExportLocation.initialUri(settings) } },
     ) { uri ->
         if (uri != null) {
             scope.launch {
@@ -98,7 +102,7 @@ fun SettingsScreen(
                     context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
                         ?: error("No output stream")
                 }.fold(
-                    onSuccess = { "Backup saved." },
+                    onSuccess = { ExportLocation.remember(settings, uri); "Backup saved." },
                     onFailure = { "Couldn't save backup: ${it.message}" },
                 )
             }

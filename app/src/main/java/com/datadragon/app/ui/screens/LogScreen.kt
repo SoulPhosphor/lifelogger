@@ -56,7 +56,10 @@ import com.datadragon.app.data.EntryNote
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.LogEntry
+import com.datadragon.app.data.SettingsRepository
+import com.datadragon.app.export.CreateDocumentInFolder
 import com.datadragon.app.export.ExportContent
+import com.datadragon.app.export.ExportLocation
 import com.datadragon.app.export.LogExport
 import com.datadragon.app.ui.LogViewModel
 import com.datadragon.app.ui.theme.DeleteRed
@@ -79,6 +82,7 @@ fun LogScreen(
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     val notesByEntry by viewModel.notesByEntry.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val settings = remember { SettingsRepository(context) }
 
     val locked = template?.locked ?: true
     val allowAppendedNotes = template?.allowAppendedNotes ?: false
@@ -95,7 +99,7 @@ fun LogScreen(
     // system "Save to…" sheet; we write the bytes to whatever location it returns.
     var pendingExport by remember { mutableStateOf<ExportContent?>(null) }
     val saveDocument = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("*/*"),
+        remember { CreateDocumentInFolder("*/*") { ExportLocation.initialUri(settings) } },
     ) { uri ->
         val export = pendingExport
         pendingExport = null
@@ -104,6 +108,7 @@ fun LogScreen(
                 context.contentResolver.openOutputStream(uri)?.use { it.write(export.bytes) }
                     ?: error("No output stream")
             }.isSuccess
+            if (ok) ExportLocation.remember(settings, uri)
             Toast.makeText(
                 context,
                 if (ok) "Saved ${export.suggestedName}" else "Couldn't save file",

@@ -1,6 +1,8 @@
 package com.datadragon.app.ui.screens
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,7 +24,11 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -46,6 +52,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -53,6 +60,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.ChecklistItem
 import com.datadragon.app.data.CompleteIcon
+import com.datadragon.app.data.SettingsRepository
+import com.datadragon.app.export.ChecklistExport
+import com.datadragon.app.export.CreateDocumentInFolder
+import com.datadragon.app.export.ExportContent
+import com.datadragon.app.export.ExportLocation
 import com.datadragon.app.ui.ChecklistViewModel
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -99,13 +111,67 @@ fun ChecklistScreen(
         }
     }
 
+    // Export: the user picks a format, then the system "Save to…" sheet writes the
+    // file. The sheet opens in the last-used folder (Downloads the first time).
+    val context = LocalContext.current
+    val settings = remember { SettingsRepository(context) }
+    var gearMenuOpen by remember { mutableStateOf(false) }
+    var showFormatChooser by remember { mutableStateOf(false) }
+    var pendingExport by remember { mutableStateOf<ExportContent?>(null) }
+    val saveDocument = rememberLauncherForActivityResult(
+        remember { CreateDocumentInFolder("*/*") { ExportLocation.initialUri(settings) } },
+    ) { uri ->
+        val export = pendingExport
+        pendingExport = null
+        if (uri != null && export != null) {
+            val ok = runCatching {
+                context.contentResolver.openOutputStream(uri)?.use { it.write(export.bytes) }
+                    ?: error("No output stream")
+            }.isSuccess
+            if (ok) ExportLocation.remember(settings, uri)
+            Toast.makeText(
+                context,
+                if (ok) "Saved ${export.suggestedName}" else "Couldn't save file",
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+    }
+    val startSave: (ExportContent) -> Unit = { content ->
+        pendingExport = content
+        showFormatChooser = false
+        saveDocument.launch(content.suggestedName)
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {},
                 navigationIcon = {
-                    IconButton(onClick = { attemptBack() }) {
-                        Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
+                    Row {
+                        IconButton(onClick = { attemptBack() }) {
+                            Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
+                        }
+                        // A saved list gets a gear holding "Export"; a brand-new draft
+                        // has nothing to export yet, so it's hidden until Save.
+                        if (!isNew) {
+                            Box {
+                                IconButton(onClick = { gearMenuOpen = true }) {
+                                    Icon(Icons.Filled.Settings, contentDescription = "List options")
+                                }
+                                DropdownMenu(
+                                    expanded = gearMenuOpen,
+                                    onDismissRequest = { gearMenuOpen = false },
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("Export") },
+                                        onClick = {
+                                            gearMenuOpen = false
+                                            showFormatChooser = true
+                                        },
+                                    )
+                                }
+                            }
+                        }
                     }
                 },
                 actions = {
@@ -171,6 +237,30 @@ fun ChecklistScreen(
         DiscardChangesDialog(
             onConfirm = { showDiscard = false; onBack() },
             onDismiss = { showDiscard = false },
+        )
+    }
+
+    if (showFormatChooser) {
+        AlertDialog(
+            onDismissRequest = { showFormatChooser = false },
+            title = { Text("Export List") },
+            text = {
+                Column {
+                    TextButton(onClick = { startSave(ChecklistExport.text(title, items)) }) {
+                        Text("Text (.txt)")
+                    }
+                    TextButton(onClick = { startSave(ChecklistExport.pdf(title, items)) }) {
+                        Text("PDF (.pdf)")
+                    }
+                    TextButton(onClick = { startSave(ChecklistExport.json(title, items)) }) {
+                        Text("JSON (.json)")
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showFormatChooser = false }) { Text("Cancel") }
+            },
         )
     }
 }

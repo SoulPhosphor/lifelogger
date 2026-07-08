@@ -44,6 +44,15 @@ class SettingsRepository(context: Context) {
         get() = prefs.getBoolean(KEY_MOVE_BOTTOM, false)
         set(value) { prefs.edit().putBoolean(KEY_MOVE_BOTTOM, value).apply() }
 
+    /**
+     * The document URI last written by an export or backup, remembered so the next
+     * "Save to…" sheet opens in the same folder. Shared across every export and the
+     * backup file; null until the first save (then the picker defaults to Downloads).
+     */
+    var lastExportDir: String?
+        get() = prefs.getString(KEY_LAST_EXPORT_DIR, null)
+        set(value) { prefs.edit().putString(KEY_LAST_EXPORT_DIR, value).apply() }
+
     companion object {
         private const val PREFS_NAME = "data_dragon_settings"
         private const val KEY_LABELS = "auto_capitalize_labels"
@@ -52,6 +61,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_COMPLETE_ICON = "list_complete_icon"
         private const val KEY_CROSS_OUT = "list_cross_out_completed"
         private const val KEY_MOVE_BOTTOM = "list_move_completed_bottom"
+        private const val KEY_LAST_EXPORT_DIR = "last_export_dir"
     }
 }
 
