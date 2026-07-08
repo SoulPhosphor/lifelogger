@@ -7,6 +7,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.datadragon.app.ui.screens.ChecklistScreen
 import com.datadragon.app.ui.screens.CreateLogScreen
 import com.datadragon.app.ui.screens.EditFormScreen
 import com.datadragon.app.ui.screens.FollowUpNoteScreen
@@ -24,9 +25,10 @@ fun DataDragonNavHost(
         composable(Routes.HOME) {
             HomeScreen(
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-                onCreateLog = { navController.navigate(Routes.CREATE_LOG) },
+                onCreateForm = { navController.navigate(Routes.CREATE_LOG) },
                 onOpenLog = { logId -> navController.navigate(Routes.log(logId.toString())) },
                 onAddEntry = { logId -> navController.navigate(Routes.newEntry(logId.toString())) },
+                onOpenChecklist = { checklistId -> navController.navigate(Routes.checklist(checklistId)) },
             )
         }
 
@@ -91,6 +93,16 @@ fun DataDragonNavHost(
             val logId = backStackEntry.arguments?.getString(Routes.LOG_ARG)
             EditFormScreen(
                 logId = logId,
+                onBack = { navController.popBackStack() },
+            )
+        }
+
+        composable(
+            route = Routes.CHECKLIST,
+            arguments = listOf(navArgument(Routes.CHECKLIST_ARG) { type = NavType.StringType }),
+        ) { backStackEntry ->
+            ChecklistScreen(
+                checklistId = backStackEntry.arguments?.getString(Routes.CHECKLIST_ARG),
                 onBack = { navController.popBackStack() },
             )
         }

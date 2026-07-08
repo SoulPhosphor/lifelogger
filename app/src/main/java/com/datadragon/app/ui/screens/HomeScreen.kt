@@ -6,14 +6,18 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
@@ -28,12 +32,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.datadragon.app.data.Checklist
 import com.datadragon.app.data.EntryValues
+import com.datadragon.app.data.HomeView
 import com.datadragon.app.ui.HomeLog
 import com.datadragon.app.ui.HomeViewModel
 
@@ -41,47 +48,153 @@ import com.datadragon.app.ui.HomeViewModel
 @Composable
 fun HomeScreen(
     onOpenSettings: () -> Unit,
-    onCreateLog: () -> Unit,
+    onCreateForm: () -> Unit,
     onOpenLog: (Long) -> Unit,
     onAddEntry: (Long) -> Unit,
+    onOpenChecklist: (Long) -> Unit,
     viewModel: HomeViewModel = viewModel(),
 ) {
     val logs by viewModel.logs.collectAsStateWithLifecycle()
+    val checklists by viewModel.checklists.collectAsStateWithLifecycle()
+    val view by viewModel.view.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Data Dragon") },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Data Dragon")
+                        // A gap after the name, then the two view toggles with a
+                        // little space between them so neither is easy to mis-tap.
+                        Spacer(Modifier.width(16.dp))
+                        ViewToggle(
+                            icon = Icons.Filled.Description,
+                            contentDescription = "Forms",
+                            selected = view == HomeView.FORMS,
+                            onClick = { viewModel.setView(HomeView.FORMS) },
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        ViewToggle(
+                            icon = Icons.Filled.Checklist,
+                            contentDescription = "Lists",
+                            selected = view == HomeView.LISTS,
+                            onClick = { viewModel.setView(HomeView.LISTS) },
+                        )
+                    }
+                },
                 navigationIcon = {
-                    // Settings holds backup/restore; the top-right "+" creates a log.
+                    // Settings holds backup/restore and the global list options;
+                    // the top-right "+" creates a form or list per the current view.
                     IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Filled.Settings, contentDescription = "Settings")
                     }
                 },
                 actions = {
-                    // Top-right is reserved exclusively for "create a new log".
-                    IconButton(onClick = onCreateLog) {
-                        Icon(Icons.Filled.Add, contentDescription = "New log")
+                    // Top-right creates a new item in whichever view is showing.
+                    IconButton(onClick = {
+                        when (view) {
+                            HomeView.FORMS -> onCreateForm()
+                            HomeView.LISTS -> viewModel.createChecklist(onOpenChecklist)
+                        }
+                    }) {
+                        Icon(
+                            Icons.Filled.Add,
+                            contentDescription = if (view == HomeView.FORMS) "New form" else "New list",
+                        )
                     }
                 },
             )
         },
     ) { padding ->
-        if (logs.isEmpty()) {
-            EmptyHome(modifier = Modifier.fillMaxSize().padding(padding))
-        } else {
-            LazyColumn(
+        when (view) {
+            HomeView.FORMS -> FormsBody(
+                logs = logs,
                 modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                items(logs, key = { it.template.id }) { log ->
-                    LogRow(
-                        log = log,
-                        onOpen = { onOpenLog(log.template.id) },
-                        onAddEntry = { onAddEntry(log.template.id) },
-                    )
-                }
+                onOpenLog = onOpenLog,
+                onAddEntry = onAddEntry,
+            )
+            HomeView.LISTS -> ListsBody(
+                checklists = checklists,
+                modifier = Modifier.fillMaxSize().padding(padding),
+                onOpenChecklist = onOpenChecklist,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ViewToggle(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    IconButton(onClick = onClick) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = if (selected) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        )
+    }
+}
+
+@Composable
+private fun FormsBody(
+    logs: List<HomeLog>,
+    modifier: Modifier = Modifier,
+    onOpenLog: (Long) -> Unit,
+    onAddEntry: (Long) -> Unit,
+) {
+    if (logs.isEmpty()) {
+        EmptyMessage(
+            title = "No logs yet.",
+            body = "Tap  +  (top right) to create your first one.",
+            modifier = modifier,
+        )
+    } else {
+        LazyColumn(
+            modifier = modifier,
+            contentPadding = PaddingValues(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            items(logs, key = { it.template.id }) { log ->
+                LogRow(
+                    log = log,
+                    onOpen = { onOpenLog(log.template.id) },
+                    onAddEntry = { onAddEntry(log.template.id) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ListsBody(
+    checklists: List<Checklist>,
+    modifier: Modifier = Modifier,
+    onOpenChecklist: (Long) -> Unit,
+) {
+    if (checklists.isEmpty()) {
+        EmptyMessage(
+            title = "No lists yet.",
+            body = "Tap  +  (top right) to create your first one.",
+            modifier = modifier,
+        )
+    } else {
+        LazyColumn(
+            modifier = modifier,
+            contentPadding = PaddingValues(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            items(checklists, key = { it.id }) { checklist ->
+                ChecklistRow(
+                    checklist = checklist,
+                    onOpen = { onOpenChecklist(checklist.id) },
+                )
             }
         }
     }
@@ -133,6 +246,37 @@ private fun LogRow(
     }
 }
 
+@Composable
+private fun ChecklistRow(
+    checklist: Checklist,
+    onOpen: () -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpen),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val named = checklist.name.isNotBlank()
+            Text(
+                text = if (named) checklist.name else "Untitled List",
+                style = MaterialTheme.typography.titleMedium,
+                fontStyle = if (named) FontStyle.Normal else FontStyle.Italic,
+                color = if (named) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
 /** "No entries yet" / "1 entry" / "14 entries · last entry today" (docs/UI_SPEC.md §2). */
 private fun entrySummaryLine(log: HomeLog): String {
     if (log.entryCount == 0) return "No entries yet"
@@ -142,15 +286,15 @@ private fun entrySummaryLine(log: HomeLog): String {
 }
 
 @Composable
-private fun EmptyHome(modifier: Modifier = Modifier) {
+private fun EmptyMessage(title: String, body: String, modifier: Modifier = Modifier) {
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("No logs yet.", style = MaterialTheme.typography.titleMedium)
+            Text(title, style = MaterialTheme.typography.titleMedium)
             Text(
-                "Tap  +  (top right) to create your first one.",
+                body,
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
             )

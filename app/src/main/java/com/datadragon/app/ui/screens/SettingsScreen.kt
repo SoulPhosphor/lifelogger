@@ -4,6 +4,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,6 +15,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -38,6 +41,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.datadragon.app.data.CompleteIcon
 import com.datadragon.app.ui.BackupViewModel
 import com.datadragon.app.ui.RestoreResult
 import com.datadragon.app.ui.SettingsViewModel
@@ -57,6 +61,9 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val autoCapitalizeLabels by settingsViewModel.autoCapitalizeLabels.collectAsStateWithLifecycle()
     val autoCapitalizeOptions by settingsViewModel.autoCapitalizeOptions.collectAsStateWithLifecycle()
+    val completeIcon by settingsViewModel.completeIcon.collectAsStateWithLifecycle()
+    val crossOutWhenCompleted by settingsViewModel.crossOutWhenCompleted.collectAsStateWithLifecycle()
+    val moveCompletedToBottom by settingsViewModel.moveCompletedToBottom.collectAsStateWithLifecycle()
     var pendingJson by remember { mutableStateOf<String?>(null) }
     var status by remember { mutableStateOf<String?>(null) }
 
@@ -124,6 +131,25 @@ fun SettingsScreen(
                 onCheckedChange = settingsViewModel::setAutoCapitalizeOptions,
                 title = "Auto capitalize major words of drop-down and multiple choice options",
                 subtitle = "Only applies to future items.",
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // Global behavior for every list.
+            Text("Lists", style = MaterialTheme.typography.labelLarge)
+            CompleteIconRow(
+                selected = completeIcon,
+                onSelected = settingsViewModel::setCompleteIcon,
+            )
+            SettingToggleRow(
+                checked = crossOutWhenCompleted,
+                onCheckedChange = settingsViewModel::setCrossOutWhenCompleted,
+                title = "Cross Out Item When Completed",
+            )
+            SettingToggleRow(
+                checked = moveCompletedToBottom,
+                onCheckedChange = settingsViewModel::setMoveCompletedToBottom,
+                title = "Move Completed Item to Bottom When Marked Complete",
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -227,5 +253,51 @@ private fun SettingToggleRow(
         }
         Spacer(Modifier.width(12.dp))
         Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+/** Label of the mark shown on a completed item. */
+private fun CompleteIcon.label(): String = when (this) {
+    CompleteIcon.CHECKMARK -> "Checkmark"
+    CompleteIcon.CHECKED_BOX -> "Checked Box"
+}
+
+/**
+ * "Item Complete Icon" chooser: the current choice on the right opens a small
+ * drop-down to pick between a checkmark and a checked box.
+ */
+@Composable
+private fun CompleteIconRow(
+    selected: CompleteIcon,
+    onSelected: (CompleteIcon) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { expanded = true }
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            "Item Complete Icon",
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.width(12.dp))
+        Box {
+            Text(selected.label(), style = MaterialTheme.typography.bodyLarge)
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                CompleteIcon.entries.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(option.label()) },
+                        onClick = {
+                            onSelected(option)
+                            expanded = false
+                        },
+                    )
+                }
+            }
+        }
     }
 }

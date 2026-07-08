@@ -11,8 +11,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * The app's local Room database. Local only — no network, no sync.
  */
 @Database(
-    entities = [LogTemplate::class, LogEntry::class, EntryNote::class],
-    version = 5,
+    entities = [LogTemplate::class, LogEntry::class, EntryNote::class, Checklist::class, ChecklistItem::class],
+    version = 6,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -22,6 +22,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun logEntryDao(): LogEntryDao
 
     abstract fun entryNoteDao(): EntryNoteDao
+
+    abstract fun checklistDao(): ChecklistDao
 
     companion object {
         @Volatile
@@ -81,6 +83,35 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v6 added the `checklists` and `checklist_items` tables (the Lists
+         * feature). Purely additive — existing logs, entries and notes are
+         * untouched.
+         */
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `checklists` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`name` TEXT NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `checklist_items` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`checklistId` INTEGER NOT NULL, " +
+                        "`text` TEXT NOT NULL, " +
+                        "`completed` INTEGER NOT NULL, " +
+                        "`indent` INTEGER NOT NULL, " +
+                        "`position` INTEGER NOT NULL)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_checklist_items_checklistId` " +
+                        "ON `checklist_items` (`checklistId`)"
+                )
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -88,7 +119,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "data_dragon.db",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     // v3 removed the unused description column. There is no
                     // released data to preserve, so recreate cleanly on any
                     // upgrade path not covered by an explicit migration.

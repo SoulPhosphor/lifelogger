@@ -4,16 +4,23 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.datadragon.app.data.AppDatabase
+import com.datadragon.app.data.Checklist
+import com.datadragon.app.data.HomeView
 import com.datadragon.app.data.LogTemplate
+import com.datadragon.app.data.SettingsRepository
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
     private val templateDao = AppDatabase.getInstance(app).logTemplateDao()
     private val entryDao = AppDatabase.getInstance(app).logEntryDao()
+    private val checklistDao = AppDatabase.getInstance(app).checklistDao()
+    private val settings = SettingsRepository(app)
 
     /**
      * Home rows: each template paired with its entry count and most-recent entry
@@ -31,6 +38,30 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                 )
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** All lists, shown as name-only cards in the Lists view. */
+    val checklists: StateFlow<List<Checklist>> =
+        checklistDao.observeChecklists()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Which view is showing; persisted so the app reopens where it left off. */
+    private val _view = MutableStateFlow(settings.lastView)
+    val view: StateFlow<HomeView> = _view
+
+    fun setView(view: HomeView) {
+        settings.lastView = view
+        _view.value = view
+    }
+
+    /** Create a blank list and hand its new id back so the caller can open it. */
+    fun createChecklist(onCreated: (Long) -> Unit) {
+        viewModelScope.launch {
+            val id = checklistDao.insertChecklist(
+                Checklist(createdAt = System.currentTimeMillis()),
+            )
+            onCreated(id)
+        }
+    }
 }
 
 /** A Home list row: a log template plus its entry summary. */
