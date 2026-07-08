@@ -50,6 +50,7 @@ fun HomeScreen(
     onCreateForm: () -> Unit,
     onOpenLog: (Long) -> Unit,
     onAddEntry: (Long) -> Unit,
+    onCreateChecklist: () -> Unit,
     onOpenChecklist: (Long) -> Unit,
     viewModel: HomeViewModel = viewModel(),
 ) {
@@ -93,7 +94,7 @@ fun HomeScreen(
                     IconButton(onClick = {
                         when (view) {
                             HomeView.FORMS -> onCreateForm()
-                            HomeView.LISTS -> viewModel.createChecklist(onOpenChecklist)
+                            HomeView.LISTS -> onCreateChecklist()
                         }
                     }) {
                         Icon(

@@ -1,5 +1,6 @@
 package com.datadragon.app.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -131,16 +132,26 @@ fun CreateLogScreen(
     var preview by remember { mutableStateOf<FormMarkdownParser.ParseResult?>(null) }
 
     val canSave = when (mode) {
-        BuilderMode.BUILD -> name.isNotBlank() && draftFields.all { it.isValid() }
-        BuilderMode.PASTE -> name.isNotBlank() || firstMarkdownName(pasteText) != null
+        BuilderMode.BUILD ->
+            name.isNotBlank() && draftFields.isNotEmpty() && draftFields.all { it.isValid() }
+        BuilderMode.PASTE -> {
+            val hasName = name.isNotBlank() || firstMarkdownName(pasteText) != null
+            hasName && FormMarkdownParser.parse(pasteText).fields.isNotEmpty()
+        }
     }
+
+    // Backing out of a brand-new form warns only once at least one field exists.
+    var showDiscard by remember { mutableStateOf(false) }
+    val dirty = draftFields.isNotEmpty() || pasteText.isNotBlank()
+    fun attemptBack() { if (dirty) showDiscard = true else onBack() }
+    BackHandler { attemptBack() }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("New Log") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = { attemptBack() }) {
                         Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
                     }
                 },
@@ -275,6 +286,13 @@ fun CreateLogScreen(
             }
         }
     }
+
+    if (showDiscard) {
+        DiscardChangesDialog(
+            onConfirm = { showDiscard = false; onBack() },
+            onDismiss = { showDiscard = false },
+        )
+    }
 }
 
 /** A settings row with a label + description on the left and a Switch on the
@@ -317,7 +335,7 @@ private fun BuildEditor(
     Text("Fields", style = MaterialTheme.typography.labelLarge)
     if (fields.isEmpty()) {
         Text(
-            "No fields yet. Tap “Add Field” to build your form. You can also save a log with no fields.",
+            "No fields yet. Tap “Add Field” to build your form. Add at least one field to save this form.",
             style = MaterialTheme.typography.bodyMedium,
         )
     }
@@ -511,7 +529,7 @@ private fun PreviewSection(result: FormMarkdownParser.ParseResult) {
 
     if (result.fields.isEmpty()) {
         Text(
-            "No fields defined yet. You can still save a log with no fields.",
+            "No fields defined yet. Add at least one field to save this form.",
             style = MaterialTheme.typography.bodyMedium,
         )
     } else {

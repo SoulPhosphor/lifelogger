@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.datadragon.app.data.AppDatabase
+import com.datadragon.app.data.Checklist
 import com.datadragon.app.data.ChecklistItem
 import com.datadragon.app.data.CompleteIcon
 import com.datadragon.app.data.SettingsRepository
@@ -17,10 +18,14 @@ import kotlinx.coroutines.launch
 /**
  * Backs a single open list (its title and items).
  *
- * The in-memory [items] list is the source of truth while the screen is open, so
- * typing and dragging stay instant; every change is mirrored to the database in
- * the background. Item order in the list *is* the display order — each item's
- * stored `position` is renumbered to match after any structural change.
+ * Two modes, chosen by [load]:
+ * - **New list** (`load(null)`): a draft held entirely in memory. Nothing touches
+ *   the database until [save] is called — so backing out discards it. Temporary
+ *   negative ids stand in for rows until they're really inserted on save.
+ * - **Established list** (`load(id)`): loaded from the database and **auto-saved** —
+ *   every edit (text, check, reorder, add/delete) writes straight through, with no
+ *   Save button. Item order in the list is the display order; each item's stored
+ *   `position` is renumbered to match after any structural change.
  */
 class ChecklistViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -28,7 +33,11 @@ class ChecklistViewModel(app: Application) : AndroidViewModel(app) {
     private val settings = SettingsRepository(app)
 
     private var checklistId: Long = -1
+    private var isNew: Boolean = true
     private var loaded = false
+
+    // Hands out temporary ids for draft rows in a brand-new list.
+    private var nextTempId = -1L
 
     private val _title = MutableStateFlow("")
     val title: StateFlow<String> = _title
@@ -46,22 +55,31 @@ class ChecklistViewModel(app: Application) : AndroidViewModel(app) {
     private val _moveCompletedToBottom = MutableStateFlow(settings.moveCompletedToBottom)
     val moveCompletedToBottom: StateFlow<Boolean> = _moveCompletedToBottom
 
-    fun load(id: Long) {
-        if (loaded && checklistId == id) return
-        checklistId = id
+    /** [id] null means a brand-new (unsaved) list; otherwise load an existing one. */
+    fun load(id: Long?) {
+        if (loaded && checklistId == (id ?: -1)) return
         loaded = true
         _completeIcon.value = settings.completeIcon
         _crossOut.value = settings.crossOutWhenCompleted
         _moveCompletedToBottom.value = settings.moveCompletedToBottom
-        viewModelScope.launch {
-            _title.value = dao.getChecklist(id)?.name ?: ""
-            _items.value = dao.getItemsOnce(id)
+        if (id == null) {
+            isNew = true
+            checklistId = -1
+            _title.value = ""
+            _items.value = emptyList()
+        } else {
+            isNew = false
+            checklistId = id
+            viewModelScope.launch {
+                _title.value = dao.getChecklist(id)?.name ?: ""
+                _items.value = dao.getItemsOnce(id)
+            }
         }
     }
 
     fun setTitle(text: String) {
         _title.value = text
-        viewModelScope.launch { dao.renameChecklist(checklistId, text.trim()) }
+        if (!isNew) viewModelScope.launch { dao.renameChecklist(checklistId, text.trim()) }
     }
 
     /** Append a new blank top-level item; reports its id so the caller can focus it. */
@@ -73,13 +91,18 @@ class ChecklistViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun addItemInternal(indent: Int, afterId: Long?, onAdded: (Long) -> Unit) {
         viewModelScope.launch {
-            val newRow = ChecklistItem(
+            val position = _items.value.size
+            val newId = if (isNew) nextTempId-- else {
+                dao.insertItem(
+                    ChecklistItem(checklistId = checklistId, indent = indent, position = position),
+                )
+            }
+            val created = ChecklistItem(
+                id = newId,
                 checklistId = checklistId,
                 indent = indent,
-                position = _items.value.size,
+                position = position,
             )
-            val newId = dao.insertItem(newRow)
-            val created = newRow.copy(id = newId)
             val list = _items.value.toMutableList()
             val insertAt = if (afterId == null) {
                 list.size
@@ -95,7 +118,7 @@ class ChecklistViewModel(app: Application) : AndroidViewModel(app) {
 
     fun updateText(itemId: Long, text: String) {
         _items.value = _items.value.map { if (it.id == itemId) it.copy(text = text) else it }
-        viewModelScope.launch { dao.updateItemText(itemId, text) }
+        if (!isNew) viewModelScope.launch { dao.updateItemText(itemId, text) }
     }
 
     fun setCompleted(itemId: Long, completed: Boolean) {
@@ -107,7 +130,7 @@ class ChecklistViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         _items.value = list
-        viewModelScope.launch {
+        if (!isNew) viewModelScope.launch {
             dao.setItemCompleted(itemId, completed)
             persistOrder()
         }
@@ -115,7 +138,7 @@ class ChecklistViewModel(app: Application) : AndroidViewModel(app) {
 
     fun deleteItem(itemId: Long) {
         _items.value = _items.value.filterNot { it.id == itemId }
-        viewModelScope.launch {
+        if (!isNew) viewModelScope.launch {
             dao.deleteItem(itemId)
             persistOrder()
         }
@@ -125,31 +148,43 @@ class ChecklistViewModel(app: Application) : AndroidViewModel(app) {
     fun reorder(orderedIds: List<Long>) {
         val byId = _items.value.associateBy { it.id }
         _items.value = orderedIds.mapNotNull { byId[it] }
-        viewModelScope.launch { dao.applyOrder(orderedIds) }
+        if (!isNew) viewModelScope.launch { dao.applyOrder(orderedIds) }
     }
 
-    /**
-     * Called when leaving the list. Drops items left blank; if the whole list
-     * ended up with no title and no real items, drops the list itself so an
-     * abandoned, never-filled-in list doesn't linger.
-     */
-    fun onLeave() {
-        val id = checklistId
-        if (id < 0) return
-        // Runs on a process-lifetime scope so it still completes after this
-        // ViewModel (and its viewModelScope) is cleared by the back navigation.
-        cleanupScope.launch {
-            dao.deleteBlankItems(id)
-            val remaining = dao.getItemsOnce(id)
-            val checklist = dao.getChecklist(id)
-            if ((checklist?.name.isNullOrBlank()) && remaining.isEmpty()) {
-                dao.deleteChecklist(id)
+    /** Persist a brand-new list and its non-blank items, then report done. */
+    fun save(onSaved: () -> Unit) {
+        if (!isNew) { onSaved(); return }
+        viewModelScope.launch {
+            val newId = dao.insertChecklist(
+                Checklist(name = _title.value.trim(), createdAt = System.currentTimeMillis()),
+            )
+            var position = 0
+            _items.value.forEach { item ->
+                if (item.text.isNotBlank()) {
+                    dao.insertItem(
+                        item.copy(id = 0, checklistId = newId, position = position),
+                    )
+                    position++
+                }
             }
+            onSaved()
         }
     }
 
+    /**
+     * Called when leaving an established list: drop rows left blank. A brand-new
+     * list persists nothing until [save], so there's nothing to clean up.
+     */
+    fun onLeave() {
+        if (isNew) return
+        val id = checklistId
+        if (id < 0) return
+        // Process-lifetime scope so this still finishes after the ViewModel clears.
+        cleanupScope.launch { dao.deleteBlankItems(id) }
+    }
+
     private suspend fun persistOrder() {
-        dao.applyOrder(_items.value.map { it.id })
+        if (!isNew) dao.applyOrder(_items.value.map { it.id })
     }
 
     companion object {

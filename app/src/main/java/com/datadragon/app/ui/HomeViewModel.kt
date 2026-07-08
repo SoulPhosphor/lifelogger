@@ -13,7 +13,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 
 class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -51,16 +50,6 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     fun setView(view: HomeView) {
         settings.lastView = view
         _view.value = view
-    }
-
-    /** Create a blank list and hand its new id back so the caller can open it. */
-    fun createChecklist(onCreated: (Long) -> Unit) {
-        viewModelScope.launch {
-            val id = checklistDao.insertChecklist(
-                Checklist(createdAt = System.currentTimeMillis()),
-            )
-            onCreated(id)
-        }
     }
 }
 

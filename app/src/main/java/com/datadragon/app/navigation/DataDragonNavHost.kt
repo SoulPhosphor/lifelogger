@@ -28,6 +28,7 @@ fun DataDragonNavHost(
                 onCreateForm = { navController.navigate(Routes.CREATE_LOG) },
                 onOpenLog = { logId -> navController.navigate(Routes.log(logId.toString())) },
                 onAddEntry = { logId -> navController.navigate(Routes.newEntry(logId.toString())) },
+                onCreateChecklist = { navController.navigate(Routes.CREATE_CHECKLIST) },
                 onOpenChecklist = { checklistId -> navController.navigate(Routes.checklist(checklistId)) },
             )
         }
@@ -93,6 +94,14 @@ fun DataDragonNavHost(
             val logId = backStackEntry.arguments?.getString(Routes.LOG_ARG)
             EditFormScreen(
                 logId = logId,
+                onBack = { navController.popBackStack() },
+            )
+        }
+
+        composable(Routes.CREATE_CHECKLIST) {
+            // A brand-new list (no id yet) — it's a draft until Save.
+            ChecklistScreen(
+                checklistId = null,
                 onBack = { navController.popBackStack() },
             )
         }

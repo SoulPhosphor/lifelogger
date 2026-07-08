@@ -87,10 +87,15 @@ fun EditFormScreen(
     // Seeded once from the loaded schema.
     val rows = remember { mutableStateListOf<EditDraft>() }
     var seeded by remember { mutableStateOf(false) }
+    // The schema as last saved, so an unsaved reorder or added field can be caught
+    // on the way out. Seeded from the round-tripped rows so a freshly loaded, untouched
+    // form is never seen as "changed."
+    var savedSnapshot by remember { mutableStateOf<List<FieldDef>?>(null) }
     LaunchedEffect(loadedFields) {
         if (!seeded && loadedFields.isNotEmpty()) {
             rows.clear()
             loadedFields.forEach { rows.add(draftOf(it)) }
+            savedSnapshot = rows.map { it.toFieldDef() }
             seeded = true
         }
     }
@@ -143,6 +148,7 @@ fun EditFormScreen(
                         d.originalOptions = d.optionList()
                     }
                 }
+                savedSnapshot = rows.map { it.toFieldDef() }
                 onDone()
             },
         )
@@ -166,12 +172,17 @@ fun EditFormScreen(
         return
     }
 
+    val dirty = savedSnapshot?.let { snap -> rows.map { it.toFieldDef() } != snap } ?: false
+    var showDiscard by remember { mutableStateOf(false) }
+    fun attemptBack() { if (dirty) showDiscard = true else onBack() }
+    BackHandler { attemptBack() }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Edit Form") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = { attemptBack() }) {
                         Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
                     }
                 },
@@ -229,6 +240,13 @@ fun EditFormScreen(
                 Text("  Add Field")
             }
         }
+    }
+
+    if (showDiscard) {
+        DiscardChangesDialog(
+            onConfirm = { showDiscard = false; onBack() },
+            onDismiss = { showDiscard = false },
+        )
     }
 }
 

@@ -1,5 +1,6 @@
 package com.datadragon.app.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +29,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -62,17 +64,26 @@ fun ChecklistScreen(
     onBack: () -> Unit,
     viewModel: ChecklistViewModel = viewModel(),
 ) {
-    val id = checklistId?.toLongOrNull()
-    LaunchedEffect(id) { id?.let { viewModel.load(it) } }
+    val idLong = checklistId?.toLongOrNull()
+    val isNew = idLong == null
+    LaunchedEffect(checklistId) { viewModel.load(idLong) }
 
     val title by viewModel.title.collectAsStateWithLifecycle()
     val items by viewModel.items.collectAsStateWithLifecycle()
     val completeIcon by viewModel.completeIcon.collectAsStateWithLifecycle()
     val crossOut by viewModel.crossOut.collectAsStateWithLifecycle()
 
-    // Drop abandoned/blank rows (and empty lists) when leaving the screen.
+    // Established lists auto-save; only drop rows left blank when leaving.
     val leaving by rememberUpdatedState(viewModel::onLeave)
     DisposableEffect(Unit) { onDispose { leaving() } }
+
+    // A brand-new list is a draft: Save persists it, and leaving with anything
+    // typed asks before discarding. Save turns on once an item has real text.
+    val hasText = items.any { it.text.isNotBlank() }
+    val dirty = isNew && (title.isNotBlank() || hasText)
+    var showDiscard by remember { mutableStateOf(false) }
+    fun attemptBack() { if (dirty) showDiscard = true else onBack() }
+    BackHandler(enabled = isNew) { attemptBack() }
 
     // Which row is being edited (shows its +/× controls), and which newly-added
     // row should grab focus next.
@@ -93,8 +104,18 @@ fun ChecklistScreen(
             TopAppBar(
                 title = {},
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = { attemptBack() }) {
                         Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    // Save exists only while the list is a brand-new draft; once
+                    // saved, an established list auto-saves and needs no button.
+                    if (isNew) {
+                        TextButton(
+                            enabled = hasText,
+                            onClick = { viewModel.save(onBack) },
+                        ) { Text("Save") }
                     }
                 },
             )
@@ -144,6 +165,13 @@ fun ChecklistScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
+    }
+
+    if (showDiscard) {
+        DiscardChangesDialog(
+            onConfirm = { showDiscard = false; onBack() },
+            onDismiss = { showDiscard = false },
+        )
     }
 }
 

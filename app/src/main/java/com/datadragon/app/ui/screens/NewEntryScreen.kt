@@ -1,5 +1,6 @@
 package com.datadragon.app.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -103,6 +104,15 @@ fun NewEntryScreen(
         }
     }
 
+    // Snapshot the entry's values once loaded, so backing out can warn only when
+    // something was actually entered or changed since.
+    var baseline by remember { mutableStateOf<Map<String, JsonElement>?>(null) }
+    LaunchedEffect(fields, initialValues) {
+        if (fields.isEmpty()) return@LaunchedEffect
+        if (isEditing && initialValues == null) return@LaunchedEffect
+        baseline = collectValues(fields, textValues, multiValues, notes)
+    }
+
     val canSave = fields.all { field ->
         when {
             !field.required -> true
@@ -111,12 +121,18 @@ fun NewEntryScreen(
         }
     }
 
+    val dirty = baseline != null &&
+        collectValues(fields, textValues, multiValues, notes) != baseline
+    var showDiscard by remember { mutableStateOf(false) }
+    fun attemptBack() { if (dirty) showDiscard = true else onBack() }
+    BackHandler { attemptBack() }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(if (isEditing) "Edit Entry" else "New Entry") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = { attemptBack() }) {
                         Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
                     }
                 },
@@ -172,6 +188,13 @@ fun NewEntryScreen(
                 modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp),
             )
         }
+    }
+
+    if (showDiscard) {
+        DiscardChangesDialog(
+            onConfirm = { showDiscard = false; onBack() },
+            onDismiss = { showDiscard = false },
+        )
     }
 }
 

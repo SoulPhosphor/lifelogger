@@ -9,6 +9,7 @@ package com.datadragon.app.navigation
 object Routes {
     const val HOME = "home"
     const val CREATE_LOG = "createLog"
+    const val CREATE_CHECKLIST = "createChecklist"
     const val SETTINGS = "settings"
 
     // Parameterised routes.
