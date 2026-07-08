@@ -24,7 +24,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -37,20 +36,15 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.EntryValues
-import com.datadragon.app.data.FieldType
 import com.datadragon.app.ui.FollowUpNoteViewModel
 
 /**
  * Add or edit a follow-up note on an entry.
  *
- * The screen shows the entry's own data above a note box. When the log is
- * **locked**, that data is a read-only readout — the same `label: value` layout
- * as the entry cards on the log screen. When the log is **unlocked**, the entry's
- * fields are shown as the editable entry form instead, so saving here also saves
- * any field edits (mirroring the New/Edit Entry screen), with "Follow-Up Note" at
- * the top.
+ * The screen shows the follow-up note text box at the top (always editable),
+ * then the entry's form data below as a read-only readout — the same
+ * `label: value` layout as the entry cards on the log screen.
  *
- * Follow-up notes themselves are always editable, regardless of the lock state.
  * Save commits and closes; backing out discards.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,13 +63,11 @@ fun FollowUpNoteScreen(
         if (logIdL != null && entryIdL != null) viewModel.load(logIdL, entryIdL, noteIdL)
     }
 
-    val locked by viewModel.locked.collectAsStateWithLifecycle()
     val fields by viewModel.fields.collectAsStateWithLifecycle()
     val entryValues by viewModel.entryValues.collectAsStateWithLifecycle()
     val entryTimestamp by viewModel.entryTimestamp.collectAsStateWithLifecycle()
     val initialNoteText by viewModel.initialNoteText.collectAsStateWithLifecycle()
 
-    // The follow-up note text. Seeded once from the loaded note (or "" when new).
     var noteText by remember { mutableStateOf("") }
     var noteSeeded by remember { mutableStateOf(false) }
     LaunchedEffect(initialNoteText) {
@@ -86,36 +78,7 @@ fun FollowUpNoteScreen(
         }
     }
 
-    // Editable-entry form state, used only when the log is unlocked. Seeded once
-    // from the entry's stored values, exactly like the New/Edit Entry screen.
-    val textValues = remember { mutableStateMapOf<String, String>() }
-    val multiValues = remember { mutableStateMapOf<String, Set<String>>() }
-    var entryNotes by remember { mutableStateOf("") }
-    var entrySeeded by remember { mutableStateOf(false) }
-    LaunchedEffect(entryValues, fields) {
-        val values = entryValues ?: return@LaunchedEffect
-        if (entrySeeded) return@LaunchedEffect
-        fields.forEach { field ->
-            if (field.type == FieldType.MULTIPLE) {
-                val selected = EntryValues.selectedOptions(values, field.label)
-                if (selected.isNotEmpty()) multiValues[field.label] = selected
-            } else {
-                EntryValues.rawValue(values, field.label)?.let { textValues[field.label] = it }
-            }
-        }
-        EntryValues.notes(values)?.let { entryNotes = it }
-        entrySeeded = true
-    }
-
-    // When editing the entry (unlocked), don't let a required field be blanked.
-    val requiredOk = fields.all { field ->
-        when {
-            !field.required -> true
-            field.type == FieldType.MULTIPLE -> multiValues[field.label].orEmpty().isNotEmpty()
-            else -> !textValues[field.label].isNullOrBlank()
-        }
-    }
-    val canSave = noteText.isNotBlank() && (locked || requiredOk)
+    val canSave = noteText.isNotBlank()
 
     Scaffold(
         topBar = {
@@ -132,11 +95,7 @@ fun FollowUpNoteScreen(
                         onClick = {
                             viewModel.save(
                                 noteText = noteText,
-                                entryValues = if (locked) {
-                                    null
-                                } else {
-                                    collectValues(fields, textValues, multiValues, entryNotes)
-                                },
+                                entryValues = null,
                                 onSaved = onBack,
                             )
                         },
@@ -149,7 +108,6 @@ fun FollowUpNoteScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                // Keep the note box (and any focused field) above the keyboard.
                 .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
@@ -171,33 +129,14 @@ fun FollowUpNoteScreen(
 
             HorizontalDivider()
 
-            if (locked) {
-                // Read-only copy of the entry's data, as shown on the log screen.
-                val values = entryValues
-                if (values != null) {
-                    fields.forEach { field ->
-                        EntryValues.displayValue(field, values)?.let { value ->
-                            ReadonlyField(label = field.label, value = value)
-                        }
-                    }
-                    EntryValues.notes(values)?.let { ReadonlyField(label = "Notes", value = it) }
-                }
-            } else {
-                // Editable entry form (the log is unlocked), pre-filled.
+            val values = entryValues
+            if (values != null) {
                 fields.forEach { field ->
-                    EntryFieldControl(
-                        field = field,
-                        textValues = textValues,
-                        multiValues = multiValues,
-                    )
+                    EntryValues.displayValue(field, values)?.let { value ->
+                        ReadonlyField(label = field.label, value = value)
+                    }
                 }
-                HorizontalDivider()
-                Text("Notes", style = MaterialTheme.typography.labelLarge)
-                OutlinedTextField(
-                    value = entryNotes,
-                    onValueChange = { entryNotes = it },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp),
-                )
+                EntryValues.notes(values)?.let { ReadonlyField(label = "Notes", value = it) }
             }
         }
     }
