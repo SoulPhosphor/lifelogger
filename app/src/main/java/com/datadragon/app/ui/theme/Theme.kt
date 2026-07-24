@@ -47,7 +47,10 @@ fun DataDragonTheme(
         else -> LightColors
     }
 
-    CompositionLocalProvider(LocalAppTextStyles provides DefaultAppTextStyles) {
+    CompositionLocalProvider(
+        LocalAppTextStyles provides DefaultAppTextStyles,
+        LocalAppShapes provides DefaultAppShapes,
+    ) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = AppTypography,
@@ -65,4 +68,9 @@ object AppTheme {
         @Composable
         @ReadOnlyComposable
         get() = LocalAppTextStyles.current
+
+    val shapes: AppShapes
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalAppShapes.current
 }

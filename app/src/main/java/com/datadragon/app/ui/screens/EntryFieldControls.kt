@@ -16,7 +16,6 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -32,6 +31,7 @@ import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.FieldType
@@ -348,7 +348,7 @@ private fun PickerButton(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         if (label != null) Text(label, style = MaterialTheme.typography.labelLarge)
-        OutlinedButton(onClick = onClick) {
+        AppButton(onClick = onClick) {
             Text(text ?: placeholder)
         }
     }

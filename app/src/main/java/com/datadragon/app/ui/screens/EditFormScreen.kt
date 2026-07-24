@@ -33,7 +33,6 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -56,6 +55,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.SettingsRepository
@@ -278,7 +278,7 @@ fun EditFormScreen(
             }
 
             item(key = "add") {
-                OutlinedButton(
+                AppButton(
                     onClick = {
                         rows.add(EditDraft())
                         editingIndex = rows.lastIndex

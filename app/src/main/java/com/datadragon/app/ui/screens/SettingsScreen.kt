@@ -2,10 +2,8 @@ package com.datadragon.app.ui.screens
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,20 +12,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -53,6 +46,8 @@ import com.datadragon.app.data.RestoreMode
 import com.datadragon.app.ui.BackupViewModel
 import com.datadragon.app.ui.RestoreResult
 import com.datadragon.app.ui.SettingsViewModel
+import com.datadragon.app.ui.components.AppButton
+import com.datadragon.app.ui.components.AppDropdownRow
 import com.datadragon.app.ui.theme.AppTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -82,7 +77,7 @@ fun SettingsScreen(
     // Non-destructive by default: Merge can only add or update, never delete
     // something the chosen backup didn't include.
     var importMode by remember { mutableStateOf(RestoreMode.MERGE) }
-    var restoreType by remember { mutableStateOf(RestoreType.LIST) }
+    var restoreType by remember { mutableStateOf(RestoreType.EVERYTHING) }
     var hasUndoSnapshot by remember { mutableStateOf(false) }
     var pendingUndo by remember { mutableStateOf(false) }
 
@@ -101,6 +96,31 @@ fun SettingsScreen(
                     }.getOrNull()
                 }
                 if (text.isNullOrBlank()) status = "Couldn't read that file." else pendingJson = text
+            }
+        }
+    }
+
+    // Restore Individual Item: one exported list or form, merged straight in.
+    // The type is read from the file, so there is nothing for the user to pick
+    // and no confirmation to give — nothing is replaced or deleted.
+    val openSingleItem = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val text = withContext(Dispatchers.IO) {
+                    runCatching {
+                        context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                    }.getOrNull()
+                }
+                status = if (text.isNullOrBlank()) {
+                    "Couldn't read that file."
+                } else {
+                    when (val result = viewModel.restoreSingleItem(text)) {
+                        is RestoreResult.Success -> singleItemSummary(result.logs, result.lists)
+                        is RestoreResult.Failure -> result.message
+                    }
+                }
             }
         }
     }
@@ -187,43 +207,69 @@ fun SettingsScreen(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
+            // The hint sits under its heading, above the control it describes —
+            // never below the control (docs/STYLE.md).
             SectionHeader("Back Up All Data")
-            OutlinedButton(onClick = {
+            Text(
+                "Saves every log and entry into a single .json file you choose the location for.",
+                style = AppTheme.textStyles.settingDescription,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            AppButton(onClick = {
                 status = null
                 createDocument.launch("datadragon_backup_${LocalDate.now()}.json")
             }) {
                 Text("Back Up Now…")
             }
-            Text(
-                "Saves every log and entry into a single .json file you choose the location for.",
-                style = AppTheme.textStyles.settingDescription,
-            )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
             // Restore lives at the bottom, away from everyday controls. Times are
             // always 12-hour (AM/PM), so there is no time-format choice here.
             SectionHeader("Restore from Backup")
+
+            // Whole-database restore: the file is the one "Back Up All Data"
+            // writes, and Import Mode decides how it lands.
+            SubsectionHeader("Restore from Database")
+            Text(
+                "Alters entire app contents based on previous snapshot.",
+                style = AppTheme.textStyles.settingDescription,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            // First which kinds of data to take from the backup, then how they
+            // land, then the file itself.
+            RestoreTypeRow(selected = restoreType, onSelected = { restoreType = it })
             ImportModeRow(selected = importMode, onSelected = { importMode = it })
-            OutlinedButton(onClick = {
+            AppButton(onClick = {
                 status = null
-                openDocument.launch(
-                    arrayOf("application/json", "application/octet-stream", "text/plain"),
-                )
+                openDocument.launch(BACKUP_MIME_TYPES)
             }) {
                 Text("Choose Backup File…")
             }
-            Text(
-                importMode.description(),
-                style = AppTheme.textStyles.settingDescription,
-            )
-
-            RestoreTypeRow(selected = restoreType, onSelected = { restoreType = it })
-            OutlinedButton(
+            // Undo lives at the end of the whole-database controls, so it always
+            // sits with the large changes it can put back, and it puts back the
+            // same kinds of data chosen above. It does not apply to single-item
+            // restores below.
+            AppButton(
                 onClick = { pendingUndo = true },
                 enabled = hasUndoSnapshot,
             ) {
                 Text(if (hasUndoSnapshot) "Restore" else "Nothing to Restore")
+            }
+
+            // Single-item restore: one exported list or form. No type to pick —
+            // the file says which it is.
+            SubsectionHeader("Restore Individual Item")
+            Text(
+                "Re-adds a single item from any data type. Requires json formatting.",
+                style = AppTheme.textStyles.settingDescription,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            AppButton(onClick = {
+                status = null
+                openSingleItem.launch(BACKUP_MIME_TYPES)
+            }) {
+                Text("Choose Backup File…")
             }
 
             status?.let {
@@ -234,6 +280,7 @@ fun SettingsScreen(
 
     if (pendingJson != null) {
         val mode = importMode
+        val type = restoreType
         AlertDialog(
             onDismissRequest = { pendingJson = null },
             title = {
@@ -264,7 +311,14 @@ fun SettingsScreen(
                     pendingJson = null
                     if (json != null) {
                         scope.launch {
-                            status = when (val result = viewModel.restore(json, mode)) {
+                            status = when (
+                                val result = viewModel.restore(
+                                    json,
+                                    mode,
+                                    forms = type.forms(),
+                                    lists = type.lists(),
+                                )
+                            ) {
                                 is RestoreResult.Success -> {
                                     hasUndoSnapshot = true
                                     restoreSummary(mode, result.logs, result.lists)
@@ -302,6 +356,8 @@ fun SettingsScreen(
             text = {
                 Text(
                     when (restoreType) {
+                        RestoreType.EVERYTHING ->
+                            "Restore previous state prior to import? This can't be undone."
                         RestoreType.LIST ->
                             "Restore previous list state prior to import? This can't be undone."
                         RestoreType.FORM ->
@@ -313,10 +369,10 @@ fun SettingsScreen(
                 TextButton(onClick = {
                     pendingUndo = false
                     scope.launch {
-                        status = when (restoreType) {
-                            RestoreType.LIST -> viewModel.undoListImport()
-                            RestoreType.FORM -> viewModel.undoFormImport()
-                        }
+                        status = viewModel.undoImport(
+                            forms = restoreType.forms(),
+                            lists = restoreType.lists(),
+                        )
                     }
                 }) {
                     Text("Restore")
@@ -329,73 +385,58 @@ fun SettingsScreen(
     }
 }
 
-/** Which half of the pre-import snapshot Undo Last Import puts back. */
-private enum class RestoreType { LIST, FORM }
+/** The file types the system picker offers for a backup or a single-item export. */
+private val BACKUP_MIME_TYPES =
+    arrayOf("application/json", "application/octet-stream", "text/plain")
+
+/** The status line shown after restoring one exported list or form. */
+private fun singleItemSummary(logs: Int, lists: Int): String = when {
+    lists > 0 -> "Restored 1 list."
+    logs > 0 -> "Restored 1 form."
+    else -> "Nothing to restore."
+}
+
+/**
+ * Which kinds of data a whole-database restore touches — and, with it, which
+ * kinds Undo puts back. Everything covers every type at once; the named types
+ * leave the others exactly as they are. A new data type gets an entry here.
+ */
+private enum class RestoreType { EVERYTHING, LIST, FORM }
 
 private fun RestoreType.label(): String = when (this) {
+    RestoreType.EVERYTHING -> "Everything"
     RestoreType.LIST -> "List"
     RestoreType.FORM -> "Form"
 }
 
+/** True when this choice includes forms. */
+private fun RestoreType.forms(): Boolean = this != RestoreType.LIST
+
+/** True when this choice includes lists. */
+private fun RestoreType.lists(): Boolean = this != RestoreType.FORM
+
 /**
- * "Restore Type:" chooser for Undo Last Import: the label on the left, a
- * lightly outlined box on the right showing List or Form, opening a drop-down
- * to switch (docs/STYLE.md — a dropdown shares its label's line).
+ * "Restore Type:" chooser for Undo Last Import (docs/STYLE.md — a drop-down
+ * shares its label's line, and its width never changes with the value picked).
  */
 @Composable
 private fun RestoreTypeRow(
     selected: RestoreType,
     onSelected: (RestoreType) -> Unit,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            "Restore Type:",
-            style = AppTheme.textStyles.settingTitle,
-            modifier = Modifier.weight(1f),
-        )
-        Spacer(Modifier.width(12.dp))
-        Box {
-            Row(
-                modifier = Modifier
-                    .clickable { expanded = true }
-                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
-                    .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(selected.label(), style = AppTheme.textStyles.settingTitle)
-                Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
-            }
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                RestoreType.entries.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option.label()) },
-                        onClick = {
-                            onSelected(option)
-                            expanded = false
-                        },
-                    )
-                }
-            }
-        }
-    }
+    AppDropdownRow(
+        label = "Restore Type:",
+        options = RestoreType.entries,
+        selected = selected,
+        onSelected = onSelected,
+        optionLabel = { it.label() },
+    )
 }
 
 /** The full label shown for an import mode in the drop-down menu. */
 private fun RestoreMode.label(): String = when (this) {
     RestoreMode.REPLACE -> "Replace All Data"
     RestoreMode.MERGE -> "Merge with Existing Data"
-}
-
-/** The short label shown in the collapsed box, so it fits the label's line. */
-private fun RestoreMode.shortLabel(): String = when (this) {
-    RestoreMode.REPLACE -> "Replace All"
-    RestoreMode.MERGE -> "Merge"
 }
 
 /** The one-line explanation of what an import mode does. */
@@ -413,8 +454,8 @@ private fun restoreSummary(mode: RestoreMode, logs: Int, lists: Int): String {
     val forms = "$logs ${if (logs == 1) "form" else "forms"}"
     val listsText = "$lists ${if (lists == 1) "list" else "lists"}"
     return when (mode) {
-        RestoreMode.REPLACE -> "Replaced all data — restored $forms and $listsText."
-        RestoreMode.MERGE -> "Merge complete — $forms and $listsText added or updated."
+        RestoreMode.REPLACE -> "Replaced all data \u2014 restored $forms and $listsText."
+        RestoreMode.MERGE -> "Merge complete \u2014 $forms and $listsText added or updated."
     }
 }
 
@@ -425,6 +466,12 @@ private fun restoreSummary(mode: RestoreMode, logs: Int, lists: Int): String {
 @Composable
 private fun SectionHeader(text: String) {
     Text(text, style = AppTheme.textStyles.sectionHeader)
+}
+
+/** A heading for one block inside a section, a step below [SectionHeader]. */
+@Composable
+private fun SubsectionHeader(text: String) {
+    Text(text, style = AppTheme.textStyles.subsectionHeader)
 }
 
 /**
@@ -461,54 +508,24 @@ private fun SettingToggleRow(
 }
 
 /**
- * "Import Mode" chooser for Restore: the label on the left, a lightly outlined
- * box on the right showing the current mode, which opens a drop-down to switch
- * between Merge and Replace (docs/STYLE.md — a dropdown shares its label's line).
- * The box shows the short name to fit the line; the full name and a description
- * appear in the menu and below.
+ * "Import Mode" chooser for Restore. The hint sits under the label, in the
+ * label's own column — never under the whole row (docs/STYLE.md).
  */
 @Composable
 private fun ImportModeRow(
     selected: RestoreMode,
     onSelected: (RestoreMode) -> Unit,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            "Import Mode",
-            style = AppTheme.textStyles.settingTitle,
-            modifier = Modifier.weight(1f),
-        )
-        Spacer(Modifier.width(12.dp))
-        Box {
-            Row(
-                modifier = Modifier
-                    .clickable { expanded = true }
-                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
-                    .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(selected.shortLabel(), style = AppTheme.textStyles.settingTitle)
-                Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
-            }
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                RestoreMode.entries.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option.label()) },
-                        onClick = {
-                            onSelected(option)
-                            expanded = false
-                        },
-                    )
-                }
-            }
-        }
-    }
+    AppDropdownRow(
+        label = "Import Mode",
+        hint = selected.description(),
+        options = RestoreMode.entries,
+        selected = selected,
+        onSelected = onSelected,
+        // No short label: the box shows the same full wording as the menu, so
+        // there is no second name for the same option.
+        optionLabel = { it.label() },
+    )
 }
 
 /** Label of the mark shown on a completed item. */
@@ -518,51 +535,19 @@ private fun CompleteIcon.label(): String = when (this) {
 }
 
 /**
- * "Item Complete Icon" chooser: the current choice on the right opens a small
- * drop-down to pick between a checkmark and a checked box.
+ * "Item Complete Icon" chooser: the current choice sits on the label's line and
+ * opens a drop-down to pick between a checkmark and a checked box.
  */
 @Composable
 private fun CompleteIconRow(
     selected: CompleteIcon,
     onSelected: (CompleteIcon) -> Unit,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            "Item Complete Icon",
-            style = AppTheme.textStyles.settingTitle,
-            modifier = Modifier.weight(1f),
-        )
-        Spacer(Modifier.width(12.dp))
-        Box {
-            // The current choice sits in a lightly outlined, slightly rounded box
-            // that opens the drop-down when tapped.
-            Row(
-                modifier = Modifier
-                    .clickable { expanded = true }
-                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
-                    .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(selected.label(), style = AppTheme.textStyles.settingTitle)
-                Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
-            }
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                CompleteIcon.entries.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option.label()) },
-                        onClick = {
-                            onSelected(option)
-                            expanded = false
-                        },
-                    )
-                }
-            }
-        }
-    }
+    AppDropdownRow(
+        label = "Item Complete Icon",
+        options = CompleteIcon.entries,
+        selected = selected,
+        onSelected = onSelected,
+        optionLabel = { it.label() },
+    )
 }
