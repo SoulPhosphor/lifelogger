@@ -219,4 +219,21 @@ object BackupCodec {
         notes: List<EntryNote> = emptyList(),
     ): String =
         encode(BackupFile(exportedAt = exportedAt, logs = listOf(logOf(template, entries, notes))))
+
+    /**
+     * A one-list export: a [BackupFile] carrying just this list (no logs), so it
+     * re-imports the same way — a Merge adds it or replaces the same list by uuid.
+     */
+    fun encodeSingleChecklist(
+        checklist: Checklist,
+        items: List<ChecklistItem>,
+        exportedAt: String,
+    ): String =
+        encode(
+            BackupFile(
+                exportedAt = exportedAt,
+                logs = emptyList(),
+                checklists = listOf(checklistOf(checklist, items)),
+            )
+        )
 }

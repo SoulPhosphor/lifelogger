@@ -1,9 +1,15 @@
 package com.datadragon.app.ui.screens
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,11 +28,16 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -37,6 +48,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -46,6 +58,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -53,11 +66,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.ChecklistItem
 import com.datadragon.app.data.CompleteIcon
+import com.datadragon.app.export.ChecklistExportFormat
+import com.datadragon.app.export.ExportContent
 import com.datadragon.app.ui.ChecklistViewModel
+import kotlinx.coroutines.launch
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ChecklistScreen(
     checklistId: String?,
@@ -67,6 +83,42 @@ fun ChecklistScreen(
     val idLong = checklistId?.toLongOrNull()
     val isNew = idLong == null
     LaunchedEffect(checklistId) { viewModel.load(idLong) }
+
+    val context = LocalContext.current
+    val exportScope = rememberCoroutineScope()
+    var menuOpen by remember { mutableStateOf(false) }
+    var showFormatChooser by remember { mutableStateOf(false) }
+
+    // The file being saved: the user picks the destination and name via the
+    // system "Save to…" sheet; we write the bytes to whatever it returns.
+    var pendingExport by remember { mutableStateOf<ExportContent?>(null) }
+    val saveDocument = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("*/*"),
+    ) { uri ->
+        val export = pendingExport
+        pendingExport = null
+        if (uri != null && export != null) {
+            val ok = runCatching {
+                context.contentResolver.openOutputStream(uri)?.use { it.write(export.bytes) }
+                    ?: error("No output stream")
+            }.isSuccess
+            Toast.makeText(
+                context,
+                if (ok) "Saved ${export.suggestedName}" else "Couldn't save file",
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+    }
+    val startSave: (ChecklistExportFormat) -> Unit = { format ->
+        showFormatChooser = false
+        exportScope.launch {
+            val content = viewModel.buildExport(format)
+            if (content != null) {
+                pendingExport = content
+                saveDocument.launch(content.suggestedName)
+            }
+        }
+    }
 
     val title by viewModel.title.collectAsStateWithLifecycle()
     val items by viewModel.items.collectAsStateWithLifecycle()
@@ -111,11 +163,27 @@ fun ChecklistScreen(
                 actions = {
                     // Save exists only while the list is a brand-new draft; once
                     // saved, an established list auto-saves and needs no button.
+                    // An established list instead gets a ⋮ menu holding Export.
                     if (isNew) {
                         TextButton(
                             enabled = hasText,
                             onClick = { viewModel.save(onBack) },
                         ) { Text("Save") }
+                    } else {
+                        Box {
+                            IconButton(onClick = { menuOpen = true }) {
+                                Icon(Icons.Filled.MoreVert, contentDescription = "List options")
+                            }
+                            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("Export") },
+                                    onClick = {
+                                        menuOpen = false
+                                        showFormatChooser = true
+                                    },
+                                )
+                            }
+                        }
                     }
                 },
             )
@@ -171,6 +239,32 @@ fun ChecklistScreen(
         DiscardChangesDialog(
             onConfirm = { showDiscard = false; onBack() },
             onDismiss = { showDiscard = false },
+        )
+    }
+
+    if (showFormatChooser) {
+        AlertDialog(
+            onDismissRequest = { showFormatChooser = false },
+            title = { Text("Export \"${title.ifBlank { "List" }}\"") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Choose a format, then pick where to save it:")
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { startSave(ChecklistExportFormat.MARKDOWN) }) { Text(".md") }
+                        OutlinedButton(onClick = { startSave(ChecklistExportFormat.JSON) }) { Text(".json") }
+                        OutlinedButton(onClick = { startSave(ChecklistExportFormat.TEXT) }) { Text(".txt") }
+                        OutlinedButton(onClick = { startSave(ChecklistExportFormat.PDF) }) { Text(".pdf") }
+                    }
+                    Text(
+                        ".md, .txt and .pdf are readable; .json re-imports this list.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showFormatChooser = false }) { Text("Cancel") }
+            },
         )
     }
 }

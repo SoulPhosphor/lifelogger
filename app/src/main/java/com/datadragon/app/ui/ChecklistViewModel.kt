@@ -8,6 +8,9 @@ import com.datadragon.app.data.Checklist
 import com.datadragon.app.data.ChecklistItem
 import com.datadragon.app.data.CompleteIcon
 import com.datadragon.app.data.SettingsRepository
+import com.datadragon.app.export.ChecklistExport
+import com.datadragon.app.export.ChecklistExportFormat
+import com.datadragon.app.export.ExportContent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -168,6 +171,23 @@ class ChecklistViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
             onSaved()
+        }
+    }
+
+    /**
+     * Build a downloadable file of this list in [format], or null if the list
+     * isn't saved yet (a brand-new draft has nothing to export). Reads the list
+     * fresh from the database so the file matches what's stored.
+     */
+    suspend fun buildExport(format: ChecklistExportFormat): ExportContent? {
+        if (isNew) return null
+        val checklist = dao.getChecklist(checklistId) ?: return null
+        val items = dao.getItemsOnce(checklistId)
+        return when (format) {
+            ChecklistExportFormat.MARKDOWN -> ChecklistExport.markdown(checklist, items)
+            ChecklistExportFormat.JSON -> ChecklistExport.json(checklist, items)
+            ChecklistExportFormat.TEXT -> ChecklistExport.text(checklist, items)
+            ChecklistExportFormat.PDF -> ChecklistExport.pdf(checklist, items)
         }
     }
 
