@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
@@ -91,6 +92,13 @@ fun LogScreen(
     var gearMenuOpen by remember { mutableStateOf(false) }
     // Export dialog: whether to include follow-up notes.
     var includeFollowUps by remember { mutableStateOf(true) }
+
+    // "Show marked only" filter. Off by default and ephemeral — it resets to off
+    // whenever the screen is reopened. Its toggle only appears when at least one
+    // entry is marked; with nothing marked there is no star and every entry shows.
+    var showMarkedOnly by remember { mutableStateOf(false) }
+    val anyMarked = entries.any { it.marked }
+    val visibleEntries = if (showMarkedOnly && anyMarked) entries.filter { it.marked } else entries
 
     // The file the user is saving. They choose the destination and name via the
     // system "Save to…" sheet; we write the bytes to whatever location it returns.
@@ -185,6 +193,21 @@ fun LogScreen(
                     }
                 },
                 actions = {
+                    // Filter star, just left of the plus. Only shown when some entry
+                    // is marked; a filled star means the list is limited to marked
+                    // entries, an outlined star means every entry shows.
+                    if (anyMarked) {
+                        IconButton(onClick = { showMarkedOnly = !showMarkedOnly }) {
+                            Icon(
+                                imageVector = if (showMarkedOnly) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                contentDescription = if (showMarkedOnly) {
+                                    "Showing marked entries only — tap to show all"
+                                } else {
+                                    "Show marked entries only"
+                                },
+                            )
+                        }
+                    }
                     IconButton(onClick = onAddEntry) {
                         Icon(Icons.Filled.Add, contentDescription = "Add entry")
                     }
@@ -205,7 +228,7 @@ fun LogScreen(
                 contentPadding = PaddingValues(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                items(entries, key = { it.id }) { entry ->
+                items(visibleEntries, key = { it.id }) { entry ->
                     EntryRow(
                         entry = entry,
                         fields = fields,
