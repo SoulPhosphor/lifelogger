@@ -66,6 +66,18 @@ data class BackupChecklistItem(
     val position: Int,
 )
 
+/**
+ * The pre-import snapshot Undo Last Import restores from. Taken automatically
+ * right before any restore runs; [capturedAt] is when that snapshot was taken
+ * (not when [data]'s own contents were created). Kept as one slot on disk,
+ * overwritten by the next import — never expires on its own.
+ */
+@Serializable
+data class UndoSnapshot(
+    val capturedAt: String,
+    val data: BackupFile,
+)
+
 @Serializable
 data class BackupEntry(
     val id: Long,
@@ -95,6 +107,12 @@ object BackupCodec {
     fun encode(backup: BackupFile): String = json.encodeToString(BackupFile.serializer(), backup)
 
     fun decode(text: String): BackupFile = json.decodeFromString(BackupFile.serializer(), text)
+
+    fun encodeSnapshot(snapshot: UndoSnapshot): String =
+        json.encodeToString(UndoSnapshot.serializer(), snapshot)
+
+    fun decodeSnapshot(text: String): UndoSnapshot =
+        json.decodeFromString(UndoSnapshot.serializer(), text)
 
     fun logOf(
         template: LogTemplate,

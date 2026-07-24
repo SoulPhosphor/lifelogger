@@ -32,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -74,6 +75,13 @@ fun SettingsScreen(
     // Non-destructive by default: Merge can only add or update, never delete
     // something the chosen backup didn't include.
     var importMode by remember { mutableStateOf(RestoreMode.MERGE) }
+    var restoreType by remember { mutableStateOf(RestoreType.LIST) }
+    var hasUndoSnapshot by remember { mutableStateOf(false) }
+    var pendingUndo by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        hasUndoSnapshot = viewModel.hasUndoSnapshot()
+    }
 
     val openDocument = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
@@ -196,6 +204,15 @@ fun SettingsScreen(
                 importMode.description(),
                 style = MaterialTheme.typography.bodySmall,
             )
+
+            RestoreTypeRow(selected = restoreType, onSelected = { restoreType = it })
+            OutlinedButton(
+                onClick = { pendingUndo = true },
+                enabled = hasUndoSnapshot,
+            ) {
+                Text(if (hasUndoSnapshot) "Restore" else "Nothing to Restore")
+            }
+
             status?.let {
                 Text(it, style = MaterialTheme.typography.bodyMedium)
             }
@@ -235,8 +252,10 @@ fun SettingsScreen(
                     if (json != null) {
                         scope.launch {
                             status = when (val result = viewModel.restore(json, mode)) {
-                                is RestoreResult.Success ->
+                                is RestoreResult.Success -> {
+                                    hasUndoSnapshot = true
                                     restoreSummary(mode, result.logs, result.lists)
+                                }
                                 is RestoreResult.Failure -> result.message
                             }
                         }
@@ -257,6 +276,95 @@ fun SettingsScreen(
                 TextButton(onClick = { pendingJson = null }) { Text("Cancel") }
             },
         )
+    }
+
+    if (pendingUndo) {
+        AlertDialog(
+            onDismissRequest = { pendingUndo = false },
+            text = {
+                Text(
+                    when (restoreType) {
+                        RestoreType.LIST ->
+                            "Restore previous list state prior to import? This can't be undone."
+                        RestoreType.FORM ->
+                            "Restore previous form state prior to import? This can't be undone."
+                    }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingUndo = false
+                    scope.launch {
+                        status = when (restoreType) {
+                            RestoreType.LIST -> viewModel.undoListImport()
+                            RestoreType.FORM -> viewModel.undoFormImport()
+                        }
+                    }
+                }) {
+                    Text("Restore")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingUndo = false }) { Text("Cancel") }
+            },
+        )
+    }
+}
+
+/** Which half of the pre-import snapshot Undo Last Import puts back. */
+private enum class RestoreType { LIST, FORM }
+
+private fun RestoreType.label(): String = when (this) {
+    RestoreType.LIST -> "List"
+    RestoreType.FORM -> "Form"
+}
+
+/**
+ * "Restore Type:" chooser for Undo Last Import: the label on the left, a
+ * lightly outlined box on the right showing List or Form, opening a drop-down
+ * to switch (docs/STYLE.md — a dropdown shares its label's line).
+ */
+@Composable
+private fun RestoreTypeRow(
+    selected: RestoreType,
+    onSelected: (RestoreType) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            "Restore Type:",
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.width(12.dp))
+        Box {
+            Row(
+                modifier = Modifier
+                    .clickable { expanded = true }
+                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
+                    .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(selected.label(), style = MaterialTheme.typography.bodyLarge)
+                Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                RestoreType.entries.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(option.label()) },
+                        onClick = {
+                            onSelected(option)
+                            expanded = false
+                        },
+                    )
+                }
+            }
+        }
     }
 }
 

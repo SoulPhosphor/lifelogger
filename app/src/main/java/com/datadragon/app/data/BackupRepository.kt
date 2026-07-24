@@ -54,20 +54,44 @@ class BackupRepository(private val db: AppDatabase) {
     }
 
     private suspend fun replaceAll(backup: BackupFile) {
+        replaceForms(backup.logs)
+        replaceLists(backup.checklists)
+    }
+
+    private suspend fun replaceForms(logs: List<BackupLog>) {
         noteDao.deleteAll()
         entryDao.deleteAll()
         templateDao.deleteAll()
-        checklistDao.deleteAllItems()
-        checklistDao.deleteAllChecklists()
-        backup.logs.forEach { log ->
+        logs.forEach { log ->
             templateDao.insert(BackupCodec.templateOf(log))
             BackupCodec.entriesOf(log).forEach { entryDao.insert(it) }
             BackupCodec.notesOf(log).forEach { noteDao.insert(it) }
         }
-        backup.checklists.forEach { checklist ->
+    }
+
+    private suspend fun replaceLists(checklists: List<BackupChecklist>) {
+        checklistDao.deleteAllItems()
+        checklistDao.deleteAllChecklists()
+        checklists.forEach { checklist ->
             checklistDao.insertChecklist(BackupCodec.checklistEntityOf(checklist))
             BackupCodec.itemsOf(checklist).forEach { checklistDao.insertItem(it) }
         }
+    }
+
+    /**
+     * Undo Last Import: puts forms back to [snapshot]'s form state (its logs,
+     * entries, and notes); lists are untouched. Runs in one transaction.
+     */
+    suspend fun restoreFormsFromSnapshot(snapshot: BackupFile) = db.withTransaction {
+        replaceForms(snapshot.logs)
+    }
+
+    /**
+     * Undo Last Import: puts lists back to [snapshot]'s list state (its
+     * checklists and items); forms are untouched. Runs in one transaction.
+     */
+    suspend fun restoreListsFromSnapshot(snapshot: BackupFile) = db.withTransaction {
+        replaceLists(snapshot.checklists)
     }
 
     private suspend fun merge(backup: BackupFile) {
