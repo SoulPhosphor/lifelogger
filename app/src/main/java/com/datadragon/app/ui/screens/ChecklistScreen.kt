@@ -8,8 +8,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.BasicTextField
@@ -37,8 +36,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -68,17 +67,17 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import kotlinx.coroutines.launch
 import com.datadragon.app.data.ChecklistItem
 import com.datadragon.app.data.CompleteIcon
 import com.datadragon.app.export.ChecklistExportFormat
 import com.datadragon.app.export.ExportContent
 import com.datadragon.app.ui.ChecklistViewModel
+import com.datadragon.app.ui.theme.AppTheme
 import kotlinx.coroutines.launch
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChecklistScreen(
     checklistId: String?,
@@ -92,6 +91,7 @@ fun ChecklistScreen(
     val exportScope = rememberCoroutineScope()
     var menuOpen by remember { mutableStateOf(false) }
     var showFormatChooser by remember { mutableStateOf(false) }
+    var showDeleteList by remember { mutableStateOf(false) }
 
     // The file being saved: the user picks the destination and name via the
     // system "Save to…" sheet; we write the bytes to whatever it returns.
@@ -180,7 +180,16 @@ fun ChecklistScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {},
+                // The list's name sits in the top bar, immediately right of the
+                // double-chevron Back button, and stays editable there.
+                title = {
+                    TitleField(
+                        value = title,
+                        onValueChange = viewModel::setTitle,
+                        onFocusLost = viewModel::onTitleFocusLost,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = { attemptBack() }) {
                         Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
@@ -189,7 +198,7 @@ fun ChecklistScreen(
                 actions = {
                     // Save finalizes a draft (new or recovered) into a normal saved
                     // list. An established list auto-saves and shows no button — it
-                    // gets a ⋮ menu holding Export instead.
+                    // gets a ⋮ menu holding Export and Delete List instead.
                     if (isDraft) {
                         TextButton(
                             enabled = hasText,
@@ -208,6 +217,13 @@ fun ChecklistScreen(
                                         showFormatChooser = true
                                     },
                                 )
+                                DropdownMenuItem(
+                                    text = { Text("Delete List") },
+                                    onClick = {
+                                        menuOpen = false
+                                        showDeleteList = true
+                                    },
+                                )
                             }
                         }
                     }
@@ -216,15 +232,6 @@ fun ChecklistScreen(
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).imePadding()) {
-            // Title lives above the reorderable list so the list holds only
-            // draggable items — keeping drag indices simple.
-            TitleField(
-                value = title,
-                onValueChange = viewModel::setTitle,
-                onFocusLost = viewModel::onTitleFocusLost,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-            )
-
             androidx.compose.foundation.lazy.LazyColumn(
                 state = lazyListState,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -274,19 +281,33 @@ fun ChecklistScreen(
     if (showFormatChooser) {
         AlertDialog(
             onDismissRequest = { showFormatChooser = false },
-            title = { Text("Export \"${title.ifBlank { "List" }}\"") },
+            title = { Text("Export List") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Choose a format, then pick where to save it:")
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { startSave(ChecklistExportFormat.MARKDOWN) }) { Text(".md") }
-                        OutlinedButton(onClick = { startSave(ChecklistExportFormat.JSON) }) { Text(".json") }
-                        OutlinedButton(onClick = { startSave(ChecklistExportFormat.TEXT) }) { Text(".txt") }
-                        OutlinedButton(onClick = { startSave(ChecklistExportFormat.PDF) }) { Text(".pdf") }
-                    }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        ".md, .txt and .pdf are readable; .json re-imports this list.",
-                        style = MaterialTheme.typography.bodySmall,
+                        "Choose an export format",
+                        style = AppTheme.textStyles.dialogOptionSubtitle,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    ExportFormatOption(
+                        title = "Text Document (.txt)",
+                        subtitle = "Simple plain text file",
+                        onClick = { startSave(ChecklistExportFormat.TEXT) },
+                    )
+                    ExportFormatOption(
+                        title = "Markdown (.md)",
+                        subtitle = "Formatted text document",
+                        onClick = { startSave(ChecklistExportFormat.MARKDOWN) },
+                    )
+                    ExportFormatOption(
+                        title = "PDF Document (.pdf)",
+                        subtitle = "Printable document format",
+                        onClick = { startSave(ChecklistExportFormat.PDF) },
+                    )
+                    ExportFormatOption(
+                        title = "Application Data (.json)",
+                        subtitle = "Use this file to import or restore this list later",
+                        onClick = { startSave(ChecklistExportFormat.JSON) },
                     )
                 }
             },
@@ -295,6 +316,58 @@ fun ChecklistScreen(
                 TextButton(onClick = { showFormatChooser = false }) { Text("Cancel") }
             },
         )
+    }
+
+    if (showDeleteList) {
+        AlertDialog(
+            onDismissRequest = { showDeleteList = false },
+            title = { Text("Delete list?") },
+            // Button order is fixed: Okay first, Cancel second. Material renders
+            // the dismiss slot before the confirm slot, so Okay goes in the
+            // dismiss slot to keep that order on screen.
+            dismissButton = {
+                TextButton(onClick = {
+                    showDeleteList = false
+                    viewModel.deleteList(onBack)
+                }) { Text("Okay") }
+            },
+            confirmButton = {
+                TextButton(onClick = { showDeleteList = false }) { Text("Cancel") }
+            },
+        )
+    }
+}
+
+/**
+ * One export format in the Export List dialog: a soft, full-width Material
+ * surface that ripples on touch — no outlined pill, no heavy card. Colors,
+ * shape, and text sizes all come from the theme.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ExportFormatOption(
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+            Text(
+                title,
+                style = AppTheme.textStyles.dialogOptionTitle,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                subtitle,
+                style = AppTheme.textStyles.dialogOptionSubtitle,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

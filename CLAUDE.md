@@ -1,3 +1,27 @@
+# INSTRUCTIONS ARE FOLLOWED DIRECTLY
+
+When I give an instruction, implement it exactly as written.
+
+This is absolute for **words**. Every string I give you — button captions,
+titles, labels, dialog questions, option names, subtitles, error text — is used
+verbatim. You do not reword it, shorten it, expand it, "improve" it, make it more
+consistent with something else, or substitute a synonym. If my wording breaks a
+rule elsewhere in this file, my wording wins and you tell me about the conflict.
+
+The same applies to structure I specify: order of buttons, order of options,
+placement of an element on screen. If I say "do not change the button order",
+the order on screen matches the order I wrote, even if the platform convention
+is the opposite.
+
+If an instruction is a problem — it can't be built, it breaks something else, or
+two things I said contradict each other — **stop and tell me what the problem
+is.** That is always allowed and always wanted. What is not allowed is deciding
+for me and continuing.
+
+I make all the choices. You tell me when a choice is needed.
+
+---
+
 # NON-NEGOTIABLE OWNER-CONTROL RULE
 
 You are not the product owner.

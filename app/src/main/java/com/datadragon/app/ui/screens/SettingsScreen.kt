@@ -13,7 +13,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
@@ -44,7 +46,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.CompleteIcon
@@ -52,6 +53,7 @@ import com.datadragon.app.data.RestoreMode
 import com.datadragon.app.ui.BackupViewModel
 import com.datadragon.app.ui.RestoreResult
 import com.datadragon.app.ui.SettingsViewModel
+import com.datadragon.app.ui.theme.AppTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -134,8 +136,14 @@ fun SettingsScreen(
             )
         },
     ) { padding ->
+        // Settings is taller than the screen, so the whole page scrolls — the last
+        // section (Restore from Backup) must always be reachable.
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             // Text-formatting preferences. Their titles are deliberately kept as
@@ -144,7 +152,7 @@ fun SettingsScreen(
             SectionHeader("Text Formatting")
             Text(
                 "Only applies to future items.",
-                style = MaterialTheme.typography.bodySmall,
+                style = AppTheme.textStyles.settingDescription,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             SettingToggleRow(
@@ -188,7 +196,7 @@ fun SettingsScreen(
             }
             Text(
                 "Saves every log and entry into a single .json file you choose the location for.",
-                style = MaterialTheme.typography.bodySmall,
+                style = AppTheme.textStyles.settingDescription,
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -207,7 +215,7 @@ fun SettingsScreen(
             }
             Text(
                 importMode.description(),
-                style = MaterialTheme.typography.bodySmall,
+                style = AppTheme.textStyles.settingDescription,
             )
 
             RestoreTypeRow(selected = restoreType, onSelected = { restoreType = it })
@@ -267,13 +275,18 @@ fun SettingsScreen(
                     }
                 }) {
                     // Red only for Replace, the destructive mode; Merge is
-                    // non-destructive, so it uses the normal button color.
+                    // non-destructive, so it uses the normal button color. The red
+                    // is the theme's error color, not a literal.
                     Text(
                         when (mode) {
                             RestoreMode.REPLACE -> "Replace All"
                             RestoreMode.MERGE -> "Merge"
                         },
-                        color = if (mode == RestoreMode.REPLACE) Color(0xFFC62828) else Color.Unspecified,
+                        color = if (mode == RestoreMode.REPLACE) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            Color.Unspecified
+                        },
                     )
                 }
             },
@@ -343,7 +356,7 @@ private fun RestoreTypeRow(
     ) {
         Text(
             "Restore Type:",
-            style = MaterialTheme.typography.bodyLarge,
+            style = AppTheme.textStyles.settingTitle,
             modifier = Modifier.weight(1f),
         )
         Spacer(Modifier.width(12.dp))
@@ -355,7 +368,7 @@ private fun RestoreTypeRow(
                     .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(selected.label(), style = MaterialTheme.typography.bodyLarge)
+                Text(selected.label(), style = AppTheme.textStyles.settingTitle)
                 Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
             }
             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -406,12 +419,12 @@ private fun restoreSummary(mode: RestoreMode, logs: Int, lists: Int): String {
 }
 
 /**
- * A section heading, sized a touch smaller than the "Settings" title up top so
- * the sections are easy to scan.
+ * A section heading. Its size comes from the theme (`sectionHeader`), which sits
+ * one step below the "Settings" title in the top bar — never a hard-coded size.
  */
 @Composable
 private fun SectionHeader(text: String) {
-    Text(text, style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp))
+    Text(text, style = AppTheme.textStyles.sectionHeader)
 }
 
 /**
@@ -433,11 +446,11 @@ private fun SettingToggleRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(title, style = AppTheme.textStyles.settingTitle)
             if (subtitle != null) {
                 Text(
                     subtitle,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = AppTheme.textStyles.settingDescription,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -468,7 +481,7 @@ private fun ImportModeRow(
     ) {
         Text(
             "Import Mode",
-            style = MaterialTheme.typography.bodyLarge,
+            style = AppTheme.textStyles.settingTitle,
             modifier = Modifier.weight(1f),
         )
         Spacer(Modifier.width(12.dp))
@@ -480,7 +493,7 @@ private fun ImportModeRow(
                     .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(selected.shortLabel(), style = MaterialTheme.typography.bodyLarge)
+                Text(selected.shortLabel(), style = AppTheme.textStyles.settingTitle)
                 Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
             }
             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -522,7 +535,7 @@ private fun CompleteIconRow(
     ) {
         Text(
             "Item Complete Icon",
-            style = MaterialTheme.typography.bodyLarge,
+            style = AppTheme.textStyles.settingTitle,
             modifier = Modifier.weight(1f),
         )
         Spacer(Modifier.width(12.dp))
@@ -536,7 +549,7 @@ private fun CompleteIconRow(
                     .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(selected.label(), style = MaterialTheme.typography.bodyLarge)
+                Text(selected.label(), style = AppTheme.textStyles.settingTitle)
                 Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
             }
             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {

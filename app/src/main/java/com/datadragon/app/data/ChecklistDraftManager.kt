@@ -258,13 +258,24 @@ class ChecklistDraftManager(
      * nothing writes to the row being deleted. A never-persisted draft (e.g. a
      * title typed but no item text) has nothing to delete and just leaves.
      */
-    fun discardDraft(onDiscarded: () -> Unit) {
+    fun discardDraft(onDiscarded: () -> Unit) = deleteAndLeave(onDiscarded)
+
+    /**
+     * Delete this list outright, from the list's own ⋮ menu. Same mechanics as
+     * [discardDraft] — cancel pending writes, then delete the row and its items —
+     * the difference is only which user action asked for it.
+     */
+    fun deleteList(onDeleted: () -> Unit) = deleteAndLeave(onDeleted)
+
+    private fun deleteAndLeave(onDone: () -> Unit) {
         val id = if (_persisted.value) listDbId else -1
+        // Clearing `persisted` first also stops the on-leave blank-item cleanup
+        // from touching the row that is about to disappear.
         _persisted.value = false
         _isDraft.value = false
         writer.cancelAll()
         if (id >= 0) survivingScope.launch { store.deleteChecklistWithItems(id) }
-        onDiscarded()
+        onDone()
     }
 
     private suspend fun ensurePersisted() {
