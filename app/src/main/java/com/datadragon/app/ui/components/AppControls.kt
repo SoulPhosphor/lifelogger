@@ -83,8 +83,8 @@ fun AppButton(
  * ever show, plus a little slack, so picking a different option does not make
  * the control grow, shrink, or shove its neighbors around.
  *
- * [collapsedLabel] is what the box shows (kept short enough to sit on one line);
- * [optionLabel] is what the opened menu shows.
+ * An option has exactly one name: the box and the menu show the same
+ * [optionLabel], never a short version in one and a long version in the other.
  */
 @Composable
 fun <T> AppDropdown(
@@ -93,7 +93,6 @@ fun <T> AppDropdown(
     onSelected: (T) -> Unit,
     optionLabel: (T) -> String,
     modifier: Modifier = Modifier,
-    collapsedLabel: (T) -> String = optionLabel,
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = modifier) {
@@ -114,7 +113,7 @@ fun <T> AppDropdown(
             Box {
                 options.forEach { option ->
                     Text(
-                        collapsedLabel(option),
+                        optionLabel(option),
                         style = AppTheme.textStyles.controlLabel,
                         maxLines = 1,
                         softWrap = false,
@@ -122,7 +121,7 @@ fun <T> AppDropdown(
                     )
                 }
                 Text(
-                    collapsedLabel(selected),
+                    optionLabel(selected),
                     style = AppTheme.textStyles.controlLabel,
                     maxLines = 1,
                     softWrap = false,
@@ -162,7 +161,6 @@ fun <T> AppDropdownRow(
     optionLabel: (T) -> String,
     modifier: Modifier = Modifier,
     hint: String? = null,
-    collapsedLabel: (T) -> String = optionLabel,
 ) {
     Row(
         modifier = modifier
@@ -186,7 +184,6 @@ fun <T> AppDropdownRow(
             selected = selected,
             onSelected = onSelected,
             optionLabel = optionLabel,
-            collapsedLabel = collapsedLabel,
         )
     }
 }

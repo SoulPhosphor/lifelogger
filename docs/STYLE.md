@@ -76,6 +76,7 @@ Because of this, adding a theme later is a change to `Theme.kt`, `Type.kt`,
 | Name | Used for |
 | --- | --- |
 | `sectionHeader` | A heading over a group of settings |
+| `subsectionHeader` | A heading for one block inside a section |
 | `settingTitle` | The main line of a row — the thing being set or chosen |
 | `settingDescription` | Hint text under a heading or a label |
 | `controlLabel` | Text inside a framed control: a button caption or a drop-down's current value |
@@ -115,8 +116,8 @@ Because of this, adding a theme later is a change to `Theme.kt`, `Type.kt`,
   could ever show, plus a small, fixed slack, so choosing a different option
   never makes it grow, shrink, or shove its neighbors around. Nothing on the
   line is allowed to jump.
-- **The collapsed box may show a shorter label than the menu**, when the full
-  name is too long for the line. The menu always shows the full name.
+- **The box shows exactly the same wording as the menu.** An option has one
+  name, never a short name in the box and a long name in the list.
 - **The drop-down box and `AppButton` are framed identically.**
 
 Both behaviors come free from `AppDropdown` / `AppDropdownRow` in
@@ -136,9 +137,32 @@ Both behaviors come free from `AppDropdown` / `AppDropdownRow` in
 
 ---
 
-## 7. Choosing from a list of options
+## 7. Export dialogs
 
-Used by the Export List dialog; the pattern for any "pick one of these" list.
+**Every export dialog in the app looks and reads like the Export List dialog.**
+When a new thing becomes exportable, it gets the same dialog — not a new design
+and not new phrasing for the formats it shares.
+
+- **Title:** `Export <Thing>` — e.g. "Export List".
+- **One line under the title:** "Choose an export format".
+- **One row per format**, using the option pattern in §8 below.
+- **Shared formats keep their exact wording**, whatever is being exported:
+
+  | Format | Title | Subtitle |
+  | --- | --- | --- |
+  | `.txt` | Text Document (.txt) | Simple plain text file |
+  | `.md` | Markdown (.md) | Formatted text document |
+  | `.pdf` | PDF Document (.pdf) | Printable document format |
+  | `.json` | Application Data (.json) | Use this file to import or restore this list later |
+
+- **No paragraph at the bottom.** The subtitles are the whole explanation.
+- **The `.json` export is the re-import file.** It is a backup file holding
+  exactly one item, so Restore Individual Item can read it back and work out the
+  type on its own.
+
+## 8. Choosing from a list of options
+
+Used by the export dialogs; the pattern for any "pick one of these" list.
 
 - **A Material 3 `Surface`, one option per full-width row** — not a card, not a
   button, not a pill.
@@ -157,7 +181,7 @@ Used by the Export List dialog; the pattern for any "pick one of these" list.
 
 ---
 
-## 8. Dialogs
+## 9. Dialogs
 
 - **The question is the dialog's title**, phrased as a normal sentence:
   "Delete list?".
@@ -170,7 +194,7 @@ Used by the Export List dialog; the pattern for any "pick one of these" list.
 
 ---
 
-## 9. Screens
+## 10. Screens
 
 - **A screen longer than the display scrolls.** Any screen whose content can
   exceed the screen height gets a vertical scroll, so the last section is always
@@ -179,7 +203,7 @@ Used by the Export List dialog; the pattern for any "pick one of these" list.
 
 ---
 
-## 10. Dates and times
+## 11. Dates and times
 
 - **Human-readable timestamps read `Mon D, YYYY at H:MM AM/PM`** — for example,
   `Jul 24, 2026 at 2:05 PM`. The word "at" separates the date and the time;

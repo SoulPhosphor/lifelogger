@@ -38,6 +38,36 @@ class BackupViewModel(app: Application) : AndroidViewModel(app) {
             RestoreResult.Failure(e.message ?: "This file isn't a valid backup.")
         }
 
+    /**
+     * Restore one exported list or form.
+     *
+     * The file is a single-item export — the .json a list or a form writes from
+     * its own Export — which is a backup file holding exactly one item. The type
+     * is therefore **read from the file**, not chosen by the user, and the item
+     * goes back to wherever its kind belongs.
+     *
+     * It always merges (it adds or updates that one item and leaves everything
+     * else alone) and takes no undo snapshot: undo is reserved for the
+     * whole-database restores above it.
+     */
+    suspend fun restoreSingleItem(text: String): RestoreResult =
+        try {
+            val backup = BackupCodec.decode(text)
+            val items = backup.logs.size + backup.checklists.size
+            when {
+                items == 0 -> RestoreResult.Failure("That file doesn't hold a list or a form.")
+                items > 1 -> RestoreResult.Failure(
+                    "That file holds more than one item. Use Restore from Database for a full backup.",
+                )
+                else -> {
+                    val counts = repository.restore(backup, RestoreMode.MERGE)
+                    RestoreResult.Success(logs = counts.logs, lists = counts.lists)
+                }
+            }
+        } catch (e: Exception) {
+            RestoreResult.Failure(e.message ?: "This file isn't a valid backup.")
+        }
+
     /** True once an import has happened, so there's a snapshot to restore from. */
     suspend fun hasUndoSnapshot(): Boolean = undoStore.load() != null
 

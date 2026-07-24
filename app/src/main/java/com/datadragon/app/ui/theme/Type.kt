@@ -26,6 +26,8 @@ val AppTypography = Typography()
 data class AppTextStyles(
     /** A heading over a group of settings — deliberately smaller than a screen title. */
     val sectionHeader: TextStyle,
+    /** A heading for one block inside a section — a step below [sectionHeader]. */
+    val subsectionHeader: TextStyle,
     /** The main line of a settings row (the thing being switched or chosen). */
     val settingTitle: TextStyle,
     /** Explanatory text under a heading, row, or button. */
@@ -49,6 +51,7 @@ data class AppTextStyles(
  */
 val DefaultAppTextStyles = AppTextStyles(
     sectionHeader = AppTypography.titleMedium.copy(fontSize = 18.sp),
+    subsectionHeader = AppTypography.titleMedium,
     settingTitle = AppTypography.bodyLarge,
     settingDescription = AppTypography.bodySmall,
     dialogOptionTitle = AppTypography.bodyLarge,

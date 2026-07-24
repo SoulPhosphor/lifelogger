@@ -100,6 +100,31 @@ fun SettingsScreen(
         }
     }
 
+    // Restore Individual Item: one exported list or form, merged straight in.
+    // The type is read from the file, so there is nothing for the user to pick
+    // and no confirmation to give — nothing is replaced or deleted.
+    val openSingleItem = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val text = withContext(Dispatchers.IO) {
+                    runCatching {
+                        context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                    }.getOrNull()
+                }
+                status = if (text.isNullOrBlank()) {
+                    "Couldn't read that file."
+                } else {
+                    when (val result = viewModel.restoreSingleItem(text)) {
+                        is RestoreResult.Success -> singleItemSummary(result.logs, result.lists)
+                        is RestoreResult.Failure -> result.message
+                    }
+                }
+            }
+        }
+    }
+
     // Backup writes the whole database to a .json file the user places via the
     // system "Save to…" sheet. Lives here in Settings (not on the Home bar).
     val createDocument = rememberLauncherForActivityResult(
@@ -202,22 +227,46 @@ fun SettingsScreen(
             // Restore lives at the bottom, away from everyday controls. Times are
             // always 12-hour (AM/PM), so there is no time-format choice here.
             SectionHeader("Restore from Backup")
+
+            // Whole-database restore: the file is the one "Back Up All Data"
+            // writes, and Import Mode decides how it lands.
+            SubsectionHeader("Restore from Database")
+            Text(
+                "Alters entire app contents based on previous snapshot.",
+                style = AppTheme.textStyles.settingDescription,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             ImportModeRow(selected = importMode, onSelected = { importMode = it })
             AppButton(onClick = {
                 status = null
-                openDocument.launch(
-                    arrayOf("application/json", "application/octet-stream", "text/plain"),
-                )
+                openDocument.launch(BACKUP_MIME_TYPES)
             }) {
                 Text("Choose Backup File…")
             }
-
+            // Undo lives at the end of the whole-database controls, so it always
+            // sits with the large changes it can put back. It does not apply to
+            // single-item restores below.
             RestoreTypeRow(selected = restoreType, onSelected = { restoreType = it })
             AppButton(
                 onClick = { pendingUndo = true },
                 enabled = hasUndoSnapshot,
             ) {
                 Text(if (hasUndoSnapshot) "Restore" else "Nothing to Restore")
+            }
+
+            // Single-item restore: one exported list or form. No type to pick —
+            // the file says which it is.
+            SubsectionHeader("Restore Individual Item")
+            Text(
+                "Re-adds a single item from any data type. Requires json formatting.",
+                style = AppTheme.textStyles.settingDescription,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            AppButton(onClick = {
+                status = null
+                openSingleItem.launch(BACKUP_MIME_TYPES)
+            }) {
+                Text("Choose Backup File…")
             }
 
             status?.let {
@@ -323,6 +372,17 @@ fun SettingsScreen(
     }
 }
 
+/** The file types the system picker offers for a backup or a single-item export. */
+private val BACKUP_MIME_TYPES =
+    arrayOf("application/json", "application/octet-stream", "text/plain")
+
+/** The status line shown after restoring one exported list or form. */
+private fun singleItemSummary(logs: Int, lists: Int): String = when {
+    lists > 0 -> "Restored 1 list."
+    logs > 0 -> "Restored 1 form."
+    else -> "Nothing to restore."
+}
+
 /** Which half of the pre-import snapshot Undo Last Import puts back. */
 private enum class RestoreType { LIST, FORM }
 
@@ -355,12 +415,6 @@ private fun RestoreMode.label(): String = when (this) {
     RestoreMode.MERGE -> "Merge with Existing Data"
 }
 
-/** The short label shown in the collapsed box, so it fits the label's line. */
-private fun RestoreMode.shortLabel(): String = when (this) {
-    RestoreMode.REPLACE -> "Replace All"
-    RestoreMode.MERGE -> "Merge"
-}
-
 /** The one-line explanation of what an import mode does. */
 private fun RestoreMode.description(): String = when (this) {
     RestoreMode.REPLACE ->
@@ -388,6 +442,12 @@ private fun restoreSummary(mode: RestoreMode, logs: Int, lists: Int): String {
 @Composable
 private fun SectionHeader(text: String) {
     Text(text, style = AppTheme.textStyles.sectionHeader)
+}
+
+/** A heading for one block inside a section, a step below [SectionHeader]. */
+@Composable
+private fun SubsectionHeader(text: String) {
+    Text(text, style = AppTheme.textStyles.subsectionHeader)
 }
 
 /**
@@ -438,8 +498,9 @@ private fun ImportModeRow(
         options = RestoreMode.entries,
         selected = selected,
         onSelected = onSelected,
+        // No short label: the box shows the same full wording as the menu, so
+        // there is no second name for the same option.
         optionLabel = { it.label() },
-        collapsedLabel = { it.shortLabel() },
     )
 }
 
