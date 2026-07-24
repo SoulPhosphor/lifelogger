@@ -75,6 +75,7 @@ fun SettingsScreen(
     // overflow the instance-state Bundle (TransactionTooLargeException), so a
     // process death simply asks the user to re-choose the file rather than risk
     // a crash. status is a short message, so it's safe and worth restoring.
+    var pendingJson by remember { mutableStateOf<String?>(null) }
     var status by rememberSaveable { mutableStateOf<String?>(null) }
     // Non-destructive by default: Merge can only add or update, never delete
     // something the chosen backup didn't include.
