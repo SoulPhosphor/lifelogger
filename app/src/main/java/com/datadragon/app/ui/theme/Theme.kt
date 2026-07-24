@@ -50,6 +50,7 @@ fun DataDragonTheme(
     CompositionLocalProvider(
         LocalAppTextStyles provides DefaultAppTextStyles,
         LocalAppShapes provides DefaultAppShapes,
+        LocalAppSpacing provides DefaultAppSpacing,
     ) {
         MaterialTheme(
             colorScheme = colorScheme,
@@ -73,4 +74,9 @@ object AppTheme {
         @Composable
         @ReadOnlyComposable
         get() = LocalAppShapes.current
+
+    val spacing: AppSpacing
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalAppSpacing.current
 }

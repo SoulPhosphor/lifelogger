@@ -57,6 +57,7 @@ never states a number.
 | `Color.kt` | The raw brand colors | `colors.xml` |
 | `Type.kt` | The type scale and the named text roles | `styles.xml` |
 | `Shape.kt` | The control corner and outline thickness | shape drawables |
+| `Spacing.kt` | The named vertical gaps (§11) | dimens.xml |
 | `Theme.kt` | Ties them together and hands them to every screen | `themes.xml` |
 
 - **Never write a font size (`18.sp`) or a color literal (`Color(0xFFC62828)`)
@@ -104,6 +105,9 @@ Because of this, adding a theme later is a change to `Theme.kt`, `Type.kt`,
   unavailable.** Keep it visible and disable (gray out) it instead, so it does
   not silently disappear and leave the user confused. A disabled button says why
   in Title Case in place of its normal caption (e.g. "Nothing to Restore").
+- **Disabled looks exactly like stock Material's disabled button, not more
+  washed out:** content (the text) at 38% alpha, the outline at 12% alpha.
+  These are two different numbers — do not use one alpha for both.
 
 ---
 
@@ -112,6 +116,9 @@ Because of this, adding a theme later is a change to `Theme.kt`, `Type.kt`,
 - **A drop-down always sits on the same line as its label** — the label on the
   left, the current value (with its chooser) on the right. Never stack the
   drop-down above or below its label.
+- **A drop-down's label ends with a colon** — "Import Mode:", "Restore Type:".
+  Without it, a label reads as a heading instead of a label for the control
+  next to it.
 - **A drop-down's width never changes.** It is sized to the widest label it
   could ever show, plus a small, fixed slack, so choosing a different option
   never makes it grow, shrink, or shove its neighbors around. Nothing on the
@@ -134,6 +141,10 @@ Both behaviors come free from `AppDropdown` / `AppDropdownRow` in
   thing it describes.
 - A hint is a normal sentence, in `settingDescription`, colored
   `onSurfaceVariant`.
+- **A hint only exists where the owner gave its exact words.** Do not add a
+  hint under a control on your own initiative — not a paraphrase, not an
+  "explanation" pulled from elsewhere in the code. No hint is correct far more
+  often than a guessed one.
 
 ---
 
@@ -213,9 +224,24 @@ Used by the export dialogs; the pattern for any "pick one of these" list.
   reachable.
 - **Sections are separated by a divider**, with the section heading first.
 
+## 11. Vertical spacing
+
+Named in `AppTheme.spacing` (`ui/theme/Spacing.kt`) — a screen never writes a
+bare `8.dp` between rows.
+
+- **`related` (8dp).** The gap between a hint and the control below it, and the
+  default gap between rows in a section. The reference for this value is
+  Settings: the space between "Only applies to future items." and the toggle
+  under it. Any new "hint to control" or "row to row" gap uses this.
+- **`distinctControls` (24dp).** Extra room between two standalone action
+  controls stacked directly on each other — e.g. one button immediately
+  followed by a second, unrelated button. Wider than `related` because neither
+  control belongs to the other; without it, two buttons touching read as one
+  broken control.
+
 ---
 
-## 11. Dates and times
+## 12. Dates and times
 
 - **Human-readable timestamps read `Mon D, YYYY at H:MM AM/PM`** — for example,
   `Jul 24, 2026 at 2:05 PM`. The word "at" separates the date and the time;

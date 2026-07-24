@@ -33,8 +33,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.datadragon.app.ui.theme.AppTheme
 
-/** Grayed-out strength for a disabled control, per Material's disabled alpha. */
-private const val DISABLED_ALPHA = 0.38f
+// Material 3's own disabled-button alphas (ButtonDefaults): content at 38%,
+// border at 12%. Matched exactly so a disabled AppButton looks like the
+// disabled OutlinedButton it replaced, not more washed out.
+private const val DISABLED_CONTENT_ALPHA = 0.38f
+private const val DISABLED_BORDER_ALPHA = 0.12f
 
 /**
  * The app's button — the only button shape there is.
@@ -54,12 +57,12 @@ fun AppButton(
     val contentColor = if (enabled) {
         MaterialTheme.colorScheme.onSurface
     } else {
-        MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_ALPHA)
+        MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_CONTENT_ALPHA)
     }
     val outlineColor = if (enabled) {
         MaterialTheme.colorScheme.outline
     } else {
-        MaterialTheme.colorScheme.outline.copy(alpha = DISABLED_ALPHA)
+        MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_BORDER_ALPHA)
     }
     Row(
         modifier = modifier
