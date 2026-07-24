@@ -102,6 +102,18 @@ Guidance for Claude when working in this repository.
   keep working. Do not play therapist, do not redirect to phone numbers, do not
   be patronizing. The user is an adult. Respect that.
 
+## How I write to you
+
+Write like a professional technical writer, not like someone thinking out loud.
+
+- **Use headings and lists** when a reply covers more than one point. Don't bury
+  three things in one paragraph.
+- **Concise, direct language.** Say the result first. No throat-clearing, no
+  restating the request back before answering it.
+- **No unnecessary paragraphs.** If a sentence or a bullet says it, stop there.
+- **Apologize once, plainly, when I've caught a real mistake — then move on.**
+  Not a paragraph of self-criticism. "That was wrong, fixed." is enough.
+
 ## Text house style
 
 - **Labels and button text are Title Case.** Treat any UI label or button
