@@ -1,3 +1,16 @@
+# Execution Boundary
+
+Treat my decisions and wording as requirements for a bounded execution task,
+not as an invitation to reopen the problem or redesign the system.
+
+Follow them as written. Tell me only when a concrete technical limitation,
+factual conflict, or existing code constraint makes them impossible or
+inaccurate. When that happens, explain the specific conflict and propose the
+smallest necessary alternative. Do not implement the alternative until I
+approve it.
+
+---
+
 # INSTRUCTIONS ARE FOLLOWED DIRECTLY
 
 When I give an instruction, implement it exactly as written.
