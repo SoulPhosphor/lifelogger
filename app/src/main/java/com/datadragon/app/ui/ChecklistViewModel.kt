@@ -79,6 +79,9 @@ class ChecklistViewModel(app: Application) : AndroidViewModel(app) {
     /** Discard: delete the draft and its items, then report done. */
     fun discardDraft(onDiscarded: () -> Unit) = manager.discardDraft(onDiscarded)
 
+    /** Delete List (⋮ menu): delete this list and its items, then report done. */
+    fun deleteList(onDeleted: () -> Unit) = manager.deleteList(onDeleted)
+
     /**
      * Build a downloadable file of this list in [format], or null if the list has
      * never been persisted (nothing to export yet). Pending debounced text is
