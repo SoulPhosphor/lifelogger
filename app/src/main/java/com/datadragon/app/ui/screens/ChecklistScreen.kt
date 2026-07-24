@@ -37,6 +37,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -50,8 +51,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
 import com.datadragon.app.data.ChecklistItem
 import com.datadragon.app.data.CompleteIcon
 import com.datadragon.app.ui.ChecklistViewModel
@@ -73,18 +78,38 @@ fun ChecklistScreen(
     val items by viewModel.items.collectAsStateWithLifecycle()
     val completeIcon by viewModel.completeIcon.collectAsStateWithLifecycle()
     val crossOut by viewModel.crossOut.collectAsStateWithLifecycle()
+    val persisted by viewModel.persisted.collectAsStateWithLifecycle()
 
-    // Established lists auto-save; only drop rows left blank when leaving.
+    val scope = rememberCoroutineScope()
+
+    // Established lists auto-save; on leaving, flush pending text then drop rows
+    // left blank (cleanup runs after the flush, so a row whose latest text hasn't
+    // reached the database yet is never deleted).
     val leaving by rememberUpdatedState(viewModel::onLeave)
     DisposableEffect(Unit) { onDispose { leaving() } }
 
-    // A brand-new list is a draft: Save persists it, and leaving with anything
-    // typed asks before discarding. Save turns on once an item has real text.
+    // Best-effort flush when the app is backgrounded (not a guarantee against the
+    // process being killed outright).
+    val backgroundFlush by rememberUpdatedState(viewModel::flushOnBackground)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) backgroundFlush()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    // A brand-new list is a draft until its first item gets text, at which point
+    // it persists itself and becomes an ordinary autosaved list. Save turns on
+    // once an item has real text; a genuinely unsaved draft still warns before
+    // discarding. Leaving flushes pending text and waits for it before navigating.
     val hasText = items.any { it.text.isNotBlank() }
-    val dirty = isNew && (title.isNotBlank() || hasText)
+    val unsavedDraft = !persisted && (title.isNotBlank() || hasText)
     var showDiscard by rememberSaveable { mutableStateOf(false) }
-    fun attemptBack() { if (dirty) showDiscard = true else onBack() }
-    BackHandler(enabled = isNew) { attemptBack() }
+    fun leaveFlushing() { scope.launch { viewModel.flushPending(); onBack() } }
+    fun attemptBack() { if (unsavedDraft) showDiscard = true else leaveFlushing() }
+    BackHandler { attemptBack() }
 
     // Which row is being edited (shows its +/× controls), and which newly-added
     // row should grab focus next.
@@ -128,6 +153,7 @@ fun ChecklistScreen(
             TitleField(
                 value = title,
                 onValueChange = viewModel::setTitle,
+                onFocusLost = viewModel::onTitleFocusLost,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
             )
 
@@ -147,6 +173,7 @@ fun ChecklistScreen(
                             requestFocus = pendingFocusId == item.id,
                             onFocused = { focusedItemId = item.id },
                             onFocusHandled = { if (pendingFocusId == item.id) pendingFocusId = null },
+                            onBlur = { viewModel.onItemFocusLost(item.id) },
                             onTextChange = { viewModel.updateText(item.id, it) },
                             onToggleComplete = { viewModel.setCompleted(item.id, !item.completed) },
                             onAddSubItem = {
@@ -180,11 +207,14 @@ fun ChecklistScreen(
 private fun TitleField(
     value: String,
     onValueChange: (String) -> Unit,
+    onFocusLost: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var text by remember { mutableStateOf(value) }
     // Keep local text in sync if the stored value loads in after first compose.
     LaunchedEffect(value) { if (value != text) text = value }
+    // Persist the title immediately when the field loses focus.
+    var wasFocused by remember { mutableStateOf(false) }
     Box(modifier = modifier) {
         if (text.isEmpty()) {
             Text(
@@ -202,7 +232,12 @@ private fun TitleField(
             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged {
+                    if (it.isFocused) wasFocused = true
+                    else if (wasFocused) { wasFocused = false; onFocusLost() }
+                },
         )
     }
 }
@@ -217,6 +252,7 @@ private fun ChecklistItemRow(
     requestFocus: Boolean,
     onFocused: () -> Unit,
     onFocusHandled: () -> Unit,
+    onBlur: () -> Unit,
     onTextChange: (String) -> Unit,
     onToggleComplete: () -> Unit,
     onAddSubItem: () -> Unit,
@@ -224,6 +260,8 @@ private fun ChecklistItemRow(
 ) {
     var text by remember(item.id) { mutableStateOf(item.text) }
     val focusRequester = remember { FocusRequester() }
+    // Tracks focus so we can persist this item's latest text the moment it blurs.
+    var wasFocused by remember(item.id) { mutableStateOf(false) }
     LaunchedEffect(requestFocus) {
         if (requestFocus) {
             focusRequester.requestFocus()
@@ -272,7 +310,10 @@ private fun ChecklistItemRow(
             modifier = Modifier
                 .weight(1f)
                 .focusRequester(focusRequester)
-                .onFocusChanged { if (it.isFocused) onFocused() },
+                .onFocusChanged {
+                    if (it.isFocused) { onFocused(); wasFocused = true }
+                    else if (wasFocused) { wasFocused = false; onBlur() }
+                },
         )
         // While a row is being edited: + adds a sub-item, × deletes the item.
         if (isEditing) {
