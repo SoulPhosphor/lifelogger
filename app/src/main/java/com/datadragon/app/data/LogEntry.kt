@@ -19,6 +19,9 @@ import androidx.room.PrimaryKey
  * `valuesJson` holds the field values keyed by field label (a JSON object). Its
  * shape is owned by [EntryValues]; the user's free-text Notes live there too,
  * under a reserved key so they can never collide with a user-defined field.
+ *
+ * `marked` is the user's manual highlight: when true, the entry shows a filled
+ * star and its menu offers "Unmark". It defaults to false (no star).
  */
 @Entity(
     tableName = "log_entries",
@@ -30,4 +33,5 @@ data class LogEntry(
     val createdAt: String,
     val updatedAt: String? = null,
     val valuesJson: String,
+    val marked: Boolean = false,
 )

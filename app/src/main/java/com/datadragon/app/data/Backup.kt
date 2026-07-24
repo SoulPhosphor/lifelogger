@@ -43,6 +43,9 @@ data class BackupEntry(
     val createdAt: String,
     val updatedAt: String? = null,
     val valuesJson: String,
+    // Omitted from the file when false (encodeDefaults is off), so unmarked
+    // entries don't each repeat an empty flag; older backups default to unmarked.
+    val marked: Boolean = false,
     val notes: List<BackupNote> = emptyList(),
 )
 
@@ -84,6 +87,7 @@ object BackupCodec {
                     createdAt = entry.createdAt,
                     updatedAt = entry.updatedAt,
                     valuesJson = entry.valuesJson,
+                    marked = entry.marked,
                     notes = notesByEntry[entry.id].orEmpty().map {
                         BackupNote(createdAt = it.createdAt, text = it.text)
                     },
@@ -111,6 +115,7 @@ object BackupCodec {
                 createdAt = it.createdAt,
                 updatedAt = it.updatedAt,
                 valuesJson = it.valuesJson,
+                marked = it.marked,
             )
         }
 

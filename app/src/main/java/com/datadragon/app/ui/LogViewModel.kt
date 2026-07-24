@@ -67,6 +67,13 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Flip an entry's manual star on or off. */
+    fun toggleMark(entry: LogEntry) {
+        viewModelScope.launch {
+            entryDao.setMarked(entry.id, !entry.marked)
+        }
+    }
+
     /** Delete one entry and any follow-up notes attached to it. */
     fun deleteEntry(entry: LogEntry) {
         viewModelScope.launch {

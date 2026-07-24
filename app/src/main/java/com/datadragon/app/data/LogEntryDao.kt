@@ -26,6 +26,10 @@ interface LogEntryDao {
     @Delete
     suspend fun delete(entry: LogEntry)
 
+    /** Set (or clear) an entry's manual star. Works regardless of lock state. */
+    @Query("UPDATE log_entries SET marked = :marked WHERE id = :id")
+    suspend fun setMarked(id: Long, marked: Boolean)
+
     /** Entries for one log, newest first (docs/UI_SPEC.md §3). */
     @Query(
         "SELECT * FROM log_entries WHERE templateId = :templateId " +

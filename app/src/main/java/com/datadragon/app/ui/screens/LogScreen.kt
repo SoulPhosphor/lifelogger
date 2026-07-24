@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
@@ -213,6 +214,7 @@ fun LogScreen(
                         appendable = allowAppendedNotes,
                         onDelete = { entryToDelete = entry },
                         onEdit = { onEditEntry(entry.id) },
+                        onToggleMark = { viewModel.toggleMark(entry) },
                         onAddNote = { onOpenFollowUp(entry.id, null) },
                         onEditNote = { noteId -> onOpenFollowUp(entry.id, noteId) },
                     )
@@ -352,9 +354,11 @@ fun LogScreen(
 
 /**
  * One entry card (docs/UI_SPEC.md §3). The top line holds the entry's timestamp
- * with a `⋮` menu across from it — Edit (when unlocked), Add follow-up note (when
- * the log allows them), and Delete. Every field with a value is listed below as
- * `label: value`, then any append-only follow-up notes with their timestamps.
+ * with a `⋮` menu across from it — Edit (when unlocked), Mark/Unmark, Add
+ * follow-up note (when the log allows them), and Delete. When the entry is
+ * marked, a filled star sits just before the `⋮`; tapping the star unmarks it.
+ * Every field with a value is listed below as `label: value`, then any
+ * append-only follow-up notes with their timestamps.
  */
 @Composable
 private fun EntryRow(
@@ -365,6 +369,7 @@ private fun EntryRow(
     appendable: Boolean,
     onDelete: () -> Unit,
     onEdit: () -> Unit,
+    onToggleMark: () -> Unit,
     onAddNote: () -> Unit,
     onEditNote: (Long) -> Unit,
 ) {
@@ -386,6 +391,12 @@ private fun EntryRow(
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f),
                 )
+                // The star only appears when the entry is marked; tapping it unmarks.
+                if (entry.marked) {
+                    IconButton(onClick = onToggleMark) {
+                        Icon(Icons.Filled.Star, contentDescription = "Marked — tap to unmark")
+                    }
+                }
                 Box {
                     IconButton(onClick = { menuOpen = true }) {
                         Icon(Icons.Filled.MoreVert, contentDescription = "Entry options")
@@ -397,6 +408,10 @@ private fun EntryRow(
                                 onClick = { menuOpen = false; onEdit() },
                             )
                         }
+                        DropdownMenuItem(
+                            text = { Text(if (entry.marked) "Unmark" else "Mark") },
+                            onClick = { menuOpen = false; onToggleMark() },
+                        )
                         if (appendable) {
                             DropdownMenuItem(
                                 text = { Text("Add Follow-Up Note") },
