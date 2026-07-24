@@ -27,11 +27,16 @@ class BackupViewModel(app: Application) : AndroidViewModel(app) {
      * is captured for Undo Last Import — but only once the import itself
      * succeeds, so a failed restore leaves the existing undo snapshot in place.
      */
-    suspend fun restore(text: String, mode: RestoreMode): RestoreResult =
+    suspend fun restore(
+        text: String,
+        mode: RestoreMode,
+        forms: Boolean = true,
+        lists: Boolean = true,
+    ): RestoreResult =
         try {
             val backup = BackupCodec.decode(text)
             val preImage = repository.buildFull()
-            val counts = repository.restore(backup, mode)
+            val counts = repository.restore(backup, mode, forms, lists)
             undoStore.save(UndoSnapshot(capturedAt = BackupRepository.now(), data = preImage))
             RestoreResult.Success(logs = counts.logs, lists = counts.lists)
         } catch (e: Exception) {
@@ -71,18 +76,20 @@ class BackupViewModel(app: Application) : AndroidViewModel(app) {
     /** True once an import has happened, so there's a snapshot to restore from. */
     suspend fun hasUndoSnapshot(): Boolean = undoStore.load() != null
 
-    /** Puts lists back to right before the last import; forms are untouched. */
-    suspend fun undoListImport(): String {
+    /**
+     * Puts the chosen data types back to right before the last import. The types
+     * not asked for are left exactly as they are, so undoing lists never touches
+     * forms and the other way round.
+     */
+    suspend fun undoImport(forms: Boolean, lists: Boolean): String {
         val snapshot = undoStore.load() ?: return "Nothing to restore."
-        repository.restoreListsFromSnapshot(snapshot.data)
-        return "List state restored."
-    }
-
-    /** Puts forms back to right before the last import; lists are untouched. */
-    suspend fun undoFormImport(): String {
-        val snapshot = undoStore.load() ?: return "Nothing to restore."
-        repository.restoreFormsFromSnapshot(snapshot.data)
-        return "Form state restored."
+        if (forms) repository.restoreFormsFromSnapshot(snapshot.data)
+        if (lists) repository.restoreListsFromSnapshot(snapshot.data)
+        return when {
+            forms && lists -> "Previous state restored."
+            lists -> "List state restored."
+            else -> "Form state restored."
+        }
     }
 }
 

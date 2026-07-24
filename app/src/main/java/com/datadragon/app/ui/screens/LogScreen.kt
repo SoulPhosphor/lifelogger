@@ -7,8 +7,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -53,7 +51,8 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.datadragon.app.ui.components.AppButton
+import com.datadragon.app.ui.components.ExportFormatDialog
+import com.datadragon.app.ui.components.ExportFormatOption
 import com.datadragon.app.data.EntryNote
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.FieldDef
@@ -63,7 +62,7 @@ import com.datadragon.app.export.LogExport
 import com.datadragon.app.ui.LogViewModel
 import com.datadragon.app.ui.theme.DeleteRed
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LogScreen(
     logId: String?,
@@ -248,68 +247,55 @@ fun LogScreen(
 
     if (showFormatChooser) {
         val current = template
-        AlertDialog(
-            onDismissRequest = { showFormatChooser = false },
-            title = { Text("Download \"${current?.name ?: "log"}\"") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Choose a format, then pick where to save it:")
-
-                    // Only meaningful when this log actually has follow-up notes.
-                    if (notesByEntry.isNotEmpty()) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(
-                                checked = includeFollowUps,
-                                onCheckedChange = { includeFollowUps = it },
-                            )
-                            Text("Include Follow-Up Notes")
-                        }
+        ExportFormatDialog(
+            thing = "Form",
+            onDismiss = { showFormatChooser = false },
+            header = {
+                // Only meaningful when this log actually has follow-up notes.
+                if (notesByEntry.isNotEmpty()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
+                            checked = includeFollowUps,
+                            onCheckedChange = { includeFollowUps = it },
+                        )
+                        Text("Include Follow-Up Notes")
                     }
-
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        AppButton(
-                            onClick = {
-                                if (current != null) {
-                                    startSave(LogExport.markdown(current, fields, entries, notesByEntry, includeFollowUps))
-                                }
-                            },
-                        ) { Text(".md") }
-                        AppButton(
-                            onClick = {
-                                if (current != null) {
-                                    startSave(LogExport.json(current, entries, notesByEntry, includeFollowUps))
-                                }
-                            },
-                        ) { Text(".json") }
-                        AppButton(
-                            onClick = {
-                                if (current != null) {
-                                    startSave(LogExport.text(current, fields, entries, notesByEntry, includeFollowUps))
-                                }
-                            },
-                        ) { Text(".txt") }
-                        AppButton(
-                            onClick = { if (current != null) startSave(LogExport.csv(current, fields, entries)) },
-                        ) { Text(".csv") }
-                        AppButton(
-                            onClick = {
-                                if (current != null) {
-                                    startSave(LogExport.pdf(current, fields, entries, notesByEntry, includeFollowUps))
-                                }
-                            },
-                        ) { Text(".pdf") }
-                    }
-                    Text(
-                        ".md, .txt and .pdf are readable reports; .json re-imports this log; " +
-                            ".csv is for spreadsheets (no follow-up notes).",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
                 }
             },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showFormatChooser = false }) { Text("Cancel") }
-            },
+            options = listOf(
+                ExportFormatOption(
+                    "Text Document (.txt)",
+                    "Simple plain text file",
+                ) {
+                    if (current != null) {
+                        startSave(LogExport.text(current, fields, entries, notesByEntry, includeFollowUps))
+                    }
+                },
+                ExportFormatOption(
+                    "Markdown (.md)",
+                    "Formatted text document",
+                ) {
+                    if (current != null) {
+                        startSave(LogExport.markdown(current, fields, entries, notesByEntry, includeFollowUps))
+                    }
+                },
+                ExportFormatOption(
+                    "PDF Document (.pdf)",
+                    "Printable document format",
+                ) {
+                    if (current != null) {
+                        startSave(LogExport.pdf(current, fields, entries, notesByEntry, includeFollowUps))
+                    }
+                },
+                ExportFormatOption(
+                    "Application Data (.json)",
+                    "Use this file to import or restore this form later",
+                ) {
+                    if (current != null) {
+                        startSave(LogExport.json(current, entries, notesByEntry, includeFollowUps))
+                    }
+                },
+            ),
         )
     }
 

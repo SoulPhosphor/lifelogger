@@ -45,17 +45,23 @@ class BackupRepository(private val db: AppDatabase) {
      *   backup is left untouched. A log/list with no uuid (a version-1 file) can
      *   never match, so it always comes in as brand-new.
      */
-    suspend fun restore(backup: BackupFile, mode: RestoreMode): RestoreCounts = db.withTransaction {
+    suspend fun restore(
+        backup: BackupFile,
+        mode: RestoreMode,
+        forms: Boolean = true,
+        lists: Boolean = true,
+    ): RestoreCounts = db.withTransaction {
         when (mode) {
-            RestoreMode.REPLACE -> replaceAll(backup)
-            RestoreMode.MERGE -> merge(backup)
+            RestoreMode.REPLACE -> {
+                if (forms) replaceForms(backup.logs)
+                if (lists) replaceLists(backup.checklists)
+            }
+            RestoreMode.MERGE -> merge(backup, forms, lists)
         }
-        RestoreCounts(logs = backup.logs.size, lists = backup.checklists.size)
-    }
-
-    private suspend fun replaceAll(backup: BackupFile) {
-        replaceForms(backup.logs)
-        replaceLists(backup.checklists)
+        RestoreCounts(
+            logs = if (forms) backup.logs.size else 0,
+            lists = if (lists) backup.checklists.size else 0,
+        )
     }
 
     private suspend fun replaceForms(logs: List<BackupLog>) {
@@ -94,8 +100,8 @@ class BackupRepository(private val db: AppDatabase) {
         replaceLists(snapshot.checklists)
     }
 
-    private suspend fun merge(backup: BackupFile) {
-        backup.logs.forEach { log ->
+    private suspend fun merge(backup: BackupFile, forms: Boolean, lists: Boolean) {
+        if (forms) backup.logs.forEach { log ->
             val existing = log.uuid.takeIf { it.isNotBlank() }?.let { templateDao.getByUuid(it) }
             if (existing != null) {
                 // Same bucket: throw away everything it was, then re-create it.
@@ -121,7 +127,7 @@ class BackupRepository(private val db: AppDatabase) {
                 }
             }
         }
-        backup.checklists.forEach { checklist ->
+        if (lists) backup.checklists.forEach { checklist ->
             val existing = checklist.uuid.takeIf { it.isNotBlank() }
                 ?.let { checklistDao.getChecklistByUuid(it) }
             if (existing != null) {

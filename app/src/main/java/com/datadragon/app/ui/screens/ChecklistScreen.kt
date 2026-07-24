@@ -5,7 +5,6 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.BasicTextField
@@ -37,7 +35,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -72,7 +69,8 @@ import com.datadragon.app.data.CompleteIcon
 import com.datadragon.app.export.ChecklistExportFormat
 import com.datadragon.app.export.ExportContent
 import com.datadragon.app.ui.ChecklistViewModel
-import com.datadragon.app.ui.theme.AppTheme
+import com.datadragon.app.ui.components.ExportFormatDialog
+import com.datadragon.app.ui.components.ExportFormatOption
 import kotlinx.coroutines.launch
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -279,42 +277,27 @@ fun ChecklistScreen(
     }
 
     if (showFormatChooser) {
-        AlertDialog(
-            onDismissRequest = { showFormatChooser = false },
-            title = { Text("Export List") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        "Choose an export format",
-                        style = AppTheme.textStyles.dialogOptionSubtitle,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    ExportFormatOption(
-                        title = "Text Document (.txt)",
-                        subtitle = "Simple plain text file",
-                        onClick = { startSave(ChecklistExportFormat.TEXT) },
-                    )
-                    ExportFormatOption(
-                        title = "Markdown (.md)",
-                        subtitle = "Formatted text document",
-                        onClick = { startSave(ChecklistExportFormat.MARKDOWN) },
-                    )
-                    ExportFormatOption(
-                        title = "PDF Document (.pdf)",
-                        subtitle = "Printable document format",
-                        onClick = { startSave(ChecklistExportFormat.PDF) },
-                    )
-                    ExportFormatOption(
-                        title = "Application Data (.json)",
-                        subtitle = "Use this file to import or restore this list later",
-                        onClick = { startSave(ChecklistExportFormat.JSON) },
-                    )
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showFormatChooser = false }) { Text("Cancel") }
-            },
+        ExportFormatDialog(
+            thing = "List",
+            onDismiss = { showFormatChooser = false },
+            options = listOf(
+                ExportFormatOption(
+                    "Text Document (.txt)",
+                    "Simple plain text file",
+                ) { startSave(ChecklistExportFormat.TEXT) },
+                ExportFormatOption(
+                    "Markdown (.md)",
+                    "Formatted text document",
+                ) { startSave(ChecklistExportFormat.MARKDOWN) },
+                ExportFormatOption(
+                    "PDF Document (.pdf)",
+                    "Printable document format",
+                ) { startSave(ChecklistExportFormat.PDF) },
+                ExportFormatOption(
+                    "Application Data (.json)",
+                    "Use this file to import or restore this list later",
+                ) { startSave(ChecklistExportFormat.JSON) },
+            ),
         )
     }
 
@@ -335,39 +318,6 @@ fun ChecklistScreen(
                 TextButton(onClick = { showDeleteList = false }) { Text("Cancel") }
             },
         )
-    }
-}
-
-/**
- * One export format in the Export List dialog: a soft, full-width Material
- * surface that ripples on touch — no outlined pill, no heavy card. Colors,
- * shape, and text sizes all come from the theme.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ExportFormatOption(
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit,
-) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
-            Text(
-                title,
-                style = AppTheme.textStyles.dialogOptionTitle,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                subtitle,
-                style = AppTheme.textStyles.dialogOptionSubtitle,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
     }
 }
 

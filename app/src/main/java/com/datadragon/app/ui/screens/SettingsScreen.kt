@@ -77,7 +77,7 @@ fun SettingsScreen(
     // Non-destructive by default: Merge can only add or update, never delete
     // something the chosen backup didn't include.
     var importMode by remember { mutableStateOf(RestoreMode.MERGE) }
-    var restoreType by remember { mutableStateOf(RestoreType.LIST) }
+    var restoreType by remember { mutableStateOf(RestoreType.EVERYTHING) }
     var hasUndoSnapshot by remember { mutableStateOf(false) }
     var pendingUndo by remember { mutableStateOf(false) }
 
@@ -236,6 +236,9 @@ fun SettingsScreen(
                 style = AppTheme.textStyles.settingDescription,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            // First which kinds of data to take from the backup, then how they
+            // land, then the file itself.
+            RestoreTypeRow(selected = restoreType, onSelected = { restoreType = it })
             ImportModeRow(selected = importMode, onSelected = { importMode = it })
             AppButton(onClick = {
                 status = null
@@ -244,9 +247,9 @@ fun SettingsScreen(
                 Text("Choose Backup File…")
             }
             // Undo lives at the end of the whole-database controls, so it always
-            // sits with the large changes it can put back. It does not apply to
-            // single-item restores below.
-            RestoreTypeRow(selected = restoreType, onSelected = { restoreType = it })
+            // sits with the large changes it can put back, and it puts back the
+            // same kinds of data chosen above. It does not apply to single-item
+            // restores below.
             AppButton(
                 onClick = { pendingUndo = true },
                 enabled = hasUndoSnapshot,
@@ -277,6 +280,7 @@ fun SettingsScreen(
 
     if (pendingJson != null) {
         val mode = importMode
+        val type = restoreType
         AlertDialog(
             onDismissRequest = { pendingJson = null },
             title = {
@@ -307,7 +311,14 @@ fun SettingsScreen(
                     pendingJson = null
                     if (json != null) {
                         scope.launch {
-                            status = when (val result = viewModel.restore(json, mode)) {
+                            status = when (
+                                val result = viewModel.restore(
+                                    json,
+                                    mode,
+                                    forms = type.forms(),
+                                    lists = type.lists(),
+                                )
+                            ) {
                                 is RestoreResult.Success -> {
                                     hasUndoSnapshot = true
                                     restoreSummary(mode, result.logs, result.lists)
@@ -345,6 +356,8 @@ fun SettingsScreen(
             text = {
                 Text(
                     when (restoreType) {
+                        RestoreType.EVERYTHING ->
+                            "Restore previous state prior to import? This can't be undone."
                         RestoreType.LIST ->
                             "Restore previous list state prior to import? This can't be undone."
                         RestoreType.FORM ->
@@ -356,10 +369,10 @@ fun SettingsScreen(
                 TextButton(onClick = {
                     pendingUndo = false
                     scope.launch {
-                        status = when (restoreType) {
-                            RestoreType.LIST -> viewModel.undoListImport()
-                            RestoreType.FORM -> viewModel.undoFormImport()
-                        }
+                        status = viewModel.undoImport(
+                            forms = restoreType.forms(),
+                            lists = restoreType.lists(),
+                        )
                     }
                 }) {
                     Text("Restore")
@@ -383,13 +396,24 @@ private fun singleItemSummary(logs: Int, lists: Int): String = when {
     else -> "Nothing to restore."
 }
 
-/** Which half of the pre-import snapshot Undo Last Import puts back. */
-private enum class RestoreType { LIST, FORM }
+/**
+ * Which kinds of data a whole-database restore touches — and, with it, which
+ * kinds Undo puts back. Everything covers every type at once; the named types
+ * leave the others exactly as they are. A new data type gets an entry here.
+ */
+private enum class RestoreType { EVERYTHING, LIST, FORM }
 
 private fun RestoreType.label(): String = when (this) {
+    RestoreType.EVERYTHING -> "Everything"
     RestoreType.LIST -> "List"
     RestoreType.FORM -> "Form"
 }
+
+/** True when this choice includes forms. */
+private fun RestoreType.forms(): Boolean = this != RestoreType.LIST
+
+/** True when this choice includes lists. */
+private fun RestoreType.lists(): Boolean = this != RestoreType.FORM
 
 /**
  * "Restore Type:" chooser for Undo Last Import (docs/STYLE.md — a drop-down

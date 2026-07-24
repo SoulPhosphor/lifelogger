@@ -143,18 +143,27 @@ Both behaviors come free from `AppDropdown` / `AppDropdownRow` in
 When a new thing becomes exportable, it gets the same dialog — not a new design
 and not new phrasing for the formats it shares.
 
-- **Title:** `Export <Thing>` — e.g. "Export List".
+- **Title:** the word "Export", then the word for what is being exported.
+  Nothing else — no file name, no quotes. "Export List". "Export Form". A new
+  exportable thing gets "Export <Thing>", simple and direct.
 - **One line under the title:** "Choose an export format".
 - **One row per format**, using the option pattern in §8 below.
-- **Shared formats keep their exact wording**, whatever is being exported:
+- **Shared formats keep their exact wording**, whatever is being exported.
+  `<thing>` in the `.json` subtitle is the same word used in the title, in
+  lowercase:
 
   | Format | Title | Subtitle |
   | --- | --- | --- |
   | `.txt` | Text Document (.txt) | Simple plain text file |
   | `.md` | Markdown (.md) | Formatted text document |
   | `.pdf` | PDF Document (.pdf) | Printable document format |
-  | `.json` | Application Data (.json) | Use this file to import or restore this list later |
+  | `.json` | Application Data (.json) | Use this file to import or restore this `<thing>` later |
 
+- **Rows appear in that order**, always.
+- **A format that isn't available for this thing is simply left out.** No
+  greyed-out row, no substitute wording, no extra format invented for one
+  screen. If a thing can't be exported as a given file type, that row is not
+  there.
 - **No paragraph at the bottom.** The subtitles are the whole explanation.
 - **The `.json` export is the re-import file.** It is a backup file holding
   exactly one item, so Restore Individual Item can read it back and work out the
