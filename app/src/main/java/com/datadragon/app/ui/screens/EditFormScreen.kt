@@ -45,7 +45,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -58,8 +61,32 @@ import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.SettingsRepository
 import com.datadragon.app.data.TitleCase
 import com.datadragon.app.ui.EditFormViewModel
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
+
+/**
+ * Saves the in-progress field list as JSON in the instance-state Bundle, so an
+ * unsaved schema edit (added/reordered/renamed fields) survives the process
+ * being killed while backgrounded — otherwise it would silently reset to the
+ * last-saved schema.
+ */
+private val rowsSaver = Saver<SnapshotStateList<EditDraft>, String>(
+    save = { list -> Json.encodeToString(list.map { it.toSnapshot() }) },
+    restore = { text ->
+        mutableStateListOf<EditDraft>().apply {
+            addAll(Json.decodeFromString<List<EditDraftSnapshot>>(text).map { it.toEditDraft() })
+        }
+    },
+)
+
+private val savedSnapshotSaver = Saver<List<FieldDef>?, String>(
+    save = { it?.let { list -> Json.encodeToString(list) } ?: "" },
+    restore = { text -> if (text.isEmpty()) null else Json.decodeFromString<List<FieldDef>>(text) },
+)
 
 /**
  * Edit a log's fields after creation. To keep stored entries valid, a field's
@@ -92,12 +119,12 @@ fun EditFormScreen(
     // Every field is an editable draft; existing ones are flagged so their type
     // stays locked and their original label/options are remembered for re-keying.
     // Seeded once from the loaded schema.
-    val rows = remember { mutableStateListOf<EditDraft>() }
-    var seeded by remember { mutableStateOf(false) }
+    val rows = rememberSaveable(saver = rowsSaver) { mutableStateListOf() }
+    var seeded by rememberSaveable { mutableStateOf(false) }
     // The schema as last saved, so an unsaved reorder or added field can be caught
     // on the way out. Seeded from the round-tripped rows so a freshly loaded, untouched
     // form is never seen as "changed."
-    var savedSnapshot by remember { mutableStateOf<List<FieldDef>?>(null) }
+    var savedSnapshot by rememberSaveable(stateSaver = savedSnapshotSaver) { mutableStateOf<List<FieldDef>?>(null) }
     LaunchedEffect(loadedFields) {
         if (!seeded && loadedFields.isNotEmpty()) {
             rows.clear()
@@ -109,7 +136,7 @@ fun EditFormScreen(
 
     // Which field's editor is open, or null for the list. Opening a field shows a
     // full-screen editor in place of the list.
-    var editingIndex by remember { mutableStateOf<Int?>(null) }
+    var editingIndex by rememberSaveable { mutableStateOf<Int?>(null) }
 
     val canSave = name != null && rows.all { it.isValid() }
 
@@ -180,7 +207,7 @@ fun EditFormScreen(
     }
 
     val dirty = savedSnapshot?.let { snap -> rows.map { it.toFieldDef() } != snap } ?: false
-    var showDiscard by remember { mutableStateOf(false) }
+    var showDiscard by rememberSaveable { mutableStateOf(false) }
     fun attemptBack() { if (dirty) showDiscard = true else onBack() }
     BackHandler { attemptBack() }
 
@@ -678,7 +705,54 @@ private class EditDraft(
         options = if (type == FieldType.DROPDOWN || type == FieldType.MULTIPLE) optionList() else emptyList(),
         defaultNow = type == FieldType.DATETIME && defaultNow,
     )
+
+    fun toSnapshot(): EditDraftSnapshot = EditDraftSnapshot(
+        label = label,
+        type = type,
+        required = required,
+        lines = lines,
+        digits = digits,
+        from = from,
+        to = to,
+        optionsText = optionsText,
+        defaultNow = defaultNow,
+        existing = existing,
+        originalLabel = originalLabel,
+        originalOptions = originalOptions,
+    )
 }
+
+/** Plain serializable snapshot of an [EditDraft], for [rowsSaver]. */
+@Serializable
+private data class EditDraftSnapshot(
+    val label: String,
+    val type: FieldType,
+    val required: Boolean,
+    val lines: String,
+    val digits: String,
+    val from: String,
+    val to: String,
+    val optionsText: String,
+    val defaultNow: Boolean,
+    val existing: Boolean,
+    val originalLabel: String?,
+    val originalOptions: List<String>,
+)
+
+private fun EditDraftSnapshot.toEditDraft(): EditDraft = EditDraft(
+    label = label,
+    type = type,
+    required = required,
+    lines = lines,
+    digits = digits,
+    from = from,
+    to = to,
+    optionsText = optionsText,
+    defaultNow = defaultNow,
+    existing = existing,
+    originalLabel = originalLabel,
+    originalOptions = originalOptions,
+)
 
 /** Seed an [EditDraft] from a saved field (marked existing — type locked). */
 private fun draftOf(f: FieldDef): EditDraft = EditDraft(

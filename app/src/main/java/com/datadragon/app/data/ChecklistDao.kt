@@ -24,8 +24,12 @@ interface ChecklistDao {
     @Query("UPDATE checklists SET name = :name WHERE id = :id")
     suspend fun renameChecklist(id: Long, name: String)
 
-    /** Lists in creation order — same as forms on the Home screen. */
-    @Query("SELECT * FROM checklists ORDER BY createdAt ASC, id ASC")
+    /**
+     * Saved lists in creation order for the Home screen. Drafts (a new list
+     * persisted only as crash protection) are excluded — they never appear as
+     * ordinary lists until Save finalizes them.
+     */
+    @Query("SELECT * FROM checklists WHERE draft = 0 ORDER BY createdAt ASC, id ASC")
     fun observeChecklists(): Flow<List<Checklist>>
 
     @Query("SELECT * FROM checklists WHERE id = :id")
@@ -42,12 +46,32 @@ interface ChecklistDao {
     @Query("SELECT * FROM checklists WHERE uuid = :uuid LIMIT 1")
     suspend fun getChecklistByUuid(uuid: String): Checklist?
 
+    /** Finalize a draft into a normal saved list (invoked by Save). */
+    @Query("UPDATE checklists SET draft = 0 WHERE id = :id")
+    suspend fun finalizeChecklist(id: Long)
+
+    /** The most recent unfinished draft, for the crash-recovery prompt on launch. */
+    @Query("SELECT * FROM checklists WHERE draft = 1 ORDER BY createdAt DESC, id DESC LIMIT 1")
+    suspend fun mostRecentDraft(): Checklist?
+
     @Query("DELETE FROM checklists WHERE id = :id")
     suspend fun deleteChecklist(id: Long)
 
     /** Clears all lists — used by a Replace restore, which replaces all data. */
     @Query("DELETE FROM checklists")
     suspend fun deleteAllChecklists()
+
+    /**
+     * Delete a whole list — its items and the list row — in one transaction.
+     * Used to discard a draft (there is no foreign-key cascade, so items must be
+     * removed explicitly). [deleteItemsForChecklist] is declared in the Items
+     * section below.
+     */
+    @Transaction
+    suspend fun deleteChecklistWithItems(id: Long) {
+        deleteItemsForChecklist(id)
+        deleteChecklist(id)
+    }
 
     // --- Items ------------------------------------------------------------
 

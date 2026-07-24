@@ -12,7 +12,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  */
 @Database(
     entities = [LogTemplate::class, LogEntry::class, EntryNote::class, Checklist::class, ChecklistItem::class],
-    version = 8,
+    version = 9,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -125,14 +125,30 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         /**
-         * v8 gave every log and list a permanent, app-internal `uuid` — its
+         * v8 added the per-list `draft` flag. A draft is a new list persisted only
+         * as crash protection; it's hidden from Home until Save finalizes it.
+         * Purely additive; existing lists default to non-draft (normal saved
+         * lists), so they stay visible exactly as before.
+         */
+        // internal (not private) so the migration test can apply it directly.
+        internal val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE checklists ADD COLUMN draft INTEGER NOT NULL DEFAULT 0"
+                )
+            }
+        }
+
+        /**
+         * v9 gave every log and list a permanent, app-internal `uuid` — its
          * stable identity across installs, used so a backup can recognize "the
          * same log/list" regardless of any later rename. Purely additive: the
          * column is added, then each existing row is backfilled with a freshly
          * generated UUID (v4). The `randomblob` calls re-run per row, so every
          * existing row gets its own distinct id.
          */
-        private val MIGRATION_7_8 = object : Migration(7, 8) {
+        // internal (not private) so the migration test can apply it directly.
+        internal val MIGRATION_8_9 = object : Migration(8, 9) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 // A SQLite expression that builds a random v4 UUID string.
                 val uuidExpr =
@@ -162,7 +178,7 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                     .addMigrations(
                         MIGRATION_1_2, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
-                        MIGRATION_7_8,
+                        MIGRATION_7_8, MIGRATION_8_9,
                     )
                     // v3 removed the unused description column. There is no
                     // released data to preserve, so recreate cleanly on any
