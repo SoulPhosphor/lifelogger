@@ -34,8 +34,20 @@ interface ChecklistDao {
     @Query("SELECT * FROM checklists WHERE id = :id")
     suspend fun getChecklist(id: Long): Checklist?
 
+    /** One-shot snapshot of every list, for building a backup. */
+    @Query("SELECT * FROM checklists ORDER BY createdAt ASC, id ASC")
+    suspend fun getAllChecklistsOnce(): List<Checklist>
+
+    /** Find a list by its permanent uuid — used to match lists on a Merge restore. */
+    @Query("SELECT * FROM checklists WHERE uuid = :uuid LIMIT 1")
+    suspend fun getChecklistByUuid(uuid: String): Checklist?
+
     @Query("DELETE FROM checklists WHERE id = :id")
     suspend fun deleteChecklist(id: Long)
+
+    /** Clears all lists — used by a Replace restore, which replaces all data. */
+    @Query("DELETE FROM checklists")
+    suspend fun deleteAllChecklists()
 
     // --- Items ------------------------------------------------------------
 
@@ -66,6 +78,18 @@ interface ChecklistDao {
 
     @Query("SELECT * FROM checklist_items WHERE checklistId = :checklistId ORDER BY position ASC, id ASC")
     suspend fun getItemsOnce(checklistId: Long): List<ChecklistItem>
+
+    /** One-shot snapshot of every list's items, for building a backup. */
+    @Query("SELECT * FROM checklist_items ORDER BY checklistId ASC, position ASC, id ASC")
+    suspend fun getAllItemsOnce(): List<ChecklistItem>
+
+    /** Removes every item of one list — used when replacing that list on restore. */
+    @Query("DELETE FROM checklist_items WHERE checklistId = :checklistId")
+    suspend fun deleteItemsForChecklist(checklistId: Long)
+
+    /** Clears all list items — used by a Replace restore, which replaces all data. */
+    @Query("DELETE FROM checklist_items")
+    suspend fun deleteAllItems()
 
     @Query("SELECT * FROM checklist_items WHERE id = :id")
     suspend fun getItem(id: Long): ChecklistItem?

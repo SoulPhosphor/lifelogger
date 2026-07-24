@@ -12,7 +12,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  */
 @Database(
     entities = [LogTemplate::class, LogEntry::class, EntryNote::class, Checklist::class, ChecklistItem::class],
-    version = 7,
+    version = 8,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -124,6 +124,35 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v8 gave every log and list a permanent, app-internal `uuid` — its
+         * stable identity across installs, used so a backup can recognize "the
+         * same log/list" regardless of any later rename. Purely additive: the
+         * column is added, then each existing row is backfilled with a freshly
+         * generated UUID (v4). The `randomblob` calls re-run per row, so every
+         * existing row gets its own distinct id.
+         */
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // A SQLite expression that builds a random v4 UUID string.
+                val uuidExpr =
+                    "lower(hex(randomblob(4))) || '-' || " +
+                        "lower(hex(randomblob(2))) || '-4' || " +
+                        "substr(lower(hex(randomblob(2))), 2) || '-' || " +
+                        "substr('89ab', abs(random()) % 4 + 1, 1) || " +
+                        "substr(lower(hex(randomblob(2))), 2) || '-' || " +
+                        "lower(hex(randomblob(6)))"
+                db.execSQL(
+                    "ALTER TABLE log_templates ADD COLUMN uuid TEXT NOT NULL DEFAULT ''"
+                )
+                db.execSQL("UPDATE log_templates SET uuid = $uuidExpr")
+                db.execSQL(
+                    "ALTER TABLE checklists ADD COLUMN uuid TEXT NOT NULL DEFAULT ''"
+                )
+                db.execSQL("UPDATE checklists SET uuid = $uuidExpr")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -131,7 +160,10 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "data_dragon.db",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                    .addMigrations(
+                        MIGRATION_1_2, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
+                        MIGRATION_7_8,
+                    )
                     // v3 removed the unused description column. There is no
                     // released data to preserve, so recreate cleanly on any
                     // upgrade path not covered by an explicit migration.

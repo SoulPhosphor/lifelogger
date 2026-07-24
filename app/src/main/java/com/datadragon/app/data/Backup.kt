@@ -2,14 +2,21 @@ package com.datadragon.app.data
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.util.UUID
 
 /**
  * On-disk shape of a backup / single-log export (docs/FORMATTING_SPEC.md §4).
  *
- * A full backup is every log (template + its entries). A single-log export is
- * the same structure with exactly one log, so it can be re-imported the same
- * way. `schemaJson` and `valuesJson` are kept verbatim as their stored strings
- * so a round-trip is lossless; timestamps stay ISO-8601 exactly as stored.
+ * A full backup is every log (template + its entries) and every list. A
+ * single-log export is the same structure with exactly one log, so it can be
+ * re-imported the same way. `schemaJson` and `valuesJson` are kept verbatim as
+ * their stored strings so a round-trip is lossless; timestamps stay ISO-8601
+ * exactly as stored.
+ *
+ * `version` is 2 once logs and lists carry their permanent `uuid`. Version-1
+ * files (no `uuid`, no `checklists`) still load: a missing `checklists` decodes
+ * to an empty list, and each log/list without a `uuid` is treated as brand-new
+ * on import (a fresh `uuid` is generated for it).
  */
 @Serializable
 data class BackupFile(
@@ -17,16 +24,19 @@ data class BackupFile(
     val version: Int = VERSION,
     val exportedAt: String,
     val logs: List<BackupLog>,
+    val checklists: List<BackupChecklist> = emptyList(),
 ) {
     companion object {
         const val FORMAT = "datadragon-backup"
-        const val VERSION = 1
+        const val VERSION = 2
     }
 }
 
 @Serializable
 data class BackupLog(
     val id: Long,
+    // Empty in version-1 files; a fresh uuid is generated on import when blank.
+    val uuid: String = "",
     val name: String,
     val createdAt: Long,
     val schemaJson: String,
@@ -35,6 +45,25 @@ data class BackupLog(
     val locked: Boolean = true,
     val allowAppendedNotes: Boolean = false,
     val entries: List<BackupEntry> = emptyList(),
+)
+
+@Serializable
+data class BackupChecklist(
+    val id: Long,
+    // Empty in version-1 files; a fresh uuid is generated on import when blank.
+    val uuid: String = "",
+    val name: String,
+    val createdAt: Long,
+    val items: List<BackupChecklistItem> = emptyList(),
+)
+
+@Serializable
+data class BackupChecklistItem(
+    val id: Long,
+    val text: String = "",
+    val completed: Boolean = false,
+    val indent: Int = 0,
+    val position: Int,
 )
 
 @Serializable
@@ -75,6 +104,7 @@ object BackupCodec {
         val notesByEntry = notes.groupBy { it.entryId }
         return BackupLog(
             id = template.id,
+            uuid = template.uuid,
             name = template.name,
             createdAt = template.createdAt,
             schemaJson = template.schemaJson,
@@ -99,6 +129,7 @@ object BackupCodec {
     fun templateOf(log: BackupLog): LogTemplate =
         LogTemplate(
             id = log.id,
+            uuid = log.uuid.ifBlank { UUID.randomUUID().toString() },
             name = log.name,
             createdAt = log.createdAt,
             schemaJson = log.schemaJson,
@@ -123,6 +154,43 @@ object BackupCodec {
     fun notesOf(log: BackupLog): List<EntryNote> =
         log.entries.flatMap { entry ->
             entry.notes.map { EntryNote(entryId = entry.id, createdAt = it.createdAt, text = it.text) }
+        }
+
+    fun checklistOf(checklist: Checklist, items: List<ChecklistItem>): BackupChecklist =
+        BackupChecklist(
+            id = checklist.id,
+            uuid = checklist.uuid,
+            name = checklist.name,
+            createdAt = checklist.createdAt,
+            items = items.map {
+                BackupChecklistItem(
+                    id = it.id,
+                    text = it.text,
+                    completed = it.completed,
+                    indent = it.indent,
+                    position = it.position,
+                )
+            },
+        )
+
+    fun checklistEntityOf(checklist: BackupChecklist): Checklist =
+        Checklist(
+            id = checklist.id,
+            uuid = checklist.uuid.ifBlank { UUID.randomUUID().toString() },
+            name = checklist.name,
+            createdAt = checklist.createdAt,
+        )
+
+    fun itemsOf(checklist: BackupChecklist): List<ChecklistItem> =
+        checklist.items.map {
+            ChecklistItem(
+                id = it.id,
+                checklistId = checklist.id,
+                text = it.text,
+                completed = it.completed,
+                indent = it.indent,
+                position = it.position,
+            )
         }
 
     /** A one-log export built from already-loaded objects (no database read). */

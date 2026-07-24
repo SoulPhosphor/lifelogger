@@ -41,6 +41,10 @@ interface LogTemplateDao {
     @Query("SELECT * FROM log_templates WHERE id = :id")
     suspend fun getById(id: Long): LogTemplate?
 
+    /** Find a log by its permanent uuid — used to match logs on a Merge restore. */
+    @Query("SELECT * FROM log_templates WHERE uuid = :uuid LIMIT 1")
+    suspend fun getByUuid(uuid: String): LogTemplate?
+
     /** One-shot snapshot of every template, for building a backup. */
     @Query("SELECT * FROM log_templates ORDER BY createdAt ASC, id ASC")
     suspend fun getAllOnce(): List<LogTemplate>

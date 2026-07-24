@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.CompleteIcon
+import com.datadragon.app.data.RestoreMode
 import com.datadragon.app.ui.BackupViewModel
 import com.datadragon.app.ui.RestoreResult
 import com.datadragon.app.ui.SettingsViewModel
@@ -70,6 +71,9 @@ fun SettingsScreen(
     val moveCompletedToBottom by settingsViewModel.moveCompletedToBottom.collectAsStateWithLifecycle()
     var pendingJson by remember { mutableStateOf<String?>(null) }
     var status by remember { mutableStateOf<String?>(null) }
+    // Non-destructive by default: Merge can only add or update, never delete
+    // something the chosen backup didn't include.
+    var importMode by remember { mutableStateOf(RestoreMode.MERGE) }
 
     val openDocument = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
@@ -179,6 +183,7 @@ fun SettingsScreen(
             // Restore lives at the bottom, away from everyday controls. Times are
             // always 12-hour (AM/PM), so there is no time-format choice here.
             SectionHeader("Restore from Backup")
+            ImportModeRow(selected = importMode, onSelected = { importMode = it })
             OutlinedButton(onClick = {
                 status = null
                 openDocument.launch(
@@ -188,7 +193,7 @@ fun SettingsScreen(
                 Text("Choose Backup File…")
             }
             Text(
-                "Loads data from a .json backup file. This replaces everything currently in the app.",
+                importMode.description(),
                 style = MaterialTheme.typography.bodySmall,
             )
             status?.let {
@@ -198,13 +203,29 @@ fun SettingsScreen(
     }
 
     if (pendingJson != null) {
+        val mode = importMode
         AlertDialog(
             onDismissRequest = { pendingJson = null },
-            title = { Text("Restore from this backup?") },
+            title = {
+                Text(
+                    when (mode) {
+                        RestoreMode.REPLACE -> "Replace everything with this backup?"
+                        RestoreMode.MERGE -> "Merge this backup into your data?"
+                    }
+                )
+            },
             text = {
                 Text(
-                    "This replaces all current logs and entries with the contents of the " +
-                        "backup file. This can't be undone.",
+                    when (mode) {
+                        RestoreMode.REPLACE ->
+                            "All forms, entries, and lists currently in the app will be " +
+                                "permanently removed and replaced with the contents of this " +
+                                "backup. This can't be undone."
+                        RestoreMode.MERGE ->
+                            "New forms and lists will be added, and any that already exist " +
+                                "will be updated to match the backup. Existing items you didn't " +
+                                "include stay untouched. This can't be undone."
+                    }
                 )
             },
             confirmButton = {
@@ -213,21 +234,55 @@ fun SettingsScreen(
                     pendingJson = null
                     if (json != null) {
                         scope.launch {
-                            status = when (val result = viewModel.restore(json)) {
+                            status = when (val result = viewModel.restore(json, mode)) {
                                 is RestoreResult.Success ->
-                                    "Restored ${result.logs} ${if (result.logs == 1) "log" else "logs"}."
+                                    restoreSummary(mode, result.logs, result.lists)
                                 is RestoreResult.Failure -> result.message
                             }
                         }
                     }
                 }) {
-                    Text("Restore", color = Color(0xFFC62828))
+                    // Red only for Replace, the destructive mode; Merge is
+                    // non-destructive, so it uses the normal button color.
+                    Text(
+                        when (mode) {
+                            RestoreMode.REPLACE -> "Replace All"
+                            RestoreMode.MERGE -> "Merge"
+                        },
+                        color = if (mode == RestoreMode.REPLACE) Color(0xFFC62828) else Color.Unspecified,
+                    )
                 }
             },
             dismissButton = {
                 TextButton(onClick = { pendingJson = null }) { Text("Cancel") }
             },
         )
+    }
+}
+
+/** The label shown for an import mode in the dropdown and current selection. */
+private fun RestoreMode.label(): String = when (this) {
+    RestoreMode.REPLACE -> "Replace All Data"
+    RestoreMode.MERGE -> "Merge with Existing Data"
+}
+
+/** The one-line explanation of what an import mode does. */
+private fun RestoreMode.description(): String = when (this) {
+    RestoreMode.REPLACE ->
+        "Removes everything currently in the app and restores only what's in this backup. " +
+            "Any forms or lists not included in the backup are permanently deleted."
+    RestoreMode.MERGE ->
+        "Adds anything new from the backup and updates forms or lists that already exist, " +
+            "while leaving everything else in place. Nothing is deleted."
+}
+
+/** The status line shown after a successful restore. */
+private fun restoreSummary(mode: RestoreMode, logs: Int, lists: Int): String {
+    val forms = "$logs ${if (logs == 1) "form" else "forms"}"
+    val listsText = "$lists ${if (lists == 1) "list" else "lists"}"
+    return when (mode) {
+        RestoreMode.REPLACE -> "Replaced all data — restored $forms and $listsText."
+        RestoreMode.MERGE -> "Merge complete — $forms and $listsText added or updated."
     }
 }
 
@@ -270,6 +325,48 @@ private fun SettingToggleRow(
         }
         Spacer(Modifier.width(12.dp))
         Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+/**
+ * "Import Mode" chooser for Restore: the label sits above a lightly outlined box
+ * showing the current mode, which opens a drop-down to switch between Merge and
+ * Replace. Stacked (not side-by-side) because the mode names are long.
+ */
+@Composable
+private fun ImportModeRow(
+    selected: RestoreMode,
+    onSelected: (RestoreMode) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text("Import Mode", style = MaterialTheme.typography.bodyLarge)
+        Box {
+            Row(
+                modifier = Modifier
+                    .clickable { expanded = true }
+                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
+                    .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(selected.label(), style = MaterialTheme.typography.bodyLarge)
+                Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                RestoreMode.entries.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(option.label()) },
+                        onClick = {
+                            onSelected(option)
+                            expanded = false
+                        },
+                    )
+                }
+            }
+        }
     }
 }
 
