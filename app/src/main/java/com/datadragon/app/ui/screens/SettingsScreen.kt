@@ -260,10 +260,16 @@ fun SettingsScreen(
     }
 }
 
-/** The label shown for an import mode in the dropdown and current selection. */
+/** The full label shown for an import mode in the drop-down menu. */
 private fun RestoreMode.label(): String = when (this) {
     RestoreMode.REPLACE -> "Replace All Data"
     RestoreMode.MERGE -> "Merge with Existing Data"
+}
+
+/** The short label shown in the collapsed box, so it fits the label's line. */
+private fun RestoreMode.shortLabel(): String = when (this) {
+    RestoreMode.REPLACE -> "Replace All"
+    RestoreMode.MERGE -> "Merge"
 }
 
 /** The one-line explanation of what an import mode does. */
@@ -329,9 +335,11 @@ private fun SettingToggleRow(
 }
 
 /**
- * "Import Mode" chooser for Restore: the label sits above a lightly outlined box
- * showing the current mode, which opens a drop-down to switch between Merge and
- * Replace. Stacked (not side-by-side) because the mode names are long.
+ * "Import Mode" chooser for Restore: the label on the left, a lightly outlined
+ * box on the right showing the current mode, which opens a drop-down to switch
+ * between Merge and Replace (docs/STYLE.md — a dropdown shares its label's line).
+ * The box shows the short name to fit the line; the full name and a description
+ * appear in the menu and below.
  */
 @Composable
 private fun ImportModeRow(
@@ -339,11 +347,18 @@ private fun ImportModeRow(
     onSelected: (RestoreMode) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("Import Mode", style = MaterialTheme.typography.bodyLarge)
+        Text(
+            "Import Mode",
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.width(12.dp))
         Box {
             Row(
                 modifier = Modifier
@@ -352,7 +367,7 @@ private fun ImportModeRow(
                     .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(selected.label(), style = MaterialTheme.typography.bodyLarge)
+                Text(selected.shortLabel(), style = MaterialTheme.typography.bodyLarge)
                 Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
             }
             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
