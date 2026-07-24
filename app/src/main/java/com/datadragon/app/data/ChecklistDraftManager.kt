@@ -53,8 +53,20 @@ class ChecklistDraftManager(
     val items: StateFlow<List<ChecklistItem>> = _items
 
     private val _persisted = MutableStateFlow(false)
-    /** True once the list has a real database id (a brand-new draft flips this on its first non-blank item). */
+    /**
+     * True once the list has a real database id. For a brand-new list this flips
+     * on its first non-blank item, when the draft is written for crash safety.
+     * It does NOT mean the user saved — see [isDraft].
+     */
     val persisted: StateFlow<Boolean> = _persisted
+
+    private val _isDraft = MutableStateFlow(false)
+    /**
+     * True while the list is logically unsaved — a brand-new list (whether or not
+     * it has been written to the database as a crash-safety draft) or a recovered
+     * draft. Save (finalize) clears it; an established saved list is never a draft.
+     */
+    val isDraft: StateFlow<Boolean> = _isDraft
 
     private var listDbId: Long = -1
     private var nextTempId: Long = -1
@@ -81,15 +93,21 @@ class ChecklistDraftManager(
         loaded = true
         loadedKey = id
         if (id == null) {
+            // Brand-new list: logically unsaved from the start, nothing in the database yet.
             _persisted.value = false
+            _isDraft.value = true
             listDbId = -1
             _title.value = ""
             _items.value = emptyList()
         } else {
+            // Opening an existing row by id: it's a draft (recovered) or a normal
+            // saved list, told apart by its stored `draft` flag.
             _persisted.value = true
             listDbId = id
             scope.launch {
-                _title.value = store.getChecklist(id)?.name ?: ""
+                val checklist = store.getChecklist(id)
+                _isDraft.value = checklist?.draft ?: false
+                _title.value = checklist?.name ?: ""
                 val loadedItems = store.getItemsOnce(id)
                 loadedItems.forEach { dbId[it.id] = it.id }
                 _items.value = loadedItems
@@ -212,13 +230,34 @@ class ChecklistDraftManager(
         }
     }
 
-    /** Explicit Save on a brand-new draft: persist if needed, flush, then report done. */
+    /**
+     * Explicit Save: finalize the draft into a normal saved list. Flushes pending
+     * text, clears the `draft` flag, then reports done so the caller can leave.
+     * This is the only path that marks the list as saved.
+     */
     fun save(onSaved: () -> Unit) {
         scope.launch {
             if (!_persisted.value && _items.value.any { it.text.isNotBlank() }) ensurePersisted()
             flushPending()
+            if (_persisted.value) store.finalizeChecklist(listDbId)
+            _isDraft.value = false
             onSaved()
         }
+    }
+
+    /**
+     * Discard the draft: transactionally delete its items and its list row, then
+     * report done so the caller can leave. Autosave/cleanup is disabled first so
+     * nothing writes to the row being deleted. A never-persisted draft (e.g. a
+     * title typed but no item text) has nothing to delete and just leaves.
+     */
+    fun discardDraft(onDiscarded: () -> Unit) {
+        val id = if (_persisted.value) listDbId else -1
+        _persisted.value = false
+        _isDraft.value = false
+        writer.cancelAll()
+        if (id >= 0) survivingScope.launch { store.deleteChecklistWithItems(id) }
+        onDiscarded()
     }
 
     private suspend fun ensurePersisted() {
@@ -229,7 +268,9 @@ class ChecklistDraftManager(
             val toInsert = snapshot.mapIndexed { index, row ->
                 row.copy(id = 0, checklistId = 0, position = index)
             }
-            val created = store.createListWithItems(_title.value.trim(), now(), toInsert)
+            // Crash-safety persistence only: the list is created as a draft, hidden
+            // from Home until Save finalizes it.
+            val created = store.createDraftWithItems(_title.value.trim(), now(), toInsert)
             listDbId = created.listId
             snapshot.forEachIndexed { index, row ->
                 created.itemIds.getOrNull(index)?.let { dbId[row.id] = it }

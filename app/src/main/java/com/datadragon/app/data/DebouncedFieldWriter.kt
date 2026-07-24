@@ -91,4 +91,13 @@ class DebouncedFieldWriter<K>(
             latest.remove(key)
         }
     }
+
+    /** Drop every pending write (used when the whole list is discarded). */
+    fun cancelAll() {
+        synchronized(lock) {
+            jobs.values.forEach { it.cancel() }
+            jobs.clear()
+            latest.clear()
+        }
+    }
 }

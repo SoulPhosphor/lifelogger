@@ -71,14 +71,15 @@ fun ChecklistScreen(
     viewModel: ChecklistViewModel = viewModel(),
 ) {
     val idLong = checklistId?.toLongOrNull()
-    val isNew = idLong == null
     LaunchedEffect(checklistId) { viewModel.load(idLong) }
 
     val title by viewModel.title.collectAsStateWithLifecycle()
     val items by viewModel.items.collectAsStateWithLifecycle()
     val completeIcon by viewModel.completeIcon.collectAsStateWithLifecycle()
     val crossOut by viewModel.crossOut.collectAsStateWithLifecycle()
-    val persisted by viewModel.persisted.collectAsStateWithLifecycle()
+    // A draft (new or recovered) is logically unsaved: it shows Save, and backing
+    // out with content asks to Discard. An established saved list does neither.
+    val isDraft by viewModel.isDraft.collectAsStateWithLifecycle()
 
     val scope = rememberCoroutineScope()
 
@@ -100,15 +101,15 @@ fun ChecklistScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // A brand-new list is a draft until its first item gets text, at which point
-    // it persists itself and becomes an ordinary autosaved list. Save turns on
-    // once an item has real text; a genuinely unsaved draft still warns before
-    // discarding. Leaving flushes pending text and waits for it before navigating.
+    // Back on a draft with any content asks to Discard — even if the draft has
+    // already been written to the database as crash protection. Back on an
+    // established list (or an untouched empty draft) just leaves, flushing any
+    // pending text first and waiting for it before navigating.
     val hasText = items.any { it.text.isNotBlank() }
-    val unsavedDraft = !persisted && (title.isNotBlank() || hasText)
+    val hasContent = title.isNotBlank() || hasText
     var showDiscard by rememberSaveable { mutableStateOf(false) }
     fun leaveFlushing() { scope.launch { viewModel.flushPending(); onBack() } }
-    fun attemptBack() { if (unsavedDraft) showDiscard = true else leaveFlushing() }
+    fun attemptBack() { if (isDraft && hasContent) showDiscard = true else leaveFlushing() }
     BackHandler { attemptBack() }
 
     // Which row is being edited (shows its +/× controls), and which newly-added
@@ -135,9 +136,9 @@ fun ChecklistScreen(
                     }
                 },
                 actions = {
-                    // Save exists only while the list is a brand-new draft; once
-                    // saved, an established list auto-saves and needs no button.
-                    if (isNew) {
+                    // Save finalizes a draft (new or recovered) into a normal saved
+                    // list. An established list auto-saves and shows no button.
+                    if (isDraft) {
                         TextButton(
                             enabled = hasText,
                             onClick = { viewModel.save(onBack) },
@@ -197,7 +198,8 @@ fun ChecklistScreen(
 
     if (showDiscard) {
         DiscardChangesDialog(
-            onConfirm = { showDiscard = false; onBack() },
+            // Discard deletes the persisted draft and its items, then leaves.
+            onConfirm = { showDiscard = false; viewModel.discardDraft(onBack) },
             onDismiss = { showDiscard = false },
         )
     }

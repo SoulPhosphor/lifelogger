@@ -19,14 +19,25 @@ interface ChecklistStore {
     suspend fun deleteBlankItems(checklistId: Long)
 
     /**
-     * Create a list named [name] with [items] (in the given order) in a single
-     * transaction. Returns the new list id and the new item ids in the same order,
-     * so the caller can map its in-memory rows to their database rows.
+     * Create a **draft** list named [name] with [items] (in the given order) in a
+     * single transaction. Returns the new list id and the new item ids in the same
+     * order, so the caller can map its in-memory rows to their database rows. The
+     * list is created with `draft = true` — this is crash protection only, not a
+     * user Save.
      */
-    suspend fun createListWithItems(name: String, createdAt: Long, items: List<ChecklistItem>): CreatedList
+    suspend fun createDraftWithItems(name: String, createdAt: Long, items: List<ChecklistItem>): CreatedList
+
+    /** Turn a draft into a normal saved list (invoked by Save). */
+    suspend fun finalizeChecklist(id: Long)
+
+    /** Delete a list and all its items in one transaction (invoked by Discard). */
+    suspend fun deleteChecklistWithItems(id: Long)
+
+    /** The most recent unfinished draft, for the crash-recovery prompt on launch. */
+    suspend fun mostRecentDraft(): Checklist?
 }
 
-/** Result of [ChecklistStore.createListWithItems]: the new list id and its item ids, in order. */
+/** Result of [ChecklistStore.createDraftWithItems]: the new list id and its item ids, in order. */
 data class CreatedList(val listId: Long, val itemIds: List<Long>)
 
 /** Room-backed [ChecklistStore]. First-list creation runs in one transaction. */
@@ -52,15 +63,21 @@ class RoomChecklistStore(private val db: AppDatabase) : ChecklistStore {
 
     override suspend fun deleteBlankItems(checklistId: Long) = dao.deleteBlankItems(checklistId)
 
-    override suspend fun createListWithItems(
+    override suspend fun createDraftWithItems(
         name: String,
         createdAt: Long,
         items: List<ChecklistItem>,
     ): CreatedList = db.withTransaction {
-        val listId = dao.insertChecklist(Checklist(name = name, createdAt = createdAt))
+        val listId = dao.insertChecklist(Checklist(name = name, createdAt = createdAt, draft = true))
         val itemIds = items.mapIndexed { index, item ->
             dao.insertItem(item.copy(id = 0, checklistId = listId, position = index))
         }
         CreatedList(listId, itemIds)
     }
+
+    override suspend fun finalizeChecklist(id: Long) = dao.finalizeChecklist(id)
+
+    override suspend fun deleteChecklistWithItems(id: Long) = dao.deleteChecklistWithItems(id)
+
+    override suspend fun mostRecentDraft(): Checklist? = dao.mostRecentDraft()
 }

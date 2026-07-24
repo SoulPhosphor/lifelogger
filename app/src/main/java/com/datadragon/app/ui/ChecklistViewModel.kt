@@ -34,7 +34,8 @@ class ChecklistViewModel(app: Application) : AndroidViewModel(app) {
 
     val title: StateFlow<String> = manager.title
     val items: StateFlow<List<ChecklistItem>> = manager.items
-    val persisted: StateFlow<Boolean> = manager.persisted
+    /** True while the list is logically unsaved (a new or recovered draft). */
+    val isDraft: StateFlow<Boolean> = manager.isDraft
 
     // Global list behavior, read when the list opens.
     private val _completeIcon = MutableStateFlow(settings.completeIcon)
@@ -69,8 +70,11 @@ class ChecklistViewModel(app: Application) : AndroidViewModel(app) {
     /** Flush pending text then drop blank rows when leaving an established list. */
     fun onLeave() = manager.onLeave()
 
-    /** Persist a brand-new list and its items, then report done. */
+    /** Save: finalize the draft into a normal saved list, flush, then report done. */
     fun save(onSaved: () -> Unit) = manager.save(onSaved)
+
+    /** Discard: delete the draft and its items, then report done. */
+    fun discardDraft(onDiscarded: () -> Unit) = manager.discardDraft(onDiscarded)
 
     companion object {
         // Process-lifetime scope so a flush/cleanup started on the way out still

@@ -12,7 +12,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  */
 @Database(
     entities = [LogTemplate::class, LogEntry::class, EntryNote::class, Checklist::class, ChecklistItem::class],
-    version = 7,
+    version = 8,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -124,6 +124,21 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v8 added the per-list `draft` flag. A draft is a new list persisted only
+         * as crash protection; it's hidden from Home until Save finalizes it.
+         * Purely additive; existing lists default to non-draft (normal saved
+         * lists), so they stay visible exactly as before.
+         */
+        // internal (not private) so the migration test can apply it directly.
+        internal val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE checklists ADD COLUMN draft INTEGER NOT NULL DEFAULT 0"
+                )
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -131,7 +146,10 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "data_dragon.db",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                    .addMigrations(
+                        MIGRATION_1_2, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
+                        MIGRATION_7_8,
+                    )
                     // v3 removed the unused description column. There is no
                     // released data to preserve, so recreate cleanly on any
                     // upgrade path not covered by an explicit migration.

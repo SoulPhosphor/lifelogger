@@ -57,6 +57,13 @@ android {
     buildFeatures {
         compose = true
     }
+    testOptions {
+        unitTests {
+            // Robolectric needs the merged Android resources/manifest available to
+            // JVM unit tests (used by the Room database + migration tests).
+            isIncludeAndroidResources = true
+        }
+    }
 }
 
 dependencies {
@@ -80,4 +87,6 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
 }
