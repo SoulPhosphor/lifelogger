@@ -4,7 +4,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -33,8 +32,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.datadragon.app.ui.theme.AppTheme
 
-/** Grayed-out strength for a disabled control, per Material's disabled alpha. */
-private const val DISABLED_ALPHA = 0.38f
+// Material 3's own disabled-button alphas (ButtonDefaults): content at 38%,
+// border at 12%. Matched exactly so a disabled AppButton looks like the
+// disabled OutlinedButton it replaced, not more washed out.
+private const val DISABLED_CONTENT_ALPHA = 0.38f
+private const val DISABLED_BORDER_ALPHA = 0.12f
 
 /**
  * The app's button — the only button shape there is.
@@ -54,12 +56,12 @@ fun AppButton(
     val contentColor = if (enabled) {
         MaterialTheme.colorScheme.onSurface
     } else {
-        MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_ALPHA)
+        MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_CONTENT_ALPHA)
     }
     val outlineColor = if (enabled) {
         MaterialTheme.colorScheme.outline
     } else {
-        MaterialTheme.colorScheme.outline.copy(alpha = DISABLED_ALPHA)
+        MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_BORDER_ALPHA)
     }
     Row(
         modifier = modifier
@@ -149,8 +151,9 @@ fun <T> AppDropdown(
  * A labelled row holding a drop-down: the label on the left, the drop-down on
  * the right, on one line.
  *
- * [hint] sits directly under the **label**, inside the label's column — never
- * under the whole row and never under the control.
+ * There is no hint parameter here. Piling a hint straight under a drop-down's
+ * label reads as clutter (docs/STYLE.md §5) — if a drop-down ever needs one,
+ * its placement needs a decision first, not this component's default.
  */
 @Composable
 fun <T> AppDropdownRow(
@@ -160,7 +163,6 @@ fun <T> AppDropdownRow(
     onSelected: (T) -> Unit,
     optionLabel: (T) -> String,
     modifier: Modifier = Modifier,
-    hint: String? = null,
 ) {
     Row(
         modifier = modifier
@@ -168,16 +170,11 @@ fun <T> AppDropdownRow(
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(label, style = AppTheme.textStyles.settingTitle)
-            if (hint != null) {
-                Text(
-                    hint,
-                    style = AppTheme.textStyles.settingDescription,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
+        Text(
+            label,
+            style = AppTheme.textStyles.settingTitle,
+            modifier = Modifier.weight(1f),
+        )
         Spacer(Modifier.width(12.dp))
         AppDropdown(
             options = options,

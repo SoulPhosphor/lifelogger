@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -246,6 +247,10 @@ fun SettingsScreen(
             }) {
                 Text("Choose Backup File…")
             }
+            // Extra room here: this button and the one below are two separate
+            // actions, not one control's label and value, so they get more space
+            // than the default row gap (docs/STYLE.md).
+            Spacer(Modifier.height(AppTheme.spacing.distinctControls - AppTheme.spacing.related))
             // Undo lives at the end of the whole-database controls, so it always
             // sits with the large changes it can put back, and it puts back the
             // same kinds of data chosen above. It does not apply to single-item
@@ -439,16 +444,6 @@ private fun RestoreMode.label(): String = when (this) {
     RestoreMode.MERGE -> "Merge with Existing Data"
 }
 
-/** The one-line explanation of what an import mode does. */
-private fun RestoreMode.description(): String = when (this) {
-    RestoreMode.REPLACE ->
-        "Removes everything currently in the app and restores only what's in this backup. " +
-            "Any forms or lists not included in the backup are permanently deleted."
-    RestoreMode.MERGE ->
-        "Adds anything new from the backup and updates forms or lists that already exist, " +
-            "while leaving everything else in place. Nothing is deleted."
-}
-
 /** The status line shown after a successful restore. */
 private fun restoreSummary(mode: RestoreMode, logs: Int, lists: Int): String {
     val forms = "$logs ${if (logs == 1) "form" else "forms"}"
@@ -507,18 +502,14 @@ private fun SettingToggleRow(
     }
 }
 
-/**
- * "Import Mode" chooser for Restore. The hint sits under the label, in the
- * label's own column — never under the whole row (docs/STYLE.md).
- */
+/** "Import Mode:" chooser for Restore. */
 @Composable
 private fun ImportModeRow(
     selected: RestoreMode,
     onSelected: (RestoreMode) -> Unit,
 ) {
     AppDropdownRow(
-        label = "Import Mode",
-        hint = selected.description(),
+        label = "Import Mode:",
         options = RestoreMode.entries,
         selected = selected,
         onSelected = onSelected,
@@ -544,7 +535,7 @@ private fun CompleteIconRow(
     onSelected: (CompleteIcon) -> Unit,
 ) {
     AppDropdownRow(
-        label = "Item Complete Icon",
+        label = "Item Complete Icon:",
         options = CompleteIcon.entries,
         selected = selected,
         onSelected = onSelected,
