@@ -38,6 +38,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -81,14 +82,14 @@ fun ChecklistScreen(
     // typed asks before discarding. Save turns on once an item has real text.
     val hasText = items.any { it.text.isNotBlank() }
     val dirty = isNew && (title.isNotBlank() || hasText)
-    var showDiscard by remember { mutableStateOf(false) }
+    var showDiscard by rememberSaveable { mutableStateOf(false) }
     fun attemptBack() { if (dirty) showDiscard = true else onBack() }
     BackHandler(enabled = isNew) { attemptBack() }
 
     // Which row is being edited (shows its +/× controls), and which newly-added
     // row should grab focus next.
-    var focusedItemId by remember { mutableStateOf<Long?>(null) }
-    var pendingFocusId by remember { mutableStateOf<Long?>(null) }
+    var focusedItemId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var pendingFocusId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     val lazyListState = rememberLazyListState()
     val reorderState = rememberReorderableLazyListState(lazyListState) { from, to ->

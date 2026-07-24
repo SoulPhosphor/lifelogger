@@ -28,7 +28,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -36,10 +39,40 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.FieldType
 import com.datadragon.app.ui.NewEntryViewModel
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+/**
+ * Saves the in-progress form as a JSON string in the instance-state Bundle, so
+ * typed-but-unsaved values survive the process being killed while backgrounded
+ * (not just configuration changes) — otherwise a form filled in, then lost to a
+ * background kill, would silently come back blank.
+ */
+private val textValuesSaver = Saver<SnapshotStateMap<String, String>, String>(
+    save = { map -> Json.encodeToString(map.toMap()) },
+    restore = { text ->
+        val decoded: Map<String, String> = Json.decodeFromString(text)
+        mutableStateMapOf<String, String>().apply { putAll(decoded) }
+    },
+)
+
+private val multiValuesSaver = Saver<SnapshotStateMap<String, Set<String>>, String>(
+    save = { map -> Json.encodeToString(map.toMap()) },
+    restore = { text ->
+        val decoded: Map<String, Set<String>> = Json.decodeFromString(text)
+        mutableStateMapOf<String, Set<String>>().apply { putAll(decoded) }
+    },
+)
+
+private val baselineSaver = Saver<Map<String, JsonElement>?, String>(
+    save = { it?.let(EntryValues::encode) ?: "" },
+    restore = { text -> if (text.isEmpty()) null else EntryValues.decode(text) },
+)
 
 /**
  * New Entry screen (Phase 4).
@@ -72,9 +105,9 @@ fun NewEntryScreen(
 
     // Form state: single-valued fields (and date/time/scale as strings) in one
     // map, multi-select fields in the other, plus the free-text Notes box.
-    val textValues = remember { mutableStateMapOf<String, String>() }
-    val multiValues = remember { mutableStateMapOf<String, Set<String>>() }
-    var notes by remember { mutableStateOf("") }
+    val textValues = rememberSaveable(saver = textValuesSaver) { mutableStateMapOf() }
+    val multiValues = rememberSaveable(saver = multiValuesSaver) { mutableStateMapOf() }
+    var notes by rememberSaveable { mutableStateOf("") }
 
     // When editing, pre-fill the form from the entry's stored values once loaded.
     LaunchedEffect(initialValues, fields) {
@@ -105,9 +138,12 @@ fun NewEntryScreen(
     }
 
     // Snapshot the entry's values once loaded, so backing out can warn only when
-    // something was actually entered or changed since.
-    var baseline by remember { mutableStateOf<Map<String, JsonElement>?>(null) }
+    // something was actually entered or changed since. Guarded on baseline still
+    // being null so a baseline restored after a process death isn't clobbered by
+    // this effect re-running against the now-restored (already-dirty) form state.
+    var baseline by rememberSaveable(stateSaver = baselineSaver) { mutableStateOf<Map<String, JsonElement>?>(null) }
     LaunchedEffect(fields, initialValues) {
+        if (baseline != null) return@LaunchedEffect
         if (fields.isEmpty()) return@LaunchedEffect
         if (isEditing && initialValues == null) return@LaunchedEffect
         baseline = collectValues(fields, textValues, multiValues, notes)
@@ -123,7 +159,7 @@ fun NewEntryScreen(
 
     val dirty = baseline != null &&
         collectValues(fields, textValues, multiValues, notes) != baseline
-    var showDiscard by remember { mutableStateOf(false) }
+    var showDiscard by rememberSaveable { mutableStateOf(false) }
     fun attemptBack() { if (dirty) showDiscard = true else onBack() }
     BackHandler { attemptBack() }
 

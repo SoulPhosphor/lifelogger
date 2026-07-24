@@ -36,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,8 +69,12 @@ fun SettingsScreen(
     val completeIcon by settingsViewModel.completeIcon.collectAsStateWithLifecycle()
     val crossOutWhenCompleted by settingsViewModel.crossOutWhenCompleted.collectAsStateWithLifecycle()
     val moveCompletedToBottom by settingsViewModel.moveCompletedToBottom.collectAsStateWithLifecycle()
+    // Not saveable: a chosen backup file's full contents can be large enough to
+    // overflow the instance-state Bundle (TransactionTooLargeException), so a
+    // process death simply asks the user to re-choose the file rather than risk
+    // a crash. status is a short message, so it's safe and worth restoring.
     var pendingJson by remember { mutableStateOf<String?>(null) }
-    var status by remember { mutableStateOf<String?>(null) }
+    var status by rememberSaveable { mutableStateOf<String?>(null) }
 
     val openDocument = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
