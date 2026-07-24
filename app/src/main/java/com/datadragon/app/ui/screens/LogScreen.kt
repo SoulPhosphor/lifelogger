@@ -288,6 +288,12 @@ fun LogScreen(
                     }
                 },
                 ExportFormatOption(
+                    "Spreadsheet (.csv)",
+                    "Table of entries for a spreadsheet app",
+                ) {
+                    if (current != null) startSave(LogExport.csv(current, fields, entries))
+                },
+                ExportFormatOption(
                     "Application Data (.json)",
                     "Use this file to import or restore this form later",
                 ) {

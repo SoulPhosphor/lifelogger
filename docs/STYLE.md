@@ -152,18 +152,21 @@ and not new phrasing for the formats it shares.
   `<thing>` in the `.json` subtitle is the same word used in the title, in
   lowercase:
 
-  | Format | Title | Subtitle |
-  | --- | --- | --- |
-  | `.txt` | Text Document (.txt) | Simple plain text file |
-  | `.md` | Markdown (.md) | Formatted text document |
-  | `.pdf` | PDF Document (.pdf) | Printable document format |
-  | `.json` | Application Data (.json) | Use this file to import or restore this `<thing>` later |
+  | Format | Title | Subtitle | Offered for |
+  | --- | --- | --- | --- |
+  | `.txt` | Text Document (.txt) | Simple plain text file | Everything |
+  | `.md` | Markdown (.md) | Formatted text document | Everything |
+  | `.pdf` | PDF Document (.pdf) | Printable document format | Everything |
+  | `.csv` | Spreadsheet (.csv) | Table of entries for a spreadsheet app | Forms |
+  | `.json` | Application Data (.json) | Use this file to import or restore this `<thing>` later | Everything |
 
-- **Rows appear in that order**, always.
-- **A format that isn't available for this thing is simply left out.** No
-  greyed-out row, no substitute wording, no extra format invented for one
-  screen. If a thing can't be exported as a given file type, that row is not
-  there.
+- **Rows appear in that order**, always. `.json` is always last.
+- **A row is left out only when that thing genuinely cannot produce that file.**
+  Lists have no rows of entries, so they offer no `.csv`; forms do, so forms
+  offer it. "Not one of the usual formats" is **not** a reason to drop a row —
+  if a thing can be exported as it, the row is there.
+- **Never reword a format to make it fit.** A format's title and subtitle are
+  fixed above, whatever is being exported.
 - **No paragraph at the bottom.** The subtitles are the whole explanation.
 - **The `.json` export is the re-import file.** It is a backup file holding
   exactly one item, so Restore Individual Item can read it back and work out the
