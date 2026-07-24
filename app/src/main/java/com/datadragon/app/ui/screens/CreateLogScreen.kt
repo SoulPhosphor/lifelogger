@@ -32,7 +32,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -56,6 +55,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.FormMarkdownGenerator
@@ -369,7 +369,7 @@ private fun BuildEditor(
     fields.forEachIndexed { index, field ->
         FieldEditorCard(field = field, index = index, onDelete = { onDelete(field) })
     }
-    OutlinedButton(onClick = onAdd, modifier = Modifier.fillMaxWidth()) {
+    AppButton(onClick = onAdd, modifier = Modifier.fillMaxWidth()) {
         Icon(Icons.Filled.Add, contentDescription = null)
         Text("  Add Field")
     }
@@ -542,7 +542,7 @@ private fun PasteEditor(
         placeholder = { Text("Paste or type Form Markdown here…") },
     )
 
-    OutlinedButton(onClick = onPreview, modifier = Modifier.fillMaxWidth()) {
+    AppButton(onClick = onPreview, modifier = Modifier.fillMaxWidth()) {
         Text("Preview Form (Optional)")
     }
 

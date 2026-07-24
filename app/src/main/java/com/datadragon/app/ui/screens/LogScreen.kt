@@ -33,7 +33,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -54,6 +53,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.data.EntryNote
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.FieldDef
@@ -267,31 +267,31 @@ fun LogScreen(
                     }
 
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(
+                        AppButton(
                             onClick = {
                                 if (current != null) {
                                     startSave(LogExport.markdown(current, fields, entries, notesByEntry, includeFollowUps))
                                 }
                             },
                         ) { Text(".md") }
-                        OutlinedButton(
+                        AppButton(
                             onClick = {
                                 if (current != null) {
                                     startSave(LogExport.json(current, entries, notesByEntry, includeFollowUps))
                                 }
                             },
                         ) { Text(".json") }
-                        OutlinedButton(
+                        AppButton(
                             onClick = {
                                 if (current != null) {
                                     startSave(LogExport.text(current, fields, entries, notesByEntry, includeFollowUps))
                                 }
                             },
                         ) { Text(".txt") }
-                        OutlinedButton(
+                        AppButton(
                             onClick = { if (current != null) startSave(LogExport.csv(current, fields, entries)) },
                         ) { Text(".csv") }
-                        OutlinedButton(
+                        AppButton(
                             onClick = {
                                 if (current != null) {
                                     startSave(LogExport.pdf(current, fields, entries, notesByEntry, includeFollowUps))

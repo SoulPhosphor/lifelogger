@@ -34,6 +34,11 @@ data class AppTextStyles(
     val dialogOptionTitle: TextStyle,
     /** The one-line explanation under a dialog option. */
     val dialogOptionSubtitle: TextStyle,
+    /**
+     * Text inside a framed control — a button caption or a drop-down's current
+     * value. Buttons and drop-downs share it so they read as the same control.
+     */
+    val controlLabel: TextStyle,
 )
 
 /**
@@ -48,6 +53,7 @@ val DefaultAppTextStyles = AppTextStyles(
     settingDescription = AppTypography.bodySmall,
     dialogOptionTitle = AppTypography.bodyLarge,
     dialogOptionSubtitle = AppTypography.bodySmall,
+    controlLabel = AppTypography.bodyLarge,
 )
 
 /** Supplied by `DataDragonTheme`; read through `AppTheme.textStyles`. */

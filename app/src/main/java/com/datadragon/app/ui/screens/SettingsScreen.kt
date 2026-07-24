@@ -2,10 +2,8 @@ package com.datadragon.app.ui.screens
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,20 +12,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -53,6 +46,8 @@ import com.datadragon.app.data.RestoreMode
 import com.datadragon.app.ui.BackupViewModel
 import com.datadragon.app.ui.RestoreResult
 import com.datadragon.app.ui.SettingsViewModel
+import com.datadragon.app.ui.components.AppButton
+import com.datadragon.app.ui.components.AppDropdownRow
 import com.datadragon.app.ui.theme.AppTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -187,17 +182,20 @@ fun SettingsScreen(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
+            // The hint sits under its heading, above the control it describes —
+            // never below the control (docs/STYLE.md).
             SectionHeader("Back Up All Data")
-            OutlinedButton(onClick = {
+            Text(
+                "Saves every log and entry into a single .json file you choose the location for.",
+                style = AppTheme.textStyles.settingDescription,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            AppButton(onClick = {
                 status = null
                 createDocument.launch("datadragon_backup_${LocalDate.now()}.json")
             }) {
                 Text("Back Up Now…")
             }
-            Text(
-                "Saves every log and entry into a single .json file you choose the location for.",
-                style = AppTheme.textStyles.settingDescription,
-            )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
@@ -205,7 +203,7 @@ fun SettingsScreen(
             // always 12-hour (AM/PM), so there is no time-format choice here.
             SectionHeader("Restore from Backup")
             ImportModeRow(selected = importMode, onSelected = { importMode = it })
-            OutlinedButton(onClick = {
+            AppButton(onClick = {
                 status = null
                 openDocument.launch(
                     arrayOf("application/json", "application/octet-stream", "text/plain"),
@@ -213,13 +211,9 @@ fun SettingsScreen(
             }) {
                 Text("Choose Backup File…")
             }
-            Text(
-                importMode.description(),
-                style = AppTheme.textStyles.settingDescription,
-            )
 
             RestoreTypeRow(selected = restoreType, onSelected = { restoreType = it })
-            OutlinedButton(
+            AppButton(
                 onClick = { pendingUndo = true },
                 enabled = hasUndoSnapshot,
             ) {
@@ -338,52 +332,21 @@ private fun RestoreType.label(): String = when (this) {
 }
 
 /**
- * "Restore Type:" chooser for Undo Last Import: the label on the left, a
- * lightly outlined box on the right showing List or Form, opening a drop-down
- * to switch (docs/STYLE.md — a dropdown shares its label's line).
+ * "Restore Type:" chooser for Undo Last Import (docs/STYLE.md — a drop-down
+ * shares its label's line, and its width never changes with the value picked).
  */
 @Composable
 private fun RestoreTypeRow(
     selected: RestoreType,
     onSelected: (RestoreType) -> Unit,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            "Restore Type:",
-            style = AppTheme.textStyles.settingTitle,
-            modifier = Modifier.weight(1f),
-        )
-        Spacer(Modifier.width(12.dp))
-        Box {
-            Row(
-                modifier = Modifier
-                    .clickable { expanded = true }
-                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
-                    .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(selected.label(), style = AppTheme.textStyles.settingTitle)
-                Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
-            }
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                RestoreType.entries.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option.label()) },
-                        onClick = {
-                            onSelected(option)
-                            expanded = false
-                        },
-                    )
-                }
-            }
-        }
-    }
+    AppDropdownRow(
+        label = "Restore Type:",
+        options = RestoreType.entries,
+        selected = selected,
+        onSelected = onSelected,
+        optionLabel = { it.label() },
+    )
 }
 
 /** The full label shown for an import mode in the drop-down menu. */
@@ -413,8 +376,8 @@ private fun restoreSummary(mode: RestoreMode, logs: Int, lists: Int): String {
     val forms = "$logs ${if (logs == 1) "form" else "forms"}"
     val listsText = "$lists ${if (lists == 1) "list" else "lists"}"
     return when (mode) {
-        RestoreMode.REPLACE -> "Replaced all data — restored $forms and $listsText."
-        RestoreMode.MERGE -> "Merge complete — $forms and $listsText added or updated."
+        RestoreMode.REPLACE -> "Replaced all data \u2014 restored $forms and $listsText."
+        RestoreMode.MERGE -> "Merge complete \u2014 $forms and $listsText added or updated."
     }
 }
 
@@ -461,54 +424,23 @@ private fun SettingToggleRow(
 }
 
 /**
- * "Import Mode" chooser for Restore: the label on the left, a lightly outlined
- * box on the right showing the current mode, which opens a drop-down to switch
- * between Merge and Replace (docs/STYLE.md — a dropdown shares its label's line).
- * The box shows the short name to fit the line; the full name and a description
- * appear in the menu and below.
+ * "Import Mode" chooser for Restore. The hint sits under the label, in the
+ * label's own column — never under the whole row (docs/STYLE.md).
  */
 @Composable
 private fun ImportModeRow(
     selected: RestoreMode,
     onSelected: (RestoreMode) -> Unit,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            "Import Mode",
-            style = AppTheme.textStyles.settingTitle,
-            modifier = Modifier.weight(1f),
-        )
-        Spacer(Modifier.width(12.dp))
-        Box {
-            Row(
-                modifier = Modifier
-                    .clickable { expanded = true }
-                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
-                    .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(selected.shortLabel(), style = AppTheme.textStyles.settingTitle)
-                Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
-            }
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                RestoreMode.entries.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option.label()) },
-                        onClick = {
-                            onSelected(option)
-                            expanded = false
-                        },
-                    )
-                }
-            }
-        }
-    }
+    AppDropdownRow(
+        label = "Import Mode",
+        hint = selected.description(),
+        options = RestoreMode.entries,
+        selected = selected,
+        onSelected = onSelected,
+        optionLabel = { it.label() },
+        collapsedLabel = { it.shortLabel() },
+    )
 }
 
 /** Label of the mark shown on a completed item. */
@@ -518,51 +450,19 @@ private fun CompleteIcon.label(): String = when (this) {
 }
 
 /**
- * "Item Complete Icon" chooser: the current choice on the right opens a small
- * drop-down to pick between a checkmark and a checked box.
+ * "Item Complete Icon" chooser: the current choice sits on the label's line and
+ * opens a drop-down to pick between a checkmark and a checked box.
  */
 @Composable
 private fun CompleteIconRow(
     selected: CompleteIcon,
     onSelected: (CompleteIcon) -> Unit,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            "Item Complete Icon",
-            style = AppTheme.textStyles.settingTitle,
-            modifier = Modifier.weight(1f),
-        )
-        Spacer(Modifier.width(12.dp))
-        Box {
-            // The current choice sits in a lightly outlined, slightly rounded box
-            // that opens the drop-down when tapped.
-            Row(
-                modifier = Modifier
-                    .clickable { expanded = true }
-                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
-                    .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(selected.label(), style = AppTheme.textStyles.settingTitle)
-                Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
-            }
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                CompleteIcon.entries.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option.label()) },
-                        onClick = {
-                            onSelected(option)
-                            expanded = false
-                        },
-                    )
-                }
-            }
-        }
-    }
+    AppDropdownRow(
+        label = "Item Complete Icon",
+        options = CompleteIcon.entries,
+        selected = selected,
+        onSelected = onSelected,
+        optionLabel = { it.label() },
+    )
 }
