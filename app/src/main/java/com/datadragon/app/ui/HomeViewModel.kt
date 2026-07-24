@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -38,10 +39,31 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** All lists, shown as name-only cards in the Lists view. */
+    /** All saved lists, shown as name-only cards in the Lists view (drafts excluded). */
     val checklists: StateFlow<List<Checklist>> =
         checklistDao.observeChecklists()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    // The most recent unfinished draft (if any), checked once when Home is created
+    // — i.e. on app launch — so the user can be offered a chance to recover it.
+    private val _pendingDraft = MutableStateFlow<Checklist?>(null)
+    val pendingDraft: StateFlow<Checklist?> = _pendingDraft
+
+    init {
+        viewModelScope.launch { _pendingDraft.value = checklistDao.mostRecentDraft() }
+    }
+
+    /** Dismiss the recovery prompt without deleting the draft (it remains recoverable). */
+    fun clearPendingDraft() {
+        _pendingDraft.value = null
+    }
+
+    /** Discard the offered draft: delete it and its items, then dismiss the prompt. */
+    fun discardPendingDraft() {
+        val draft = _pendingDraft.value ?: return
+        _pendingDraft.value = null
+        viewModelScope.launch { checklistDao.deleteChecklistWithItems(draft.id) }
+    }
 
     /** Which view is showing; persisted so the app reopens where it left off. */
     private val _view = MutableStateFlow(settings.lastView)

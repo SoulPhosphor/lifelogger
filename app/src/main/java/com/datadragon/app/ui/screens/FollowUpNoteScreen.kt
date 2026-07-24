@@ -25,7 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.SpanStyle
@@ -68,8 +68,8 @@ fun FollowUpNoteScreen(
     val entryTimestamp by viewModel.entryTimestamp.collectAsStateWithLifecycle()
     val initialNoteText by viewModel.initialNoteText.collectAsStateWithLifecycle()
 
-    var noteText by remember { mutableStateOf("") }
-    var noteSeeded by remember { mutableStateOf(false) }
+    var noteText by rememberSaveable { mutableStateOf("") }
+    var noteSeeded by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(initialNoteText) {
         val loaded = initialNoteText ?: return@LaunchedEffect
         if (!noteSeeded) {

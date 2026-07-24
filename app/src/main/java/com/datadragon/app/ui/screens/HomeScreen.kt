@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -27,6 +28,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -42,6 +44,7 @@ import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.HomeView
 import com.datadragon.app.ui.HomeLog
 import com.datadragon.app.ui.HomeViewModel
+import com.datadragon.app.ui.theme.DeleteRed
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,6 +60,7 @@ fun HomeScreen(
     val logs by viewModel.logs.collectAsStateWithLifecycle()
     val checklists by viewModel.checklists.collectAsStateWithLifecycle()
     val view by viewModel.view.collectAsStateWithLifecycle()
+    val pendingDraft by viewModel.pendingDraft.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -119,6 +123,34 @@ fun HomeScreen(
                 onOpenChecklist = onOpenChecklist,
             )
         }
+    }
+
+    // Offer to recover a list left unfinished when the app was last killed. The
+    // draft was written for crash safety but never saved, so it's hidden from Home
+    // until the user chooses. Recover opens it in the editor (still a draft);
+    // Discard deletes it. Tapping outside keeps it for next time.
+    pendingDraft?.let { draft ->
+        AlertDialog(
+            onDismissRequest = { viewModel.clearPendingDraft() },
+            title = { Text("Recover Unfinished List?") },
+            text = {
+                Text(
+                    "You have a list that wasn't saved. Recover it to keep editing, " +
+                        "or discard it.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.clearPendingDraft()
+                    onOpenChecklist(draft.id)
+                }) { Text("Recover") }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.discardPendingDraft() }) {
+                    Text("Discard", color = DeleteRed)
+                }
+            },
+        )
     }
 }
 
