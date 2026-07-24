@@ -126,6 +126,11 @@ Because of this, adding a theme later is a change to `Theme.kt`, `Type.kt`,
 - **The box shows exactly the same wording as the menu.** An option has one
   name, never a short name in the box and a long name in the list.
 - **The drop-down box and `AppButton` are framed identically.**
+- **A drop-down row has no hint by default.** Piling a hint straight under a
+  drop-down's label looks terrible — cramped under one word while the control
+  sits on the other side of the row. `AppDropdownRow` has no hint parameter for
+  this reason. If a drop-down ever needs one, its placement is a decision to
+  make then, not a default to fall back on.
 
 Both behaviors come free from `AppDropdown` / `AppDropdownRow` in
 `ui/components/AppControls.kt`. Do not hand-roll a drop-down.

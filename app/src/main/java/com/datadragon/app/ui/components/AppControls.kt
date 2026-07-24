@@ -4,7 +4,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -152,8 +151,9 @@ fun <T> AppDropdown(
  * A labelled row holding a drop-down: the label on the left, the drop-down on
  * the right, on one line.
  *
- * [hint] sits directly under the **label**, inside the label's column — never
- * under the whole row and never under the control.
+ * There is no hint parameter here. Piling a hint straight under a drop-down's
+ * label reads as clutter (docs/STYLE.md §5) — if a drop-down ever needs one,
+ * its placement needs a decision first, not this component's default.
  */
 @Composable
 fun <T> AppDropdownRow(
@@ -163,7 +163,6 @@ fun <T> AppDropdownRow(
     onSelected: (T) -> Unit,
     optionLabel: (T) -> String,
     modifier: Modifier = Modifier,
-    hint: String? = null,
 ) {
     Row(
         modifier = modifier
@@ -171,16 +170,11 @@ fun <T> AppDropdownRow(
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(label, style = AppTheme.textStyles.settingTitle)
-            if (hint != null) {
-                Text(
-                    hint,
-                    style = AppTheme.textStyles.settingDescription,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
+        Text(
+            label,
+            style = AppTheme.textStyles.settingTitle,
+            modifier = Modifier.weight(1f),
+        )
         Spacer(Modifier.width(12.dp))
         AppDropdown(
             options = options,
