@@ -1,11 +1,15 @@
 package com.datadragon.app.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.border
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
@@ -29,6 +33,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.datadragon.app.ui.components.AppButton
@@ -54,97 +61,124 @@ private fun FieldDef.displayLabel(): String = if (required) "$label *" else labe
  * shared form state. Single-valued fields live in [textValues]; `multiple`
  * fields live in [multiValues]. Storage forms follow [EntryValues].
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun EntryFieldControl(
     field: FieldDef,
     textValues: SnapshotStateMap<String, String>,
     multiValues: SnapshotStateMap<String, Set<String>>,
+    showRequiredError: Boolean = false,
+    bringIntoViewRequester: BringIntoViewRequester? = null,
+    focusRequester: FocusRequester? = null,
 ) {
     val label = field.displayLabel()
-    when (field.type) {
-        FieldType.TEXT -> Labeled(label) {
-            OutlinedTextField(
-                value = textValues[field.label].orEmpty(),
-                onValueChange = { textValues[field.label] = it },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
+    val targetModifier = bringIntoViewRequester?.let {
+        Modifier.fillMaxWidth().bringIntoViewRequester(it)
+    } ?: Modifier
+    val validationModifier = if (showRequiredError) {
+        Modifier.border(
+            width = 2.dp,
+            color = MaterialTheme.colorScheme.error,
+            shape = RoundedCornerShape(8.dp),
+        )
+    } else {
+        Modifier
+    }
+    Column(modifier = targetModifier.then(validationModifier)) {
+        when (field.type) {
+            FieldType.TEXT -> Labeled(label) {
+                OutlinedTextField(
+                    value = textValues[field.label].orEmpty(),
+                    onValueChange = { textValues[field.label] = it },
+                    singleLine = true,
+                    isError = showRequiredError,
+                    modifier = Modifier.fillMaxWidth().withFocusRequester(focusRequester),
+                )
+            }
 
-        FieldType.MULTILINE -> Labeled(label) {
-            val minHeight = ((field.lines ?: 4).coerceIn(2, 12) * 24).dp
-            OutlinedTextField(
-                value = textValues[field.label].orEmpty(),
-                onValueChange = { textValues[field.label] = it },
-                modifier = Modifier.fillMaxWidth().heightIn(min = minHeight),
-            )
-        }
+            FieldType.MULTILINE -> Labeled(label) {
+                val minHeight = ((field.lines ?: 4).coerceIn(2, 12) * 24).dp
+                OutlinedTextField(
+                    value = textValues[field.label].orEmpty(),
+                    onValueChange = { textValues[field.label] = it },
+                    isError = showRequiredError,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = minHeight)
+                        .withFocusRequester(focusRequester),
+                )
+            }
 
-        FieldType.NUMBER -> Labeled(label) {
-            OutlinedTextField(
-                value = textValues[field.label].orEmpty(),
-                onValueChange = { input ->
-                    val digitsOnly = input.filter { it.isDigit() }
-                    textValues[field.label] = field.digits?.let { digitsOnly.take(it) } ?: digitsOnly
+            FieldType.NUMBER -> Labeled(label) {
+                OutlinedTextField(
+                    value = textValues[field.label].orEmpty(),
+                    onValueChange = { input ->
+                        val digitsOnly = input.filter { it.isDigit() }
+                        textValues[field.label] = field.digits?.let { digitsOnly.take(it) } ?: digitsOnly
+                    },
+                    singleLine = true,
+                    isError = showRequiredError,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth().withFocusRequester(focusRequester),
+                )
+            }
+
+            FieldType.DROPDOWN -> DropdownField(
+                label = label,
+                options = field.options,
+                selected = textValues[field.label].orEmpty(),
+                onSelected = { textValues[field.label] = it },
+            )
+
+            FieldType.YESNO -> DropdownField(
+                label = label,
+                options = YESNO_OPTIONS,
+                selected = textValues[field.label].orEmpty(),
+                onSelected = { textValues[field.label] = it },
+            )
+
+            FieldType.SCALE -> ScaleField(
+                label = label,
+                from = field.from ?: 0,
+                to = field.to ?: 0,
+                selected = textValues[field.label].orEmpty(),
+                onSelected = { textValues[field.label] = it },
+            )
+
+            FieldType.MULTIPLE -> MultipleField(
+                label = label,
+                options = field.options,
+                selected = multiValues[field.label].orEmpty(),
+                onToggle = { option ->
+                    val current = multiValues[field.label].orEmpty()
+                    multiValues[field.label] =
+                        if (option in current) current - option else current + option
                 },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(),
+            )
+
+            FieldType.DATE -> DateField(
+                label = label,
+                stored = textValues[field.label],
+                onChange = { textValues[field.label] = it },
+            )
+
+            FieldType.TIME -> TimeField(
+                label = label,
+                stored = textValues[field.label],
+                onChange = { textValues[field.label] = it },
+            )
+
+            FieldType.DATETIME -> DateTimeField(
+                label = label,
+                stored = textValues[field.label],
+                onChange = { textValues[field.label] = it },
             )
         }
-
-        FieldType.DROPDOWN -> DropdownField(
-            label = label,
-            options = field.options,
-            selected = textValues[field.label].orEmpty(),
-            onSelected = { textValues[field.label] = it },
-        )
-
-        FieldType.YESNO -> DropdownField(
-            label = label,
-            options = YESNO_OPTIONS,
-            selected = textValues[field.label].orEmpty(),
-            onSelected = { textValues[field.label] = it },
-        )
-
-        FieldType.SCALE -> ScaleField(
-            label = label,
-            from = field.from ?: 0,
-            to = field.to ?: 0,
-            selected = textValues[field.label].orEmpty(),
-            onSelected = { textValues[field.label] = it },
-        )
-
-        FieldType.MULTIPLE -> MultipleField(
-            label = label,
-            options = field.options,
-            selected = multiValues[field.label].orEmpty(),
-            onToggle = { option ->
-                val current = multiValues[field.label].orEmpty()
-                multiValues[field.label] =
-                    if (option in current) current - option else current + option
-            },
-        )
-
-        FieldType.DATE -> DateField(
-            label = label,
-            stored = textValues[field.label],
-            onChange = { textValues[field.label] = it },
-        )
-
-        FieldType.TIME -> TimeField(
-            label = label,
-            stored = textValues[field.label],
-            onChange = { textValues[field.label] = it },
-        )
-
-        FieldType.DATETIME -> DateTimeField(
-            label = label,
-            stored = textValues[field.label],
-            onChange = { textValues[field.label] = it },
-        )
     }
 }
+
+private fun Modifier.withFocusRequester(requester: FocusRequester?): Modifier =
+    requester?.let { this.focusRequester(it) } ?: this
 
 @Composable
 private fun Labeled(label: String, content: @Composable () -> Unit) {

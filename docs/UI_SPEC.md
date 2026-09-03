@@ -239,6 +239,10 @@ Any field can add "required" to prevent saving without it.
 - Controls are generated from the log's field definitions.
 - Big, easy-to-tap controls. Typing is only needed for text and number fields.
 - **Save** writes the entry and returns to the previous screen.
+- Save remains tappable when required fields are incomplete. Tapping it marks
+  each incomplete required field, scrolls to the first one, and focuses that
+  control when it accepts direct text input. Repeated Save attempts move to the
+  next incomplete required field after the prior one is completed.
 
 ### Entries cannot be edited
 

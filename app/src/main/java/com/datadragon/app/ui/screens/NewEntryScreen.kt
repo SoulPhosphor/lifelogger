@@ -1,6 +1,7 @@
 package com.datadragon.app.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
@@ -28,11 +30,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateMap
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -46,6 +51,7 @@ import kotlinx.serialization.json.JsonElement
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 /**
  * Saves the in-progress form as a JSON string in the instance-state Bundle, so
@@ -81,7 +87,7 @@ private val baselineSaver = Saver<Map<String, JsonElement>?, String>(
  * by docs/UI_SPEC.md §6). The body is generated from the log's field
  * definitions; the timestamp auto-fills and Save writes a real entry.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun NewEntryScreen(
     logId: String?,
@@ -108,6 +114,16 @@ fun NewEntryScreen(
     val textValues = rememberSaveable(saver = textValuesSaver) { mutableStateMapOf() }
     val multiValues = rememberSaveable(saver = multiValuesSaver) { mutableStateMapOf() }
     var notes by rememberSaveable { mutableStateOf("") }
+    var validationAttempted by rememberSaveable { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+    val fieldTargets = remember(fields.map { it.label to it.type }) {
+        fields.associate { field ->
+            field.label to FieldValidationTarget(
+                bringIntoViewRequester = BringIntoViewRequester(),
+                focusRequester = if (field.supportsDirectFocus()) FocusRequester() else null,
+            )
+        }
+    }
 
     // When editing, pre-fill the form from the entry's stored values once loaded.
     LaunchedEffect(initialValues, fields) {
@@ -149,13 +165,7 @@ fun NewEntryScreen(
         baseline = collectValues(fields, textValues, multiValues, notes)
     }
 
-    val canSave = fields.all { field ->
-        when {
-            !field.required -> true
-            field.type == FieldType.MULTIPLE -> multiValues[field.label].orEmpty().isNotEmpty()
-            else -> !textValues[field.label].isNullOrBlank()
-        }
-    }
+    val missingRequiredLabels = missingRequiredFieldLabels(fields, textValues, multiValues)
 
     val dirty = baseline != null &&
         collectValues(fields, textValues, multiValues, notes) != baseline
@@ -174,12 +184,23 @@ fun NewEntryScreen(
                 },
                 actions = {
                     TextButton(
-                        enabled = canSave,
+                        enabled = fields.isNotEmpty(),
                         onClick = {
-                            viewModel.save(
-                                values = collectValues(fields, textValues, multiValues, notes),
-                                onSaved = onBack,
-                            )
+                            if (missingRequiredLabels.isEmpty()) {
+                                viewModel.save(
+                                    values = collectValues(fields, textValues, multiValues, notes),
+                                    onSaved = onBack,
+                                )
+                            } else {
+                                validationAttempted = true
+                                fieldTargets[missingRequiredLabels.first()]?.let { target ->
+                                    coroutineScope.launch {
+                                        target.focusRequester?.requestFocus()
+                                        withFrameNanos { }
+                                        target.bringIntoViewRequester.bringIntoView()
+                                    }
+                                }
+                            }
                         },
                     ) { Text("Save") }
                 },
@@ -208,10 +229,14 @@ fun NewEntryScreen(
             )
 
             fields.forEach { field ->
+                val target = fieldTargets[field.label]
                 EntryFieldControl(
                     field = field,
                     textValues = textValues,
                     multiValues = multiValues,
+                    showRequiredError = validationAttempted && field.label in missingRequiredLabels,
+                    bringIntoViewRequester = target?.bringIntoViewRequester,
+                    focusRequester = target?.focusRequester,
                 )
             }
 
@@ -232,6 +257,28 @@ fun NewEntryScreen(
             onDismiss = { showDiscard = false },
         )
     }
+}
+
+private data class FieldValidationTarget(
+    val bringIntoViewRequester: BringIntoViewRequester,
+    val focusRequester: FocusRequester?,
+)
+
+private fun com.datadragon.app.data.FieldDef.supportsDirectFocus(): Boolean =
+    type == FieldType.TEXT || type == FieldType.MULTILINE || type == FieldType.NUMBER
+
+/** Required fields that currently have no submitted value, in visible form order. */
+internal fun missingRequiredFieldLabels(
+    fields: List<com.datadragon.app.data.FieldDef>,
+    textValues: Map<String, String>,
+    multiValues: Map<String, Set<String>>,
+): List<String> = fields.mapNotNull { field ->
+    val missing = when {
+        !field.required -> false
+        field.type == FieldType.MULTIPLE -> multiValues[field.label].orEmpty().isEmpty()
+        else -> textValues[field.label].isNullOrBlank()
+    }
+    field.label.takeIf { missing }
 }
 
 /** Build the value map that gets serialized into the entry's valuesJson. */
