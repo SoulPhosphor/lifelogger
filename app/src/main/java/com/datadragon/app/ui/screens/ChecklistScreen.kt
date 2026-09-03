@@ -7,15 +7,20 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -48,6 +53,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -56,6 +62,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -167,6 +174,14 @@ fun ChecklistScreen(
     var pendingFocusId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     val lazyListState = rememberLazyListState()
+    val density = LocalDensity.current
+    val imeVisible = WindowInsets.ime.getBottom(density) > 0
+    // When the keyboard is open, leave one viewport of trailing scroll room so
+    // even the final item can be moved to the top and edited without fighting
+    // the automatic bring-into-view behavior.
+    val keyboardScrollSpace = with(density) {
+        if (imeVisible) lazyListState.layoutInfo.viewportSize.height.toDp() else 0.dp
+    }
     val reorderState = rememberReorderableLazyListState(lazyListState) { from, to ->
         val ids = viewModel.items.value.map { it.id }.toMutableList()
         if (from.index in ids.indices && to.index in ids.indices) {
@@ -181,7 +196,7 @@ fun ChecklistScreen(
                 // The list's name sits in the top bar, immediately right of the
                 // double-chevron Back button, and stays editable there.
                 title = {
-                    TitleField(
+                    EditableTitleField(
                         value = title,
                         onValueChange = viewModel::setTitle,
                         onFocusLost = viewModel::onTitleFocusLost,
@@ -233,6 +248,7 @@ fun ChecklistScreen(
             androidx.compose.foundation.lazy.LazyColumn(
                 state = lazyListState,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentPadding = PaddingValues(bottom = keyboardScrollSpace),
             ) {
                 itemsIndexed(items, key = { _, item -> item.id }) { _, item ->
                     ReorderableItem(reorderState, key = item.id) { _ ->
@@ -322,7 +338,7 @@ fun ChecklistScreen(
 }
 
 @Composable
-private fun TitleField(
+internal fun EditableTitleField(
     value: String,
     onValueChange: (String) -> Unit,
     onFocusLost: () -> Unit,
@@ -378,11 +394,16 @@ private fun ChecklistItemRow(
 ) {
     var text by remember(item.id) { mutableStateOf(item.text) }
     val focusRequester = remember { FocusRequester() }
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
     // Tracks focus so we can persist this item's latest text the moment it blurs.
     var wasFocused by remember(item.id) { mutableStateOf(false) }
     LaunchedEffect(requestFocus) {
         if (requestFocus) {
             focusRequester.requestFocus()
+            // Wait for the inserted row to be measured, then move only as much
+            // as necessary to keep the whole new row above the keyboard.
+            withFrameNanos { }
+            bringIntoViewRequester.bringIntoView()
             onFocusHandled()
         }
     }
@@ -390,6 +411,7 @@ private fun ChecklistItemRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .bringIntoViewRequester(bringIntoViewRequester)
             .padding(start = if (item.indent == 1) 32.dp else 0.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

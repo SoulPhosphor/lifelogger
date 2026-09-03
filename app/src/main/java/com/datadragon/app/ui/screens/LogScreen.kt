@@ -1,6 +1,7 @@
 package com.datadragon.app.ui.screens
 
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -125,15 +126,25 @@ fun LogScreen(
         saveDocument.launch(content.suggestedName)
     }
 
+    fun attemptBack() { viewModel.leaveAfterTitleFlush(onBack) }
+    BackHandler { attemptBack() }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(template?.name ?: "Log") },
+                title = {
+                    EditableTitleField(
+                        value = template?.name.orEmpty(),
+                        onValueChange = viewModel::setTitle,
+                        onFocusLost = viewModel::onTitleFocusLost,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                },
                 navigationIcon = {
                     // Left cluster: back, then a gear menu holding the log-level
                     // actions (export, edit form, follow-up notes, unlock, delete).
                     Row {
-                        IconButton(onClick = onBack) {
+                        IconButton(onClick = { attemptBack() }) {
                             Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
                         }
                         Box {
@@ -155,7 +166,7 @@ fun LogScreen(
                                     text = { Text("Edit Form") },
                                     onClick = {
                                         gearMenuOpen = false
-                                        onEditForm()
+                                        viewModel.leaveAfterTitleFlush(onEditForm)
                                     },
                                 )
                                 // Toggle follow-up notes on/off (a check marks "on").

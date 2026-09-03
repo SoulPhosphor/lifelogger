@@ -15,9 +15,8 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 
 /**
- * Backs "Edit form": loads a log's current fields and writes back a new schema.
- * Editing may only add fields and reorder them (never rename or delete an
- * existing field), so stored entry values stay keyed correctly.
+ * Backs "Edit Form": loads a form's current title and fields and writes edits
+ * back while preserving stored entry values.
  */
 class EditFormViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -50,6 +49,7 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
      * attached under the new spelling without changing the values themselves.
      */
     fun save(
+        name: String,
         fields: List<FieldDef>,
         labelRenames: Map<String, String> = emptyMap(),
         optionRenames: Map<String, Map<String, String>> = emptyMap(),
@@ -65,8 +65,15 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
             }
-            val markdown = FormMarkdownGenerator.generate(_name.value.orEmpty(), fields)
-            dao.updateSchema(templateId, FormMarkdownParser.encodeFields(fields), markdown)
+            val savedName = name.trim()
+            val markdown = FormMarkdownGenerator.generate(savedName, fields)
+            dao.updateForm(
+                templateId,
+                savedName,
+                FormMarkdownParser.encodeFields(fields),
+                markdown,
+            )
+            _name.value = savedName
             _fields.value = fields
             onSaved()
         }

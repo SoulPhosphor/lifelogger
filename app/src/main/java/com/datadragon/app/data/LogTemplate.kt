@@ -11,7 +11,7 @@ import java.util.UUID
  * `schemaJson` holds the parsed field definitions (a JSON array of [FieldDef]).
  * `formMarkdown` keeps the original pasted text so it can be shown again and
  * included in `.json` exports (docs/FORM_MARKDOWN_SPEC.md §6). The template's
- * fields and name themselves are never edited — only created, read, and deleted.
+ * fields and name can be edited after creation.
  *
  * [uuid] is the log's permanent, app-internal identity. It is generated once at
  * creation and never changes — renaming the log leaves it untouched — so a

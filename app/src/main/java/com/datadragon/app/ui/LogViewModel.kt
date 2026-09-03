@@ -4,8 +4,10 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.datadragon.app.data.AppDatabase
+import com.datadragon.app.data.DebouncedFieldWriter
 import com.datadragon.app.data.EntryNote
 import com.datadragon.app.data.FieldDef
+import com.datadragon.app.data.FormMarkdownGenerator
 import com.datadragon.app.data.LogEntry
 import com.datadragon.app.data.LogTemplate
 import androidx.room.withTransaction
@@ -41,6 +43,10 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
     val fields: StateFlow<List<FieldDef>> = _fields
 
     private val templateId = MutableStateFlow<Long?>(null)
+    private var titleInputSequence = 0L
+    private val titleWriter = DebouncedFieldWriter<Long>(viewModelScope, 300L) { id, name ->
+        templateDao.rename(id, name.trim(), FormMarkdownGenerator.generate(name, _fields.value))
+    }
 
     val entries: StateFlow<List<LogEntry>> = templateId
         .flatMapLatest { id ->
@@ -64,6 +70,32 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
             _fields.value = template
                 ?.let { runCatching { json.decodeFromString<List<FieldDef>>(it.schemaJson) }.getOrNull() }
                 ?: emptyList()
+        }
+    }
+
+    /** Update the visible title immediately and debounce its database write. */
+    fun setTitle(name: String) {
+        val current = _template.value ?: return
+        _template.value = current.copy(name = name)
+        titleWriter.schedule(current.id, name, ++titleInputSequence)
+    }
+
+    /** Persist the latest title immediately when its editor loses focus. */
+    fun onTitleFocusLost() {
+        val id = _template.value?.id ?: return
+        viewModelScope.launch { titleWriter.flush(id) }
+    }
+
+    /** Flush the title before leaving this screen, then navigate. */
+    fun leaveAfterTitleFlush(onFlushed: () -> Unit) {
+        val id = _template.value?.id
+        if (id == null) {
+            onFlushed()
+            return
+        }
+        viewModelScope.launch {
+            titleWriter.flush(id)
+            onFlushed()
         }
     }
 
