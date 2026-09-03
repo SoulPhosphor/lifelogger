@@ -24,6 +24,8 @@ class CreateLogViewModel(app: Application) : AndroidViewModel(app) {
         formMarkdown: String,
         locked: Boolean,
         allowAppendedNotes: Boolean,
+        automaticTimestamping: Boolean,
+        sortTimestampLabel: String?,
         onSaved: () -> Unit,
     ) {
         viewModelScope.launch {
@@ -35,6 +37,8 @@ class CreateLogViewModel(app: Application) : AndroidViewModel(app) {
                     formMarkdown = formMarkdown,
                     locked = locked,
                     allowAppendedNotes = allowAppendedNotes,
+                    automaticTimestamping = automaticTimestamping,
+                    sortTimestampLabel = sortTimestampLabel,
                 )
             )
             onSaved()

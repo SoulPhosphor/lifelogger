@@ -97,8 +97,12 @@ All primary screens are **full-screen**. The only floating dialogs allowed are *
 └──────────────────────────────────────────────┘
 ```
 
-- Entries listed newest first.
-- The top line of each card holds the entry's date/time with the delete `🗑`
+- Entries are listed oldest first. A form may instead use one selected Date &
+  Time field as its default chronological timestamp; an entry without a value
+  in that field falls back to its automatic creation timestamp.
+- Automatic creation timestamps are always recorded. Each form controls whether
+  that timestamp is visible on its entry cards.
+- When visible, the top line of each card holds the entry's date/time with the delete `🗑`
   across from it on the right. The `🗑` uses the default icon color (it is **not**
   tinted red).
 - Below the top line, every field that has a value is shown on its own line,

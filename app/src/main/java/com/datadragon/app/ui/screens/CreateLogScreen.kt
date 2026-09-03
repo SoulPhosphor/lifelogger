@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Card
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -147,6 +148,7 @@ fun CreateLogScreen(
     // the default; it can later be unlocked one-way from the log screen.
     var locked by rememberSaveable { mutableStateOf(true) }
     var allowAppendedNotes by rememberSaveable { mutableStateOf(false) }
+    var automaticTimestamping by rememberSaveable { mutableStateOf(false) }
 
     // Build tab: the editable field list is the source of truth.
     val draftFields = rememberSaveable(saver = draftFieldsSaver) { mutableStateListOf() }
@@ -212,12 +214,24 @@ fun CreateLogScreen(
                                 fields = FormMarkdownParser.parse(markdown).fields
                             }
                             val finalName = name.ifBlank { firstMarkdownName(pasteText) ?: "" }
+                            val selectedSortLabel = draftFields
+                                .singleOrNull { it.sortByTimestamp }
+                                ?.label
+                                ?.trim()
+                            val sortTimestampLabel = selectedSortLabel?.let { selected ->
+                                fields.firstOrNull {
+                                    it.type == FieldType.DATETIME &&
+                                        it.label.equals(selected, ignoreCase = true)
+                                }?.label
+                            }
                             viewModel.save(
                                 name = finalName,
                                 schemaJson = FormMarkdownParser.encodeFields(fields),
                                 formMarkdown = markdown,
                                 locked = locked,
                                 allowAppendedNotes = allowAppendedNotes,
+                                automaticTimestamping = automaticTimestamping,
+                                sortTimestampLabel = sortTimestampLabel,
                                 onSaved = onBack,
                             )
                         },
@@ -246,6 +260,11 @@ fun CreateLogScreen(
                 singleLine = true,
             )
 
+            SettingSwitchRow(
+                checked = automaticTimestamping,
+                onCheckedChange = { automaticTimestamping = it },
+                title = "Automatic Timestamping",
+            )
             SettingSwitchRow(
                 checked = locked,
                 onCheckedChange = { locked = it },
@@ -313,7 +332,6 @@ fun CreateLogScreen(
             }
         }
     }
-
     if (showDiscard) {
         DiscardChangesDialog(
             onConfirm = { showDiscard = false; onBack() },
@@ -325,11 +343,11 @@ fun CreateLogScreen(
 /** A settings row with a label + description on the left and a Switch on the
  *  right. The whole row is tappable to toggle, which is easier to hit. */
 @Composable
-private fun SettingSwitchRow(
+internal fun SettingSwitchRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     title: String,
-    subtitle: String,
+    subtitle: String? = null,
 ) {
     Row(
         modifier = Modifier
@@ -340,14 +358,35 @@ private fun SettingSwitchRow(
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
-            Text(
-                subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            subtitle?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         Spacer(Modifier.width(12.dp))
         Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+/** A checkbox whose entire labeled row is one toggle target. */
+@Composable
+internal fun CheckboxSettingRow(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    title: String,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Checkbox(checked = checked, onCheckedChange = null)
+        Text(title)
     }
 }
 
@@ -359,6 +398,19 @@ private fun BuildEditor(
     onAdd: () -> Unit,
     onDelete: (DraftField) -> Unit,
 ) {
+    var pendingReplacement by remember { mutableStateOf<Pair<DraftField, DraftField>?>(null) }
+
+    fun setSort(field: DraftField, checked: Boolean) {
+        if (!checked) {
+            field.sortByTimestamp = false
+            return
+        }
+        field.sortByTimestamp = true
+        fields.firstOrNull { it !== field && it.sortByTimestamp }?.let { existing ->
+            pendingReplacement = field to existing
+        }
+    }
+
     Text("Fields", style = MaterialTheme.typography.labelLarge)
     if (fields.isEmpty()) {
         Text(
@@ -367,17 +419,54 @@ private fun BuildEditor(
         )
     }
     fields.forEachIndexed { index, field ->
-        FieldEditorCard(field = field, index = index, onDelete = { onDelete(field) })
+        FieldEditorCard(
+            field = field,
+            index = index,
+            onSortChanged = { setSort(field, it) },
+            onDelete = { onDelete(field) },
+        )
     }
     AppButton(onClick = onAdd, modifier = Modifier.fillMaxWidth()) {
         Icon(Icons.Filled.Add, contentDescription = null)
         Text("  Add Field")
     }
+
+    pendingReplacement?.let { (newField, existingField) ->
+        AlertDialog(
+            onDismissRequest = {
+                newField.sortByTimestamp = false
+                pendingReplacement = null
+            },
+            text = {
+                Text(
+                    "Checking this will mean that Form entries will no longer be sorted by " +
+                        "${existingField.label} first.",
+                )
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    newField.sortByTimestamp = false
+                    pendingReplacement = null
+                }) { Text("Cancel") }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    existingField.sortByTimestamp = false
+                    pendingReplacement = null
+                }) { Text("Okay") }
+            },
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun FieldEditorCard(field: DraftField, index: Int, onDelete: () -> Unit) {
+private fun FieldEditorCard(
+    field: DraftField,
+    index: Int,
+    onSortChanged: (Boolean) -> Unit,
+    onDelete: () -> Unit,
+) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(12.dp),
@@ -402,7 +491,10 @@ private fun FieldEditorCard(field: DraftField, index: Int, onDelete: () -> Unit)
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            TypeDropdown(selected = field.type, onSelected = { field.type = it })
+            TypeDropdown(selected = field.type, onSelected = {
+                field.type = it
+                if (it != FieldType.DATETIME) field.sortByTimestamp = false
+            })
 
             when (field.type) {
                 FieldType.MULTILINE -> NumberField(
@@ -435,17 +527,26 @@ private fun FieldEditorCard(field: DraftField, index: Int, onDelete: () -> Unit)
                     label = { Text("Options (One per Line)") },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp),
                 )
-                FieldType.DATETIME -> Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = field.defaultNow, onCheckedChange = { field.defaultNow = it })
-                    Text("Default to the Current Date & Time")
-                }
+                FieldType.DATETIME -> CheckboxSettingRow(
+                    checked = field.defaultNow,
+                    onCheckedChange = { field.defaultNow = it },
+                    title = "Default to the Current Date & Time",
+                )
                 else -> Unit
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = field.required, onCheckedChange = { field.required = it })
-                Text("Required")
+            if (field.type == FieldType.DATETIME) {
+                CheckboxSettingRow(
+                    checked = field.sortByTimestamp,
+                    onCheckedChange = onSortChanged,
+                    title = "Use as Default Sort Timestamp",
+                )
             }
+            CheckboxSettingRow(
+                checked = field.required,
+                onCheckedChange = { field.required = it },
+                title = "Required",
+            )
 
             field.validationHint()?.let { hint ->
                 Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
@@ -602,6 +703,7 @@ private class DraftField(
     to: String = "",
     optionsText: String = "",
     defaultNow: Boolean = false,
+    sortByTimestamp: Boolean = false,
 ) {
     var label by mutableStateOf(label)
     var type by mutableStateOf(type)
@@ -612,6 +714,7 @@ private class DraftField(
     var to by mutableStateOf(to)
     var optionsText by mutableStateOf(optionsText)
     var defaultNow by mutableStateOf(defaultNow)
+    var sortByTimestamp by mutableStateOf(sortByTimestamp)
 
     fun optionList(): List<String> =
         optionsText.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
@@ -660,6 +763,7 @@ private class DraftField(
         to = to,
         optionsText = optionsText,
         defaultNow = defaultNow,
+        sortByTimestamp = sortByTimestamp,
     )
 }
 
@@ -675,6 +779,7 @@ private data class DraftFieldSnapshot(
     val to: String,
     val optionsText: String,
     val defaultNow: Boolean,
+    val sortByTimestamp: Boolean = false,
 )
 
 private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
@@ -687,6 +792,7 @@ private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
     to = to,
     optionsText = optionsText,
     defaultNow = defaultNow,
+    sortByTimestamp = sortByTimestamp,
 )
 
 /**

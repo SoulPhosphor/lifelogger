@@ -31,14 +31,24 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
     private val _fields = MutableStateFlow<List<FieldDef>>(emptyList())
     val fields: StateFlow<List<FieldDef>> = _fields
 
+    private val _automaticTimestamping = MutableStateFlow(false)
+    val automaticTimestamping: StateFlow<Boolean> = _automaticTimestamping
+
+    private val _sortTimestampLabel = MutableStateFlow<String?>(null)
+    val sortTimestampLabel: StateFlow<String?> = _sortTimestampLabel
+
     fun load(id: Long) {
         templateId = id
         viewModelScope.launch {
             val template = dao.getById(id)
-            _name.value = template?.name
+            _automaticTimestamping.value = template?.automaticTimestamping ?: false
+            _sortTimestampLabel.value = template?.sortTimestampLabel
             _fields.value = template
                 ?.let { runCatching { json.decodeFromString<List<FieldDef>>(it.schemaJson) }.getOrNull() }
                 ?: emptyList()
+            // Name is the screen's loaded sentinel, so publish it after the
+            // settings and fields it gates have been populated.
+            _name.value = template?.name
         }
     }
 
@@ -51,6 +61,8 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
     fun save(
         name: String,
         fields: List<FieldDef>,
+        automaticTimestamping: Boolean,
+        sortTimestampLabel: String?,
         labelRenames: Map<String, String> = emptyMap(),
         optionRenames: Map<String, Map<String, String>> = emptyMap(),
         onSaved: () -> Unit,
@@ -72,9 +84,13 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
                 savedName,
                 FormMarkdownParser.encodeFields(fields),
                 markdown,
+                automaticTimestamping,
+                sortTimestampLabel,
             )
             _name.value = savedName
             _fields.value = fields
+            _automaticTimestamping.value = automaticTimestamping
+            _sortTimestampLabel.value = sortTimestampLabel
             onSaved()
         }
     }

@@ -6,7 +6,9 @@ import androidx.lifecycle.viewModelScope
 import com.datadragon.app.data.AppDatabase
 import com.datadragon.app.data.DebouncedFieldWriter
 import com.datadragon.app.data.EntryNote
+import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.FieldDef
+import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.FormMarkdownGenerator
 import com.datadragon.app.data.LogEntry
 import com.datadragon.app.data.LogTemplate
@@ -15,6 +17,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -22,10 +25,12 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import java.time.LocalDateTime
+import java.time.OffsetDateTime
 
 /**
  * Backs the single-log (entry list) screen. It loads the template (for the log
- * name and field definitions) and observes that log's entries, newest first.
+ * name and field definitions) and observes that log's entries chronologically.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class LogViewModel(app: Application) : AndroidViewModel(app) {
@@ -48,11 +53,19 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
         templateDao.rename(id, name.trim(), FormMarkdownGenerator.generate(name, _fields.value))
     }
 
-    val entries: StateFlow<List<LogEntry>> = templateId
+    private val storedEntries: StateFlow<List<LogEntry>> = templateId
         .flatMapLatest { id ->
             if (id == null) flowOf(emptyList()) else entryDao.observeForTemplate(id)
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Use the chosen Date & Time field when populated, then hidden createdAt. */
+    val entries: StateFlow<List<LogEntry>> =
+        combine(storedEntries, _fields, _template) { entries, fields, template ->
+            val sortLabel = template?.sortTimestampLabel
+                ?.takeIf { label -> fields.any { it.type == FieldType.DATETIME && it.label == label } }
+            sortLogEntriesChronologically(entries, sortLabel)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Append-only follow-up notes for this log, grouped by the entry they belong to. */
     val notesByEntry: StateFlow<Map<Long, List<EntryNote>>> = templateId
@@ -153,4 +166,23 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
             onDeleted()
         }
     }
+
+}
+
+/** Oldest first by the selected Date & Time field, falling back per entry to createdAt. */
+internal fun sortLogEntriesChronologically(
+    entries: List<LogEntry>,
+    sortTimestampLabel: String?,
+): List<LogEntry> = entries.sortedWith(
+    compareBy<LogEntry> { entry -> entrySortTime(entry, sortTimestampLabel) }
+        .thenBy { it.id },
+)
+
+private fun entrySortTime(entry: LogEntry, sortTimestampLabel: String?): LocalDateTime {
+    val userTime = sortTimestampLabel
+        ?.let { EntryValues.rawValue(EntryValues.decode(entry.valuesJson), it) }
+        ?.let { runCatching { LocalDateTime.parse(it, EntryValues.DATETIME_STORAGE) }.getOrNull() }
+    return userTime
+        ?: runCatching { OffsetDateTime.parse(entry.createdAt).toLocalDateTime() }
+            .getOrDefault(LocalDateTime.MIN)
 }

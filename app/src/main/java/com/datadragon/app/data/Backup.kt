@@ -44,6 +44,8 @@ data class BackupLog(
     // Default to the prior behavior so older backups round-trip: locked, no notes.
     val locked: Boolean = true,
     val allowAppendedNotes: Boolean = false,
+    val automaticTimestamping: Boolean = false,
+    val sortTimestampLabel: String? = null,
     val entries: List<BackupEntry> = emptyList(),
 )
 
@@ -129,6 +131,8 @@ object BackupCodec {
             formMarkdown = template.formMarkdown,
             locked = template.locked,
             allowAppendedNotes = template.allowAppendedNotes,
+            automaticTimestamping = template.automaticTimestamping,
+            sortTimestampLabel = template.sortTimestampLabel,
             entries = entries.map { entry ->
                 BackupEntry(
                     id = entry.id,
@@ -154,6 +158,8 @@ object BackupCodec {
             formMarkdown = log.formMarkdown,
             locked = log.locked,
             allowAppendedNotes = log.allowAppendedNotes,
+            automaticTimestamping = log.automaticTimestamping,
+            sortTimestampLabel = log.sortTimestampLabel,
         )
 
     fun entriesOf(log: BackupLog): List<LogEntry> =

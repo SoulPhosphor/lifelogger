@@ -39,4 +39,9 @@ data class LogTemplate(
     val locked: Boolean = true,
     @ColumnInfo(defaultValue = "0")
     val allowAppendedNotes: Boolean = false,
+    /** Show the otherwise-hidden automatic entry timestamp on entry cards. */
+    @ColumnInfo(defaultValue = "0")
+    val automaticTimestamping: Boolean = false,
+    /** Label of the one Date & Time field used for ordering, or null for createdAt. */
+    val sortTimestampLabel: String? = null,
 )

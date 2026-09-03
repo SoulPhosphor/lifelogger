@@ -30,10 +30,10 @@ interface LogEntryDao {
     @Query("UPDATE log_entries SET marked = :marked WHERE id = :id")
     suspend fun setMarked(id: Long, marked: Boolean)
 
-    /** Entries for one log, newest first (docs/UI_SPEC.md §3). */
+    /** Stored entries for one log; the ViewModel applies the form's timestamp ordering. */
     @Query(
         "SELECT * FROM log_entries WHERE templateId = :templateId " +
-            "ORDER BY createdAt DESC, id DESC"
+            "ORDER BY createdAt ASC, id ASC"
     )
     fun observeForTemplate(templateId: Long): Flow<List<LogEntry>>
 

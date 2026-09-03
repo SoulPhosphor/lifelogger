@@ -41,9 +41,17 @@ interface LogTemplateDao {
     /** Save a title and schema edit together from the Edit Form screen. */
     @Query(
         "UPDATE log_templates SET name = :name, schemaJson = :schemaJson, " +
-            "formMarkdown = :formMarkdown WHERE id = :id",
+            "formMarkdown = :formMarkdown, automaticTimestamping = :automaticTimestamping, " +
+            "sortTimestampLabel = :sortTimestampLabel WHERE id = :id",
     )
-    suspend fun updateForm(id: Long, name: String, schemaJson: String, formMarkdown: String)
+    suspend fun updateForm(
+        id: Long,
+        name: String,
+        schemaJson: String,
+        formMarkdown: String,
+        automaticTimestamping: Boolean,
+        sortTimestampLabel: String?,
+    )
 
     /** Templates in creation order — never resorted (docs/UI_SPEC.md §2). */
     @Query("SELECT * FROM log_templates ORDER BY createdAt ASC, id ASC")

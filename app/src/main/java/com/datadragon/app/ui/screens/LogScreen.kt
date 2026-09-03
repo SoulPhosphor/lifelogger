@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -84,6 +85,7 @@ fun LogScreen(
 
     val locked = template?.locked ?: true
     val allowAppendedNotes = template?.allowAppendedNotes ?: false
+    val automaticTimestamping = template?.automaticTimestamping ?: false
 
     var confirmDeleteLog by remember { mutableStateOf(false) }
     var showFormatChooser by remember { mutableStateOf(false) }
@@ -243,6 +245,7 @@ fun LogScreen(
                         entry = entry,
                         fields = fields,
                         appendedNotes = notesByEntry[entry.id].orEmpty(),
+                        showAutomaticTimestamp = automaticTimestamping,
                         editable = !locked,
                         appendable = allowAppendedNotes,
                         onDelete = { entryToDelete = entry },
@@ -379,8 +382,8 @@ fun LogScreen(
 }
 
 /**
- * One entry card (docs/UI_SPEC.md §3). The top line holds the entry's timestamp
- * with a `⋮` menu across from it — Edit (when unlocked), Mark/Unmark, Add
+ * One entry card (docs/UI_SPEC.md §3). The top line optionally shows the entry's
+ * automatic timestamp with a `⋮` menu across from it — Edit (when unlocked), Mark/Unmark, Add
  * follow-up note (when the log allows them), and Delete. When the entry is
  * marked, a filled star sits just before the `⋮`; tapping the star unmarks it.
  * Every field with a value is listed below as `label: value`, then any
@@ -391,6 +394,7 @@ private fun EntryRow(
     entry: LogEntry,
     fields: List<FieldDef>,
     appendedNotes: List<EntryNote>,
+    showAutomaticTimestamp: Boolean,
     editable: Boolean,
     appendable: Boolean,
     onDelete: () -> Unit,
@@ -407,16 +411,20 @@ private fun EntryRow(
         Column(
             modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 8.dp, end = 4.dp, bottom = 16.dp),
         ) {
-            // Top line: timestamp on the left; a ⋮ menu across from it on the right.
+            // Top line: optional timestamp on the left; a ⋮ menu on the right.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = EntryValues.displayEntryTimestamp(entry.createdAt),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f),
-                )
+                if (showAutomaticTimestamp) {
+                    Text(
+                        text = EntryValues.displayEntryTimestamp(entry.createdAt),
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+                } else {
+                    Spacer(Modifier.weight(1f))
+                }
                 // The star only appears when the entry is marked; tapping it unmarks.
                 if (entry.marked) {
                     IconButton(onClick = onToggleMark) {
