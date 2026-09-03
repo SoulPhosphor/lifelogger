@@ -259,6 +259,7 @@ fun NewEntryScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 private data class FieldValidationTarget(
     val bringIntoViewRequester: BringIntoViewRequester,
     val focusRequester: FocusRequester?,
