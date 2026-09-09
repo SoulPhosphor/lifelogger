@@ -19,7 +19,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.FolderCopy
-import androidx.compose.material.icons.filled.HomeStorage
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
@@ -50,10 +49,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.datadragon.app.R
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.IdeaEntry
 import com.datadragon.app.data.IdeaFieldDef
@@ -184,18 +185,20 @@ fun IdeaLogScreen(
                                 )
                             },
                         ) {
-                            Icon(
-                                imageVector = if (inArchive) {
-                                    Icons.Filled.HomeStorage
-                                } else {
-                                    Icons.Filled.FolderCopy
-                                },
-                                contentDescription = if (inArchive) {
-                                    "Back to active ideas"
-                                } else {
-                                    "Archived ideas"
-                                },
-                            )
+                            // FolderCopy comes from the icon library; HomeStorage
+                            // is bundled as a drawable because that glyph only
+                            // exists in Material Symbols (see ic_home_storage.xml).
+                            if (inArchive) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_home_storage),
+                                    contentDescription = "Back to active ideas",
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Filled.FolderCopy,
+                                    contentDescription = "Archived ideas",
+                                )
+                            }
                         }
                     }
                     IconButton(onClick = { searchOpen = !searchOpen }) {

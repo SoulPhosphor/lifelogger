@@ -44,7 +44,10 @@ Shared field mechanics are reused where the behavior really is shared.
   idea and returns from the archive view to the active list. Search opens under
   the app bar with `Whole Word` / `Match Case` (and `Search All Locations` where
   it applies), runs only on submission, and always escapes the query so it can
-  never be read as a regular expression.
+  never be read as a regular expression. The archive view's `HomeStorage` icon is
+  bundled as `res/drawable/ic_home_storage.xml`, traced from the Google Material
+  Symbols source — `material-icons-extended` is built from the older Material
+  Icons set, which doesn't carry that glyph.
 - **Sorting** reuses the existing form system — Allow Order Filtering, Use as
   Default Sort Timestamp, default direction, and the same eligibility rule (Date
   Only and Date/Time yes, Time Only no). `SortFilterBar` moved to

@@ -1,0 +1,26 @@
+<!--
+  Google Material Symbols "home_storage" (filled), the icon the Idea Log's
+  archive view shows to return to the active list.
+
+  It is bundled here rather than taken from androidx material-icons-extended:
+  that library is generated from the older Material Icons set, which has no
+  home_storage — the glyph exists only in Material Symbols.
+
+  Traced verbatim from the Material Symbols source, whose viewBox is
+  "0 -960 960 960"; a VectorDrawable viewport always starts at 0,0, so the
+  group's translateY shifts the path down into it rather than the path being
+  redrawn by hand. Icon() tints it with the current content color, so the
+  fillColor here is only a placeholder.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960"
+    android:tint="#FF000000">
+    <group android:translateY="960">
+        <path
+            android:fillColor="@android:color/white"
+            android:pathData="m200,-120l-80,-480h720l-80,480H200ZM400,-380h160q13,0 21.5,-9t8.5,-21q0,-13 -8.5,-21.5T560,-440H400q-12,0 -21,8.5t-9,21.5q0,12 9,21t21,9ZM240,-660q-12,0 -21,-9t-9,-21q0,-13 9,-21.5t21,-8.5h480q13,0 21.5,8.5T750,-690q0,12 -8.5,21t-21.5,9H240ZM320,-780q-12,0 -21,-9t-9,-21q0,-13 9,-21.5t21,-8.5h320q13,0 21.5,8.5T670,-810q0,12 -8.5,21t-21.5,9H320Z" />
+    </group>
+</vector>

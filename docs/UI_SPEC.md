@@ -433,6 +433,10 @@ Top bar, trailing controls, in a fixed relationship:
 [Marked Filter] [Search] [+]                     (archiving off)
 ```
 
+`HomeStorage` is bundled as `res/drawable/ic_home_storage.xml`, traced from the
+Google Material Symbols source: `material-icons-extended` is generated from the
+older Material Icons set, which has no `home_storage`.
+
 The marked-only star appears only when something in the current result set is
 marked, and always goes **before** the archive toggle. Nothing is ever inserted
 between the archive toggle, Search and `+`. With archiving off there is no
