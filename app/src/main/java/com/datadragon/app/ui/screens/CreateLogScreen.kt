@@ -34,6 +34,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
@@ -59,6 +60,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.FieldType
+import com.datadragon.app.data.sortEligible
 import com.datadragon.app.data.FormMarkdownGenerator
 import com.datadragon.app.data.FormMarkdownParser
 import com.datadragon.app.data.SettingsRepository
@@ -149,6 +151,7 @@ fun CreateLogScreen(
     var locked by rememberSaveable { mutableStateOf(true) }
     var allowAppendedNotes by rememberSaveable { mutableStateOf(false) }
     var automaticTimestamping by rememberSaveable { mutableStateOf(false) }
+    var sortNewestFirst by rememberSaveable { mutableStateOf(true) }
 
     // Build tab: the editable field list is the source of truth.
     val draftFields = rememberSaveable(saver = draftFieldsSaver) { mutableStateListOf() }
@@ -220,7 +223,7 @@ fun CreateLogScreen(
                                 ?.trim()
                             val sortTimestampLabel = selectedSortLabel?.let { selected ->
                                 fields.firstOrNull {
-                                    it.type == FieldType.DATETIME &&
+                                    it.type.sortEligible &&
                                         it.label.equals(selected, ignoreCase = true)
                                 }?.label
                             }
@@ -232,6 +235,7 @@ fun CreateLogScreen(
                                 allowAppendedNotes = allowAppendedNotes,
                                 automaticTimestamping = automaticTimestamping,
                                 sortTimestampLabel = sortTimestampLabel,
+                                sortNewestFirst = sortNewestFirst,
                                 onSaved = onBack,
                             )
                         },
@@ -315,6 +319,8 @@ fun CreateLogScreen(
             when (mode) {
                 BuilderMode.BUILD -> BuildEditor(
                     fields = draftFields,
+                    sortNewestFirst = sortNewestFirst,
+                    onSortDirectionChange = { sortNewestFirst = it },
                     onAdd = { draftFields.add(DraftField()) },
                     onDelete = { draftFields.remove(it) },
                 )
@@ -371,6 +377,43 @@ internal fun SettingSwitchRow(
     }
 }
 
+/**
+ * The form's default entry order, shown under "Use as Default Sort Timestamp"
+ * once a field is chosen as the sort timestamp — a default is only meaningful
+ * once we also know which way it runs.
+ */
+@Composable
+internal fun SortDirectionRadios(
+    newestFirst: Boolean,
+    onNewestFirstChange: (Boolean) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(start = 12.dp)) {
+        Text("Default Sorting:", style = MaterialTheme.typography.bodyLarge)
+        // Both choices share the width so a narrow screen wraps the labels
+        // rather than clipping them.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(
+                modifier = Modifier.weight(1f).clickable { onNewestFirstChange(true) },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(selected = newestFirst, onClick = { onNewestFirstChange(true) })
+                Text("Newest to Oldest")
+            }
+            Row(
+                modifier = Modifier.weight(1f).clickable { onNewestFirstChange(false) },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(selected = !newestFirst, onClick = { onNewestFirstChange(false) })
+                Text("Oldest to Newest")
+            }
+        }
+    }
+}
+
 /** A checkbox whose entire labeled row is one toggle target. */
 @Composable
 internal fun CheckboxSettingRow(
@@ -395,6 +438,8 @@ internal fun CheckboxSettingRow(
 @Composable
 private fun BuildEditor(
     fields: List<DraftField>,
+    sortNewestFirst: Boolean,
+    onSortDirectionChange: (Boolean) -> Unit,
     onAdd: () -> Unit,
     onDelete: (DraftField) -> Unit,
 ) {
@@ -422,7 +467,9 @@ private fun BuildEditor(
         FieldEditorCard(
             field = field,
             index = index,
+            sortNewestFirst = sortNewestFirst,
             onSortChanged = { setSort(field, it) },
+            onSortDirectionChange = onSortDirectionChange,
             onDelete = { onDelete(field) },
         )
     }
@@ -439,8 +486,8 @@ private fun BuildEditor(
             },
             text = {
                 Text(
-                    "Checking this will mean that Form entries will no longer be sorted by " +
-                        "${existingField.label} first.",
+                    "Default timestamp sorting is currently set to be ${existingField.label}. " +
+                        "Do you want to change it?",
                 )
             },
             dismissButton = {
@@ -464,7 +511,9 @@ private fun BuildEditor(
 private fun FieldEditorCard(
     field: DraftField,
     index: Int,
+    sortNewestFirst: Boolean,
     onSortChanged: (Boolean) -> Unit,
+    onSortDirectionChange: (Boolean) -> Unit,
     onDelete: () -> Unit,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -493,7 +542,11 @@ private fun FieldEditorCard(
 
             TypeDropdown(selected = field.type, onSelected = {
                 field.type = it
-                if (it != FieldType.DATETIME) field.sortByTimestamp = false
+                // Time-only and non-date fields can never take part in ordering.
+                if (!it.sortEligible) {
+                    field.allowOrderFiltering = false
+                    field.sortByTimestamp = false
+                }
             })
 
             when (field.type) {
@@ -535,12 +588,23 @@ private fun FieldEditorCard(
                 else -> Unit
             }
 
-            if (field.type == FieldType.DATETIME) {
+            if (field.type.sortEligible) {
+                CheckboxSettingRow(
+                    checked = field.allowOrderFiltering,
+                    onCheckedChange = { field.allowOrderFiltering = it },
+                    title = "Allow Order Filtering",
+                )
                 CheckboxSettingRow(
                     checked = field.sortByTimestamp,
                     onCheckedChange = onSortChanged,
                     title = "Use as Default Sort Timestamp",
                 )
+                if (field.sortByTimestamp) {
+                    SortDirectionRadios(
+                        newestFirst = sortNewestFirst,
+                        onNewestFirstChange = onSortDirectionChange,
+                    )
+                }
             }
             CheckboxSettingRow(
                 checked = field.required,
@@ -703,6 +767,7 @@ private class DraftField(
     to: String = "",
     optionsText: String = "",
     defaultNow: Boolean = false,
+    allowOrderFiltering: Boolean = false,
     sortByTimestamp: Boolean = false,
 ) {
     var label by mutableStateOf(label)
@@ -714,6 +779,7 @@ private class DraftField(
     var to by mutableStateOf(to)
     var optionsText by mutableStateOf(optionsText)
     var defaultNow by mutableStateOf(defaultNow)
+    var allowOrderFiltering by mutableStateOf(allowOrderFiltering)
     var sortByTimestamp by mutableStateOf(sortByTimestamp)
 
     fun optionList(): List<String> =
@@ -751,6 +817,7 @@ private class DraftField(
         to = if (type == FieldType.SCALE) to.toIntOrNull() else null,
         options = if (type == FieldType.DROPDOWN || type == FieldType.MULTIPLE) optionList() else emptyList(),
         defaultNow = type == FieldType.DATETIME && defaultNow,
+        allowOrderFiltering = type.sortEligible && allowOrderFiltering,
     )
 
     fun toSnapshot(): DraftFieldSnapshot = DraftFieldSnapshot(
@@ -763,6 +830,7 @@ private class DraftField(
         to = to,
         optionsText = optionsText,
         defaultNow = defaultNow,
+        allowOrderFiltering = allowOrderFiltering,
         sortByTimestamp = sortByTimestamp,
     )
 }
@@ -779,6 +847,7 @@ private data class DraftFieldSnapshot(
     val to: String,
     val optionsText: String,
     val defaultNow: Boolean,
+    val allowOrderFiltering: Boolean = false,
     val sortByTimestamp: Boolean = false,
 )
 
@@ -792,6 +861,7 @@ private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
     to = to,
     optionsText = optionsText,
     defaultNow = defaultNow,
+    allowOrderFiltering = allowOrderFiltering,
     sortByTimestamp = sortByTimestamp,
 )
 
@@ -849,6 +919,7 @@ private fun FieldDef.toDraft(): DraftField = DraftField(
     to = to?.toString() ?: "",
     optionsText = options.joinToString("\n"),
     defaultNow = defaultNow,
+    allowOrderFiltering = allowOrderFiltering,
 )
 
 /** The first single-`#` line of [text], used as the log name when the box is empty. */

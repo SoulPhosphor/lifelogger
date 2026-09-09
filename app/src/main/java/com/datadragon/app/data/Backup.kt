@@ -46,6 +46,7 @@ data class BackupLog(
     val allowAppendedNotes: Boolean = false,
     val automaticTimestamping: Boolean = false,
     val sortTimestampLabel: String? = null,
+    val sortNewestFirst: Boolean = true,
     val entries: List<BackupEntry> = emptyList(),
 )
 
@@ -133,6 +134,7 @@ object BackupCodec {
             allowAppendedNotes = template.allowAppendedNotes,
             automaticTimestamping = template.automaticTimestamping,
             sortTimestampLabel = template.sortTimestampLabel,
+            sortNewestFirst = template.sortNewestFirst,
             entries = entries.map { entry ->
                 BackupEntry(
                     id = entry.id,
@@ -160,6 +162,7 @@ object BackupCodec {
             allowAppendedNotes = log.allowAppendedNotes,
             automaticTimestamping = log.automaticTimestamping,
             sortTimestampLabel = log.sortTimestampLabel,
+            sortNewestFirst = log.sortNewestFirst,
         )
 
     fun entriesOf(log: BackupLog): List<LogEntry> =

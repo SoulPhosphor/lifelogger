@@ -134,6 +134,18 @@ Write like a professional technical writer, not like someone thinking out loud.
   "Edit Form", "Save Entry"). Minor words (a, an, the, and, or, of, to, for, in,
   on, at, by) stay lowercase unless they are the first word.
 
+## Form field sorting
+
+- **Only fields that carry a date are eligible for ordering.** Date and
+  Date & Time fields are eligible; Time-only fields never are, because two times
+  with no date can't be placed chronologically against each other.
+- **Eligible means the user may opt in, not that sorting is on.** The
+  "Allow Order Filtering" checkbox is the opt-in; sorting is never enabled
+  automatically. The same eligibility rule applies to the default sort timestamp
+  setting.
+- **A Date field sorts at the start of its day**, so a Date and a Date & Time
+  field order against each other consistently.
+
 ## Building and CI
 
 - **There is no local Android SDK in this environment — you cannot run

@@ -42,7 +42,8 @@ interface LogTemplateDao {
     @Query(
         "UPDATE log_templates SET name = :name, schemaJson = :schemaJson, " +
             "formMarkdown = :formMarkdown, automaticTimestamping = :automaticTimestamping, " +
-            "sortTimestampLabel = :sortTimestampLabel WHERE id = :id",
+            "sortTimestampLabel = :sortTimestampLabel, " +
+            "sortNewestFirst = :sortNewestFirst WHERE id = :id",
     )
     suspend fun updateForm(
         id: Long,
@@ -51,6 +52,7 @@ interface LogTemplateDao {
         formMarkdown: String,
         automaticTimestamping: Boolean,
         sortTimestampLabel: String?,
+        sortNewestFirst: Boolean,
     )
 
     /** Templates in creation order — never resorted (docs/UI_SPEC.md §2). */
