@@ -52,6 +52,8 @@ object CsvBuilder {
                 val selected = EntryValues.selectedOptions(values, field.label)
                 field.options.filter { it in selected }.joinToString("; ")
             }
+            // Tags have no fixed option list, so they export in saved order.
+            FieldType.TAGS -> EntryValues.stringList(values, field.label).joinToString("; ")
             // Everything else exports its raw stored value (scale as the bare
             // number; date/time as the stored ISO-8601 string).
             else -> EntryValues.rawValue(values, field.label) ?: ""

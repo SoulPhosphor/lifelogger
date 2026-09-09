@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.foundation.layout.Spacer
@@ -70,6 +71,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import sh.calvin.reorderable.ReorderableColumn
 
 /** Which editor is showing. Build (visual taps) is the default. */
 private enum class BuilderMode { BUILD, PASTE }
@@ -83,6 +85,8 @@ scale        — pick a number in a range. Set "from" and "to"
 yesno        — Yes / No / Unknown / Not Applicable
 number       — type a number. Set "digits" for max digits allowed
 multiple     — pick several items from a list (tappable chips)
+tags         — type a tag and add it; each becomes a removable chip
+webpage      — a web address, with a button that opens it
 
 Any field can add "required" to prevent saving without it."""
 
@@ -323,6 +327,7 @@ fun CreateLogScreen(
                     onSortDirectionChange = { sortNewestFirst = it },
                     onAdd = { draftFields.add(DraftField()) },
                     onDelete = { draftFields.remove(it) },
+                    onReorder = { from, to -> draftFields.add(to, draftFields.removeAt(from)) },
                 )
                 BuilderMode.PASTE -> PasteEditor(
                     text = pasteText,
@@ -442,6 +447,7 @@ private fun BuildEditor(
     onSortDirectionChange: (Boolean) -> Unit,
     onAdd: () -> Unit,
     onDelete: (DraftField) -> Unit,
+    onReorder: (from: Int, to: Int) -> Unit,
 ) {
     var pendingReplacement by remember { mutableStateOf<Pair<DraftField, DraftField>?>(null) }
 
@@ -463,7 +469,14 @@ private fun BuildEditor(
             style = MaterialTheme.typography.bodyMedium,
         )
     }
-    fields.forEachIndexed { index, field ->
+    // Fields drag by their handle into the order they'll be saved in — the same
+    // reorderable list the rest of the app uses, so nobody taps Up and Down.
+    ReorderableColumn(
+        list = fields,
+        onSettle = onReorder,
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) { index, field, _ ->
         FieldEditorCard(
             field = field,
             index = index,
@@ -471,6 +484,7 @@ private fun BuildEditor(
             onSortChanged = { setSort(field, it) },
             onSortDirectionChange = onSortDirectionChange,
             onDelete = { onDelete(field) },
+            dragHandleModifier = Modifier.draggableHandle(),
         )
     }
     AppButton(onClick = onAdd, modifier = Modifier.fillMaxWidth()) {
@@ -515,6 +529,7 @@ private fun FieldEditorCard(
     onSortChanged: (Boolean) -> Unit,
     onSortDirectionChange: (Boolean) -> Unit,
     onDelete: () -> Unit,
+    dragHandleModifier: Modifier = Modifier,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -530,6 +545,13 @@ private fun FieldEditorCard(
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Filled.Delete, contentDescription = "Delete field")
                 }
+                // Press-and-drag handle at the far right to reorder the field.
+                Icon(
+                    imageVector = Icons.Filled.DragIndicator,
+                    contentDescription = "Drag to reorder",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = dragHandleModifier.padding(start = 4.dp),
+                )
             }
 
             OutlinedTextField(
@@ -940,6 +962,8 @@ private fun FieldType.friendly(): String = when (this) {
     FieldType.DATE -> "Date"
     FieldType.TIME -> "Time"
     FieldType.DATETIME -> "Date & time"
+    FieldType.TAGS -> "Tags"
+    FieldType.WEBPAGE -> "Webpages"
 }
 
 /** A short human-readable description of a parsed field for the preview. */
@@ -955,6 +979,8 @@ private fun FieldDef.summary(): String {
         FieldType.DATE -> "Date"
         FieldType.TIME -> "Time"
         FieldType.DATETIME -> "Date & time" + (if (defaultNow) " (defaults to now)" else "")
+        FieldType.TAGS -> "Tags"
+        FieldType.WEBPAGE -> "Webpage address"
     }
     return if (required) "$base · required" else base
 }

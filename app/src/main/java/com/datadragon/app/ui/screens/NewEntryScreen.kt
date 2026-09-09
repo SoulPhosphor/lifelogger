@@ -43,6 +43,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.FieldType
+import com.datadragon.app.data.WebAddress
 import com.datadragon.app.ui.NewEntryViewModel
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -72,6 +73,14 @@ private val multiValuesSaver = Saver<SnapshotStateMap<String, Set<String>>, Stri
     restore = { text ->
         val decoded: Map<String, Set<String>> = Json.decodeFromString(text)
         mutableStateMapOf<String, Set<String>>().apply { putAll(decoded) }
+    },
+)
+
+private val tagValuesSaver = Saver<SnapshotStateMap<String, List<String>>, String>(
+    save = { map -> Json.encodeToString(map.toMap()) },
+    restore = { text ->
+        val decoded: Map<String, List<String>> = Json.decodeFromString(text)
+        mutableStateMapOf<String, List<String>>().apply { putAll(decoded) }
     },
 )
 
@@ -113,6 +122,7 @@ fun NewEntryScreen(
     // map, multi-select fields in the other, plus the free-text Notes box.
     val textValues = rememberSaveable(saver = textValuesSaver) { mutableStateMapOf() }
     val multiValues = rememberSaveable(saver = multiValuesSaver) { mutableStateMapOf() }
+    val tagValues = rememberSaveable(saver = tagValuesSaver) { mutableStateMapOf() }
     var notes by rememberSaveable { mutableStateOf("") }
     var validationAttempted by rememberSaveable { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
@@ -129,11 +139,16 @@ fun NewEntryScreen(
     LaunchedEffect(initialValues, fields) {
         val values = initialValues ?: return@LaunchedEffect
         fields.forEach { field ->
-            if (field.type == FieldType.MULTIPLE) {
-                val selected = EntryValues.selectedOptions(values, field.label)
-                if (selected.isNotEmpty()) multiValues[field.label] = selected
-            } else {
-                EntryValues.rawValue(values, field.label)?.let { textValues[field.label] = it }
+            when (field.type) {
+                FieldType.MULTIPLE -> {
+                    val selected = EntryValues.selectedOptions(values, field.label)
+                    if (selected.isNotEmpty()) multiValues[field.label] = selected
+                }
+                FieldType.TAGS -> {
+                    val tags = EntryValues.stringList(values, field.label)
+                    if (tags.isNotEmpty()) tagValues[field.label] = tags
+                }
+                else -> EntryValues.rawValue(values, field.label)?.let { textValues[field.label] = it }
             }
         }
         EntryValues.notes(values)?.let { notes = it }
@@ -162,13 +177,13 @@ fun NewEntryScreen(
         if (baseline != null) return@LaunchedEffect
         if (fields.isEmpty()) return@LaunchedEffect
         if (isEditing && initialValues == null) return@LaunchedEffect
-        baseline = collectValues(fields, textValues, multiValues, notes)
+        baseline = collectValues(fields, textValues, multiValues, tagValues, notes)
     }
 
-    val missingRequiredLabels = missingRequiredFieldLabels(fields, textValues, multiValues)
+    val missingRequiredLabels = missingRequiredFieldLabels(fields, textValues, multiValues, tagValues)
 
     val dirty = baseline != null &&
-        collectValues(fields, textValues, multiValues, notes) != baseline
+        collectValues(fields, textValues, multiValues, tagValues, notes) != baseline
     var showDiscard by rememberSaveable { mutableStateOf(false) }
     fun attemptBack() { if (dirty) showDiscard = true else onBack() }
     BackHandler { attemptBack() }
@@ -188,7 +203,7 @@ fun NewEntryScreen(
                         onClick = {
                             if (missingRequiredLabels.isEmpty()) {
                                 viewModel.save(
-                                    values = collectValues(fields, textValues, multiValues, notes),
+                                    values = collectValues(fields, textValues, multiValues, tagValues, notes),
                                     onSaved = onBack,
                                 )
                             } else {
@@ -234,6 +249,7 @@ fun NewEntryScreen(
                     field = field,
                     textValues = textValues,
                     multiValues = multiValues,
+                    tagValues = tagValues,
                     showRequiredError = validationAttempted && field.label in missingRequiredLabels,
                     bringIntoViewRequester = target?.bringIntoViewRequester,
                     focusRequester = target?.focusRequester,
@@ -266,18 +282,29 @@ private data class FieldValidationTarget(
 )
 
 private fun com.datadragon.app.data.FieldDef.supportsDirectFocus(): Boolean =
-    type == FieldType.TEXT || type == FieldType.MULTILINE || type == FieldType.NUMBER
+    type == FieldType.TEXT || type == FieldType.MULTILINE || type == FieldType.NUMBER ||
+        type == FieldType.TAGS || type == FieldType.WEBPAGE
 
-/** Required fields that currently have no submitted value, in visible form order. */
+/**
+ * Fields that block Save, in visible form order: a required field with nothing
+ * submitted, plus any `webpage` field holding something that isn't a valid
+ * webpage address — blank is fine when the field is optional, but text that
+ * isn't an address is never storable as one.
+ */
 internal fun missingRequiredFieldLabels(
     fields: List<com.datadragon.app.data.FieldDef>,
     textValues: Map<String, String>,
     multiValues: Map<String, Set<String>>,
+    tagValues: Map<String, List<String>> = emptyMap(),
 ): List<String> = fields.mapNotNull { field ->
+    val value = textValues[field.label]
     val missing = when {
+        field.type == FieldType.WEBPAGE ->
+            if (value.isNullOrBlank()) field.required else !WebAddress.isValid(value)
         !field.required -> false
         field.type == FieldType.MULTIPLE -> multiValues[field.label].orEmpty().isEmpty()
-        else -> textValues[field.label].isNullOrBlank()
+        field.type == FieldType.TAGS -> tagValues[field.label].orEmpty().isEmpty()
+        else -> value.isNullOrBlank()
     }
     field.label.takeIf { missing }
 }
@@ -287,17 +314,26 @@ internal fun collectValues(
     fields: List<com.datadragon.app.data.FieldDef>,
     textValues: Map<String, String>,
     multiValues: Map<String, Set<String>>,
+    tagValues: Map<String, List<String>>,
     notes: String,
 ): Map<String, JsonElement> = buildMap {
     fields.forEach { field ->
-        if (field.type == FieldType.MULTIPLE) {
-            // Keep the option order defined in the schema.
-            val selected = multiValues[field.label].orEmpty()
-            val ordered = field.options.filter { it in selected }
-            if (ordered.isNotEmpty()) put(field.label, EntryValues.stringArray(ordered))
-        } else {
-            val value = textValues[field.label]?.trim().orEmpty()
-            if (value.isNotEmpty()) put(field.label, EntryValues.string(value))
+        when (field.type) {
+            FieldType.MULTIPLE -> {
+                // Keep the option order defined in the schema.
+                val selected = multiValues[field.label].orEmpty()
+                val ordered = field.options.filter { it in selected }
+                if (ordered.isNotEmpty()) put(field.label, EntryValues.stringArray(ordered))
+            }
+            FieldType.TAGS -> {
+                // Tags keep the order they were added in.
+                val tags = tagValues[field.label].orEmpty()
+                if (tags.isNotEmpty()) put(field.label, EntryValues.stringArray(tags))
+            }
+            else -> {
+                val value = textValues[field.label]?.trim().orEmpty()
+                if (value.isNotEmpty()) put(field.label, EntryValues.string(value))
+            }
         }
     }
     val trimmedNotes = notes.trim()

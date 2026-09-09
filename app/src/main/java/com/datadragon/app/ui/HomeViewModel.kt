@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.datadragon.app.data.AppDatabase
 import com.datadragon.app.data.Checklist
 import com.datadragon.app.data.HomeView
+import com.datadragon.app.data.IdeaLog
 import com.datadragon.app.data.LogTemplate
 import com.datadragon.app.data.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,6 +21,8 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     private val templateDao = AppDatabase.getInstance(app).logTemplateDao()
     private val entryDao = AppDatabase.getInstance(app).logEntryDao()
     private val checklistDao = AppDatabase.getInstance(app).checklistDao()
+    private val ideaLogDao = AppDatabase.getInstance(app).ideaLogDao()
+    private val ideaEntryDao = AppDatabase.getInstance(app).ideaEntryDao()
     private val settings = SettingsRepository(app)
 
     /**
@@ -33,6 +36,24 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                 val summary = byTemplate[template.id]
                 HomeLog(
                     template = template,
+                    entryCount = summary?.count ?: 0,
+                    lastEntryAt = summary?.lastCreatedAt,
+                )
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * Ideas Home rows: each Idea Log paired with its **active** idea count and
+     * most-recent active idea, so archiving something never inflates the summary
+     * — the card describes what the log actively holds.
+     */
+    val ideaLogs: StateFlow<List<HomeIdeaLog>> =
+        combine(ideaLogDao.observeAll(), ideaEntryDao.observeActiveSummaries()) { logs, summaries ->
+            val byLog = summaries.associateBy { it.ideaLogId }
+            logs.map { log ->
+                val summary = byLog[log.id]
+                HomeIdeaLog(
+                    log = log,
                     entryCount = summary?.count ?: 0,
                     lastEntryAt = summary?.lastCreatedAt,
                 )
@@ -74,6 +95,13 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         _view.value = view
     }
 }
+
+/** An Ideas Home row: an Idea Log plus its active-idea summary. */
+data class HomeIdeaLog(
+    val log: IdeaLog,
+    val entryCount: Int,
+    val lastEntryAt: String?,
+)
 
 /** A Home list row: a log template plus its entry summary. */
 data class HomeLog(

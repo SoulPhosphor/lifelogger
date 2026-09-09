@@ -124,8 +124,8 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Order by one of [sortCategories] instead of the form's default. */
-    fun selectSortCategory(category: SortCategory) {
-        _pickedCategoryLabel.value = category.label
+    fun selectSortCategoryLabel(label: String) {
+        _pickedCategoryLabel.value = label
     }
 
     /** Run the current category newest first, or oldest first. */

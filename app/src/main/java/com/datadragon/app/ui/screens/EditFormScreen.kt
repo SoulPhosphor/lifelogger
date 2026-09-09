@@ -800,6 +800,8 @@ private class EditDraft(
             FieldType.DATE -> "Date"
             FieldType.TIME -> "Time"
             FieldType.DATETIME -> "Date & time" + (if (defaultNow) " · defaults to now" else "")
+            FieldType.TAGS -> "Tags"
+            FieldType.WEBPAGE -> "Webpage address"
         }
         return if (required) "$base · required" else base
     }
@@ -955,4 +957,6 @@ private fun FieldType.editFriendly(): String = when (this) {
     FieldType.DATE -> "Date"
     FieldType.TIME -> "Time"
     FieldType.DATETIME -> "Date & time"
+    FieldType.TAGS -> "Tags"
+    FieldType.WEBPAGE -> "Webpages"
 }
