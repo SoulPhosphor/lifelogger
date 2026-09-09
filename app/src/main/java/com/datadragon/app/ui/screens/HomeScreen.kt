@@ -303,12 +303,12 @@ private fun ChecklistRow(
     }
 }
 
-/** "No entries yet" / "1 entry" / "14 entries · last entry today" (docs/UI_SPEC.md §2). */
+/** "No entries yet" / "1 entry" / "14 Entries · Last Entry today" (docs/UI_SPEC.md §2). */
 private fun entrySummaryLine(log: HomeLog): String {
     if (log.entryCount == 0) return "No entries yet"
-    val count = if (log.entryCount == 1) "1 entry" else "${log.entryCount} entries"
+    val count = if (log.entryCount == 1) "1 entry" else "${log.entryCount} Entries"
     val last = EntryValues.displayLastEntry(log.lastEntryAt)
-    return if (last != null) "$count · last entry $last" else count
+    return if (last != null) "$count · Last Entry $last" else count
 }
 
 @Composable
