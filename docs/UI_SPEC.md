@@ -103,10 +103,16 @@ All primary screens are **full-screen**. The only floating dialogs allowed are *
   never interleaved — those entries collect at the bottom of the list in either
   direction.
 - The sorting controls sit under the form title and are always present, whether
-  or not the log has entries: `[ Categories ▾ ] [ Sort: Newest ▾ ] [ ✕ Clear ]`.
-  When the automatic timestamp is the only ordering available, Categories is a
-  plain `Timestamp` label instead of a dropdown. Clear returns both to the
-  form's configured defaults, and both reset when the log is reopened.
+  or not the log has entries: `[ Timestamp ▾ ] [ Sort: Newest ▾ ] [ ✕ Clear ]`.
+  The first dropdown carries the label of the field the list is currently ordered
+  by, and its menu lists every field available to order by. When the automatic
+  timestamp is the only ordering available, it is a plain `Timestamp` label
+  instead of a dropdown. Clear returns both to the form's configured defaults, and
+  both reset when the log is reopened.
+- The controls are the first item of the scrollable entry list, centred across the
+  screen, and scroll away with the entries rather than staying pinned. The list
+  opens at the top, and returns to the top whenever the field or the direction
+  changes.
 - Only fields that carry a date can take part in ordering. A Time-only field
   never can, because two times with no date cannot be placed against each other.
 - Automatic creation timestamps are always recorded. Each form controls whether

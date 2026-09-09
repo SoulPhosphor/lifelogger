@@ -5,6 +5,8 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.Interaction
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -48,7 +51,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -67,6 +72,8 @@ import com.datadragon.app.export.LogExport
 import com.datadragon.app.ui.LogViewModel
 import com.datadragon.app.ui.SortCategory
 import com.datadragon.app.ui.theme.DeleteRed
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -234,44 +241,66 @@ fun LogScreen(
             )
         },
     ) { padding ->
+        // Deliberately not saved: the list opens at the top every time rather than
+        // coming back to wherever it was left.
+        val listState = remember { LazyListState() }
+        // Changing the field or the direction re-sorts the entries and puts the
+        // user back at the top of the freshly ordered list.
+        LaunchedEffect(selectedCategory?.label, newestFirst) { listState.scrollToItem(0) }
+
         // The sorting controls are always present, entries or not.
-        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            SortFilterBar(
-                categories = sortCategories,
-                selected = selectedCategory,
-                newestFirst = newestFirst,
-                onSelectCategory = viewModel::selectSortCategory,
-                onSelectNewestFirst = viewModel::selectNewestFirst,
-                onClear = viewModel::clearSort,
-            )
-            if (entries.isEmpty()) {
+        if (entries.isEmpty()) {
+            // With nothing to scroll there is no list to sit at the top of.
+            Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+                SortFilterBar(
+                    categories = sortCategories,
+                    selected = selectedCategory,
+                    newestFirst = newestFirst,
+                    onSelectCategory = viewModel::selectSortCategory,
+                    onSelectNewestFirst = viewModel::selectNewestFirst,
+                    onClear = viewModel::clearSort,
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                )
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text("No entries yet. Tap + to add one.", style = MaterialTheme.typography.bodyMedium)
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    items(visibleEntries, key = { it.id }) { entry ->
-                        EntryRow(
-                            entry = entry,
-                            fields = fields,
-                            appendedNotes = notesByEntry[entry.id].orEmpty(),
-                            showAutomaticTimestamp = automaticTimestamping,
-                            editable = !locked,
-                            appendable = allowAppendedNotes,
-                            onDelete = { entryToDelete = entry },
-                            onEdit = { onEditEntry(entry.id) },
-                            onToggleMark = { viewModel.toggleMark(entry) },
-                            onAddNote = { onOpenFollowUp(entry.id, null) },
-                            onEditNote = { noteId -> onOpenFollowUp(entry.id, noteId) },
-                        )
-                    }
+            }
+        } else {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize().padding(padding),
+                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                // The controls are the first thing in the list, not a fixed header,
+                // so they scroll away with the entries.
+                item(key = SORT_FILTER_BAR_KEY) {
+                    SortFilterBar(
+                        categories = sortCategories,
+                        selected = selectedCategory,
+                        newestFirst = newestFirst,
+                        onSelectCategory = viewModel::selectSortCategory,
+                        onSelectNewestFirst = viewModel::selectNewestFirst,
+                        onClear = viewModel::clearSort,
+                    )
+                }
+                items(visibleEntries, key = { it.id }) { entry ->
+                    EntryRow(
+                        entry = entry,
+                        fields = fields,
+                        appendedNotes = notesByEntry[entry.id].orEmpty(),
+                        showAutomaticTimestamp = automaticTimestamping,
+                        editable = !locked,
+                        appendable = allowAppendedNotes,
+                        onDelete = { entryToDelete = entry },
+                        onEdit = { onEditEntry(entry.id) },
+                        onToggleMark = { viewModel.toggleMark(entry) },
+                        onAddNote = { onOpenFollowUp(entry.id, null) },
+                        onEditNote = { noteId -> onOpenFollowUp(entry.id, noteId) },
+                    )
                 }
             }
         }
@@ -399,12 +428,28 @@ fun LogScreen(
 
 }
 
+/** Identifies the sorting controls' slot at the top of the entry list. */
+private const val SORT_FILTER_BAR_KEY = "sortFilterBar"
+
 /**
- * The ordering controls that sit under the form title, above the entries:
- * `[ Categories ▾ ] [ Sort: Newest ▾ ] [ ✕ Clear ]`. With only the automatic
- * entry timestamp to sort by there is nothing to choose between, so Categories
- * becomes a plain label next to the Sort dropdown. Clear drops both picks and
- * returns the list to the form's own default ordering.
+ * Swallows every interaction, so a control wired to it never picks up a pressed
+ * or ripple state. These sorting controls open their menu on touch without first
+ * flashing a different colour.
+ */
+private object NoPressFeedback : MutableInteractionSource {
+    override val interactions: Flow<Interaction> = emptyFlow()
+    override suspend fun emit(interaction: Interaction) = Unit
+    override fun tryEmit(interaction: Interaction) = true
+}
+
+/**
+ * The ordering controls that sit under the form title, at the top of the entries:
+ * `[ Timestamp ▾ ] [ Sort: Newest ▾ ] [ ✕ Clear ]`. The first chip carries the
+ * label of the field the list is currently ordered by, and its menu lists every
+ * other field available to order by. With only the automatic entry timestamp to
+ * sort by there is nothing to choose between, so that chip becomes a plain label
+ * next to the Sort dropdown. Clear drops both picks and returns the list to the
+ * form's own default ordering. The whole row is centred across the screen.
  */
 @Composable
 private fun SortFilterBar(
@@ -414,30 +459,30 @@ private fun SortFilterBar(
     onSelectCategory: (SortCategory) -> Unit,
     onSelectNewestFirst: (Boolean) -> Unit,
     onClear: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     if (categories.isEmpty()) return
-    var categoriesOpen by remember { mutableStateOf(false) }
+    var fieldMenuOpen by remember { mutableStateOf(false) }
     var sortOpen by remember { mutableStateOf(false) }
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 12.dp, top = 4.dp, end = 12.dp),
+        modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
     ) {
         if (categories.size > 1) {
             Box {
                 AssistChip(
-                    onClick = { categoriesOpen = true },
-                    label = { Text("Categories") },
+                    onClick = { fieldMenuOpen = true },
+                    label = { Text((selected ?: categories.first()).label) },
                     trailingIcon = {
                         Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
                     },
+                    interactionSource = NoPressFeedback,
                 )
                 DropdownMenu(
-                    expanded = categoriesOpen,
-                    onDismissRequest = { categoriesOpen = false },
+                    expanded = fieldMenuOpen,
+                    onDismissRequest = { fieldMenuOpen = false },
                 ) {
                     categories.forEach { category ->
                         DropdownMenuItem(
@@ -448,7 +493,7 @@ private fun SortFilterBar(
                                 }
                             },
                             onClick = {
-                                categoriesOpen = false
+                                fieldMenuOpen = false
                                 onSelectCategory(category)
                             },
                         )
@@ -469,6 +514,7 @@ private fun SortFilterBar(
                 onClick = { sortOpen = true },
                 label = { Text("Sort: " + if (newestFirst) "Newest" else "Oldest") },
                 trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = null) },
+                interactionSource = NoPressFeedback,
             )
             DropdownMenu(expanded = sortOpen, onDismissRequest = { sortOpen = false }) {
                 DropdownMenuItem(
@@ -492,6 +538,7 @@ private fun SortFilterBar(
             onClick = onClear,
             label = { Text("Clear") },
             leadingIcon = { Icon(Icons.Filled.Close, contentDescription = null) },
+            interactionSource = NoPressFeedback,
         )
     }
 }
@@ -503,7 +550,8 @@ private fun SortFilterBar(
  * marked, a filled star sits just before the `⋮`; tapping the star unmarks it.
  * With the automatic timestamp switched off the top line is not left blank: the
  * entry's first filled-in field moves up into it and wraps beside the `⋮` rather
- * than running under it. Every remaining field with a value is listed below as
+ * than running under it, keeping the normal field-to-field spacing below it.
+ * Every remaining field with a value is listed below as
  * `label: value`, then any append-only follow-up notes with their timestamps.
  */
 @Composable
@@ -535,83 +583,149 @@ private fun EntryRow(
     val hoisted = if (showAutomaticTimestamp) null else filled.firstOrNull()
     val remaining = if (hoisted == null) filled else filled.drop(1)
 
+    // Width of the star/⋮ cluster, measured so a hoisted first field can keep
+    // clear of it horizontally instead of being pushed down by its height.
+    val density = LocalDensity.current
+    var actionsWidth by remember { mutableStateOf(0.dp) }
+
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 8.dp, end = 4.dp, bottom = 16.dp),
-        ) {
-            // Top line: optional timestamp on the left; a ⋮ menu on the right.
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 8.dp, end = 4.dp, bottom = 16.dp),
             ) {
-                if (showAutomaticTimestamp) {
-                    Text(
-                        text = EntryValues.displayEntryTimestamp(entry.createdAt),
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.weight(1f),
-                    )
-                } else if (hoisted != null) {
+                if (hoisted != null) {
+                    // The first field takes the top line beside the ⋮ menu, wrapping
+                    // clear of it rather than running under it. It sits in the normal
+                    // field flow, so the gap to the next field is the normal one and
+                    // not the height of the menu's touch target.
                     FieldReadout(
                         label = hoisted.first,
                         value = hoisted.second,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth().padding(end = actionsWidth),
                     )
                 } else {
-                    Spacer(Modifier.weight(1f))
-                }
-                // The star only appears when the entry is marked; tapping it unmarks.
-                if (entry.marked) {
-                    IconButton(onClick = onToggleMark) {
-                        Icon(Icons.Filled.Star, contentDescription = "Marked — tap to unmark")
-                    }
-                }
-                Box {
-                    IconButton(onClick = { menuOpen = true }) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = "Entry options")
-                    }
-                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        if (editable) {
-                            DropdownMenuItem(
-                                text = { Text("Edit") },
-                                onClick = { menuOpen = false; onEdit() },
+                    // Top line: optional timestamp on the left; a ⋮ menu on the right.
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (showAutomaticTimestamp) {
+                            Text(
+                                text = EntryValues.displayEntryTimestamp(entry.createdAt),
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.weight(1f),
                             )
+                        } else {
+                            Spacer(Modifier.weight(1f))
                         }
-                        DropdownMenuItem(
-                            text = { Text(if (entry.marked) "Unmark" else "Mark") },
-                            onClick = { menuOpen = false; onToggleMark() },
-                        )
-                        if (appendable) {
-                            DropdownMenuItem(
-                                text = { Text("Add Follow-Up Note") },
-                                onClick = { menuOpen = false; onAddNote() },
-                            )
-                        }
-                        DropdownMenuItem(
-                            text = { Text("Delete") },
-                            onClick = { menuOpen = false; onDelete() },
+                        EntryActions(
+                            marked = entry.marked,
+                            editable = editable,
+                            appendable = appendable,
+                            menuOpen = menuOpen,
+                            onMenuOpenChange = { menuOpen = it },
+                            onToggleMark = onToggleMark,
+                            onEdit = onEdit,
+                            onAddNote = onAddNote,
+                            onDelete = onDelete,
                         )
                     }
                 }
+
+                // Follow-Up Notes sit at the top, under their own heading, so they're
+                // visible without scrolling past the rest of the entry's data.
+                if (appendedNotes.isNotEmpty()) {
+                    Text(
+                        "Follow-Up Notes",
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                    appendedNotes.forEach { note ->
+                        FollowUpNote(note, onClick = { onEditNote(note.id) })
+                    }
+                }
+
+                // One label-over-value block per remaining field that has a value.
+                remaining.forEach { (label, value) ->
+                    FieldReadout(label = label, value = value)
+                }
+                notes?.let { FieldReadout(label = "Notes", value = it) }
             }
 
-            // Follow-Up Notes sit at the top, under their own heading, so they're
-            // visible without scrolling past the rest of the entry's data.
-            if (appendedNotes.isNotEmpty()) {
-                Text(
-                    "Follow-Up Notes",
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.padding(top = 8.dp),
+            if (hoisted != null) {
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 8.dp, end = 4.dp)
+                        .onSizeChanged { size ->
+                            actionsWidth = with(density) { size.width.toDp() }
+                        },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    EntryActions(
+                        marked = entry.marked,
+                        editable = editable,
+                        appendable = appendable,
+                        menuOpen = menuOpen,
+                        onMenuOpenChange = { menuOpen = it },
+                        onToggleMark = onToggleMark,
+                        onEdit = onEdit,
+                        onAddNote = onAddNote,
+                        onDelete = onDelete,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The trailing controls on an entry card's top line: the star (only while the
+ * entry is marked; tapping it unmarks) and the `⋮` menu.
+ */
+@Composable
+private fun EntryActions(
+    marked: Boolean,
+    editable: Boolean,
+    appendable: Boolean,
+    menuOpen: Boolean,
+    onMenuOpenChange: (Boolean) -> Unit,
+    onToggleMark: () -> Unit,
+    onEdit: () -> Unit,
+    onAddNote: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    // The star only appears when the entry is marked; tapping it unmarks.
+    if (marked) {
+        IconButton(onClick = onToggleMark) {
+            Icon(Icons.Filled.Star, contentDescription = "Marked — tap to unmark")
+        }
+    }
+    Box {
+        IconButton(onClick = { onMenuOpenChange(true) }) {
+            Icon(Icons.Filled.MoreVert, contentDescription = "Entry options")
+        }
+        DropdownMenu(expanded = menuOpen, onDismissRequest = { onMenuOpenChange(false) }) {
+            if (editable) {
+                DropdownMenuItem(
+                    text = { Text("Edit") },
+                    onClick = { onMenuOpenChange(false); onEdit() },
                 )
-                appendedNotes.forEach { note ->
-                    FollowUpNote(note, onClick = { onEditNote(note.id) })
-                }
             }
-
-            // One label-over-value block per remaining field that has a value.
-            remaining.forEach { (label, value) ->
-                FieldReadout(label = label, value = value)
+            DropdownMenuItem(
+                text = { Text(if (marked) "Unmark" else "Mark") },
+                onClick = { onMenuOpenChange(false); onToggleMark() },
+            )
+            if (appendable) {
+                DropdownMenuItem(
+                    text = { Text("Add Follow-Up Note") },
+                    onClick = { onMenuOpenChange(false); onAddNote() },
+                )
             }
-            notes?.let { FieldReadout(label = "Notes", value = it) }
+            DropdownMenuItem(
+                text = { Text("Delete") },
+                onClick = { onMenuOpenChange(false); onDelete() },
+            )
         }
     }
 }

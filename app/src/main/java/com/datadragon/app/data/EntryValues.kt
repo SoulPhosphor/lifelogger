@@ -41,13 +41,14 @@ object EntryValues {
     val TIME_STORAGE: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
     val DATETIME_STORAGE: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")
 
-    // Times always display as 12-hour with AM/PM.
-    private val dateDisplay = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.getDefault())
+    // Months are always spelled out in full; times always display as 12-hour
+    // with AM/PM (docs/FORMATTING_SPEC.md §1).
+    private val dateDisplay = DateTimeFormatter.ofPattern("MMMM d, yyyy", Locale.getDefault())
     private val timeDisplay = DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault())
-    private val dateTimeDisplay = DateTimeFormatter.ofPattern("MMM d, yyyy, h:mm a", Locale.getDefault())
+    private val dateTimeDisplay = DateTimeFormatter.ofPattern("MMMM d, yyyy, h:mm a", Locale.getDefault())
 
-    // Entry rows use a compact stamp without the year (docs/UI_SPEC.md §3).
-    private val rowTimestampDisplay = DateTimeFormatter.ofPattern("MMM d, h:mm a", Locale.getDefault())
+    // Entry rows use a stamp without the year (docs/UI_SPEC.md §3).
+    private val rowTimestampDisplay = DateTimeFormatter.ofPattern("MMMM d, h:mm a", Locale.getDefault())
 
     /**
      * Format an entry's stored `createdAt` (ISO-8601 with offset) for an entry
