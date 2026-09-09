@@ -67,16 +67,20 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
     private val _pickedCategoryLabel = MutableStateFlow<String?>(null)
     private val _pickedNewestFirst = MutableStateFlow<Boolean?>(null)
 
-    /** Every ordering the filter bar can offer for this form. */
+    /**
+     * Every ordering the filter bar can offer for this form. Never empty — the
+     * automatic entry timestamp is always available, before the form has even
+     * loaded, so the sorting controls are there from the first frame.
+     */
     val sortCategories: StateFlow<List<SortCategory>> =
         combine(_fields, _template) { fields, template -> sortCategoriesOf(fields, template) }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), listOf(TIMESTAMP_CATEGORY))
 
     /** The ordering in force, which is the form's default until the user picks. */
     val selectedCategory: StateFlow<SortCategory?> =
         combine(_fields, _template, _pickedCategoryLabel) { fields, template, picked ->
             resolveCategory(fields, template, picked)
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TIMESTAMP_CATEGORY)
 
     /** The direction in force, which is the form's default until the user picks. */
     val newestFirst: StateFlow<Boolean> =
@@ -227,6 +231,9 @@ const val AUTOMATIC_TIMESTAMP_LABEL = "Timestamp"
  */
 data class SortCategory(val label: String, val field: FieldDef?)
 
+/** The automatic entry timestamp, which every form can always sort by. */
+val TIMESTAMP_CATEGORY = SortCategory(AUTOMATIC_TIMESTAMP_LABEL, null)
+
 /**
  * The orderings this form offers: the automatic entry timestamp first, then every
  * date-bearing field the user opted in with "Allow Order Filtering", plus the
@@ -237,8 +244,7 @@ internal fun sortCategoriesOf(fields: List<FieldDef>, template: LogTemplate?): L
     val opted = fields.filter {
         it.type.sortEligible && (it.allowOrderFiltering || it.label == default?.label)
     }
-    return listOf(SortCategory(AUTOMATIC_TIMESTAMP_LABEL, null)) +
-        opted.map { SortCategory(it.label, it) }
+    return listOf(TIMESTAMP_CATEGORY) + opted.map { SortCategory(it.label, it) }
 }
 
 /**

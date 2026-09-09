@@ -102,6 +102,11 @@ All primary screens are **full-screen**. The only floating dialogs allowed are *
   direction to Oldest to Newest. An entry with no value in the selected field is
   never interleaved — those entries collect at the bottom of the list in either
   direction.
+- The sorting controls sit under the form title and are always present, whether
+  or not the log has entries: `[ Categories ▾ ] [ Sort: Newest ▾ ] [ ✕ Clear ]`.
+  When the automatic timestamp is the only ordering available, Categories is a
+  plain `Timestamp` label instead of a dropdown. Clear returns both to the
+  form's configured defaults, and both reset when the log is reopened.
 - Only fields that carry a date can take part in ordering. A Time-only field
   never can, because two times with no date cannot be placed against each other.
 - Automatic creation timestamps are always recorded. Each form controls whether

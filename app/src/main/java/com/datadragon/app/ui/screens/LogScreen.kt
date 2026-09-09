@@ -234,23 +234,24 @@ fun LogScreen(
             )
         },
     ) { padding ->
-        if (entries.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(padding),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("No entries yet. Tap + to add one.", style = MaterialTheme.typography.bodyMedium)
-            }
-        } else {
-            Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-                SortFilterBar(
-                    categories = sortCategories,
-                    selected = selectedCategory,
-                    newestFirst = newestFirst,
-                    onSelectCategory = viewModel::selectSortCategory,
-                    onSelectNewestFirst = viewModel::selectNewestFirst,
-                    onClear = viewModel::clearSort,
-                )
+        // The sorting controls are always present, entries or not.
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            SortFilterBar(
+                categories = sortCategories,
+                selected = selectedCategory,
+                newestFirst = newestFirst,
+                onSelectCategory = viewModel::selectSortCategory,
+                onSelectNewestFirst = viewModel::selectNewestFirst,
+                onClear = viewModel::clearSort,
+            )
+            if (entries.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("No entries yet. Tap + to add one.", style = MaterialTheme.typography.bodyMedium)
+                }
+            } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(12.dp),
