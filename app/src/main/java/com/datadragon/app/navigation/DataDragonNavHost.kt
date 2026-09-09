@@ -8,12 +8,17 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.datadragon.app.ui.screens.ChecklistScreen
+import com.datadragon.app.ui.screens.CreateIdeaLogScreen
 import com.datadragon.app.ui.screens.CreateLogScreen
+import com.datadragon.app.ui.screens.EditIdeaLogScreen
 import com.datadragon.app.ui.screens.EditFormScreen
 import com.datadragon.app.ui.screens.FollowUpNoteScreen
 import com.datadragon.app.ui.screens.HomeScreen
+import com.datadragon.app.ui.screens.IdeaDetailScreen
+import com.datadragon.app.ui.screens.IdeaLogScreen
 import com.datadragon.app.ui.screens.LogScreen
 import com.datadragon.app.ui.screens.NewEntryScreen
+import com.datadragon.app.ui.screens.NewIdeaScreen
 import com.datadragon.app.ui.screens.SettingsScreen
 
 @Composable
@@ -30,6 +35,9 @@ fun DataDragonNavHost(
                 onAddEntry = { logId -> navController.navigate(Routes.newEntry(logId.toString())) },
                 onCreateChecklist = { navController.navigate(Routes.CREATE_CHECKLIST) },
                 onOpenChecklist = { checklistId -> navController.navigate(Routes.checklist(checklistId)) },
+                onCreateIdeaLog = { navController.navigate(Routes.CREATE_IDEA_LOG) },
+                onOpenIdeaLog = { ideaLogId -> navController.navigate(Routes.ideaLog(ideaLogId)) },
+                onAddIdea = { ideaLogId -> navController.navigate(Routes.newIdea(ideaLogId)) },
             )
         }
 
@@ -113,6 +121,77 @@ fun DataDragonNavHost(
             ChecklistScreen(
                 checklistId = backStackEntry.arguments?.getString(Routes.CHECKLIST_ARG),
                 onBack = { navController.popBackStack() },
+            )
+        }
+
+        composable(Routes.CREATE_IDEA_LOG) {
+            CreateIdeaLogScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(
+            route = Routes.IDEA_LOG,
+            arguments = listOf(navArgument(Routes.IDEA_LOG_ARG) { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val ideaLogId = backStackEntry.arguments?.getString(Routes.IDEA_LOG_ARG)
+            val id = ideaLogId?.toLongOrNull()
+            IdeaLogScreen(
+                ideaLogId = ideaLogId,
+                onBack = { navController.popBackStack() },
+                onAddIdea = { id?.let { navController.navigate(Routes.newIdea(it)) } },
+                onOpenIdea = { ideaId -> id?.let { navController.navigate(Routes.ideaDetail(it, ideaId)) } },
+                onEditIdea = { ideaId -> id?.let { navController.navigate(Routes.editIdea(it, ideaId)) } },
+                onEditIdeaLog = { id?.let { navController.navigate(Routes.editIdeaLog(it)) } },
+            )
+        }
+
+        composable(
+            route = Routes.EDIT_IDEA_LOG,
+            arguments = listOf(navArgument(Routes.IDEA_LOG_ARG) { type = NavType.StringType }),
+        ) { backStackEntry ->
+            EditIdeaLogScreen(
+                ideaLogId = backStackEntry.arguments?.getString(Routes.IDEA_LOG_ARG),
+                onBack = { navController.popBackStack() },
+            )
+        }
+
+        composable(
+            route = Routes.NEW_IDEA,
+            arguments = listOf(navArgument(Routes.IDEA_LOG_ARG) { type = NavType.StringType }),
+        ) { backStackEntry ->
+            NewIdeaScreen(
+                ideaLogId = backStackEntry.arguments?.getString(Routes.IDEA_LOG_ARG),
+                onBack = { navController.popBackStack() },
+            )
+        }
+
+        composable(
+            route = Routes.EDIT_IDEA,
+            arguments = listOf(
+                navArgument(Routes.IDEA_LOG_ARG) { type = NavType.StringType },
+                navArgument(Routes.IDEA_ARG) { type = NavType.StringType },
+            ),
+        ) { backStackEntry ->
+            NewIdeaScreen(
+                ideaLogId = backStackEntry.arguments?.getString(Routes.IDEA_LOG_ARG),
+                ideaId = backStackEntry.arguments?.getString(Routes.IDEA_ARG),
+                onBack = { navController.popBackStack() },
+            )
+        }
+
+        composable(
+            route = Routes.IDEA_DETAIL,
+            arguments = listOf(
+                navArgument(Routes.IDEA_LOG_ARG) { type = NavType.StringType },
+                navArgument(Routes.IDEA_ARG) { type = NavType.StringType },
+            ),
+        ) { backStackEntry ->
+            val ideaLogId = backStackEntry.arguments?.getString(Routes.IDEA_LOG_ARG)
+            val id = ideaLogId?.toLongOrNull()
+            IdeaDetailScreen(
+                ideaLogId = ideaLogId,
+                ideaId = backStackEntry.arguments?.getString(Routes.IDEA_ARG),
+                onBack = { navController.popBackStack() },
+                onEditIdea = { ideaId -> id?.let { navController.navigate(Routes.editIdea(it, ideaId)) } },
             )
         }
 

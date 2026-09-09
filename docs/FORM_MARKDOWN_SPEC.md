@@ -41,6 +41,8 @@ lines: 4
 | `date` | Pick a date (month/day/year) | none |
 | `time` | Pick a time (12-hour with AM/PM) | none |
 | `datetime` | Pick a date and time | `default: now` to pre-fill with current time |
+| `tags` | Type a tag and add it; each becomes a removable chip | none |
+| `webpage` | A web address, with a button that opens it in the browser | none |
 
 Any field may also add `required` (the user must fill it before saving). Fields are optional by default.
 
@@ -105,6 +107,37 @@ to: 5
 ## Completed
 type: yesno
 ```
+
+### tags
+
+```
+## Topics
+type: tags
+```
+
+The person filling in the entry types a tag and presses **Add**. The tag is
+trimmed, an empty one is ignored, and a tag the field already holds is refused
+(compared without regard to case, so "android" can't join "Android"; the first
+one keeps its spelling). Each saved tag is a chip with an "X" to remove it.
+Read-only, the chips have no "X". A required `tags` field needs at least one tag.
+Stored as a JSON array of strings, in the order they were added.
+
+### webpage
+
+```
+## Source
+type: webpage
+```
+
+The field's author defines only its label — never a URL. The person filling in
+the entry types the address. Blank is fine when the field is optional; anything
+non-blank must be a real HTTP/HTTPS webpage address with a normal domain-style
+host (a dot and a valid final domain portion), so prose is never stored as one.
+
+What the user typed is stored, trimmed and not otherwise rewritten. `https://` is
+supplied only at the moment the address is opened, and only when no scheme was
+typed. Displayed read-only, the address carries a small open-in-browser button;
+only that button navigates.
 
 ### date / time / datetime
 

@@ -5,8 +5,6 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.Interaction
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,16 +19,13 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
@@ -62,18 +57,18 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.ui.components.ExportFormatDialog
+import com.datadragon.app.ui.components.SortFilterBar
+import com.datadragon.app.ui.components.WebpageOpenButton
 import com.datadragon.app.ui.components.ExportFormatOption
 import com.datadragon.app.data.EntryNote
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.FieldDef
+import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.LogEntry
 import com.datadragon.app.export.ExportContent
 import com.datadragon.app.export.LogExport
 import com.datadragon.app.ui.LogViewModel
-import com.datadragon.app.ui.SortCategory
 import com.datadragon.app.ui.theme.DeleteRed
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.emptyFlow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -253,10 +248,10 @@ fun LogScreen(
             // With nothing to scroll there is no list to sit at the top of.
             Column(modifier = Modifier.fillMaxSize().padding(padding)) {
                 SortFilterBar(
-                    categories = sortCategories,
-                    selected = selectedCategory,
+                    categoryLabels = sortCategories.map { it.label },
+                    selectedLabel = selectedCategory?.label,
                     newestFirst = newestFirst,
-                    onSelectCategory = viewModel::selectSortCategory,
+                    onSelectCategory = viewModel::selectSortCategoryLabel,
                     onSelectNewestFirst = viewModel::selectNewestFirst,
                     onClear = viewModel::clearSort,
                     modifier = Modifier.padding(horizontal = 12.dp),
@@ -279,10 +274,10 @@ fun LogScreen(
                 // so they scroll away with the entries.
                 item(key = SORT_FILTER_BAR_KEY) {
                     SortFilterBar(
-                        categories = sortCategories,
-                        selected = selectedCategory,
+                        categoryLabels = sortCategories.map { it.label },
+                        selectedLabel = selectedCategory?.label,
                         newestFirst = newestFirst,
-                        onSelectCategory = viewModel::selectSortCategory,
+                        onSelectCategory = viewModel::selectSortCategoryLabel,
                         onSelectNewestFirst = viewModel::selectNewestFirst,
                         onClear = viewModel::clearSort,
                     )
@@ -432,118 +427,6 @@ fun LogScreen(
 private const val SORT_FILTER_BAR_KEY = "sortFilterBar"
 
 /**
- * Swallows every interaction, so a control wired to it never picks up a pressed
- * or ripple state. These sorting controls open their menu on touch without first
- * flashing a different colour.
- */
-private object NoPressFeedback : MutableInteractionSource {
-    override val interactions: Flow<Interaction> = emptyFlow()
-    override suspend fun emit(interaction: Interaction) = Unit
-    override fun tryEmit(interaction: Interaction) = true
-}
-
-/**
- * The ordering controls that sit under the form title, at the top of the entries:
- * `[ Timestamp ▾ ] [ Sort: Newest ▾ ] [ ✕ Clear ]`. The first chip carries the
- * label of the field the list is currently ordered by, and its menu lists every
- * other field available to order by. With only the automatic entry timestamp to
- * sort by there is nothing to choose between, so that chip becomes a plain label
- * next to the Sort dropdown. Clear drops both picks and returns the list to the
- * form's own default ordering. The whole row is centred across the screen.
- */
-@Composable
-private fun SortFilterBar(
-    categories: List<SortCategory>,
-    selected: SortCategory?,
-    newestFirst: Boolean,
-    onSelectCategory: (SortCategory) -> Unit,
-    onSelectNewestFirst: (Boolean) -> Unit,
-    onClear: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    if (categories.isEmpty()) return
-    var fieldMenuOpen by remember { mutableStateOf(false) }
-    var sortOpen by remember { mutableStateOf(false) }
-
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-    ) {
-        if (categories.size > 1) {
-            Box {
-                AssistChip(
-                    onClick = { fieldMenuOpen = true },
-                    label = { Text((selected ?: categories.first()).label) },
-                    trailingIcon = {
-                        Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
-                    },
-                    interactionSource = NoPressFeedback,
-                )
-                DropdownMenu(
-                    expanded = fieldMenuOpen,
-                    onDismissRequest = { fieldMenuOpen = false },
-                ) {
-                    categories.forEach { category ->
-                        DropdownMenuItem(
-                            text = { Text(category.label) },
-                            trailingIcon = {
-                                if (category.label == selected?.label) {
-                                    Icon(Icons.Filled.Check, contentDescription = "Sorting by this")
-                                }
-                            },
-                            onClick = {
-                                fieldMenuOpen = false
-                                onSelectCategory(category)
-                            },
-                        )
-                    }
-                }
-            }
-        } else {
-            // Nothing to pick between — name the one ordering instead.
-            Text(
-                categories.single().label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        Box {
-            AssistChip(
-                onClick = { sortOpen = true },
-                label = { Text("Sort: " + if (newestFirst) "Newest" else "Oldest") },
-                trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = null) },
-                interactionSource = NoPressFeedback,
-            )
-            DropdownMenu(expanded = sortOpen, onDismissRequest = { sortOpen = false }) {
-                DropdownMenuItem(
-                    text = { Text("Newest") },
-                    trailingIcon = {
-                        if (newestFirst) Icon(Icons.Filled.Check, contentDescription = "Current order")
-                    },
-                    onClick = { sortOpen = false; onSelectNewestFirst(true) },
-                )
-                DropdownMenuItem(
-                    text = { Text("Oldest") },
-                    trailingIcon = {
-                        if (!newestFirst) Icon(Icons.Filled.Check, contentDescription = "Current order")
-                    },
-                    onClick = { sortOpen = false; onSelectNewestFirst(false) },
-                )
-            }
-        }
-
-        AssistChip(
-            onClick = onClear,
-            label = { Text("Clear") },
-            leadingIcon = { Icon(Icons.Filled.Close, contentDescription = null) },
-            interactionSource = NoPressFeedback,
-        )
-    }
-}
-
-/**
  * One entry card (docs/UI_SPEC.md §3). The top line shows the entry's automatic
  * timestamp with a `⋮` menu across from it — Edit (when unlocked), Mark/Unmark, Add
  * follow-up note (when the log allows them), and Delete. When the entry is
@@ -575,7 +458,7 @@ private fun EntryRow(
     // Every field that actually has a value, in form order.
     val filled = remember(fields, values) {
         fields.mapNotNull { field ->
-            EntryValues.displayValue(field, values)?.let { field.label to it }
+            EntryValues.displayValue(field, values)?.let { field to it }
         }
     }
     // With no timestamp on the top line, the first field takes that space instead
@@ -599,7 +482,7 @@ private fun EntryRow(
                     // field flow, so the gap to the next field is the normal one and
                     // not the height of the menu's touch target.
                     FieldReadout(
-                        label = hoisted.first,
+                        field = hoisted.first,
                         value = hoisted.second,
                         modifier = Modifier.fillMaxWidth().padding(end = actionsWidth),
                     )
@@ -646,10 +529,10 @@ private fun EntryRow(
                 }
 
                 // One label-over-value block per remaining field that has a value.
-                remaining.forEach { (label, value) ->
-                    FieldReadout(label = label, value = value)
+                remaining.forEach { (field, value) ->
+                    FieldReadout(field = field, value = value)
                 }
-                notes?.let { FieldReadout(label = "Notes", value = it) }
+                notes?.let { NotesReadout(it) }
             }
 
             if (hoisted != null) {
@@ -755,13 +638,42 @@ private fun FollowUpNote(note: EntryNote, onClick: () -> Unit) {
 /**
  * A single field shown inline as `label: value` on one line. The label is muted,
  * the value normal weight, and long values (like notes) wrap onto further lines.
+ *
+ * A `webpage` field gets a small open-in-browser button beside its address. Only
+ * that button navigates — tapping the card itself never leaves for the browser.
  */
 @Composable
 private fun FieldReadout(
-    label: String,
+    field: FieldDef,
     value: String,
     modifier: Modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
 ) {
+    if (field.type == FieldType.WEBPAGE) {
+        Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+            LabelledValue(
+                label = field.label,
+                value = value,
+                modifier = Modifier.weight(1f),
+            )
+            WebpageOpenButton(value)
+        }
+    } else {
+        LabelledValue(label = field.label, value = value, modifier = modifier)
+    }
+}
+
+/** The free-text Notes box, shown under its own label like any other field. */
+@Composable
+private fun NotesReadout(value: String) {
+    LabelledValue(
+        label = "Notes",
+        value = value,
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+    )
+}
+
+@Composable
+private fun LabelledValue(label: String, value: String, modifier: Modifier = Modifier) {
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     Text(
         text = buildAnnotatedString {

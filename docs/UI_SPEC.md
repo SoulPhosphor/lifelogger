@@ -348,6 +348,8 @@ Opened by the `↓` on Home. Backs up all logs and entries at once.
 | `yesno` | A dropdown with four options: Yes, No, Unknown, Not Applicable. |
 | `number` | A box where the user types a number. Limited to the max digits specified. |
 | `multiple` | Tappable chips (multiple can be selected). Selected items display on one line separated by commas. |
+| `tags` | A text box with an **Add** button; each saved tag is a chip with an "X". Read-only, the chips have no "X". |
+| `webpage` | A box for a web address. Read-only, it shows with a small open-in-browser button beside it. |
 
 - Required fields are marked and block saving until filled.
 - Controls should be large and easy to tap.
@@ -365,3 +367,119 @@ Opened by the `↓` on Home. Backs up all logs and entries at once.
 - Do **not** add the visual field builder before its phase.
 - Do **not** add pre-built templates or example logs. The app starts empty.
 - Do **not** put personal information or real-world scenarios in any documentation or placeholder content.
+
+---
+
+## 12. Ideas
+
+Ideas is the third Home section, after Forms and Lists. It has its own Idea Log /
+Idea Entry storage rather than a mode flag on a form, so it never inherits
+Form-only concepts: **there is no locking and no follow-up notes in Ideas.**
+
+An Idea field's values are stored under the field's permanent id, not its label,
+so renaming or reordering a field never disconnects the values already saved
+against it.
+
+### Home
+
+- The `Data Dragon` title is followed by the Forms, Lists and **Ideas** toggles,
+  in that order. Ideas uses the Material `OnlinePrediction` icon and takes the
+  same selected-state styling as the other two.
+- The last-used section is remembered, so the app can reopen on Ideas.
+- An Idea Log card shows its name, its entry summary line (the same wording forms
+  use), and an add-idea `[+]` on the right. **Archived ideas are not counted** —
+  the summary describes what the log actively holds.
+- The top-right `+` creates a new Idea Log.
+
+### Screen — Create / Edit Idea Log
+
+Visual builder only; there is no Paste tab for Ideas. Settings, in order:
+
+1. Idea Log Name
+2. Automatic Timestamping — default off
+3. Allow Archiving — default off
+4. Show Entire Idea Card — default off
+5. Number of Lines Shown in Preview Mode (#) — default 20, 1–999, 3 digits max
+6. Use Default Fields — default off
+7. The fields builder
+
+A new Idea Log always begins with one Text (Multiline) field, switch or no
+switch. **Use Default Fields** fills in whichever of Title, Text and Tags is
+missing — the field already there is the default Text field, so it is never
+duplicated. Switching it back off removes nothing.
+
+Field types offered: Title, Text (Multiline), Tags, Categories, Webpages, Date
+Only, Time Only, Date/Time. Every field has an editable Label, Required (default
+off) and Include in Preview Mode (default on). Fields drag into order by their
+`DragIndicator` handle — no Up/Down buttons.
+
+A Text (Multiline) field in Ideas gets four extra settings, all default off:
+Word Count, Character Count, Allow Copying, and Allow Truncation in Entire Idea
+Card Mode (which reveals `Only Show [n] Lines`). **These four are Ideas-only.**
+
+Turning Allow Archiving off while archived ideas exist is refused: nothing is
+saved, the switch stays on, and the screen says
+**"Archived Ideas Exist" — "Archived ideas must be unarchived or deleted before
+Allow Archiving can be turned off."** Archived ideas are never silently
+unarchived and never made unreachable.
+
+### Screen — Idea Log
+
+Top bar, trailing controls, in a fixed relationship:
+
+```
+[Marked Filter] [Folder Copy] [Search] [+]       (active view, archiving on)
+[Marked Filter] [Home Storage] [Search] [+]      (archive view)
+[Marked Filter] [Search] [+]                     (archiving off)
+```
+
+`HomeStorage` is bundled as `res/drawable/ic_home_storage.xml`, traced from the
+Google Material Symbols source: `material-icons-extended` is generated from the
+older Material Icons set, which has no `home_storage`.
+
+The marked-only star appears only when something in the current result set is
+marked, and always goes **before** the archive toggle. Nothing is ever inserted
+between the archive toggle, Search and `+`. With archiving off there is no
+archive view at all.
+
+`+` always creates an **active** idea, and using it from the archive view returns
+to the active list so the new idea is visible.
+
+Search opens an area directly under the top app bar: the heading `Search`, a text
+field with a trailing Search button, then `Whole Word` and `Match Case` (and
+`Search All Locations` in the active view of an archiving log) — all default off.
+A search runs only on the Search button or the keyboard's Search key, never per
+keystroke. Off/off means case-insensitive substring matching; the query is always
+escaped, so it can never be read as a regular expression.
+
+Sorting is the same system forms use — Allow Order Filtering, Use as Default Sort
+Timestamp, and a default direction — with the same rule about which fields are
+eligible: Date Only and Date/Time are, Time Only is not.
+
+### Idea cards and the Idea Detail view
+
+Cards use the form entry-card language: the automatic timestamp (when the log
+shows it) on the top line with the star and `⋮` across from it; with the
+timestamp off, the first shown field takes that space instead of leaving it
+blank.
+
+- **Preview Mode** (Show Entire Idea Card off) draws only fields with Include in
+  Preview Mode on, and limits a multiline field to the log's Preview Mode line
+  count.
+- **Entire Idea Card Mode** draws every populated field at full length, unless a
+  multiline field opted into its own truncation limit.
+- Either way the card stays tappable, and tapping its body opens the **Idea
+  Detail** view — never the editor.
+
+A card's `⋮` menu holds Edit, Mark/Unmark, Archive or Unarchive (only when the
+log allows archiving), and Delete. **Delete is always there, archived or not:
+archiving never replaces deletion.**
+
+The Idea Detail view is the complete read-only rendering: every populated field,
+multiline text in full, tags, webpage buttons, any counts and copy buttons, and
+the automatic timestamp. It **ignores** Include in Preview Mode, the Preview Mode
+line count, and any Entire Idea Card truncation limit — those govern cards, not
+this screen. The same actions are available from its top bar.
+
+Truncation is always display-only. Stored text is never shortened, and Copy takes
+the whole stored text even when the visible text was cut short.

@@ -44,7 +44,9 @@ enum class FieldType(val token: String) {
     YESNO("yesno"),
     DATE("date"),
     TIME("time"),
-    DATETIME("datetime");
+    DATETIME("datetime"),
+    TAGS("tags"),
+    WEBPAGE("webpage");
 
     companion object {
         fun fromToken(token: String): FieldType? =

@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.OnlinePrediction
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -42,6 +43,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.Checklist
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.HomeView
+import com.datadragon.app.ui.HomeIdeaLog
 import com.datadragon.app.ui.HomeLog
 import com.datadragon.app.ui.HomeViewModel
 import com.datadragon.app.ui.theme.DeleteRed
@@ -55,10 +57,14 @@ fun HomeScreen(
     onAddEntry: (Long) -> Unit,
     onCreateChecklist: () -> Unit,
     onOpenChecklist: (Long) -> Unit,
+    onCreateIdeaLog: () -> Unit,
+    onOpenIdeaLog: (Long) -> Unit,
+    onAddIdea: (Long) -> Unit,
     viewModel: HomeViewModel = viewModel(),
 ) {
     val logs by viewModel.logs.collectAsStateWithLifecycle()
     val checklists by viewModel.checklists.collectAsStateWithLifecycle()
+    val ideaLogs by viewModel.ideaLogs.collectAsStateWithLifecycle()
     val view by viewModel.view.collectAsStateWithLifecycle()
     val pendingDraft by viewModel.pendingDraft.collectAsStateWithLifecycle()
 
@@ -68,8 +74,8 @@ fun HomeScreen(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Data Dragon")
-                        // A gap after the name, then the two view toggles with a
-                        // little space between them so neither is easy to mis-tap.
+                        // A gap after the name, then the view toggles with a little
+                        // space between them so none is easy to mis-tap.
                         Spacer(Modifier.width(16.dp))
                         ViewToggle(
                             icon = Icons.Filled.Description,
@@ -83,6 +89,13 @@ fun HomeScreen(
                             contentDescription = "Lists",
                             selected = view == HomeView.LISTS,
                             onClick = { viewModel.setView(HomeView.LISTS) },
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        ViewToggle(
+                            icon = Icons.Filled.OnlinePrediction,
+                            contentDescription = "Ideas",
+                            selected = view == HomeView.IDEAS,
+                            onClick = { viewModel.setView(HomeView.IDEAS) },
                         )
                     }
                 },
@@ -99,11 +112,16 @@ fun HomeScreen(
                         when (view) {
                             HomeView.FORMS -> onCreateForm()
                             HomeView.LISTS -> onCreateChecklist()
+                            HomeView.IDEAS -> onCreateIdeaLog()
                         }
                     }) {
                         Icon(
                             Icons.Filled.Add,
-                            contentDescription = if (view == HomeView.FORMS) "New form" else "New list",
+                            contentDescription = when (view) {
+                                HomeView.FORMS -> "New form"
+                                HomeView.LISTS -> "New list"
+                                HomeView.IDEAS -> "New Idea Log"
+                            },
                         )
                     }
                 },
@@ -121,6 +139,12 @@ fun HomeScreen(
                 checklists = checklists,
                 modifier = Modifier.fillMaxSize().padding(padding),
                 onOpenChecklist = onOpenChecklist,
+            )
+            HomeView.IDEAS -> IdeasBody(
+                ideaLogs = ideaLogs,
+                modifier = Modifier.fillMaxSize().padding(padding),
+                onOpenIdeaLog = onOpenIdeaLog,
+                onAddIdea = onAddIdea,
             )
         }
     }
@@ -233,6 +257,76 @@ private fun ListsBody(
 }
 
 @Composable
+private fun IdeasBody(
+    ideaLogs: List<HomeIdeaLog>,
+    modifier: Modifier = Modifier,
+    onOpenIdeaLog: (Long) -> Unit,
+    onAddIdea: (Long) -> Unit,
+) {
+    if (ideaLogs.isEmpty()) {
+        EmptyMessage(
+            title = "No idea logs yet.",
+            body = "Tap  +  (top right) to create your first one.",
+            modifier = modifier,
+        )
+    } else {
+        LazyColumn(
+            modifier = modifier,
+            contentPadding = PaddingValues(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            items(ideaLogs, key = { it.log.id }) { ideaLog ->
+                IdeaLogRow(
+                    ideaLog = ideaLog,
+                    onOpen = { onOpenIdeaLog(ideaLog.log.id) },
+                    onAddIdea = { onAddIdea(ideaLog.log.id) },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * One Idea Log card: its name, then the same entry summary line a form card
+ * shows. The "+" on the right adds a new active idea straight into that log.
+ */
+@Composable
+private fun IdeaLogRow(
+    ideaLog: HomeIdeaLog,
+    onOpen: () -> Unit,
+    onAddIdea: () -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpen),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = ideaLog.log.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = summaryLine(ideaLog.entryCount, ideaLog.lastEntryAt),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            IconButton(onClick = onAddIdea) {
+                Icon(Icons.Filled.Add, contentDescription = "Add idea to ${ideaLog.log.name}")
+            }
+        }
+    }
+}
+
+@Composable
 private fun LogRow(
     log: HomeLog,
     onOpen: () -> Unit,
@@ -304,10 +398,14 @@ private fun ChecklistRow(
 }
 
 /** "No Entries Yet" / "1 Entry" / "14 Entries · Last Entry Today" (docs/UI_SPEC.md §2). */
-private fun entrySummaryLine(log: HomeLog): String {
-    if (log.entryCount == 0) return "No Entries Yet"
-    val count = if (log.entryCount == 1) "1 Entry" else "${log.entryCount} Entries"
-    val last = EntryValues.displayLastEntry(log.lastEntryAt)
+private fun entrySummaryLine(log: HomeLog): String =
+    summaryLine(log.entryCount, log.lastEntryAt)
+
+/** The shared count-and-last-entry line, used by form and Idea Log cards alike. */
+private fun summaryLine(entryCount: Int, lastEntryAt: String?): String {
+    if (entryCount == 0) return "No Entries Yet"
+    val count = if (entryCount == 1) "1 Entry" else "$entryCount Entries"
+    val last = EntryValues.displayLastEntry(lastEntryAt)
     return if (last != null) "$count · Last Entry $last" else count
 }
 

@@ -4,6 +4,75 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-09-09 — Ideas: a third main section
+
+**Ideas is now the third Home view, after Forms and Lists.** It has its own
+persisted `IdeaLog` / `IdeaEntry` domain (DB v12, additive migration
+`MIGRATION_11_12`) rather than a mode flag on `LogTemplate`, so it never inherits
+Form-only concepts — there is **no locking and no follow-up notes in Ideas**.
+Shared field mechanics are reused where the behavior really is shared.
+
+- **Home.** `OnlinePrediction` toggle immediately right of Lists, same
+  selected-state styling, same persisted last-view setting (`HomeView.IDEAS`).
+  Idea Log cards match form cards — name, entry summary, per-card `[+]` — and the
+  summary counts **active** ideas only, so archiving never inflates it.
+- **Field identity.** An Idea field's values are keyed by a permanent
+  `IdeaFieldDef.id`, not its label, so a later rename or reorder can't disconnect
+  stored data. `IdeaValues` owns that shape.
+- **Create / Edit Idea Log.** Visual builder only (no Paste tab). Settings in
+  order: Idea Log Name, Automatic Timestamping, Allow Archiving, Show Entire Idea
+  Card, Number of Lines Shown in Preview Mode (#), Use Default Fields, fields. A
+  new log always starts with one Text (Multiline) field; Use Default Fields fills
+  in whichever of Title / Text / Tags is missing without duplicating that field,
+  and switching it back off deletes nothing.
+- **Archiving.** Off by default. When on, archived ideas stay editable, markable,
+  searchable, sortable, unarchivable and deletable. Turning it back off while
+  archived ideas exist is refused with **"Archived Ideas Exist"** — nothing is
+  saved, the switch stays on, and nothing is silently unarchived.
+- **Card display.** Preview Mode draws only "Include in Preview Mode" fields and
+  clips multiline text to the log's line count; Entire Idea Card Mode draws every
+  populated field in full unless a field opted into its own limit. Both stay
+  tappable, and tapping opens the new **Idea Detail** view, which ignores every
+  card-display setting and shows the whole idea. Truncation is display-only —
+  stored text is never shortened, and Copy takes the full text.
+- **Multiline extras (Ideas only, all default off):** Word Count, Character
+  Count, Allow Copying, Allow Truncation in Entire Idea Card Mode. Counts are
+  right-aligned and share one line with a centred dot when both are on.
+- **Toolbar, archive and search.** `[Marked Filter] [Folder Copy] [Search] [+]`,
+  with `HomeStorage` replacing `FolderCopy` in the archive view; the star never
+  goes between the archive toggle, Search and `+`. `+` always creates an active
+  idea and returns from the archive view to the active list. Search opens under
+  the app bar with `Whole Word` / `Match Case` (and `Search All Locations` where
+  it applies), runs only on submission, and always escapes the query so it can
+  never be read as a regular expression. The archive view's `HomeStorage` icon is
+  bundled as `res/drawable/ic_home_storage.xml`, traced from the Google Material
+  Symbols source — `material-icons-extended` is built from the older Material
+  Icons set, which doesn't carry that glyph.
+- **Sorting** reuses the existing form system — Allow Order Filtering, Use as
+  Default Sort Timestamp, default direction, and the same eligibility rule (Date
+  Only and Date/Time yes, Time Only no). `SortFilterBar` moved to
+  `ui/components/` so Forms and Ideas share the one bar.
+
+**Two new shared field types, available to Forms as well as Ideas.**
+
+- `tags` — a text box with an **Add** button; each saved tag is a removable chip.
+  Duplicates within a field are refused case-insensitively, and the first saved
+  spelling is the one kept. Read-only, the chips have no "X".
+- `webpage` — the field's author defines only the label; the address is entered
+  per entry. HTTP/HTTPS only, with a real domain-style host, so prose is never
+  stored as a webpage. The typed text is stored as-is; `https://` is supplied only
+  when opening. Read-only it carries an `OpenInNew` button — and only that button
+  navigates, never the card. Works through the visual builder and Form Markdown
+  (`type: tags`, `type: webpage`).
+
+**Form field reordering.** New Log's Build tab now drags its fields into order by
+a `DragIndicator` handle, matching Edit Form and Lists.
+
+**Out of scope, as specified:** backup/restore and export for Ideas, a Paste mode
+for Ideas, locked Idea Logs, and follow-up notes for Ideas.
+
+---
+
 ## 2026-07-07 — Follow-up notes get a full screen; auto-capitalize settings; Title Case pass
 
 **Follow-up notes are now a full screen, not a pop-up, and are editable.**

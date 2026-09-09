@@ -24,7 +24,7 @@ class SettingsRepository(context: Context) {
         get() = prefs.getBoolean(KEY_OPTIONS, true)
         set(value) { prefs.edit().putBoolean(KEY_OPTIONS, value).apply() }
 
-    /** Which Home view (Forms or Lists) was open last, so it reopens there. */
+    /** Which Home view (Forms, Lists or Ideas) was open last, so it reopens there. */
     var lastView: HomeView
         get() = HomeView.fromKey(prefs.getString(KEY_LAST_VIEW, null))
         set(value) { prefs.edit().putString(KEY_LAST_VIEW, value.key).apply() }
@@ -55,10 +55,11 @@ class SettingsRepository(context: Context) {
     }
 }
 
-/** The two Home views the top-bar icons switch between. */
+/** The Home views the top-bar icons switch between, in their on-screen order. */
 enum class HomeView(val key: String) {
     FORMS("forms"),
-    LISTS("lists");
+    LISTS("lists"),
+    IDEAS("ideas");
 
     companion object {
         fun fromKey(key: String?): HomeView = entries.firstOrNull { it.key == key } ?: FORMS

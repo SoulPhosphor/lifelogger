@@ -11,8 +11,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * The app's local Room database. Local only — no network, no sync.
  */
 @Database(
-    entities = [LogTemplate::class, LogEntry::class, EntryNote::class, Checklist::class, ChecklistItem::class],
-    version = 11,
+    entities = [
+        LogTemplate::class, LogEntry::class, EntryNote::class, Checklist::class, ChecklistItem::class,
+        IdeaLog::class, IdeaEntry::class,
+    ],
+    version = 12,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -24,6 +27,10 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun entryNoteDao(): EntryNoteDao
 
     abstract fun checklistDao(): ChecklistDao
+
+    abstract fun ideaLogDao(): IdeaLogDao
+
+    abstract fun ideaEntryDao(): IdeaEntryDao
 
     companion object {
         @Volatile
@@ -192,6 +199,44 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v12 added the `idea_logs` and `idea_entries` tables (the Ideas
+         * feature). Purely additive — forms, entries, notes and lists are
+         * untouched, so existing data survives the upgrade.
+         */
+        internal val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `idea_logs` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`uuid` TEXT NOT NULL, " +
+                        "`name` TEXT NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, " +
+                        "`fieldsJson` TEXT NOT NULL, " +
+                        "`automaticTimestamping` INTEGER NOT NULL, " +
+                        "`allowArchiving` INTEGER NOT NULL, " +
+                        "`showEntireIdeaCard` INTEGER NOT NULL, " +
+                        "`previewLines` INTEGER NOT NULL, " +
+                        "`sortTimestampFieldId` TEXT, " +
+                        "`sortNewestFirst` INTEGER NOT NULL)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `idea_entries` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`ideaLogId` INTEGER NOT NULL, " +
+                        "`createdAt` TEXT NOT NULL, " +
+                        "`updatedAt` TEXT, " +
+                        "`valuesJson` TEXT NOT NULL, " +
+                        "`marked` INTEGER NOT NULL, " +
+                        "`archived` INTEGER NOT NULL)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_idea_entries_ideaLogId` " +
+                        "ON `idea_entries` (`ideaLogId`)"
+                )
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -202,6 +247,7 @@ abstract class AppDatabase : RoomDatabase() {
                     .addMigrations(
                         MIGRATION_1_2, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
                         MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11,
+                        MIGRATION_11_12,
                     )
                     // v3 removed the unused description column. There is no
                     // released data to preserve, so recreate cleanly on any

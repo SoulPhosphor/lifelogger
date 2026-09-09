@@ -93,6 +93,13 @@ object EntryValues {
         (values[label] as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull }?.toSet()
             ?: emptySet()
 
+    /**
+     * The saved strings of an array-valued field, in stored order. A `tags`
+     * field keeps the order its tags were added in, so it reads back that way.
+     */
+    fun stringList(values: JsonObject, label: String): List<String> =
+        (values[label] as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty()
+
     /** The raw stored string for any single-valued field, or null if absent. */
     fun rawValue(values: JsonObject, label: String): String? =
         (values[label] as? JsonPrimitive)?.contentOrNull?.ifBlank { null }
@@ -104,7 +111,7 @@ object EntryValues {
     fun displayValue(field: FieldDef, values: JsonObject): String? {
         val raw = values[field.label] ?: return null
         return when (field.type) {
-            FieldType.MULTIPLE ->
+            FieldType.MULTIPLE, FieldType.TAGS ->
                 (raw as? JsonArray)
                     ?.mapNotNull { it.jsonPrimitive.contentOrNull }
                     ?.takeIf { it.isNotEmpty() }

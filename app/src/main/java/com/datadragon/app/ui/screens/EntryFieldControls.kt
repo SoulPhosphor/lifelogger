@@ -39,6 +39,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.datadragon.app.ui.components.AppButton
+import com.datadragon.app.ui.components.TagsEditor
+import com.datadragon.app.ui.components.WebpageEntryField
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.FieldType
@@ -59,7 +61,9 @@ private fun FieldDef.displayLabel(): String = if (required) "$label *" else labe
 /**
  * Renders one generated entry control for [field], reading and writing into the
  * shared form state. Single-valued fields live in [textValues]; `multiple`
- * fields live in [multiValues]. Storage forms follow [EntryValues].
+ * fields live in [multiValues]; `tags` fields live in [tagValues], which keeps a
+ * list rather than a set so tags stay in the order they were added. Storage
+ * forms follow [EntryValues].
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -67,6 +71,7 @@ fun EntryFieldControl(
     field: FieldDef,
     textValues: SnapshotStateMap<String, String>,
     multiValues: SnapshotStateMap<String, Set<String>>,
+    tagValues: SnapshotStateMap<String, List<String>>,
     showRequiredError: Boolean = false,
     bringIntoViewRequester: BringIntoViewRequester? = null,
     focusRequester: FocusRequester? = null,
@@ -173,6 +178,24 @@ fun EntryFieldControl(
                 stored = textValues[field.label],
                 onChange = { textValues[field.label] = it },
             )
+
+            FieldType.TAGS -> Labeled(label) {
+                TagsEditor(
+                    tags = tagValues[field.label].orEmpty(),
+                    onTagsChange = { tagValues[field.label] = it },
+                    isError = showRequiredError,
+                    focusRequester = focusRequester,
+                )
+            }
+
+            FieldType.WEBPAGE -> Labeled(label) {
+                WebpageEntryField(
+                    value = textValues[field.label].orEmpty(),
+                    onValueChange = { textValues[field.label] = it },
+                    isError = showRequiredError,
+                    focusRequester = focusRequester,
+                )
+            }
         }
     }
 }
@@ -181,7 +204,7 @@ private fun Modifier.withFocusRequester(requester: FocusRequester?): Modifier =
     requester?.let { this.focusRequester(it) } ?: this
 
 @Composable
-private fun Labeled(label: String, content: @Composable () -> Unit) {
+internal fun Labeled(label: String, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(label, style = MaterialTheme.typography.labelLarge)
         content()
@@ -190,7 +213,7 @@ private fun Labeled(label: String, content: @Composable () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DropdownField(
+internal fun DropdownField(
     label: String,
     options: List<String>,
     selected: String,
@@ -277,7 +300,7 @@ private fun MultipleField(
 }
 
 @Composable
-private fun DateField(label: String, stored: String?, onChange: (String) -> Unit) {
+internal fun DateField(label: String, stored: String?, onChange: (String) -> Unit) {
     var show by remember { mutableStateOf(false) }
     val date = stored?.let { runCatching { LocalDate.parse(it, EntryValues.DATE_STORAGE) }.getOrNull() }
     PickerButton(
@@ -299,7 +322,7 @@ private fun DateField(label: String, stored: String?, onChange: (String) -> Unit
 }
 
 @Composable
-private fun TimeField(label: String, stored: String?, onChange: (String) -> Unit) {
+internal fun TimeField(label: String, stored: String?, onChange: (String) -> Unit) {
     var show by remember { mutableStateOf(false) }
     val time = stored?.let { runCatching { LocalTime.parse(it, EntryValues.TIME_STORAGE) }.getOrNull() }
     PickerButton(
@@ -321,7 +344,7 @@ private fun TimeField(label: String, stored: String?, onChange: (String) -> Unit
 }
 
 @Composable
-private fun DateTimeField(label: String, stored: String?, onChange: (String) -> Unit) {
+internal fun DateTimeField(label: String, stored: String?, onChange: (String) -> Unit) {
     var showDate by remember { mutableStateOf(false) }
     var showTime by remember { mutableStateOf(false) }
     val current = stored?.let {
