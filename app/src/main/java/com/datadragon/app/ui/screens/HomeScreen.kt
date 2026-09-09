@@ -303,10 +303,10 @@ private fun ChecklistRow(
     }
 }
 
-/** "No entries yet" / "1 entry" / "14 Entries · Last Entry today" (docs/UI_SPEC.md §2). */
+/** "No Entries Yet" / "1 Entry" / "14 Entries · Last Entry Today" (docs/UI_SPEC.md §2). */
 private fun entrySummaryLine(log: HomeLog): String {
-    if (log.entryCount == 0) return "No entries yet"
-    val count = if (log.entryCount == 1) "1 entry" else "${log.entryCount} Entries"
+    if (log.entryCount == 0) return "No Entries Yet"
+    val count = if (log.entryCount == 1) "1 Entry" else "${log.entryCount} Entries"
     val last = EntryValues.displayLastEntry(log.lastEntryAt)
     return if (last != null) "$count · Last Entry $last" else count
 }

@@ -46,7 +46,7 @@ All primary screens are **full-screen**. The only floating dialogs allowed are *
 ├──────────────────────────────────────────────┤
 │  ┌────────────────────────────────────────┐   │
 │  │ My Log                             [+] │   │
-│  │ 14 Entries · Last Entry today          │   │
+│  │ 14 Entries · Last Entry Today          │   │
 │  └────────────────────────────────────────┘   │
 │  ┌────────────────────────────────────────┐   │
 │  │ Another Log                        [+] │   │

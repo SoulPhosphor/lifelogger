@@ -145,7 +145,7 @@ object EntryValues {
     }
 
     /**
-     * A short "last entry" phrase for the Home screen: "today", "yesterday", or a
+     * A short "last entry" phrase for the Home screen: "Today", "Yesterday", or a
      * `MMMM d` date (docs/UI_SPEC.md §2). Returns null if there is no timestamp.
      */
     fun displayLastEntry(iso: String?): String? {
@@ -153,8 +153,8 @@ object EntryValues {
             ?: return null
         val today = LocalDate.now()
         return when (date) {
-            today -> "today"
-            today.minusDays(1) -> "yesterday"
+            today -> "Today"
+            today.minusDays(1) -> "Yesterday"
             else -> DateTimeFormatter.ofPattern("MMMM d", Locale.getDefault()).format(date)
         }
     }
