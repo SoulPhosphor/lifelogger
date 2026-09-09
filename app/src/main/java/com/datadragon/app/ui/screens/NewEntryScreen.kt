@@ -105,7 +105,7 @@ fun NewEntryScreen(
 
     val timestamp = remember {
         LocalDateTime.now().format(
-            DateTimeFormatter.ofPattern("MMM d, yyyy, h:mm a", Locale.getDefault())
+            DateTimeFormatter.ofPattern("MMMM d, yyyy, h:mm a", Locale.getDefault())
         )
     }
 
