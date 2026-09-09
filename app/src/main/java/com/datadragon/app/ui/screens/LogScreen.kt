@@ -18,13 +18,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
@@ -62,6 +65,7 @@ import com.datadragon.app.data.LogEntry
 import com.datadragon.app.export.ExportContent
 import com.datadragon.app.export.LogExport
 import com.datadragon.app.ui.LogViewModel
+import com.datadragon.app.ui.SortCategory
 import com.datadragon.app.ui.theme.DeleteRed
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -81,6 +85,9 @@ fun LogScreen(
     val fields by viewModel.fields.collectAsStateWithLifecycle()
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     val notesByEntry by viewModel.notesByEntry.collectAsStateWithLifecycle()
+    val sortCategories by viewModel.sortCategories.collectAsStateWithLifecycle()
+    val selectedCategory by viewModel.selectedCategory.collectAsStateWithLifecycle()
+    val newestFirst by viewModel.newestFirst.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     val locked = template?.locked ?: true
@@ -235,25 +242,35 @@ fun LogScreen(
                 Text("No entries yet. Tap + to add one.", style = MaterialTheme.typography.bodyMedium)
             }
         } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                items(visibleEntries, key = { it.id }) { entry ->
-                    EntryRow(
-                        entry = entry,
-                        fields = fields,
-                        appendedNotes = notesByEntry[entry.id].orEmpty(),
-                        showAutomaticTimestamp = automaticTimestamping,
-                        editable = !locked,
-                        appendable = allowAppendedNotes,
-                        onDelete = { entryToDelete = entry },
-                        onEdit = { onEditEntry(entry.id) },
-                        onToggleMark = { viewModel.toggleMark(entry) },
-                        onAddNote = { onOpenFollowUp(entry.id, null) },
-                        onEditNote = { noteId -> onOpenFollowUp(entry.id, noteId) },
-                    )
+            Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+                SortFilterBar(
+                    categories = sortCategories,
+                    selected = selectedCategory,
+                    newestFirst = newestFirst,
+                    onSelectCategory = viewModel::selectSortCategory,
+                    onSelectNewestFirst = viewModel::selectNewestFirst,
+                    onClear = viewModel::clearSort,
+                )
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(visibleEntries, key = { it.id }) { entry ->
+                        EntryRow(
+                            entry = entry,
+                            fields = fields,
+                            appendedNotes = notesByEntry[entry.id].orEmpty(),
+                            showAutomaticTimestamp = automaticTimestamping,
+                            editable = !locked,
+                            appendable = allowAppendedNotes,
+                            onDelete = { entryToDelete = entry },
+                            onEdit = { onEditEntry(entry.id) },
+                            onToggleMark = { viewModel.toggleMark(entry) },
+                            onAddNote = { onOpenFollowUp(entry.id, null) },
+                            onEditNote = { noteId -> onOpenFollowUp(entry.id, noteId) },
+                        )
+                    }
                 }
             }
         }
@@ -382,12 +399,111 @@ fun LogScreen(
 }
 
 /**
- * One entry card (docs/UI_SPEC.md §3). The top line optionally shows the entry's
- * automatic timestamp with a `⋮` menu across from it — Edit (when unlocked), Mark/Unmark, Add
+ * The ordering controls that sit under the form title, above the entries:
+ * `[ Categories ▾ ] [ Sort: Newest ▾ ] [ ✕ Clear ]`. With only the automatic
+ * entry timestamp to sort by there is nothing to choose between, so Categories
+ * becomes a plain label next to the Sort dropdown. Clear drops both picks and
+ * returns the list to the form's own default ordering.
+ */
+@Composable
+private fun SortFilterBar(
+    categories: List<SortCategory>,
+    selected: SortCategory?,
+    newestFirst: Boolean,
+    onSelectCategory: (SortCategory) -> Unit,
+    onSelectNewestFirst: (Boolean) -> Unit,
+    onClear: () -> Unit,
+) {
+    if (categories.isEmpty()) return
+    var categoriesOpen by remember { mutableStateOf(false) }
+    var sortOpen by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 12.dp, top = 4.dp, end = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        if (categories.size > 1) {
+            Box {
+                AssistChip(
+                    onClick = { categoriesOpen = true },
+                    label = { Text("Categories") },
+                    trailingIcon = {
+                        Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+                    },
+                )
+                DropdownMenu(
+                    expanded = categoriesOpen,
+                    onDismissRequest = { categoriesOpen = false },
+                ) {
+                    categories.forEach { category ->
+                        DropdownMenuItem(
+                            text = { Text(category.label) },
+                            trailingIcon = {
+                                if (category.label == selected?.label) {
+                                    Icon(Icons.Filled.Check, contentDescription = "Sorting by this")
+                                }
+                            },
+                            onClick = {
+                                categoriesOpen = false
+                                onSelectCategory(category)
+                            },
+                        )
+                    }
+                }
+            }
+        } else {
+            // Nothing to pick between — name the one ordering instead.
+            Text(
+                categories.single().label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        Box {
+            AssistChip(
+                onClick = { sortOpen = true },
+                label = { Text("Sort: " + if (newestFirst) "Newest" else "Oldest") },
+                trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = null) },
+            )
+            DropdownMenu(expanded = sortOpen, onDismissRequest = { sortOpen = false }) {
+                DropdownMenuItem(
+                    text = { Text("Newest") },
+                    trailingIcon = {
+                        if (newestFirst) Icon(Icons.Filled.Check, contentDescription = "Current order")
+                    },
+                    onClick = { sortOpen = false; onSelectNewestFirst(true) },
+                )
+                DropdownMenuItem(
+                    text = { Text("Oldest") },
+                    trailingIcon = {
+                        if (!newestFirst) Icon(Icons.Filled.Check, contentDescription = "Current order")
+                    },
+                    onClick = { sortOpen = false; onSelectNewestFirst(false) },
+                )
+            }
+        }
+
+        AssistChip(
+            onClick = onClear,
+            label = { Text("Clear") },
+            leadingIcon = { Icon(Icons.Filled.Close, contentDescription = null) },
+        )
+    }
+}
+
+/**
+ * One entry card (docs/UI_SPEC.md §3). The top line shows the entry's automatic
+ * timestamp with a `⋮` menu across from it — Edit (when unlocked), Mark/Unmark, Add
  * follow-up note (when the log allows them), and Delete. When the entry is
  * marked, a filled star sits just before the `⋮`; tapping the star unmarks it.
- * Every field with a value is listed below as `label: value`, then any
- * append-only follow-up notes with their timestamps.
+ * With the automatic timestamp switched off the top line is not left blank: the
+ * entry's first filled-in field moves up into it and wraps beside the `⋮` rather
+ * than running under it. Every remaining field with a value is listed below as
+ * `label: value`, then any append-only follow-up notes with their timestamps.
  */
 @Composable
 private fun EntryRow(
@@ -407,6 +523,17 @@ private fun EntryRow(
     val notes = remember(values) { EntryValues.notes(values) }
     var menuOpen by remember { mutableStateOf(false) }
 
+    // Every field that actually has a value, in form order.
+    val filled = remember(fields, values) {
+        fields.mapNotNull { field ->
+            EntryValues.displayValue(field, values)?.let { field.label to it }
+        }
+    }
+    // With no timestamp on the top line, the first field takes that space instead
+    // of leaving it empty, so it is not repeated in the list below.
+    val hoisted = if (showAutomaticTimestamp) null else filled.firstOrNull()
+    val remaining = if (hoisted == null) filled else filled.drop(1)
+
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 8.dp, end = 4.dp, bottom = 16.dp),
@@ -420,6 +547,12 @@ private fun EntryRow(
                     Text(
                         text = EntryValues.displayEntryTimestamp(entry.createdAt),
                         style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+                } else if (hoisted != null) {
+                    FieldReadout(
+                        label = hoisted.first,
+                        value = hoisted.second,
                         modifier = Modifier.weight(1f),
                     )
                 } else {
@@ -473,11 +606,9 @@ private fun EntryRow(
                 }
             }
 
-            // One label-over-value block per field that has a value, going down.
-            fields.forEach { field ->
-                EntryValues.displayValue(field, values)?.let { value ->
-                    FieldReadout(label = field.label, value = value)
-                }
+            // One label-over-value block per remaining field that has a value.
+            remaining.forEach { (label, value) ->
+                FieldReadout(label = label, value = value)
             }
             notes?.let { FieldReadout(label = "Notes", value = it) }
         }
@@ -511,7 +642,11 @@ private fun FollowUpNote(note: EntryNote, onClick: () -> Unit) {
  * the value normal weight, and long values (like notes) wrap onto further lines.
  */
 @Composable
-private fun FieldReadout(label: String, value: String) {
+private fun FieldReadout(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+) {
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     Text(
         text = buildAnnotatedString {
@@ -521,6 +656,6 @@ private fun FieldReadout(label: String, value: String) {
             append(value)
         },
         style = MaterialTheme.typography.bodyLarge,
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        modifier = modifier,
     )
 }

@@ -37,12 +37,16 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
     private val _sortTimestampLabel = MutableStateFlow<String?>(null)
     val sortTimestampLabel: StateFlow<String?> = _sortTimestampLabel
 
+    private val _sortNewestFirst = MutableStateFlow(true)
+    val sortNewestFirst: StateFlow<Boolean> = _sortNewestFirst
+
     fun load(id: Long) {
         templateId = id
         viewModelScope.launch {
             val template = dao.getById(id)
             _automaticTimestamping.value = template?.automaticTimestamping ?: false
             _sortTimestampLabel.value = template?.sortTimestampLabel
+            _sortNewestFirst.value = template?.sortNewestFirst ?: true
             _fields.value = template
                 ?.let { runCatching { json.decodeFromString<List<FieldDef>>(it.schemaJson) }.getOrNull() }
                 ?: emptyList()
@@ -63,6 +67,7 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
         fields: List<FieldDef>,
         automaticTimestamping: Boolean,
         sortTimestampLabel: String?,
+        sortNewestFirst: Boolean,
         labelRenames: Map<String, String> = emptyMap(),
         optionRenames: Map<String, Map<String, String>> = emptyMap(),
         onSaved: () -> Unit,
@@ -86,11 +91,13 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
                 markdown,
                 automaticTimestamping,
                 sortTimestampLabel,
+                sortNewestFirst,
             )
             _name.value = savedName
             _fields.value = fields
             _automaticTimestamping.value = automaticTimestamping
             _sortTimestampLabel.value = sortTimestampLabel
+            _sortNewestFirst.value = sortNewestFirst
             onSaved()
         }
     }

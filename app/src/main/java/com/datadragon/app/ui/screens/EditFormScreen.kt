@@ -58,6 +58,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.FieldType
+import com.datadragon.app.data.sortEligible
 import com.datadragon.app.data.SettingsRepository
 import com.datadragon.app.data.TitleCase
 import com.datadragon.app.ui.EditFormViewModel
@@ -117,12 +118,15 @@ fun EditFormScreen(
     val name by viewModel.name.collectAsStateWithLifecycle()
     val loadedAutomaticTimestamping by viewModel.automaticTimestamping.collectAsStateWithLifecycle()
     val loadedSortTimestampLabel by viewModel.sortTimestampLabel.collectAsStateWithLifecycle()
+    val loadedSortNewestFirst by viewModel.sortNewestFirst.collectAsStateWithLifecycle()
     // The existing form title is editable alongside the field list and is saved
     // by this screen's existing Save action.
     var formTitle by rememberSaveable { mutableStateOf<String?>(null) }
     var savedTitle by rememberSaveable { mutableStateOf<String?>(null) }
     var automaticTimestamping by rememberSaveable { mutableStateOf<Boolean?>(null) }
     var savedAutomaticTimestamping by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    var sortNewestFirst by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    var savedSortNewestFirst by rememberSaveable { mutableStateOf<Boolean?>(null) }
     LaunchedEffect(name) {
         if (formTitle == null && name != null) {
             formTitle = name
@@ -133,6 +137,12 @@ fun EditFormScreen(
         if (automaticTimestamping == null && name != null) {
             automaticTimestamping = loadedAutomaticTimestamping
             savedAutomaticTimestamping = loadedAutomaticTimestamping
+        }
+    }
+    LaunchedEffect(name, loadedSortNewestFirst) {
+        if (sortNewestFirst == null && name != null) {
+            sortNewestFirst = loadedSortNewestFirst
+            savedSortNewestFirst = loadedSortNewestFirst
         }
     }
 
@@ -160,7 +170,8 @@ fun EditFormScreen(
     // full-screen editor in place of the list.
     var editingIndex by rememberSaveable { mutableStateOf<Int?>(null) }
 
-    val canSave = name != null && formTitle != null && automaticTimestamping != null && rows.all { it.isValid() }
+    val canSave = name != null && formTitle != null && automaticTimestamping != null &&
+        sortNewestFirst != null && rows.all { it.isValid() }
 
     fun move(index: Int, delta: Int) {
         val target = index + delta
@@ -199,6 +210,7 @@ fun EditFormScreen(
             fields = rows.map { it.toFieldDef() },
             automaticTimestamping = automaticTimestamping ?: false,
             sortTimestampLabel = rows.firstOrNull { it.sortByTimestamp }?.label?.trim(),
+            sortNewestFirst = sortNewestFirst ?: true,
             labelRenames = labelRenames(),
             optionRenames = optionRenames(),
             onSaved = {
@@ -211,6 +223,7 @@ fun EditFormScreen(
                 formTitle = titleToSave
                 savedTitle = titleToSave
                 savedAutomaticTimestamping = automaticTimestamping
+                savedSortNewestFirst = sortNewestFirst
                 savedSnapshot = rows.map { it.toFieldDef() }
                 onDone()
             },
@@ -224,10 +237,12 @@ fun EditFormScreen(
             source = draft,
             number = openIndex + 1,
             otherSortLabel = rows.firstOrNull { it !== draft && it.sortByTimestamp }?.label,
+            sortNewestFirst = sortNewestFirst ?: true,
             canSave = { it.isValid() },
             onSortSelected = {
                 rows.filter { it !== draft }.forEach { it.sortByTimestamp = false }
             },
+            onSortDirectionChange = { sortNewestFirst = it },
             onSave = { persist { editingIndex = null } },
             onCancel = {
                 // A brand-new field that was never filled in is discarded on cancel
@@ -245,6 +260,7 @@ fun EditFormScreen(
     val dirty = fieldsDirty ||
         (savedTitle != null && formTitle != savedTitle) ||
         (savedAutomaticTimestamping != null && automaticTimestamping != savedAutomaticTimestamping) ||
+        (savedSortNewestFirst != null && sortNewestFirst != savedSortNewestFirst) ||
         (seeded && currentSortLabel != savedSortLabel)
     var showDiscard by rememberSaveable { mutableStateOf(false) }
     fun attemptBack() { if (dirty) showDiscard = true else onBack() }
@@ -426,8 +442,10 @@ private fun FieldEditorScreen(
     source: EditDraft,
     number: Int,
     otherSortLabel: String?,
+    sortNewestFirst: Boolean,
     canSave: (EditDraft) -> Boolean,
     onSortSelected: () -> Unit,
+    onSortDirectionChange: (Boolean) -> Unit,
     onSave: () -> Unit,
     onCancel: () -> Unit,
 ) {
@@ -438,7 +456,10 @@ private fun FieldEditorScreen(
     // Editing works on a copy; warn before dropping unsaved edits to this field.
     var showDiscard by remember { mutableStateOf(false) }
     var showSortReplacement by remember { mutableStateOf(false) }
-    val dirty = !draft.sameContentAs(source)
+    // The sort direction belongs to the form, not the field, so it is held here
+    // and only handed back on Save — cancelling this editor leaves it untouched.
+    var newestFirst by remember { mutableStateOf(sortNewestFirst) }
+    val dirty = !draft.sameContentAs(source) || newestFirst != sortNewestFirst
     fun attemptCancel() { if (dirty) showDiscard = true else onCancel() }
     BackHandler { attemptCancel() }
 
@@ -457,6 +478,7 @@ private fun FieldEditorScreen(
                         onClick = {
                             source.applyFrom(draft)
                             if (source.sortByTimestamp) onSortSelected()
+                            onSortDirectionChange(newestFirst)
                             // Auto-capitalize only newly added fields; existing
                             // fields are left as-is so their entries aren't re-keyed.
                             if (!source.existing) {
@@ -506,12 +528,21 @@ private fun FieldEditorScreen(
             } else {
                 EditTypeDropdown(selected = draft.type, onSelected = {
                     draft.type = it
-                    if (it != FieldType.DATETIME) draft.sortByTimestamp = false
+                    // Time-only and non-date fields can never take part in ordering.
+                    if (!it.sortEligible) {
+                        draft.allowOrderFiltering = false
+                        draft.sortByTimestamp = false
+                    }
                 })
             }
 
             SettingsControls(draft)
-            if (draft.type == FieldType.DATETIME) {
+            if (draft.type.sortEligible) {
+                CheckboxSettingRow(
+                    checked = draft.allowOrderFiltering,
+                    onCheckedChange = { draft.allowOrderFiltering = it },
+                    title = "Allow Order Filtering",
+                )
                 CheckboxSettingRow(
                     checked = draft.sortByTimestamp,
                     onCheckedChange = { checked ->
@@ -520,6 +551,12 @@ private fun FieldEditorScreen(
                     },
                     title = "Use as Default Sort Timestamp",
                 )
+                if (draft.sortByTimestamp) {
+                    SortDirectionRadios(
+                        newestFirst = newestFirst,
+                        onNewestFirstChange = { newestFirst = it },
+                    )
+                }
             }
             RequiredRow(draft)
 
@@ -545,8 +582,8 @@ private fun FieldEditorScreen(
             },
             text = {
                 Text(
-                    "Checking this will mean that Form entries will no longer be sorted by " +
-                        "$otherSortLabel first.",
+                    "Default timestamp sorting is currently set to be $otherSortLabel. " +
+                        "Do you want to change it?",
                 )
             },
             dismissButton = {
@@ -690,6 +727,7 @@ private class EditDraft(
     to: String = "",
     optionsText: String = "",
     defaultNow: Boolean = false,
+    allowOrderFiltering: Boolean = false,
     sortByTimestamp: Boolean = false,
     /** True for a field that already exists in the saved schema (type locked). */
     val existing: Boolean = false,
@@ -707,6 +745,7 @@ private class EditDraft(
     var to by mutableStateOf(to)
     var optionsText by mutableStateOf(optionsText)
     var defaultNow by mutableStateOf(defaultNow)
+    var allowOrderFiltering by mutableStateOf(allowOrderFiltering)
     var sortByTimestamp by mutableStateOf(sortByTimestamp)
 
     // Baselines for rename detection; realigned after each save.
@@ -721,6 +760,7 @@ private class EditDraft(
         label == o.label && type == o.type && required == o.required &&
             lines == o.lines && digits == o.digits && from == o.from && to == o.to &&
             optionsText == o.optionsText && defaultNow == o.defaultNow &&
+            allowOrderFiltering == o.allowOrderFiltering &&
             sortByTimestamp == o.sortByTimestamp
 
     fun optionList(): List<String> =
@@ -780,6 +820,7 @@ private class EditDraft(
         to = to,
         optionsText = optionsText,
         defaultNow = defaultNow,
+        allowOrderFiltering = allowOrderFiltering,
         sortByTimestamp = sortByTimestamp,
         existing = existing,
         originalLabel = originalLabel,
@@ -797,6 +838,7 @@ private class EditDraft(
         to = other.to
         optionsText = other.optionsText
         defaultNow = other.defaultNow
+        allowOrderFiltering = other.allowOrderFiltering
         sortByTimestamp = other.sortByTimestamp
     }
 
@@ -810,6 +852,7 @@ private class EditDraft(
         to = if (type == FieldType.SCALE) to.toIntOrNull() else null,
         options = if (type == FieldType.DROPDOWN || type == FieldType.MULTIPLE) optionList() else emptyList(),
         defaultNow = type == FieldType.DATETIME && defaultNow,
+        allowOrderFiltering = type.sortEligible && allowOrderFiltering,
     )
 
     fun toSnapshot(): EditDraftSnapshot = EditDraftSnapshot(
@@ -822,6 +865,7 @@ private class EditDraft(
         to = to,
         optionsText = optionsText,
         defaultNow = defaultNow,
+        allowOrderFiltering = allowOrderFiltering,
         sortByTimestamp = sortByTimestamp,
         existing = existing,
         originalLabel = originalLabel,
@@ -841,6 +885,7 @@ private data class EditDraftSnapshot(
     val to: String,
     val optionsText: String,
     val defaultNow: Boolean,
+    val allowOrderFiltering: Boolean = false,
     val sortByTimestamp: Boolean = false,
     val existing: Boolean,
     val originalLabel: String?,
@@ -857,6 +902,7 @@ private fun EditDraftSnapshot.toEditDraft(): EditDraft = EditDraft(
     to = to,
     optionsText = optionsText,
     defaultNow = defaultNow,
+    allowOrderFiltering = allowOrderFiltering,
     sortByTimestamp = sortByTimestamp,
     existing = existing,
     originalLabel = originalLabel,
@@ -874,6 +920,7 @@ private fun draftOf(f: FieldDef, sortByTimestamp: Boolean): EditDraft = EditDraf
     to = f.to?.toString() ?: "",
     optionsText = f.options.joinToString("\n"),
     defaultNow = f.defaultNow,
+    allowOrderFiltering = f.allowOrderFiltering,
     sortByTimestamp = sortByTimestamp,
     existing = true,
     originalLabel = f.label,

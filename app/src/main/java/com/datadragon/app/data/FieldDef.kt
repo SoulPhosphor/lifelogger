@@ -25,6 +25,8 @@ data class FieldDef(
     val options: List<String> = emptyList(),
     /** datetime: pre-fill with the current time (`default: now`). */
     val defaultNow: Boolean = false,
+    /** date / datetime: offer this label as an order-sorting category. */
+    val allowOrderFiltering: Boolean = false,
 )
 
 /**
@@ -49,3 +51,12 @@ enum class FieldType(val token: String) {
             entries.firstOrNull { it.token == token.trim().lowercase() }
     }
 }
+
+/**
+ * Whether a field type can take part in entry ordering. Anything carrying a date
+ * is eligible; a time-only field never is, because two times with no date can't
+ * be placed chronologically against each other. Eligible only means the user may
+ * opt the field in — sorting is never turned on automatically.
+ */
+val FieldType.sortEligible: Boolean
+    get() = this == FieldType.DATE || this == FieldType.DATETIME

@@ -12,6 +12,7 @@ import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.FormMarkdownGenerator
 import com.datadragon.app.data.LogEntry
 import com.datadragon.app.data.LogTemplate
+import com.datadragon.app.data.sortEligible
 import androidx.room.withTransaction
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,12 +26,13 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
 
 /**
  * Backs the single-log (entry list) screen. It loads the template (for the log
- * name and field definitions) and observes that log's entries chronologically.
+ * name and field definitions) and observes that log's entries in the form's order.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class LogViewModel(app: Application) : AndroidViewModel(app) {
@@ -59,12 +61,43 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** Use the chosen Date & Time field when populated, then hidden createdAt. */
+    // The filter bar's picks. Both are null until the user changes them, which
+    // means "use the form's default", and both die with this screen — reopening
+    // the log always comes back to the form's own default ordering.
+    private val _pickedCategoryLabel = MutableStateFlow<String?>(null)
+    private val _pickedNewestFirst = MutableStateFlow<Boolean?>(null)
+
+    /** Every ordering the filter bar can offer for this form. */
+    val sortCategories: StateFlow<List<SortCategory>> =
+        combine(_fields, _template) { fields, template -> sortCategoriesOf(fields, template) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** The ordering in force, which is the form's default until the user picks. */
+    val selectedCategory: StateFlow<SortCategory?> =
+        combine(_fields, _template, _pickedCategoryLabel) { fields, template, picked ->
+            resolveCategory(fields, template, picked)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** The direction in force, which is the form's default until the user picks. */
+    val newestFirst: StateFlow<Boolean> =
+        combine(_template, _pickedNewestFirst) { template, picked ->
+            picked ?: template?.sortNewestFirst ?: true
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
+    /** Ordered by the selected sort category and direction. */
     val entries: StateFlow<List<LogEntry>> =
-        combine(storedEntries, _fields, _template) { entries, fields, template ->
-            val sortLabel = template?.sortTimestampLabel
-                ?.takeIf { label -> fields.any { it.type == FieldType.DATETIME && it.label == label } }
-            sortLogEntriesChronologically(entries, sortLabel)
+        combine(
+            storedEntries,
+            _fields,
+            _template,
+            _pickedCategoryLabel,
+            _pickedNewestFirst,
+        ) { entries, fields, template, pickedLabel, pickedDirection ->
+            sortLogEntries(
+                entries = entries,
+                sortField = resolveCategory(fields, template, pickedLabel)?.field,
+                newestFirst = pickedDirection ?: template?.sortNewestFirst ?: true,
+            )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Append-only follow-up notes for this log, grouped by the entry they belong to. */
@@ -84,6 +117,22 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
                 ?.let { runCatching { json.decodeFromString<List<FieldDef>>(it.schemaJson) }.getOrNull() }
                 ?: emptyList()
         }
+    }
+
+    /** Order by one of [sortCategories] instead of the form's default. */
+    fun selectSortCategory(category: SortCategory) {
+        _pickedCategoryLabel.value = category.label
+    }
+
+    /** Run the current category newest first, or oldest first. */
+    fun selectNewestFirst(value: Boolean) {
+        _pickedNewestFirst.value = value
+    }
+
+    /** Drop both picks and go back to the form's own default ordering. */
+    fun clearSort() {
+        _pickedCategoryLabel.value = null
+        _pickedNewestFirst.value = null
     }
 
     /** Update the visible title immediately and debounce its database write. */
@@ -169,20 +218,95 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
 
 }
 
-/** Oldest first by the selected Date & Time field, falling back per entry to createdAt. */
-internal fun sortLogEntriesChronologically(
-    entries: List<LogEntry>,
-    sortTimestampLabel: String?,
-): List<LogEntry> = entries.sortedWith(
-    compareBy<LogEntry> { entry -> entrySortTime(entry, sortTimestampLabel) }
-        .thenBy { it.id },
-)
+/** The label the automatic entry timestamp goes by in the filter bar. */
+const val AUTOMATIC_TIMESTAMP_LABEL = "Timestamp"
 
-private fun entrySortTime(entry: LogEntry, sortTimestampLabel: String?): LocalDateTime {
-    val userTime = sortTimestampLabel
-        ?.let { EntryValues.rawValue(EntryValues.decode(entry.valuesJson), it) }
-        ?.let { runCatching { LocalDateTime.parse(it, EntryValues.DATETIME_STORAGE) }.getOrNull() }
-    return userTime
-        ?: runCatching { OffsetDateTime.parse(entry.createdAt).toLocalDateTime() }
-            .getOrDefault(LocalDateTime.MIN)
+/**
+ * One ordering the filter bar can offer. A null [field] is the automatic entry
+ * timestamp, which every form always has.
+ */
+data class SortCategory(val label: String, val field: FieldDef?)
+
+/**
+ * The orderings this form offers: the automatic entry timestamp first, then every
+ * date-bearing field the user opted in with "Allow Order Filtering", plus the
+ * form's own default sort field whether or not it was also opted in.
+ */
+internal fun sortCategoriesOf(fields: List<FieldDef>, template: LogTemplate?): List<SortCategory> {
+    val default = defaultSortField(fields, template)
+    val opted = fields.filter {
+        it.type.sortEligible && (it.allowOrderFiltering || it.label == default?.label)
+    }
+    return listOf(SortCategory(AUTOMATIC_TIMESTAMP_LABEL, null)) +
+        opted.map { SortCategory(it.label, it) }
+}
+
+/**
+ * The category in force: the user's pick when it still exists, otherwise the
+ * form's default sort field, otherwise the automatic entry timestamp.
+ */
+internal fun resolveCategory(
+    fields: List<FieldDef>,
+    template: LogTemplate?,
+    pickedLabel: String?,
+): SortCategory? {
+    val categories = sortCategoriesOf(fields, template)
+    pickedLabel?.let { label ->
+        categories.firstOrNull { it.label == label }?.let { return it }
+    }
+    val default = defaultSortField(fields, template)
+    return categories.firstOrNull { it.field?.label == default?.label } ?: categories.firstOrNull()
+}
+
+/**
+ * The field the form sorts by, or null when it falls back to the hidden automatic
+ * entry timestamp. A stored label only counts while a sort-eligible field still
+ * carries it, so deleting or retyping that field reverts the form to createdAt.
+ */
+internal fun defaultSortField(fields: List<FieldDef>, template: LogTemplate?): FieldDef? =
+    template?.sortTimestampLabel?.let { label ->
+        fields.firstOrNull { it.type.sortEligible && it.label == label }
+    }
+
+/**
+ * Order entries by [sortField], or by the automatic entry timestamp when it is
+ * null. Entries with no usable value for the chosen field are never interleaved:
+ * they collect at the bottom of the list in both directions.
+ */
+internal fun sortLogEntries(
+    entries: List<LogEntry>,
+    sortField: FieldDef?,
+    newestFirst: Boolean,
+): List<LogEntry> {
+    val (timed, undated) = entries
+        .map { it to entrySortTime(it, sortField) }
+        .partition { (_, time) -> time != null }
+    val ordered = if (newestFirst) {
+        timed.sortedWith(compareByDescending<Pair<LogEntry, LocalDateTime?>> { it.second }.thenByDescending { it.first.id })
+    } else {
+        timed.sortedWith(compareBy<Pair<LogEntry, LocalDateTime?>> { it.second }.thenBy { it.first.id })
+    }
+    val trailing = if (newestFirst) undated.sortedByDescending { it.first.id } else undated.sortedBy { it.first.id }
+    return (ordered + trailing).map { it.first }
+}
+
+/**
+ * The instant one entry sorts at, or null when it has nothing to sort by. A date
+ * field with no time sorts at the start of its day, so a date and a date & time
+ * field order against each other consistently.
+ */
+private fun entrySortTime(entry: LogEntry, sortField: FieldDef?): LocalDateTime? {
+    if (sortField == null) {
+        return runCatching { OffsetDateTime.parse(entry.createdAt).toLocalDateTime() }.getOrNull()
+    }
+    val raw = EntryValues.rawValue(EntryValues.decode(entry.valuesJson), sortField.label)
+        ?.takeIf { it.isNotBlank() }
+        ?: return null
+    return when (sortField.type) {
+        FieldType.DATE ->
+            runCatching { LocalDate.parse(raw, EntryValues.DATE_STORAGE).atStartOfDay() }.getOrNull()
+        FieldType.DATETIME ->
+            runCatching { LocalDateTime.parse(raw, EntryValues.DATETIME_STORAGE) }.getOrNull()
+        else -> null
+    }
 }

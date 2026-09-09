@@ -97,11 +97,17 @@ All primary screens are **full-screen**. The only floating dialogs allowed are *
 └──────────────────────────────────────────────┘
 ```
 
-- Entries are listed oldest first. A form may instead use one selected Date &
-  Time field as its default chronological timestamp; an entry without a value
-  in that field falls back to its automatic creation timestamp.
+- Entries are listed newest first. A form may instead use one selected Date or
+  Date & Time field as its default sort timestamp, and may set its default
+  direction to Oldest to Newest. An entry with no value in the selected field is
+  never interleaved — those entries collect at the bottom of the list in either
+  direction.
+- Only fields that carry a date can take part in ordering. A Time-only field
+  never can, because two times with no date cannot be placed against each other.
 - Automatic creation timestamps are always recorded. Each form controls whether
-  that timestamp is visible on its entry cards.
+  that timestamp is visible on its entry cards. When it is hidden the top line is
+  not left blank: the entry's first filled-in field moves up into it and wraps
+  beside the `⋮` rather than running under it.
 - When visible, the top line of each card holds the entry's date/time with the delete `🗑`
   across from it on the right. The `🗑` uses the default icon color (it is **not**
   tinted red).
