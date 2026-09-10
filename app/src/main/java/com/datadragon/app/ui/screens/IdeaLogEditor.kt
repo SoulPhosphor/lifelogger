@@ -35,6 +35,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -360,21 +361,29 @@ fun IdeaLogEditorScaffold(
             )
 
             Text("Fields", style = MaterialTheme.typography.labelLarge)
-            ReorderableColumn(
-                list = fields,
-                onSettle = { from, to -> fields.add(to, fields.removeAt(from)) },
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) { index, field, _ ->
-                IdeaFieldCard(
-                    field = field,
-                    index = index,
-                    sortNewestFirst = sortNewestFirst,
-                    onSortChanged = { setSort(field, it) },
-                    onSortDirectionChange = onSortDirectionChange,
-                    onDelete = { fields.remove(field) },
-                    dragHandleModifier = Modifier.draggableHandle(),
-                )
+            // ReorderableColumn sizes its internal per-item state to the list once,
+            // keyed only on the list *reference* — mutating this SnapshotStateList in
+            // place (adding a field, or filling in the default fields) never rebuilds
+            // it, so the extra rows would index past that stale state and crash.
+            // Keying on the field count rebuilds it whenever the list grows or shrinks;
+            // drag-reordering keeps the count the same, so it is left untouched.
+            key(fields.size) {
+                ReorderableColumn(
+                    list = fields,
+                    onSettle = { from, to -> fields.add(to, fields.removeAt(from)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) { index, field, _ ->
+                    IdeaFieldCard(
+                        field = field,
+                        index = index,
+                        sortNewestFirst = sortNewestFirst,
+                        onSortChanged = { setSort(field, it) },
+                        onSortDirectionChange = onSortDirectionChange,
+                        onDelete = { fields.remove(field) },
+                        dragHandleModifier = Modifier.draggableHandle(),
+                    )
+                }
             }
 
             AppButton(

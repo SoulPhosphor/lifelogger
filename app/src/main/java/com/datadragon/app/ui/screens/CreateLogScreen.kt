@@ -45,6 +45,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -471,21 +472,27 @@ private fun BuildEditor(
     }
     // Fields drag by their handle into the order they'll be saved in — the same
     // reorderable list the rest of the app uses, so nobody taps Up and Down.
-    ReorderableColumn(
-        list = fields,
-        onSettle = onReorder,
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) { index, field, _ ->
-        FieldEditorCard(
-            field = field,
-            index = index,
-            sortNewestFirst = sortNewestFirst,
-            onSortChanged = { setSort(field, it) },
-            onSortDirectionChange = onSortDirectionChange,
-            onDelete = { onDelete(field) },
-            dragHandleModifier = Modifier.draggableHandle(),
-        )
+    // ReorderableColumn sizes its internal per-item state to the list once, keyed
+    // only on the list reference, so adding or deleting a field in place would index
+    // past that stale state and crash. Keying on the field count rebuilds it on a
+    // grow or shrink; drag-reordering keeps the count the same and is left untouched.
+    key(fields.size) {
+        ReorderableColumn(
+            list = fields,
+            onSettle = onReorder,
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) { index, field, _ ->
+            FieldEditorCard(
+                field = field,
+                index = index,
+                sortNewestFirst = sortNewestFirst,
+                onSortChanged = { setSort(field, it) },
+                onSortDirectionChange = onSortDirectionChange,
+                onDelete = { onDelete(field) },
+                dragHandleModifier = Modifier.draggableHandle(),
+            )
+        }
     }
     AppButton(onClick = onAdd, modifier = Modifier.fillMaxWidth()) {
         Icon(Icons.Filled.Add, contentDescription = null)
