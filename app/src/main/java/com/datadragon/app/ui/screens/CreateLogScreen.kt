@@ -77,18 +77,18 @@ import sh.calvin.reorderable.ReorderableColumn
 /** Which editor is showing. Build (visual taps) is the default. */
 private enum class BuilderMode { BUILD, PASTE }
 
-private const val FIELD_TYPES_REFERENCE = """text         — a single line of text
-multiline    — multi-line text box. Set "lines" for visible height
-date         — month/day/year picker
-time         — 12-hour time with AM/PM
-dropdown     — pick one item from a list
-scale          — pick a number in a range. Set "from" and "to" (default 1 to 10). Add "make_dropdown: true" for a dropdown
+private const val FIELD_TYPES_REFERENCE = """text           — a single line of text
+multiline      — multi-line text box. Set "lines" for visible height
+date           — month/day/year picker
+time           — 12-hour time with AM/PM
+dropdown       — pick one item from a list
+scale          — Pick a Number in a Range. Set "from" and "to" (Default 1 to 10). Add "make_dropdown: true" for a Dropdown
 yesno          — Yes / No radios. Add "allow_unknown: true" for an Unknown radio
 number         — type a number. Set "digits" for max digits allowed
 multiple       — pick several items from a list (tappable chips)
 tags           — type a tag and add it; each becomes a removable chip
 webpage        — a web address, with a button that opens it
-blood_pressure — two 3-digit boxes separated by "/" (systolic / diastolic)
+blood_pressure — Two 3-Digit Boxes Separated by "/" (Systolic / Diastolic)
 
 Any field can add "required" to prevent saving without it."""
 
@@ -1017,7 +1017,7 @@ private fun FieldType.friendly(): String = when (this) {
     FieldType.NUMBER -> "Number"
     FieldType.DROPDOWN -> "Dropdown (pick one)"
     FieldType.MULTIPLE -> "Multiple (pick several)"
-    FieldType.SCALE -> "Scale"
+    FieldType.SCALE -> "Scale (Number Range)"
     FieldType.YESNO -> "Yes / No (with optional Unknown)"
     FieldType.DATE -> "Date"
     FieldType.TIME -> "Time"
@@ -1035,7 +1035,7 @@ private fun FieldDef.summary(): String {
         FieldType.NUMBER -> "Number" + (digits?.let { " (up to $it digits)" } ?: "")
         FieldType.DROPDOWN -> "Pick one: " + options.joinToString(", ")
         FieldType.MULTIPLE -> "Pick several: " + options.joinToString(", ")
-        FieldType.SCALE -> "Scale $from–$to" + (if (makeDropdown) " · dropdown" else "")
+        FieldType.SCALE -> "Scale $from–$to" + (if (makeDropdown) " · Dropdown" else "")
         FieldType.YESNO -> if (allowUnknown) "Yes / No / Unknown" else "Yes / No"
         FieldType.DATE -> "Date"
         FieldType.TIME -> "Time"

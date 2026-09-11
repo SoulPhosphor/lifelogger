@@ -837,7 +837,7 @@ private class EditDraft(
             FieldType.SCALE -> {
                 val lo = from.ifBlank { EDIT_SCALE_DEFAULT_FROM.toString() }
                 val hi = to.ifBlank { EDIT_SCALE_DEFAULT_TO.toString() }
-                "Scale $lo–$hi" + (if (makeDropdown) " · dropdown" else "")
+                "Scale $lo–$hi" + (if (makeDropdown) " · Dropdown" else "")
             }
             FieldType.YESNO -> if (allowUnknown) "Yes / No / Unknown" else "Yes / No"
             FieldType.DATE -> "Date"
@@ -1014,7 +1014,7 @@ private fun FieldType.editFriendly(): String = when (this) {
     FieldType.NUMBER -> "Number"
     FieldType.DROPDOWN -> "Dropdown (pick one)"
     FieldType.MULTIPLE -> "Multiple (pick several)"
-    FieldType.SCALE -> "Scale"
+    FieldType.SCALE -> "Scale (Number Range)"
     FieldType.YESNO -> "Yes / No (with optional Unknown)"
     FieldType.DATE -> "Date"
     FieldType.TIME -> "Time"
