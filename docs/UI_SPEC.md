@@ -215,10 +215,11 @@ multiline    — multi-line text box. Set "lines" for visible height
 date         — month/day/year picker
 time         — 12-hour time with AM/PM
 dropdown     — pick one item from a list
-scale        — pick a number in a range. Set "from" and "to"
-yesno        — Yes / No / Unknown / Not Applicable
-number       — type a number. Set "digits" for max digits allowed
-multiple     — pick several items from a list (tappable chips)
+scale          — pick a number in a range. Set "from" and "to" (default 1 to 10). Add "make_dropdown: true" for a dropdown
+yesno          — Yes / No radios. Add "allow_unknown: true" for an Unknown radio
+number         — type a number. Set "digits" for max digits allowed
+multiple       — pick several items from a list (tappable chips)
+blood_pressure — two 3-digit boxes separated by "/" (systolic / diastolic)
 
 Any field can add "required" to prevent saving without it.
 ```
@@ -344,12 +345,13 @@ Opened by the `↓` on Home. Backs up all logs and entries at once.
 | `time` | A time picker (12-hour with AM/PM). |
 | `datetime` | A date and time picker combined. Can default to the current time. |
 | `dropdown` | A dropdown list. User picks one. |
-| `scale` | Tappable pills if 5 or fewer numbers; dropdown if 6 or more. |
-| `yesno` | A dropdown with four options: Yes, No, Unknown, Not Applicable. |
+| `scale` | Tappable numbered chips that wrap to new rows when they don't fit. Turn on **Make Dropdown Instead** for a dropdown of numbers. Chips: no auto-select; a tap on the selected chip clears the choice when the field is optional. Dropdown, optional: opens blank; a "None" item at the top of the menu clears the choice. Dropdown, required: opens with `Choose…`, and the user must pick. |
+| `yesno` | Two radio buttons on one line: **Yes** and **No**. If the field opts in with "Allow Unknown Option", a third **Unknown** radio joins them. On a non-required yesno field, tapping the selected radio deselects it. |
 | `number` | A box where the user types a number. Limited to the max digits specified. |
 | `multiple` | Tappable chips (multiple can be selected). Selected items display on one line separated by commas. |
 | `tags` | A text box with an **Add** button; each saved tag is a chip with an "X". Read-only, the chips have no "X". |
 | `webpage` | A box for a web address. Read-only, it shows with a small open-in-browser button beside it. |
+| `blood_pressure` | Two 3-digit number inputs on one line with a literal `/` between them (systolic on the left, diastolic on the right). |
 
 - Required fields are marked and block saving until filled.
 - Controls should be large and easy to tap.

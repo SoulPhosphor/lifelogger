@@ -23,12 +23,14 @@ object FormMarkdownGenerator {
                 FieldType.SCALE -> {
                     field.from?.let { sb.append("from: ").append(it).append('\n') }
                     field.to?.let { sb.append("to: ").append(it).append('\n') }
+                    if (field.makeDropdown) sb.append("make_dropdown: true\n")
                 }
                 FieldType.DROPDOWN, FieldType.MULTIPLE -> {
                     sb.append("options:\n")
                     field.options.forEach { sb.append("- ").append(it).append('\n') }
                 }
                 FieldType.DATETIME -> if (field.defaultNow) sb.append("default: now\n")
+                FieldType.YESNO -> if (field.allowUnknown) sb.append("allow_unknown: true\n")
                 else -> Unit
             }
             if (field.required) sb.append("required\n")

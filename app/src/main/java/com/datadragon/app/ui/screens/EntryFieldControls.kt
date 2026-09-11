@@ -2,11 +2,15 @@ package com.datadragon.app.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.border
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
@@ -21,17 +25,20 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateMap
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -50,11 +57,24 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneOffset
 
-/** The four fixed yesno options (docs/UI_SPEC.md §10). */
-private val YESNO_OPTIONS = listOf("Yes", "No", "Unknown", "Not Applicable")
+/**
+ * Legacy stored yesno values that predate the Yes / No / Unknown radio design.
+ * Any of these — plus a lingering "Unknown" on a field whose author has since
+ * turned Allow Unknown Option off — collapses to "Yes" in the UI so the entry
+ * shows a selected radio instead of a blank one, and is saved as "Yes" the next
+ * time the entry is written.
+ */
+private const val YESNO_YES = "Yes"
+private const val YESNO_NO = "No"
+private const val YESNO_UNKNOWN = "Unknown"
 
-/** Scales with this many or fewer steps render as tappable pills; more → dropdown. */
-private const val SCALE_PILL_LIMIT = 5
+/** Normalize a stored yesno value against the field's current [allowUnknown]. */
+private fun coerceYesNo(stored: String, allowUnknown: Boolean): String = when (stored) {
+    YESNO_YES, YESNO_NO -> stored
+    YESNO_UNKNOWN -> if (allowUnknown) YESNO_UNKNOWN else YESNO_YES
+    "" -> ""
+    else -> YESNO_YES
+}
 
 private fun FieldDef.displayLabel(): String = if (required) "$label *" else label
 
@@ -135,17 +155,31 @@ fun EntryFieldControl(
                 onSelected = { textValues[field.label] = it },
             )
 
-            FieldType.YESNO -> DropdownField(
-                label = label,
-                options = YESNO_OPTIONS,
-                selected = textValues[field.label].orEmpty(),
-                onSelected = { textValues[field.label] = it },
-            )
+            FieldType.YESNO -> {
+                val raw = textValues[field.label].orEmpty()
+                val current = coerceYesNo(raw, field.allowUnknown)
+                LaunchedEffect(field.label, raw, field.allowUnknown) {
+                    if (raw.isNotEmpty() && current != raw) {
+                        textValues[field.label] = current
+                    }
+                }
+                YesNoField(
+                    label = label,
+                    selected = current,
+                    allowUnknown = field.allowUnknown,
+                    onTap = { pick ->
+                        textValues[field.label] =
+                            if (pick == current && !field.required) "" else pick
+                    },
+                )
+            }
 
             FieldType.SCALE -> ScaleField(
                 label = label,
-                from = field.from ?: 0,
-                to = field.to ?: 0,
+                from = field.from ?: 1,
+                to = field.to ?: 10,
+                makeDropdown = field.makeDropdown,
+                required = field.required,
                 selected = textValues[field.label].orEmpty(),
                 onSelected = { textValues[field.label] = it },
             )
@@ -196,6 +230,12 @@ fun EntryFieldControl(
                     focusRequester = focusRequester,
                 )
             }
+
+            FieldType.BLOOD_PRESSURE -> BloodPressureField(
+                label = label,
+                stored = textValues[field.label].orEmpty(),
+                onChange = { textValues[field.label] = it },
+            )
         }
     }
 }
@@ -245,36 +285,174 @@ internal fun DropdownField(
     }
 }
 
+@Composable
+private fun YesNoField(
+    label: String,
+    selected: String,
+    allowUnknown: Boolean,
+    onTap: (String) -> Unit,
+) {
+    val options = buildList {
+        add(YESNO_YES)
+        add(YESNO_NO)
+        if (allowUnknown) add(YESNO_UNKNOWN)
+    }
+    Labeled(label) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            options.forEach { option ->
+                Row(
+                    modifier = Modifier
+                        .clickable { onTap(option) }
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(
+                        selected = option == selected,
+                        onClick = { onTap(option) },
+                    )
+                    Text(option)
+                }
+            }
+        }
+    }
+}
+
+/** Menu item shown at the top of an optional scale dropdown so the user can clear their pick. */
+private const val SCALE_NONE_LABEL = "None"
+
+/**
+ * Split a stored blood-pressure value ("systolic/diastolic") into its two sides;
+ * missing sides come back as empty strings so the entry field can still edit them.
+ */
+private fun splitBloodPressure(stored: String): Pair<String, String> {
+    val slash = stored.indexOf('/')
+    return if (slash < 0) stored to "" else stored.substring(0, slash) to stored.substring(slash + 1)
+}
+
+private fun joinBloodPressure(systolic: String, diastolic: String): String =
+    if (systolic.isEmpty() && diastolic.isEmpty()) "" else "$systolic/$diastolic"
+
+@Composable
+private fun BloodPressureField(
+    label: String,
+    stored: String,
+    onChange: (String) -> Unit,
+) {
+    val (systolic, diastolic) = splitBloodPressure(stored)
+    Labeled(label) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = systolic,
+                onValueChange = { input ->
+                    val digits = input.filter { it.isDigit() }.take(3)
+                    onChange(joinBloodPressure(digits, diastolic))
+                },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.width(96.dp),
+            )
+            Text(
+                "/",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = 8.dp),
+            )
+            OutlinedTextField(
+                value = diastolic,
+                onValueChange = { input ->
+                    val digits = input.filter { it.isDigit() }.take(3)
+                    onChange(joinBloodPressure(systolic, digits))
+                },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.width(96.dp),
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ScaleField(
     label: String,
     from: Int,
     to: Int,
+    makeDropdown: Boolean,
+    required: Boolean,
     selected: String,
     onSelected: (String) -> Unit,
 ) {
     val numbers = if (to >= from) (from..to).toList() else emptyList()
-    if (numbers.size in 1..SCALE_PILL_LIMIT) {
+    if (makeDropdown) {
+        ScaleDropdown(
+            label = label,
+            numbers = numbers,
+            required = required,
+            selected = selected,
+            onSelected = onSelected,
+        )
+    } else {
         Labeled(label) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 numbers.forEach { n ->
                     val value = n.toString()
                     FilterChip(
                         selected = selected == value,
-                        onClick = { onSelected(value) },
+                        onClick = {
+                            onSelected(if (selected == value && !required) "" else value)
+                        },
                         label = { Text(value) },
                     )
                 }
             }
         }
-    } else {
-        DropdownField(
-            label = label,
-            options = numbers.map { it.toString() },
-            selected = selected,
-            onSelected = onSelected,
-        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ScaleDropdown(
+    label: String,
+    numbers: List<Int>,
+    required: Boolean,
+    selected: String,
+    onSelected: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Labeled(label) {
+        ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+            OutlinedTextField(
+                value = selected,
+                onValueChange = {},
+                readOnly = true,
+                placeholder = { Text(if (required) "Choose…" else "") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier.menuAnchor().fillMaxWidth(),
+            )
+            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                if (!required) {
+                    DropdownMenuItem(
+                        text = { Text(SCALE_NONE_LABEL) },
+                        onClick = {
+                            onSelected("")
+                            expanded = false
+                        },
+                    )
+                }
+                numbers.forEach { n ->
+                    val value = n.toString()
+                    DropdownMenuItem(
+                        text = { Text(value) },
+                        onClick = {
+                            onSelected(value)
+                            expanded = false
+                        },
+                    )
+                }
+            }
+        }
     }
 }
 

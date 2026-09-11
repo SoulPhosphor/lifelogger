@@ -27,6 +27,10 @@ data class FieldDef(
     val defaultNow: Boolean = false,
     /** date / datetime: offer this label as an order-sorting category. */
     val allowOrderFiltering: Boolean = false,
+    /** yesno: show an "Unknown" radio alongside Yes and No. */
+    val allowUnknown: Boolean = false,
+    /** scale: render as a dropdown of numbers instead of tappable chips. */
+    val makeDropdown: Boolean = false,
 )
 
 /**
@@ -46,7 +50,8 @@ enum class FieldType(val token: String) {
     TIME("time"),
     DATETIME("datetime"),
     TAGS("tags"),
-    WEBPAGE("webpage");
+    WEBPAGE("webpage"),
+    BLOOD_PRESSURE("blood_pressure");
 
     companion object {
         fun fromToken(token: String): FieldType? =
