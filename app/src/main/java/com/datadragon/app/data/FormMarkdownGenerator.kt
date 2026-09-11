@@ -29,6 +29,7 @@ object FormMarkdownGenerator {
                     field.options.forEach { sb.append("- ").append(it).append('\n') }
                 }
                 FieldType.DATETIME -> if (field.defaultNow) sb.append("default: now\n")
+                FieldType.YESNO -> if (field.allowUnknown) sb.append("allow_unknown: true\n")
                 else -> Unit
             }
             if (field.required) sb.append("required\n")

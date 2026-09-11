@@ -638,6 +638,11 @@ private fun SettingsControls(field: EditDraft) {
             onCheckedChange = { field.defaultNow = it },
             title = "Default to the Current Date & Time",
         )
+        FieldType.YESNO -> CheckboxSettingRow(
+            checked = field.allowUnknown,
+            onCheckedChange = { field.allowUnknown = it },
+            title = "Allow Unknown Option",
+        )
         else -> Unit
     }
 }
@@ -729,6 +734,7 @@ private class EditDraft(
     defaultNow: Boolean = false,
     allowOrderFiltering: Boolean = false,
     sortByTimestamp: Boolean = false,
+    allowUnknown: Boolean = false,
     /** True for a field that already exists in the saved schema (type locked). */
     val existing: Boolean = false,
     /** The label this field was loaded with, for re-keying entries on rename. */
@@ -747,6 +753,7 @@ private class EditDraft(
     var defaultNow by mutableStateOf(defaultNow)
     var allowOrderFiltering by mutableStateOf(allowOrderFiltering)
     var sortByTimestamp by mutableStateOf(sortByTimestamp)
+    var allowUnknown by mutableStateOf(allowUnknown)
 
     // Baselines for rename detection; realigned after each save.
     var originalLabel by mutableStateOf(originalLabel)
@@ -761,7 +768,8 @@ private class EditDraft(
             lines == o.lines && digits == o.digits && from == o.from && to == o.to &&
             optionsText == o.optionsText && defaultNow == o.defaultNow &&
             allowOrderFiltering == o.allowOrderFiltering &&
-            sortByTimestamp == o.sortByTimestamp
+            sortByTimestamp == o.sortByTimestamp &&
+            allowUnknown == o.allowUnknown
 
     fun optionList(): List<String> =
         optionsText.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
@@ -796,7 +804,7 @@ private class EditDraft(
             FieldType.DROPDOWN -> "Dropdown" + optionsSummary()
             FieldType.MULTIPLE -> "Multiple" + optionsSummary()
             FieldType.SCALE -> "Scale ${from.ifBlank { "?" }}–${to.ifBlank { "?" }}"
-            FieldType.YESNO -> "Yes / No / Unknown / N/A"
+            FieldType.YESNO -> if (allowUnknown) "Yes / No / Unknown" else "Yes / No"
             FieldType.DATE -> "Date"
             FieldType.TIME -> "Time"
             FieldType.DATETIME -> "Date & time" + (if (defaultNow) " · defaults to now" else "")
@@ -824,6 +832,7 @@ private class EditDraft(
         defaultNow = defaultNow,
         allowOrderFiltering = allowOrderFiltering,
         sortByTimestamp = sortByTimestamp,
+        allowUnknown = allowUnknown,
         existing = existing,
         originalLabel = originalLabel,
         originalOptions = originalOptions,
@@ -842,6 +851,7 @@ private class EditDraft(
         defaultNow = other.defaultNow
         allowOrderFiltering = other.allowOrderFiltering
         sortByTimestamp = other.sortByTimestamp
+        allowUnknown = other.allowUnknown
     }
 
     fun toFieldDef(): FieldDef = FieldDef(
@@ -855,6 +865,7 @@ private class EditDraft(
         options = if (type == FieldType.DROPDOWN || type == FieldType.MULTIPLE) optionList() else emptyList(),
         defaultNow = type == FieldType.DATETIME && defaultNow,
         allowOrderFiltering = type.sortEligible && allowOrderFiltering,
+        allowUnknown = type == FieldType.YESNO && allowUnknown,
     )
 
     fun toSnapshot(): EditDraftSnapshot = EditDraftSnapshot(
@@ -869,6 +880,7 @@ private class EditDraft(
         defaultNow = defaultNow,
         allowOrderFiltering = allowOrderFiltering,
         sortByTimestamp = sortByTimestamp,
+        allowUnknown = allowUnknown,
         existing = existing,
         originalLabel = originalLabel,
         originalOptions = originalOptions,
@@ -889,6 +901,7 @@ private data class EditDraftSnapshot(
     val defaultNow: Boolean,
     val allowOrderFiltering: Boolean = false,
     val sortByTimestamp: Boolean = false,
+    val allowUnknown: Boolean = false,
     val existing: Boolean,
     val originalLabel: String?,
     val originalOptions: List<String>,
@@ -906,6 +919,7 @@ private fun EditDraftSnapshot.toEditDraft(): EditDraft = EditDraft(
     defaultNow = defaultNow,
     allowOrderFiltering = allowOrderFiltering,
     sortByTimestamp = sortByTimestamp,
+    allowUnknown = allowUnknown,
     existing = existing,
     originalLabel = originalLabel,
     originalOptions = originalOptions,
@@ -924,6 +938,7 @@ private fun draftOf(f: FieldDef, sortByTimestamp: Boolean): EditDraft = EditDraf
     defaultNow = f.defaultNow,
     allowOrderFiltering = f.allowOrderFiltering,
     sortByTimestamp = sortByTimestamp,
+    allowUnknown = f.allowUnknown,
     existing = true,
     originalLabel = f.label,
     originalOptions = f.options,
@@ -953,7 +968,7 @@ private fun FieldType.editFriendly(): String = when (this) {
     FieldType.DROPDOWN -> "Dropdown (pick one)"
     FieldType.MULTIPLE -> "Multiple (pick several)"
     FieldType.SCALE -> "Scale (number range)"
-    FieldType.YESNO -> "Yes / No / Unknown / N/A"
+    FieldType.YESNO -> "Yes / No (with optional Unknown)"
     FieldType.DATE -> "Date"
     FieldType.TIME -> "Time"
     FieldType.DATETIME -> "Date & time"

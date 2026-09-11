@@ -2,11 +2,14 @@ package com.datadragon.app.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.border
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
@@ -21,17 +24,20 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateMap
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -50,8 +56,24 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneOffset
 
-/** The four fixed yesno options (docs/UI_SPEC.md §10). */
-private val YESNO_OPTIONS = listOf("Yes", "No", "Unknown", "Not Applicable")
+/**
+ * Legacy stored yesno values that predate the Yes / No / Unknown radio design.
+ * Any of these — plus a lingering "Unknown" on a field whose author has since
+ * turned Allow Unknown Option off — collapses to "Yes" in the UI so the entry
+ * shows a selected radio instead of a blank one, and is saved as "Yes" the next
+ * time the entry is written.
+ */
+private const val YESNO_YES = "Yes"
+private const val YESNO_NO = "No"
+private const val YESNO_UNKNOWN = "Unknown"
+
+/** Normalize a stored yesno value against the field's current [allowUnknown]. */
+private fun coerceYesNo(stored: String, allowUnknown: Boolean): String = when (stored) {
+    YESNO_YES, YESNO_NO -> stored
+    YESNO_UNKNOWN -> if (allowUnknown) YESNO_UNKNOWN else YESNO_YES
+    "" -> ""
+    else -> YESNO_YES
+}
 
 /** Scales with this many or fewer steps render as tappable pills; more → dropdown. */
 private const val SCALE_PILL_LIMIT = 5
@@ -135,12 +157,24 @@ fun EntryFieldControl(
                 onSelected = { textValues[field.label] = it },
             )
 
-            FieldType.YESNO -> DropdownField(
-                label = label,
-                options = YESNO_OPTIONS,
-                selected = textValues[field.label].orEmpty(),
-                onSelected = { textValues[field.label] = it },
-            )
+            FieldType.YESNO -> {
+                val raw = textValues[field.label].orEmpty()
+                val current = coerceYesNo(raw, field.allowUnknown)
+                LaunchedEffect(field.label, raw, field.allowUnknown) {
+                    if (raw.isNotEmpty() && current != raw) {
+                        textValues[field.label] = current
+                    }
+                }
+                YesNoField(
+                    label = label,
+                    selected = current,
+                    allowUnknown = field.allowUnknown,
+                    onTap = { pick ->
+                        textValues[field.label] =
+                            if (pick == current && !field.required) "" else pick
+                    },
+                )
+            }
 
             FieldType.SCALE -> ScaleField(
                 label = label,
@@ -239,6 +273,41 @@ internal fun DropdownField(
                             expanded = false
                         },
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun YesNoField(
+    label: String,
+    selected: String,
+    allowUnknown: Boolean,
+    onTap: (String) -> Unit,
+) {
+    val options = buildList {
+        add(YESNO_YES)
+        add(YESNO_NO)
+        if (allowUnknown) add(YESNO_UNKNOWN)
+    }
+    Labeled(label) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            options.forEach { option ->
+                Row(
+                    modifier = Modifier
+                        .clickable { onTap(option) }
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(
+                        selected = option == selected,
+                        onClick = { onTap(option) },
+                    )
+                    Text(option)
                 }
             }
         }

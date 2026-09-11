@@ -37,7 +37,7 @@ lines: 4
 | `dropdown` | Pick one from a list | the list of choices |
 | `multiple` | Pick several from a list | the list of choices |
 | `scale` | Pick a number in a range | `from` and `to` |
-| `yesno` | Yes / No / Unknown / Not Applicable | none |
+| `yesno` | Yes / No radios | `allow_unknown: true` to add an Unknown radio |
 | `date` | Pick a date (month/day/year) | none |
 | `time` | Pick a time (12-hour with AM/PM) | none |
 | `datetime` | Pick a date and time | `default: now` to pre-fill with current time |
@@ -107,6 +107,18 @@ to: 5
 ## Completed
 type: yesno
 ```
+
+Renders as two radio buttons — **Yes** and **No** — on the same line. Add
+`allow_unknown: true` to include a third **Unknown** radio:
+
+```
+## Completed
+type: yesno
+allow_unknown: true
+```
+
+On a non-required yesno field, tapping the currently selected radio deselects
+it. On a required yesno field one of the radios must be picked to save.
 
 ### tags
 

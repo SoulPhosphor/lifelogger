@@ -83,7 +83,7 @@ date         — month/day/year picker
 time         — 12-hour time with AM/PM
 dropdown     — pick one item from a list
 scale        — pick a number in a range. Set "from" and "to"
-yesno        — Yes / No / Unknown / Not Applicable
+yesno        — Yes / No radios. Add "allow_unknown: true" for an Unknown radio
 number       — type a number. Set "digits" for max digits allowed
 multiple     — pick several items from a list (tappable chips)
 tags         — type a tag and add it; each becomes a removable chip
@@ -614,6 +614,11 @@ private fun FieldEditorCard(
                     onCheckedChange = { field.defaultNow = it },
                     title = "Default to the Current Date & Time",
                 )
+                FieldType.YESNO -> CheckboxSettingRow(
+                    checked = field.allowUnknown,
+                    onCheckedChange = { field.allowUnknown = it },
+                    title = "Allow Unknown Option",
+                )
                 else -> Unit
             }
 
@@ -798,6 +803,7 @@ private class DraftField(
     defaultNow: Boolean = false,
     allowOrderFiltering: Boolean = false,
     sortByTimestamp: Boolean = false,
+    allowUnknown: Boolean = false,
 ) {
     var label by mutableStateOf(label)
     var type by mutableStateOf(type)
@@ -810,6 +816,7 @@ private class DraftField(
     var defaultNow by mutableStateOf(defaultNow)
     var allowOrderFiltering by mutableStateOf(allowOrderFiltering)
     var sortByTimestamp by mutableStateOf(sortByTimestamp)
+    var allowUnknown by mutableStateOf(allowUnknown)
 
     fun optionList(): List<String> =
         optionsText.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
@@ -847,6 +854,7 @@ private class DraftField(
         options = if (type == FieldType.DROPDOWN || type == FieldType.MULTIPLE) optionList() else emptyList(),
         defaultNow = type == FieldType.DATETIME && defaultNow,
         allowOrderFiltering = type.sortEligible && allowOrderFiltering,
+        allowUnknown = type == FieldType.YESNO && allowUnknown,
     )
 
     fun toSnapshot(): DraftFieldSnapshot = DraftFieldSnapshot(
@@ -861,6 +869,7 @@ private class DraftField(
         defaultNow = defaultNow,
         allowOrderFiltering = allowOrderFiltering,
         sortByTimestamp = sortByTimestamp,
+        allowUnknown = allowUnknown,
     )
 }
 
@@ -878,6 +887,7 @@ private data class DraftFieldSnapshot(
     val defaultNow: Boolean,
     val allowOrderFiltering: Boolean = false,
     val sortByTimestamp: Boolean = false,
+    val allowUnknown: Boolean = false,
 )
 
 private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
@@ -892,6 +902,7 @@ private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
     defaultNow = defaultNow,
     allowOrderFiltering = allowOrderFiltering,
     sortByTimestamp = sortByTimestamp,
+    allowUnknown = allowUnknown,
 )
 
 /**
@@ -949,6 +960,7 @@ private fun FieldDef.toDraft(): DraftField = DraftField(
     optionsText = options.joinToString("\n"),
     defaultNow = defaultNow,
     allowOrderFiltering = allowOrderFiltering,
+    allowUnknown = allowUnknown,
 )
 
 /** The first single-`#` line of [text], used as the log name when the box is empty. */
@@ -965,7 +977,7 @@ private fun FieldType.friendly(): String = when (this) {
     FieldType.DROPDOWN -> "Dropdown (pick one)"
     FieldType.MULTIPLE -> "Multiple (pick several)"
     FieldType.SCALE -> "Scale (number range)"
-    FieldType.YESNO -> "Yes / No / Unknown / N/A"
+    FieldType.YESNO -> "Yes / No (with optional Unknown)"
     FieldType.DATE -> "Date"
     FieldType.TIME -> "Time"
     FieldType.DATETIME -> "Date & time"
@@ -982,7 +994,7 @@ private fun FieldDef.summary(): String {
         FieldType.DROPDOWN -> "Pick one: " + options.joinToString(", ")
         FieldType.MULTIPLE -> "Pick several: " + options.joinToString(", ")
         FieldType.SCALE -> "Scale $from–$to"
-        FieldType.YESNO -> "Yes / No / Unknown / Not Applicable"
+        FieldType.YESNO -> if (allowUnknown) "Yes / No / Unknown" else "Yes / No"
         FieldType.DATE -> "Date"
         FieldType.TIME -> "Time"
         FieldType.DATETIME -> "Date & time" + (if (defaultNow) " (defaults to now)" else "")
