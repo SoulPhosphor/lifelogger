@@ -301,12 +301,31 @@ internal fun missingRequiredFieldLabels(
     val missing = when {
         field.type == FieldType.WEBPAGE ->
             if (value.isNullOrBlank()) field.required else !WebAddress.isValid(value)
+        field.type == FieldType.BLOOD_PRESSURE ->
+            !bloodPressureAcceptable(value, field.required)
         !field.required -> false
         field.type == FieldType.MULTIPLE -> multiValues[field.label].orEmpty().isEmpty()
         field.type == FieldType.TAGS -> tagValues[field.label].orEmpty().isEmpty()
         else -> value.isNullOrBlank()
     }
     field.label.takeIf { missing }
+}
+
+/**
+ * A blood-pressure value blocks Save unless both sides carry a 1–3 digit number,
+ * or (when the field is optional) both sides are completely blank.
+ */
+private fun bloodPressureAcceptable(value: String?, required: Boolean): Boolean {
+    val raw = value.orEmpty()
+    if (raw.isEmpty()) return !required
+    val slash = raw.indexOf('/')
+    if (slash < 0) return false
+    val systolic = raw.substring(0, slash)
+    val diastolic = raw.substring(slash + 1)
+    val bothBlank = systolic.isEmpty() && diastolic.isEmpty()
+    if (bothBlank) return !required
+    val validSide: (String) -> Boolean = { it.length in 1..3 && it.all(Char::isDigit) }
+    return validSide(systolic) && validSide(diastolic)
 }
 
 /** Build the value map that gets serialized into the entry's valuesJson. */

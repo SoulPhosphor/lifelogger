@@ -36,20 +36,23 @@ lines: 4
 | `number` | Type any number | `digits` — max number of digits allowed |
 | `dropdown` | Pick one from a list | the list of choices |
 | `multiple` | Pick several from a list | the list of choices |
-| `scale` | Pick a number in a range | `from` and `to` |
+| `scale` | Pick a number in a range | `from` and `to`; `make_dropdown: true` renders as a dropdown |
 | `yesno` | Yes / No radios | `allow_unknown: true` to add an Unknown radio |
 | `date` | Pick a date (month/day/year) | none |
 | `time` | Pick a time (12-hour with AM/PM) | none |
 | `datetime` | Pick a date and time | `default: now` to pre-fill with current time |
 | `tags` | Type a tag and add it; each becomes a removable chip | none |
 | `webpage` | A web address, with a button that opens it in the browser | none |
+| `blood_pressure` | Two 3-digit boxes separated by `/` (systolic / diastolic) | none |
 
 Any field may also add `required` (the user must fill it before saving). Fields are optional by default.
 
 ### Scale rendering
 
-- If the range is **5 or fewer numbers** (e.g. 1–5), show as a row of **tappable pills**.
-- If the range is **6 or more** (e.g. 1–10), show as a **dropdown**.
+- Chips (tappable numbered pills that wrap to a new row when they don't fit) are the default.
+- Add `make_dropdown: true` to render as a dropdown of numbers instead.
+- Optional scale + chips: tapping the picked chip clears the choice. Required scale: the pick stays put.
+- Optional scale + dropdown: opens blank; a "None" item at the top of the menu clears the choice. Required scale + dropdown: opens with "Choose…" and the user must pick.
 
 ---
 
@@ -101,6 +104,16 @@ from: 1
 to: 5
 ```
 
+Add `make_dropdown: true` for a dropdown of numbers instead of chips:
+
+```
+## Pain Score
+type: scale
+from: 0
+to: 100
+make_dropdown: true
+```
+
 ### yesno
 
 ```
@@ -119,6 +132,19 @@ allow_unknown: true
 
 On a non-required yesno field, tapping the currently selected radio deselects
 it. On a required yesno field one of the radios must be picked to save.
+
+### blood_pressure
+
+```
+## BP
+type: blood_pressure
+```
+
+Two 3-digit boxes separated by a literal `/` (systolic on the left, diastolic on
+the right). Digits only. Stored as one string, e.g. `120/80`. When the field is
+required, both sides must carry a 1–3 digit number. When it is optional, either
+both sides are filled or both are completely blank — a half-filled value blocks
+Save.
 
 ### tags
 

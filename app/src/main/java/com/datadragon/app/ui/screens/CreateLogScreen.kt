@@ -82,12 +82,13 @@ multiline    — multi-line text box. Set "lines" for visible height
 date         — month/day/year picker
 time         — 12-hour time with AM/PM
 dropdown     — pick one item from a list
-scale        — pick a number in a range. Set "from" and "to"
-yesno        — Yes / No radios. Add "allow_unknown: true" for an Unknown radio
-number       — type a number. Set "digits" for max digits allowed
-multiple     — pick several items from a list (tappable chips)
-tags         — type a tag and add it; each becomes a removable chip
-webpage      — a web address, with a button that opens it
+scale          — pick a number in a range. Set "from" and "to" (default 1 to 10). Add "make_dropdown: true" for a dropdown
+yesno          — Yes / No radios. Add "allow_unknown: true" for an Unknown radio
+number         — type a number. Set "digits" for max digits allowed
+multiple       — pick several items from a list (tappable chips)
+tags           — type a tag and add it; each becomes a removable chip
+webpage        — a web address, with a button that opens it
+blood_pressure — two 3-digit boxes separated by "/" (systolic / diastolic)
 
 Any field can add "required" to prevent saving without it."""
 
@@ -589,18 +590,29 @@ private fun FieldEditorCard(
                     onChange = { field.digits = it },
                     label = "Max Digits (Optional)",
                 )
-                FieldType.SCALE -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    NumberField(
-                        value = field.from,
-                        onChange = { field.from = it },
-                        label = "From",
-                        modifier = Modifier.weight(1f),
-                    )
-                    NumberField(
-                        value = field.to,
-                        onChange = { field.to = it },
-                        label = "To",
-                        modifier = Modifier.weight(1f),
+                FieldType.SCALE -> {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        ScaleBoundField(
+                            value = field.from,
+                            onChange = { field.from = it },
+                            placeholder = "1",
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text("to")
+                        ScaleBoundField(
+                            value = field.to,
+                            onChange = { field.to = it },
+                            placeholder = "10",
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    CheckboxSettingRow(
+                        checked = field.makeDropdown,
+                        onCheckedChange = { field.makeDropdown = it },
+                        title = "Make Dropdown Instead",
                     )
                 }
                 FieldType.DROPDOWN, FieldType.MULTIPLE -> OutlinedTextField(
@@ -664,6 +676,24 @@ private fun NumberField(
         value = value,
         onValueChange = { input -> onChange(input.filter { it.isDigit() }) },
         label = { Text(label) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        modifier = modifier,
+    )
+}
+
+/** A 3-digit box for a scale bound. Shows the default as placeholder text. */
+@Composable
+private fun ScaleBoundField(
+    value: String,
+    onChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = { input -> onChange(input.filter { it.isDigit() }.take(3)) },
+        placeholder = { Text(placeholder) },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         modifier = modifier,
@@ -804,6 +834,7 @@ private class DraftField(
     allowOrderFiltering: Boolean = false,
     sortByTimestamp: Boolean = false,
     allowUnknown: Boolean = false,
+    makeDropdown: Boolean = false,
 ) {
     var label by mutableStateOf(label)
     var type by mutableStateOf(type)
@@ -817,18 +848,19 @@ private class DraftField(
     var allowOrderFiltering by mutableStateOf(allowOrderFiltering)
     var sortByTimestamp by mutableStateOf(sortByTimestamp)
     var allowUnknown by mutableStateOf(allowUnknown)
+    var makeDropdown by mutableStateOf(makeDropdown)
 
     fun optionList(): List<String> =
         optionsText.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
 
+    /** Effective scale bounds: blank boxes fall back to the 1..10 defaults. */
+    private fun effectiveFrom(): Int = from.toIntOrNull() ?: SCALE_DEFAULT_FROM
+    private fun effectiveTo(): Int = to.toIntOrNull() ?: SCALE_DEFAULT_TO
+
     fun isValid(): Boolean {
         if (label.trim().isEmpty()) return false
         return when (type) {
-            FieldType.SCALE -> {
-                val f = from.toIntOrNull()
-                val t = to.toIntOrNull()
-                f != null && t != null && t >= f
-            }
+            FieldType.SCALE -> effectiveTo() >= effectiveFrom()
             FieldType.DROPDOWN, FieldType.MULTIPLE -> optionList().isNotEmpty()
             else -> true
         }
@@ -837,7 +869,7 @@ private class DraftField(
     /** A short error message when the field isn't yet valid, else null. */
     fun validationHint(): String? = when {
         label.trim().isEmpty() -> "Add a label."
-        type == FieldType.SCALE && !isValid() -> "Scale needs a From and a To (To ≥ From)."
+        type == FieldType.SCALE && !isValid() -> "Scale To must be ≥ From."
         (type == FieldType.DROPDOWN || type == FieldType.MULTIPLE) && optionList().isEmpty() ->
             "Add at least one option."
         else -> null
@@ -849,12 +881,13 @@ private class DraftField(
         required = required,
         lines = if (type == FieldType.MULTILINE) lines.toIntOrNull() else null,
         digits = if (type == FieldType.NUMBER) digits.toIntOrNull() else null,
-        from = if (type == FieldType.SCALE) from.toIntOrNull() else null,
-        to = if (type == FieldType.SCALE) to.toIntOrNull() else null,
+        from = if (type == FieldType.SCALE) effectiveFrom() else null,
+        to = if (type == FieldType.SCALE) effectiveTo() else null,
         options = if (type == FieldType.DROPDOWN || type == FieldType.MULTIPLE) optionList() else emptyList(),
         defaultNow = type == FieldType.DATETIME && defaultNow,
         allowOrderFiltering = type.sortEligible && allowOrderFiltering,
         allowUnknown = type == FieldType.YESNO && allowUnknown,
+        makeDropdown = type == FieldType.SCALE && makeDropdown,
     )
 
     fun toSnapshot(): DraftFieldSnapshot = DraftFieldSnapshot(
@@ -870,8 +903,13 @@ private class DraftField(
         allowOrderFiltering = allowOrderFiltering,
         sortByTimestamp = sortByTimestamp,
         allowUnknown = allowUnknown,
+        makeDropdown = makeDropdown,
     )
 }
+
+/** Scale bounds used when the user leaves the From/To boxes blank. */
+private const val SCALE_DEFAULT_FROM = 1
+private const val SCALE_DEFAULT_TO = 10
 
 /** Plain serializable snapshot of a [DraftField], for [draftFieldsSaver]. */
 @Serializable
@@ -888,6 +926,7 @@ private data class DraftFieldSnapshot(
     val allowOrderFiltering: Boolean = false,
     val sortByTimestamp: Boolean = false,
     val allowUnknown: Boolean = false,
+    val makeDropdown: Boolean = false,
 )
 
 private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
@@ -903,6 +942,7 @@ private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
     allowOrderFiltering = allowOrderFiltering,
     sortByTimestamp = sortByTimestamp,
     allowUnknown = allowUnknown,
+    makeDropdown = makeDropdown,
 )
 
 /**
@@ -961,6 +1001,7 @@ private fun FieldDef.toDraft(): DraftField = DraftField(
     defaultNow = defaultNow,
     allowOrderFiltering = allowOrderFiltering,
     allowUnknown = allowUnknown,
+    makeDropdown = makeDropdown,
 )
 
 /** The first single-`#` line of [text], used as the log name when the box is empty. */
@@ -976,13 +1017,14 @@ private fun FieldType.friendly(): String = when (this) {
     FieldType.NUMBER -> "Number"
     FieldType.DROPDOWN -> "Dropdown (pick one)"
     FieldType.MULTIPLE -> "Multiple (pick several)"
-    FieldType.SCALE -> "Scale (number range)"
+    FieldType.SCALE -> "Scale"
     FieldType.YESNO -> "Yes / No (with optional Unknown)"
     FieldType.DATE -> "Date"
     FieldType.TIME -> "Time"
     FieldType.DATETIME -> "Date & time"
     FieldType.TAGS -> "Tags"
     FieldType.WEBPAGE -> "Webpages"
+    FieldType.BLOOD_PRESSURE -> "Blood Pressure"
 }
 
 /** A short human-readable description of a parsed field for the preview. */
@@ -993,13 +1035,14 @@ private fun FieldDef.summary(): String {
         FieldType.NUMBER -> "Number" + (digits?.let { " (up to $it digits)" } ?: "")
         FieldType.DROPDOWN -> "Pick one: " + options.joinToString(", ")
         FieldType.MULTIPLE -> "Pick several: " + options.joinToString(", ")
-        FieldType.SCALE -> "Scale $from–$to"
+        FieldType.SCALE -> "Scale $from–$to" + (if (makeDropdown) " · dropdown" else "")
         FieldType.YESNO -> if (allowUnknown) "Yes / No / Unknown" else "Yes / No"
         FieldType.DATE -> "Date"
         FieldType.TIME -> "Time"
         FieldType.DATETIME -> "Date & time" + (if (defaultNow) " (defaults to now)" else "")
         FieldType.TAGS -> "Tags"
         FieldType.WEBPAGE -> "Webpage address"
+        FieldType.BLOOD_PRESSURE -> "Blood pressure (###/###)"
     }
     return if (required) "$base · required" else base
 }

@@ -37,6 +37,7 @@ object FormMarkdownParser {
         var to: Int? = null
         var defaultNow = false
         var allowUnknown = false
+        var makeDropdown = false
         val options = mutableListOf<String>()
     }
 
@@ -132,6 +133,8 @@ object FormMarkdownParser {
                         "default" -> b.defaultNow = value.equals("now", ignoreCase = true)
                         "allow_unknown" -> b.allowUnknown =
                             value.equals("true", ignoreCase = true) || value.equals("yes", ignoreCase = true)
+                        "make_dropdown" -> b.makeDropdown =
+                            value.equals("true", ignoreCase = true) || value.equals("yes", ignoreCase = true)
                         "options" -> {
                             inOptions = true
                             if (value.isNotEmpty()) {
@@ -205,6 +208,7 @@ object FormMarkdownParser {
                 options = if (type == FieldType.DROPDOWN || type == FieldType.MULTIPLE) b.options.toList() else emptyList(),
                 defaultNow = b.defaultNow && type == FieldType.DATETIME,
                 allowUnknown = b.allowUnknown && type == FieldType.YESNO,
+                makeDropdown = b.makeDropdown && type == FieldType.SCALE,
             )
         )
     }

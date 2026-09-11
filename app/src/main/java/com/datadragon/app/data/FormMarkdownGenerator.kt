@@ -23,6 +23,7 @@ object FormMarkdownGenerator {
                 FieldType.SCALE -> {
                     field.from?.let { sb.append("from: ").append(it).append('\n') }
                     field.to?.let { sb.append("to: ").append(it).append('\n') }
+                    if (field.makeDropdown) sb.append("make_dropdown: true\n")
                 }
                 FieldType.DROPDOWN, FieldType.MULTIPLE -> {
                     sb.append("options:\n")

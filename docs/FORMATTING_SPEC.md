@@ -65,6 +65,7 @@ The entry heading is just the date and time — there is no `Entry` prefix.
 | `scale` | `{value} / {max}` (e.g. `4 / 5`). |
 | `number` | The number as typed. |
 | `yesno` | `Yes`, `No`, or (when the field has Allow Unknown Option on) `Unknown`. Legacy `Not Applicable` and `Unknown` values are rendered exactly as they were stored — the entry editor collapses them to `Yes` only when the entry is re-saved. |
+| `blood_pressure` | The stored `systolic/diastolic` string as-typed, e.g. `120/80`. |
 
 - Empty optional fields are omitted from the report.
 - Always show date range and total entries at the top.

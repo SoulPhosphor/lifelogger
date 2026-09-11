@@ -613,18 +613,29 @@ private fun SettingsControls(field: EditDraft) {
             onChange = { field.digits = it },
             label = "Max Digits (Optional)",
         )
-        FieldType.SCALE -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            EditNumberField(
-                value = field.from,
-                onChange = { field.from = it },
-                label = "From",
-                modifier = Modifier.weight(1f),
-            )
-            EditNumberField(
-                value = field.to,
-                onChange = { field.to = it },
-                label = "To",
-                modifier = Modifier.weight(1f),
+        FieldType.SCALE -> {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                EditScaleBoundField(
+                    value = field.from,
+                    onChange = { field.from = it },
+                    placeholder = "1",
+                    modifier = Modifier.weight(1f),
+                )
+                Text("to")
+                EditScaleBoundField(
+                    value = field.to,
+                    onChange = { field.to = it },
+                    placeholder = "10",
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            CheckboxSettingRow(
+                checked = field.makeDropdown,
+                onCheckedChange = { field.makeDropdown = it },
+                title = "Make Dropdown Instead",
             )
         }
         FieldType.DROPDOWN, FieldType.MULTIPLE -> OutlinedTextField(
@@ -689,6 +700,24 @@ private fun EditNumberField(
     )
 }
 
+/** A 3-digit box for a scale bound. Shows the default as placeholder text. */
+@Composable
+private fun EditScaleBoundField(
+    value: String,
+    onChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = { input -> onChange(input.filter { it.isDigit() }.take(3)) },
+        placeholder = { Text(placeholder) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        modifier = modifier,
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EditTypeDropdown(selected: FieldType, onSelected: (FieldType) -> Unit) {
@@ -735,6 +764,7 @@ private class EditDraft(
     allowOrderFiltering: Boolean = false,
     sortByTimestamp: Boolean = false,
     allowUnknown: Boolean = false,
+    makeDropdown: Boolean = false,
     /** True for a field that already exists in the saved schema (type locked). */
     val existing: Boolean = false,
     /** The label this field was loaded with, for re-keying entries on rename. */
@@ -754,6 +784,7 @@ private class EditDraft(
     var allowOrderFiltering by mutableStateOf(allowOrderFiltering)
     var sortByTimestamp by mutableStateOf(sortByTimestamp)
     var allowUnknown by mutableStateOf(allowUnknown)
+    var makeDropdown by mutableStateOf(makeDropdown)
 
     // Baselines for rename detection; realigned after each save.
     var originalLabel by mutableStateOf(originalLabel)
@@ -769,19 +800,19 @@ private class EditDraft(
             optionsText == o.optionsText && defaultNow == o.defaultNow &&
             allowOrderFiltering == o.allowOrderFiltering &&
             sortByTimestamp == o.sortByTimestamp &&
-            allowUnknown == o.allowUnknown
+            allowUnknown == o.allowUnknown &&
+            makeDropdown == o.makeDropdown
 
     fun optionList(): List<String> =
         optionsText.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
 
+    private fun effectiveFrom(): Int = from.toIntOrNull() ?: EDIT_SCALE_DEFAULT_FROM
+    private fun effectiveTo(): Int = to.toIntOrNull() ?: EDIT_SCALE_DEFAULT_TO
+
     fun isValid(): Boolean {
         if (label.trim().isEmpty()) return false
         return when (type) {
-            FieldType.SCALE -> {
-                val f = from.toIntOrNull()
-                val t = to.toIntOrNull()
-                f != null && t != null && t >= f
-            }
+            FieldType.SCALE -> effectiveTo() >= effectiveFrom()
             FieldType.DROPDOWN, FieldType.MULTIPLE -> optionList().isNotEmpty()
             else -> true
         }
@@ -789,7 +820,7 @@ private class EditDraft(
 
     fun validationHint(): String? = when {
         label.trim().isEmpty() -> "Add a label."
-        type == FieldType.SCALE && !isValid() -> "Scale needs a From and a To (To ≥ From)."
+        type == FieldType.SCALE && !isValid() -> "Scale To must be ≥ From."
         (type == FieldType.DROPDOWN || type == FieldType.MULTIPLE) && optionList().isEmpty() ->
             "Add at least one option."
         else -> null
@@ -803,13 +834,18 @@ private class EditDraft(
             FieldType.NUMBER -> "Number" + (digits.toIntOrNull()?.let { " · up to $it digits" } ?: "")
             FieldType.DROPDOWN -> "Dropdown" + optionsSummary()
             FieldType.MULTIPLE -> "Multiple" + optionsSummary()
-            FieldType.SCALE -> "Scale ${from.ifBlank { "?" }}–${to.ifBlank { "?" }}"
+            FieldType.SCALE -> {
+                val lo = from.ifBlank { EDIT_SCALE_DEFAULT_FROM.toString() }
+                val hi = to.ifBlank { EDIT_SCALE_DEFAULT_TO.toString() }
+                "Scale $lo–$hi" + (if (makeDropdown) " · dropdown" else "")
+            }
             FieldType.YESNO -> if (allowUnknown) "Yes / No / Unknown" else "Yes / No"
             FieldType.DATE -> "Date"
             FieldType.TIME -> "Time"
             FieldType.DATETIME -> "Date & time" + (if (defaultNow) " · defaults to now" else "")
             FieldType.TAGS -> "Tags"
             FieldType.WEBPAGE -> "Webpage address"
+            FieldType.BLOOD_PRESSURE -> "Blood pressure (###/###)"
         }
         return if (required) "$base · required" else base
     }
@@ -833,6 +869,7 @@ private class EditDraft(
         allowOrderFiltering = allowOrderFiltering,
         sortByTimestamp = sortByTimestamp,
         allowUnknown = allowUnknown,
+        makeDropdown = makeDropdown,
         existing = existing,
         originalLabel = originalLabel,
         originalOptions = originalOptions,
@@ -852,6 +889,7 @@ private class EditDraft(
         allowOrderFiltering = other.allowOrderFiltering
         sortByTimestamp = other.sortByTimestamp
         allowUnknown = other.allowUnknown
+        makeDropdown = other.makeDropdown
     }
 
     fun toFieldDef(): FieldDef = FieldDef(
@@ -860,12 +898,13 @@ private class EditDraft(
         required = required,
         lines = if (type == FieldType.MULTILINE) lines.toIntOrNull() else null,
         digits = if (type == FieldType.NUMBER) digits.toIntOrNull() else null,
-        from = if (type == FieldType.SCALE) from.toIntOrNull() else null,
-        to = if (type == FieldType.SCALE) to.toIntOrNull() else null,
+        from = if (type == FieldType.SCALE) effectiveFrom() else null,
+        to = if (type == FieldType.SCALE) effectiveTo() else null,
         options = if (type == FieldType.DROPDOWN || type == FieldType.MULTIPLE) optionList() else emptyList(),
         defaultNow = type == FieldType.DATETIME && defaultNow,
         allowOrderFiltering = type.sortEligible && allowOrderFiltering,
         allowUnknown = type == FieldType.YESNO && allowUnknown,
+        makeDropdown = type == FieldType.SCALE && makeDropdown,
     )
 
     fun toSnapshot(): EditDraftSnapshot = EditDraftSnapshot(
@@ -881,11 +920,16 @@ private class EditDraft(
         allowOrderFiltering = allowOrderFiltering,
         sortByTimestamp = sortByTimestamp,
         allowUnknown = allowUnknown,
+        makeDropdown = makeDropdown,
         existing = existing,
         originalLabel = originalLabel,
         originalOptions = originalOptions,
     )
 }
+
+/** Scale bounds used when the user leaves the From/To boxes blank. */
+private const val EDIT_SCALE_DEFAULT_FROM = 1
+private const val EDIT_SCALE_DEFAULT_TO = 10
 
 /** Plain serializable snapshot of an [EditDraft], for [rowsSaver]. */
 @Serializable
@@ -902,6 +946,7 @@ private data class EditDraftSnapshot(
     val allowOrderFiltering: Boolean = false,
     val sortByTimestamp: Boolean = false,
     val allowUnknown: Boolean = false,
+    val makeDropdown: Boolean = false,
     val existing: Boolean,
     val originalLabel: String?,
     val originalOptions: List<String>,
@@ -920,6 +965,7 @@ private fun EditDraftSnapshot.toEditDraft(): EditDraft = EditDraft(
     allowOrderFiltering = allowOrderFiltering,
     sortByTimestamp = sortByTimestamp,
     allowUnknown = allowUnknown,
+    makeDropdown = makeDropdown,
     existing = existing,
     originalLabel = originalLabel,
     originalOptions = originalOptions,
@@ -939,6 +985,7 @@ private fun draftOf(f: FieldDef, sortByTimestamp: Boolean): EditDraft = EditDraf
     allowOrderFiltering = f.allowOrderFiltering,
     sortByTimestamp = sortByTimestamp,
     allowUnknown = f.allowUnknown,
+    makeDropdown = f.makeDropdown,
     existing = true,
     originalLabel = f.label,
     originalOptions = f.options,
@@ -967,11 +1014,12 @@ private fun FieldType.editFriendly(): String = when (this) {
     FieldType.NUMBER -> "Number"
     FieldType.DROPDOWN -> "Dropdown (pick one)"
     FieldType.MULTIPLE -> "Multiple (pick several)"
-    FieldType.SCALE -> "Scale (number range)"
+    FieldType.SCALE -> "Scale"
     FieldType.YESNO -> "Yes / No (with optional Unknown)"
     FieldType.DATE -> "Date"
     FieldType.TIME -> "Time"
     FieldType.DATETIME -> "Date & time"
     FieldType.TAGS -> "Tags"
     FieldType.WEBPAGE -> "Webpages"
+    FieldType.BLOOD_PRESSURE -> "Blood Pressure"
 }
