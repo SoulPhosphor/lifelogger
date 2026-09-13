@@ -130,6 +130,8 @@ fun CalendarConfigScreen(
     var matchCondition by rememberSaveable { mutableStateOf<String?>(null) }
     var matchValue by rememberSaveable { mutableStateOf("") }
     var matchOption by rememberSaveable { mutableStateOf<String?>(null) }
+    var dayTimestampField by rememberSaveable { mutableStateOf<String?>(null) }
+    var savedDayTimestampField by rememberSaveable { mutableStateOf<String?>(null) }
     var savedSourceLogFrequency by rememberSaveable { mutableStateOf(false) }
     var savedSourceField by rememberSaveable { mutableStateOf<String?>(null) }
     var savedCalculationRule by rememberSaveable { mutableStateOf<String?>(null) }
@@ -154,6 +156,7 @@ fun CalendarConfigScreen(
             matchCondition = i.config.matchCondition
             matchValue = i.config.matchValue
             matchOption = i.config.matchOption
+            dayTimestampField = i.config.dayTimestampField
             colorCount = i.config.colorCount
             colorPreset = i.config.colorPreset
             colorRows.clear()
@@ -167,6 +170,7 @@ fun CalendarConfigScreen(
             savedMatchCondition = matchCondition
             savedMatchValue = matchValue
             savedMatchOption = matchOption
+            savedDayTimestampField = dayTimestampField
             savedColorCount = colorCount
             savedColorPreset = colorPreset
             savedColorRowsJson = encodeRows(colorRows.map { it.toRow() })
@@ -184,6 +188,7 @@ fun CalendarConfigScreen(
             sourceLogFrequency != savedSourceLogFrequency || sourceField != savedSourceField ||
             calculationRule != savedCalculationRule || matchCondition != savedMatchCondition ||
             matchValue != savedMatchValue || matchOption != savedMatchOption ||
+            dayTimestampField != savedDayTimestampField ||
             colorCount != savedColorCount || colorPreset != savedColorPreset ||
             colorRowsJson != savedColorRowsJson
         )
@@ -199,6 +204,7 @@ fun CalendarConfigScreen(
         matchCondition = matchCondition,
         matchValue = matchValue,
         matchOption = matchOption,
+        dayTimestampField = dayTimestampField,
         colorCount = colorCount,
         colorPreset = colorPreset,
         colorRows = colorRows.map { it.toRow() },
@@ -214,6 +220,7 @@ fun CalendarConfigScreen(
         savedMatchCondition = matchCondition
         savedMatchValue = matchValue
         savedMatchOption = matchOption
+        savedDayTimestampField = dayTimestampField
         savedColorCount = colorCount
         savedColorPreset = colorPreset
         savedColorRowsJson = encodeRows(colorRows.map { it.toRow() })
@@ -327,6 +334,31 @@ fun CalendarConfigScreen(
                 minLines = 5,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp),
             )
+
+            // Which timestamp assigns a log to a day. Only offered when the form
+            // has a date field; otherwise the created-at time is used.
+            val dateFields = formFields.filter {
+                it.type == FieldType.DATE || it.type == FieldType.DATETIME
+            }
+            if (dateFields.isNotEmpty()) {
+                val options = listOf(TimestampOption.Automatic) + dateFields.map { TimestampOption.Field(it) }
+                val selectedTimestamp: TimestampOption = dayTimestampField
+                    ?.let { label -> dateFields.firstOrNull { it.label == label } }
+                    ?.let { TimestampOption.Field(it) }
+                    ?: TimestampOption.Automatic
+                LabeledDropdown(
+                    label = "Calendar Timestamp",
+                    options = options,
+                    selected = selectedTimestamp,
+                    optionLabel = { it.displayName() },
+                    onSelected = {
+                        dayTimestampField = when (it) {
+                            TimestampOption.Automatic -> null
+                            is TimestampOption.Field -> it.field.label
+                        }
+                    },
+                )
+            }
 
             if (type == CalendarType.HEAT_MAP) {
                 LabeledDropdown(
@@ -471,6 +503,7 @@ fun CalendarConfigScreen(
                         matchCondition = null
                         matchValue = ""
                         matchOption = null
+                        dayTimestampField = null
                         colorCount = null
                         colorPreset = ColorPresets.GRADIATED
                         colorRows.clear()
@@ -626,6 +659,17 @@ private sealed interface SourceOption {
 private fun SourceOption.displayName(): String = when (this) {
     is SourceOption.Field -> field.label
     SourceOption.LogFrequency -> "Log Frequency"
+}
+
+/** A choice in "Calendar Timestamp": the automatic created-at time, or a date field. */
+private sealed interface TimestampOption {
+    data object Automatic : TimestampOption
+    data class Field(val field: FieldDef) : TimestampOption
+}
+
+private fun TimestampOption.displayName(): String = when (this) {
+    TimestampOption.Automatic -> "Automatic Timestamp"
+    is TimestampOption.Field -> field.label
 }
 
 /** The exact owner-facing name for a Calculation Rule token. */

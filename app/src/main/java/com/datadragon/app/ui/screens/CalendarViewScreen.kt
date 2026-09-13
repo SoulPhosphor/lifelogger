@@ -1,20 +1,26 @@
 package com.datadragon.app.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -30,28 +36,40 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.Calendar
+import com.datadragon.app.data.CalendarCalculator
+import com.datadragon.app.data.CalendarConfig
+import com.datadragon.app.data.CalendarConfigCodec
 import com.datadragon.app.ui.CalendarViewModel
 import com.datadragon.app.ui.components.AppDropdownRow
+import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 
 /** The shortened weekday headings, Sunday first — the exact owner-facing strings. */
 private val WEEKDAYS = listOf("Sun", "Mon", "Tues", "Wed", "Thur", "Fri", "Sat")
 
+/** A configured calendar paired with its decoded config and per-day results. */
+private data class CalendarDays(
+    val calendar: Calendar,
+    val config: CalendarConfig,
+    val values: Map<LocalDate, Double>,
+)
+
 /**
- * The calendar viewing screen for a form (reached by the calendar icon on the
- * form's entry list). Shows "[Form Name] Calendar" at the top, a View Calendar
- * dropdown when the form has more than one configured calendar, then the selected
- * calendar's label, its description, the month grid (7 days across, enough rows
- * for the month), and month navigation.
+ * The calendar viewing screen: "[Form Name] Calendar", a View Calendar dropdown
+ * when the form has more than one calendar, the selected calendar's label,
+ * description and legend, then the month grid with each day colored by its
+ * calculated result. A short press on a day shows every calendar's result for
+ * that day.
  *
- * This phase draws the structure. Day coloring from the configured rule, the
- * legend, and the short/long-press behavior are added by later phases.
+ * The long-press logs list is added in the next step.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,12 +82,30 @@ fun CalendarViewScreen(
     LaunchedEffect(templateId) { templateId?.let { viewModel.load(it) } }
 
     val formName by viewModel.formName.collectAsStateWithLifecycle()
+    val fields by viewModel.fields.collectAsStateWithLifecycle()
     val calendars by viewModel.calendars.collectAsStateWithLifecycle()
+    val entries by viewModel.entries.collectAsStateWithLifecycle()
+
+    // Each calendar's decoded config and per-day results, recomputed only when the
+    // inputs change (so tapping days doesn't recompute).
+    val calendarDays = remember(calendars, fields, entries) {
+        calendars.map { cal ->
+            val config = CalendarConfigCodec.decode(cal.configJson)
+            CalendarDays(cal, config, CalendarCalculator.dailyValues(config, fields, entries))
+        }
+    }
 
     var selectedIndex by remember { mutableStateOf(0) }
-    val selected: Calendar? = calendars.getOrNull(selectedIndex.coerceIn(0, (calendars.size - 1).coerceAtLeast(0)))
+    val safeIndex = selectedIndex.coerceIn(0, (calendarDays.size - 1).coerceAtLeast(0))
+    val selected: CalendarDays? = calendarDays.getOrNull(safeIndex)
 
     var month by remember { mutableStateOf(YearMonth.now()) }
+    var popoverDay by remember { mutableStateOf<LocalDate?>(null) }
+
+    // Every calendar's line for a given day (short press shows all of them).
+    fun linesForDay(date: LocalDate): List<String> = calendarDays.mapNotNull { cd ->
+        cd.values[date]?.let { CalendarCalculator.shortPressLine(cd.config, it) }
+    }
 
     Scaffold(
         topBar = {
@@ -91,32 +127,32 @@ fun CalendarViewScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // Only offer the picker when there is more than one calendar to view.
-            if (calendars.size > 1 && selected != null) {
+            if (calendarDays.size > 1 && selected != null) {
                 AppDropdownRow(
                     label = "View Calendar",
-                    options = calendars,
-                    selected = selected,
-                    onSelected = { selectedIndex = calendars.indexOf(it) },
+                    options = calendarDays.map { it.calendar },
+                    selected = selected.calendar,
+                    onSelected = { cal -> selectedIndex = calendarDays.indexOfFirst { it.calendar.id == cal.id } },
                     optionLabel = { it.label },
                 )
             }
 
-            selected?.let { calendar ->
+            selected?.let { cd ->
                 Text(
-                    calendar.label,
+                    cd.calendar.label,
                     style = MaterialTheme.typography.titleLarge,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                if (calendar.description.isNotBlank()) {
+                if (cd.calendar.description.isNotBlank()) {
                     Text(
-                        calendar.description,
+                        cd.calendar.description,
                         style = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+                Legend(cd.config)
             }
 
             MonthHeader(
@@ -127,18 +163,58 @@ fun CalendarViewScreen(
 
             WeekdayHeader()
 
-            MonthGrid(month = month)
+            MonthGrid(
+                month = month,
+                colorForDay = { date ->
+                    selected?.let { cd -> cd.values[date]?.let { CalendarCalculator.colorFor(cd.config, it) } }
+                        ?.let { hexToColor(it) }
+                },
+                popoverDay = popoverDay,
+                linesForDay = ::linesForDay,
+                onTapDay = { date -> if (linesForDay(date).isNotEmpty()) popoverDay = date },
+                onDismissPopover = { popoverDay = null },
+            )
         }
     }
 }
 
-/** The centered Month and Year with previous / next month navigation. */
+/** The compact legend: each color swatch with its configured range. */
 @Composable
-private fun MonthHeader(month: YearMonth, onPrev: () -> Unit, onNext: () -> Unit) {
+private fun Legend(config: CalendarConfig) {
+    if (config.colorRows.isEmpty()) return
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        config.colorRows.forEach { row ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Box(
+                    modifier = Modifier
+                        .size(14.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(hexToColor(row.colorHex)),
+                )
+                Text(rangeLabel(row.minValue, row.maxValue), style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    }
+}
+
+private fun rangeLabel(min: String, max: String): String {
+    val lo = min.trim()
+    val hi = max.trim()
+    return when {
+        lo.isNotEmpty() && hi.isNotEmpty() -> "$lo–$hi"
+        lo.isNotEmpty() -> "$lo+"
+        hi.isNotEmpty() -> "≤$hi"
+        else -> ""
+    }
+}
+
+@Composable
+private fun MonthHeader(month: YearMonth, onPrev: () -> Unit, onNext: () -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onPrev) {
             Icon(Icons.Filled.KeyboardArrowLeft, contentDescription = "Previous month")
         }
@@ -168,9 +244,16 @@ private fun WeekdayHeader() {
     }
 }
 
-/** The month laid out 7 days across, with blank leading/trailing cells. */
+/** The month laid out 7 days across, each day colored by its calculated result. */
 @Composable
-private fun MonthGrid(month: YearMonth) {
+private fun MonthGrid(
+    month: YearMonth,
+    colorForDay: (LocalDate) -> Color?,
+    popoverDay: LocalDate?,
+    linesForDay: (LocalDate) -> List<String>,
+    onTapDay: (LocalDate) -> Unit,
+    onDismissPopover: () -> Unit,
+) {
     val daysInMonth = month.lengthOfMonth()
     // Sunday-first offset: Monday=1 … Sunday=7, so Sunday maps to column 0.
     val leadingBlanks = month.atDay(1).dayOfWeek.value % 7
@@ -182,22 +265,55 @@ private fun MonthGrid(month: YearMonth) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 for (col in 0..6) {
                     val dayNumber = row * 7 + col - leadingBlanks + 1
-                    DayCell(day = dayNumber.takeIf { it in 1..daysInMonth })
+                    val date = if (dayNumber in 1..daysInMonth) month.atDay(dayNumber) else null
+                    DayCell(
+                        date = date,
+                        dayNumber = dayNumber.takeIf { date != null },
+                        color = date?.let(colorForDay),
+                        popoverOpen = date != null && date == popoverDay,
+                        popoverLines = date?.let(linesForDay).orEmpty(),
+                        onTap = { date?.let(onTapDay) },
+                        onDismissPopover = onDismissPopover,
+                    )
                 }
             }
         }
     }
 }
 
-/** One day cell: the date number, or blank for a padding cell. */
+/** One day cell: the date number over its result color, with the short-press popover. */
 @Composable
-private fun RowScope.DayCell(day: Int?) {
+private fun RowScope.DayCell(
+    date: LocalDate?,
+    dayNumber: Int?,
+    color: Color?,
+    popoverOpen: Boolean,
+    popoverLines: List<String>,
+    onTap: () -> Unit,
+    onDismissPopover: () -> Unit,
+) {
     Box(
-        modifier = Modifier.weight(1f).aspectRatio(1f),
+        modifier = Modifier
+            .weight(1f)
+            .aspectRatio(1f)
+            .clip(RoundedCornerShape(6.dp))
+            .let { if (color != null) it.background(color) else it }
+            .let { if (date != null) it.clickable(onClick = onTap) else it },
         contentAlignment = Alignment.Center,
     ) {
-        if (day != null) {
-            Text(day.toString(), style = MaterialTheme.typography.bodyMedium)
+        if (dayNumber != null) {
+            Text(dayNumber.toString(), style = MaterialTheme.typography.bodyMedium)
+        }
+        DropdownMenu(expanded = popoverOpen, onDismissRequest = onDismissPopover) {
+            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                popoverLines.forEach { line ->
+                    Text(line, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
         }
     }
 }
+
+/** Compose color from a "#RRGGBB" hex string; a bad value falls back to gray. */
+private fun hexToColor(hex: String): Color =
+    runCatching { Color(android.graphics.Color.parseColor(hex)) }.getOrDefault(Color.Gray)

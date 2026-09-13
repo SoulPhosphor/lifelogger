@@ -4,6 +4,28 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-09-13 — Calendar feature, Phase 8b (view): coloring, legend, short press
+
+Wires the engine into the screens.
+
+- **Calendar Timestamp picker** on the Edit Calendar screen (under Description),
+  shown only when the form has a Date / Date & Time field. It chooses which
+  timestamp assigns logs to days — Automatic Timestamp (created-at) or a date
+  field. With no date field the picker is hidden and created-at is used.
+- **Day coloring.** The viewing screen runs the selected calendar through the
+  engine and paints each day's cell with its result's color; days with no result
+  have no color.
+- **Legend.** A compact horizontal legend of the calendar's color swatches with
+  their ranges, under the label/description.
+- **Short press.** Tapping a day opens a popover anchored to it showing one line
+  per configured calendar that has a result that day (all calendars), each
+  `<source> <result>` — data only, no header.
+
+Still to come: long-press → that day's logs beneath the calendar in the normal
+list style.
+
+---
+
 ## 2026-09-13 — Calendar feature, Phase 8b (engine): daily-result calculation
 
 The pure calculation engine that turns a form's logs into one result per day for
