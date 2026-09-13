@@ -8,6 +8,8 @@ import com.datadragon.app.data.Calendar
 import com.datadragon.app.data.CalendarConfig
 import com.datadragon.app.data.CalendarConfigCodec
 import com.datadragon.app.data.CalendarType
+import com.datadragon.app.data.ColorPreset
+import com.datadragon.app.data.ColorPresetCodec
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -36,8 +38,19 @@ data class CalendarConfigInitial(
 class CalendarConfigViewModel(app: Application) : AndroidViewModel(app) {
 
     private val calendarDao = AppDatabase.getInstance(app).calendarDao()
+    private val colorPresetDao = AppDatabase.getInstance(app).colorPresetDao()
 
     private var templateId: Long = -1
+
+    /** User-saved color presets, shown in the Color Preset dropdown app-wide. */
+    private val _customPresets = MutableStateFlow<List<ColorPreset>>(emptyList())
+    val customPresets: StateFlow<List<ColorPreset>> = _customPresets
+
+    init {
+        viewModelScope.launch {
+            colorPresetDao.observeAll().collect { _customPresets.value = it }
+        }
+    }
 
     /** Null while configuring a new calendar; set once one has been saved/loaded. */
     private var calendarId: Long? = null
@@ -123,6 +136,15 @@ class CalendarConfigViewModel(app: Application) : AndroidViewModel(app) {
      * Reset for "Add Another Calendar": the next Save inserts a brand-new
      * calendar instead of updating the one just saved.
      */
+    /** Save the current colors as a named preset (from "Save Colors as Preset"). */
+    fun saveColorsAsPreset(name: String, colors: List<String>) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch {
+            colorPresetDao.insert(ColorPreset(name = trimmed, colorsJson = ColorPresetCodec.encode(colors)))
+        }
+    }
+
     fun prepareNew() {
         calendarId = null
         loadedPosition = 0

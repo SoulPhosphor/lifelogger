@@ -4,6 +4,33 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-09-13 — Calendar feature, Phase 4b: swatch color picker + Save Colors as Preset
+
+Finishes the color section. Owner chose the color-picker library (skydoves).
+
+- **Color picker.** Tapping a color-range swatch opens a picker built on
+  `com.github.skydoves:colorpicker-compose:1.1.2` (Kotlin 2.0.0 / Compose 1.6.11,
+  compatible with this project's Kotlin 2.0.21 / Compose 1.7): a circular rainbow
+  wheel, a brightness control beneath it, and a hex field, kept in sync (wheel ⇄
+  hex). No alpha/transparency UI anywhere; the chosen color is a fully opaque
+  `#RRGGBB`. Opens at the swatch's current color; Cancel leaves it unchanged,
+  Okay applies it.
+- **Save Colors as Preset.** A button under the color rows opens a dialog with a
+  required Preset Name field and Cancel / Okay. Saving stores the current colors
+  as an app-global preset (the `color_presets` table) whose name then appears in
+  the Color Preset dropdown for every calendar. A custom preset applied at a
+  different color count is spread with the same even-selection rule as the
+  built-ins.
+- **Tests.** Color-preset colors JSON round-trip.
+
+**Minor label I chose (tell me to rename):** the picker's hex field is labeled
+"Hex Color" and the save dialog's field "Preset Name" — the spec named the
+fields but not their on-screen labels.
+
+Phase 4 (color configuration) is now complete.
+
+---
+
 ## 2026-09-13 — Calendar feature, Phase 4b (part): custom color preset storage
 
 Persistence for "Save Colors as Preset", committed on its own so the tree stays

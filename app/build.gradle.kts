@@ -83,6 +83,7 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.reorderable)
+    implementation(libs.colorpicker.compose)
     ksp(libs.androidx.room.compiler)
     debugImplementation(libs.androidx.ui.tooling)
     testImplementation(libs.junit)

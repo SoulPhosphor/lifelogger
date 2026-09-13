@@ -54,6 +54,15 @@ class CalendarConfigTest {
     }
 
     @Test
+    fun colorPresetColorsRoundTrip() {
+        val colors = listOf("#0033FF", "#FFF280", "#FF0000")
+        assertEquals(colors, ColorPresetCodec.decode(ColorPresetCodec.encode(colors)))
+        // A blank or bad value decodes to an empty list rather than throwing.
+        assertTrue(ColorPresetCodec.decode("").isEmpty())
+        assertTrue(ColorPresetCodec.decode("not json").isEmpty())
+    }
+
+    @Test
     fun blankOrUnknownConfigDecodesToDefaults() {
         assertEquals(CalendarConfig(), CalendarConfigCodec.decode(""))
         // Unknown keys from a later phase's config don't break an older decode.

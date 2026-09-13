@@ -20,6 +20,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -31,6 +32,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -54,10 +56,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.CalendarColorRow
 import com.datadragon.app.data.CalendarConfig
 import com.datadragon.app.data.CalendarType
+import com.datadragon.app.data.ColorPresetCodec
 import com.datadragon.app.data.ColorPresets
 import com.datadragon.app.ui.CalendarConfigViewModel
 import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.ui.components.AppDropdownRow
+import com.datadragon.app.ui.components.ColorPickerDialog
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -90,6 +94,7 @@ fun CalendarConfigScreen(
     }
 
     val initial by viewModel.initial.collectAsStateWithLifecycle()
+    val customPresets by viewModel.customPresets.collectAsStateWithLifecycle()
 
     // Screen-owned editable state, seeded once from the loaded values. Type is
     // held as its token string so it survives process death in the saved state.
@@ -109,6 +114,11 @@ fun CalendarConfigScreen(
     var savedColorCount by rememberSaveable { mutableStateOf<Int?>(null) }
     var savedColorPreset by rememberSaveable { mutableStateOf(ColorPresets.GRADIATED) }
     var savedColorRowsJson by rememberSaveable { mutableStateOf(encodeRows(emptyList())) }
+
+    // Which swatch's color picker is open, and the Save Colors as Preset dialog.
+    var pickerRow by remember { mutableStateOf<ColorRowState?>(null) }
+    var showSavePreset by rememberSaveable { mutableStateOf(false) }
+    var presetNameInput by rememberSaveable { mutableStateOf("") }
 
     LaunchedEffect(initial) {
         val i = initial
@@ -159,18 +169,34 @@ fun CalendarConfigScreen(
         savedColorRowsJson = encodeRows(colorRows.map { it.toRow() })
     }
 
+    // Resolve exactly [count] colors for a preset (built-in or a saved custom one).
+    fun resolvePresetColors(presetName: String, count: Int): List<String> {
+        val base = if (presetName in ColorPresets.builtInNames) {
+            ColorPresets.colorsFor(presetName, count)
+        } else {
+            val custom = customPresets.firstOrNull { it.name == presetName }
+            if (custom != null) {
+                ColorPresets.pickEvenly(ColorPresetCodec.decode(custom.colorsJson), count)
+            } else {
+                ColorPresets.colorsFor(ColorPresets.GRADIATED, count)
+            }
+        }
+        // Guarantee one color per row even if a custom preset stored fewer.
+        return (0 until count).map { base.getOrElse(it) { base.lastOrNull() ?: "#000000" } }
+    }
+
     // Choosing a count (re)builds the rows from the current preset with blank ranges.
     fun setColorCount(count: Int) {
         colorCount = count
         colorRows.clear()
-        colorRows.addAll(ColorPresets.colorsFor(colorPreset, count).map { ColorRowState(it) })
+        colorRows.addAll(resolvePresetColors(colorPreset, count).map { ColorRowState(it) })
     }
 
     // Changing the preset recolors the existing rows, keeping the typed ranges.
     fun setColorPreset(preset: String) {
         colorPreset = preset
         val count = colorCount ?: return
-        val colors = ColorPresets.colorsFor(preset, count)
+        val colors = resolvePresetColors(preset, count)
         colorRows.forEachIndexed { index, row ->
             colors.getOrNull(index)?.let { row.colorHex = it }
         }
@@ -225,13 +251,21 @@ fun CalendarConfigScreen(
                 if (colorCount != null) {
                     AppDropdownRow(
                         label = "Color Preset",
-                        options = ColorPresets.builtInNames,
+                        options = ColorPresets.builtInNames + customPresets.map { it.name },
                         selected = colorPreset,
                         onSelected = { setColorPreset(it) },
                         optionLabel = { it },
                     )
                     ColorRowsHeader()
-                    colorRows.forEach { row -> ColorRowEditor(row) }
+                    colorRows.forEach { row ->
+                        ColorRowEditor(row, onSwatchClick = { pickerRow = row })
+                    }
+                    AppButton(
+                        onClick = { presetNameInput = ""; showSavePreset = true },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Save Colors as Preset")
+                    }
                 }
             }
 
@@ -279,6 +313,61 @@ fun CalendarConfigScreen(
             onDismiss = { showDiscard = false },
         )
     }
+
+    val editingRow = pickerRow
+    if (editingRow != null) {
+        ColorPickerDialog(
+            initialHex = editingRow.colorHex,
+            onConfirm = { hex -> editingRow.colorHex = hex; pickerRow = null },
+            onDismiss = { pickerRow = null },
+        )
+    }
+
+    if (showSavePreset) {
+        SavePresetDialog(
+            name = presetNameInput,
+            onNameChange = { presetNameInput = it },
+            onConfirm = {
+                val chosen = presetNameInput.trim()
+                if (chosen.isNotEmpty()) {
+                    // Saves the preset app-wide (it appears in the Color Preset
+                    // dropdown). It does not change this calendar's selected preset.
+                    viewModel.saveColorsAsPreset(chosen, colorRows.map { it.colorHex })
+                    showSavePreset = false
+                    presetNameInput = ""
+                }
+            },
+            onDismiss = { showSavePreset = false; presetNameInput = "" },
+        )
+    }
+}
+
+/** The naming dialog for "Save Colors as Preset": a required name, Cancel, Okay. */
+@Composable
+private fun SavePresetDialog(
+    name: String,
+    onNameChange: (String) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = onNameChange,
+                label = { Text("Preset Name") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm, enabled = name.trim().isNotEmpty()) { Text("Okay") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
 }
 
 /** The "Choose Calendar Type" dropdown. Its floating label is the prompt; the box
@@ -358,9 +447,9 @@ private fun ColorRowsHeader() {
     }
 }
 
-/** One range row: the color swatch and its Min/Max Value fields. */
+/** One range row: the color swatch (tap to pick its color) and its Min/Max fields. */
 @Composable
-private fun ColorRowEditor(row: ColorRowState) {
+private fun ColorRowEditor(row: ColorRowState, onSwatchClick: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -371,7 +460,8 @@ private fun ColorRowEditor(row: ColorRowState) {
                 modifier = Modifier
                     .size(32.dp)
                     .clip(RoundedCornerShape(6.dp))
-                    .background(hexToColor(row.colorHex)),
+                    .background(hexToColor(row.colorHex))
+                    .clickable(onClick = onSwatchClick),
             )
         }
         OutlinedTextField(
