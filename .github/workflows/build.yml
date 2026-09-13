@@ -1,4 +1,4 @@
-name: Build debug APK
+name: Build release APK
 
 on:
   push:
@@ -25,18 +25,18 @@ jobs:
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest --stacktrace
 
-      - name: Build debug APK
-        run: ./gradlew assembleDebug --stacktrace
+      - name: Build release APK
+        run: ./gradlew assembleRelease --stacktrace
 
-      - name: Upload debug APK
+      - name: Upload release APK
         uses: actions/upload-artifact@v4
         with:
-          name: data-dragon-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: data-dragon-release-apk
+          path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
-  # On every push to main, publish a GitHub Release with the APK attached so it
-  # can be downloaded and installed directly (no need to dig into CI artifacts).
+  # On every push to main, publish a GitHub Release with the signed release APK
+  # attached so it can be downloaded and installed directly from Releases.
   release:
     needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -48,13 +48,13 @@ jobs:
       - name: Download built APK
         uses: actions/download-artifact@v4
         with:
-          name: data-dragon-debug-apk
+          name: data-dragon-release-apk
           path: apk
 
       - name: Name the APK after this build
         run: |
           mkdir -p dist
-          cp apk/*.apk "dist/data-dragon-debug-build-${{ github.run_number }}.apk"
+          cp apk/*.apk "dist/data-dragon-release-build-${{ github.run_number }}.apk"
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
@@ -62,10 +62,8 @@ jobs:
           tag_name: build-${{ github.run_number }}
           name: Data Dragon build ${{ github.run_number }}
           body: >
-            Automated **debug** build from
+            Automated signed **release** build from
             [`${{ github.sha }}`](https://github.com/${{ github.repository }}/commit/${{ github.sha }}).
-            Debug-signed, so it installs directly on a device (enable "install
-            unknown apps"). Not a signed production release.
           files: dist/*.apk
           generate_release_notes: true
           prerelease: false
