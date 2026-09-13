@@ -19,6 +19,7 @@ class BackupTimestampSettingsTest {
             automaticTimestamping = true,
             sortTimestampLabel = "Entry timestamp",
             sortNewestFirst = false,
+            integrateCalendar = true,
         )
 
         val restored = BackupCodec.templateOf(BackupCodec.logOf(source, emptyList()))
@@ -27,6 +28,7 @@ class BackupTimestampSettingsTest {
         assertEquals("Entry timestamp", restored.sortTimestampLabel)
         assertFalse(restored.sortNewestFirst)
         assertEquals("stable-id", restored.uuid)
+        assertTrue(restored.integrateCalendar)
     }
 
     @Test
@@ -48,5 +50,6 @@ class BackupTimestampSettingsTest {
         assertFalse(decoded.logs.single().automaticTimestamping)
         assertNull(decoded.logs.single().sortTimestampLabel)
         assertTrue(decoded.logs.single().sortNewestFirst)
+        assertFalse(decoded.logs.single().integrateCalendar)
     }
 }

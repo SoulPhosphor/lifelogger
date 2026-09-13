@@ -107,6 +107,7 @@ private val savedSnapshotSaver = Saver<List<FieldDef>?, String>(
 fun EditFormScreen(
     logId: String?,
     onBack: () -> Unit,
+    onEditCalendar: () -> Unit,
     viewModel: EditFormViewModel = viewModel(),
 ) {
     val id = logId?.toLongOrNull()
@@ -119,6 +120,7 @@ fun EditFormScreen(
     val loadedAutomaticTimestamping by viewModel.automaticTimestamping.collectAsStateWithLifecycle()
     val loadedSortTimestampLabel by viewModel.sortTimestampLabel.collectAsStateWithLifecycle()
     val loadedSortNewestFirst by viewModel.sortNewestFirst.collectAsStateWithLifecycle()
+    val loadedIntegrateCalendar by viewModel.integrateCalendar.collectAsStateWithLifecycle()
     // The existing form title is editable alongside the field list and is saved
     // by this screen's existing Save action.
     var formTitle by rememberSaveable { mutableStateOf<String?>(null) }
@@ -127,6 +129,8 @@ fun EditFormScreen(
     var savedAutomaticTimestamping by rememberSaveable { mutableStateOf<Boolean?>(null) }
     var sortNewestFirst by rememberSaveable { mutableStateOf<Boolean?>(null) }
     var savedSortNewestFirst by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    var integrateCalendar by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    var savedIntegrateCalendar by rememberSaveable { mutableStateOf<Boolean?>(null) }
     LaunchedEffect(name) {
         if (formTitle == null && name != null) {
             formTitle = name
@@ -143,6 +147,12 @@ fun EditFormScreen(
         if (sortNewestFirst == null && name != null) {
             sortNewestFirst = loadedSortNewestFirst
             savedSortNewestFirst = loadedSortNewestFirst
+        }
+    }
+    LaunchedEffect(name, loadedIntegrateCalendar) {
+        if (integrateCalendar == null && name != null) {
+            integrateCalendar = loadedIntegrateCalendar
+            savedIntegrateCalendar = loadedIntegrateCalendar
         }
     }
 
@@ -171,7 +181,7 @@ fun EditFormScreen(
     var editingIndex by rememberSaveable { mutableStateOf<Int?>(null) }
 
     val canSave = name != null && formTitle != null && automaticTimestamping != null &&
-        sortNewestFirst != null && rows.all { it.isValid() }
+        sortNewestFirst != null && integrateCalendar != null && rows.all { it.isValid() }
 
     fun move(index: Int, delta: Int) {
         val target = index + delta
@@ -211,6 +221,7 @@ fun EditFormScreen(
             automaticTimestamping = automaticTimestamping ?: false,
             sortTimestampLabel = rows.firstOrNull { it.sortByTimestamp }?.label?.trim(),
             sortNewestFirst = sortNewestFirst ?: true,
+            integrateCalendar = integrateCalendar ?: false,
             labelRenames = labelRenames(),
             optionRenames = optionRenames(),
             onSaved = {
@@ -224,6 +235,7 @@ fun EditFormScreen(
                 savedTitle = titleToSave
                 savedAutomaticTimestamping = automaticTimestamping
                 savedSortNewestFirst = sortNewestFirst
+                savedIntegrateCalendar = integrateCalendar
                 savedSnapshot = rows.map { it.toFieldDef() }
                 onDone()
             },
@@ -261,6 +273,7 @@ fun EditFormScreen(
         (savedTitle != null && formTitle != savedTitle) ||
         (savedAutomaticTimestamping != null && automaticTimestamping != savedAutomaticTimestamping) ||
         (savedSortNewestFirst != null && sortNewestFirst != savedSortNewestFirst) ||
+        (savedIntegrateCalendar != null && integrateCalendar != savedIntegrateCalendar) ||
         (seeded && currentSortLabel != savedSortLabel)
     var showDiscard by rememberSaveable { mutableStateOf(false) }
     fun attemptBack() { if (dirty) showDiscard = true else onBack() }
@@ -304,6 +317,26 @@ fun EditFormScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            item(key = "integrate-calendar") {
+                SettingSwitchRow(
+                    checked = integrateCalendar ?: false,
+                    onCheckedChange = { integrateCalendar = it },
+                    title = "Integrate Calendar",
+                )
+            }
+
+            item(key = "edit-calendar") {
+                // Stays visible when the toggle is off; AppButton grays out while
+                // disabled. Enabled only once Integrate Calendar is turned on.
+                AppButton(
+                    onClick = onEditCalendar,
+                    enabled = integrateCalendar == true,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Edit Calendar")
+                }
+            }
+
             item(key = "header") {
                 Text(
                     "Tap a field to edit its label, options, and settings. Add new fields " +

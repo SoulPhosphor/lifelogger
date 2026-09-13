@@ -47,4 +47,11 @@ data class LogTemplate(
     /** Default entry order: newest first unless the form says oldest first. */
     @ColumnInfo(defaultValue = "1")
     val sortNewestFirst: Boolean = true,
+    /**
+     * Whether this form integrates a calendar. The Form Editor's "Integrate
+     * Calendar" toggle; when off, the "Edit Calendar" button is disabled. Off by
+     * default so existing forms are unchanged.
+     */
+    @ColumnInfo(defaultValue = "0")
+    val integrateCalendar: Boolean = false,
 )

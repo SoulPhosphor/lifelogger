@@ -4,6 +4,38 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-09-13 — Calendar feature, Phase 1: Form Editor integration
+
+First phase of the Calendar feature. Builds only the entry point; the daily
+calculation / conditional system is deliberately not touched.
+
+- **Form Editor.** Added an **Integrate Calendar** toggle at the top of the Edit
+  Form screen with an **Edit Calendar** button directly beneath it. The button
+  stays visible and grays out (disabled) while the toggle is off, and enables
+  when it is on — using the app's existing `AppButton` disabled styling. Pressing
+  it opens the calendar configuration screen.
+- **Persistence.** New per-form `LogTemplate.integrateCalendar` flag (DB **v13**,
+  additive `MIGRATION_12_13`; existing forms default to 0 / no calendar). Saved
+  through the Edit Form screen's existing Save + unsaved-changes flow, alongside
+  the title and timestamp settings. Backups round-trip the flag (`BackupLog`).
+- **Navigation.** New `CALENDAR_CONFIG` route (`log/{logId}/calendar`) and a
+  `CalendarConfigScreen`. In this phase the screen is a back-out skeleton only —
+  its configuration UI is built in the following phases.
+- **Tests.** `CalendarMigrationTest` guards the additive 12→13 column; the backup
+  timestamp round-trip test now also covers `integrateCalendar`.
+
+**Open questions (deferred, not decided here):**
+
+- The calendar configuration screen has no title in the spec; its top bar is left
+  blank until the wording is confirmed.
+- The spec labels the preset dropdown option "Gradiated" but the preset
+  definition calls it "Gradient" — to be reconciled when the color presets are
+  built.
+- All daily aggregation / conditional-counting behavior remains unspecified and
+  is intentionally not implemented.
+
+---
+
 ## 2026-09-09 — Ideas: a third main section
 
 **Ideas is now the third Home view, after Forms and Lists.** It has its own

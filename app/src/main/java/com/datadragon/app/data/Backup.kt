@@ -47,6 +47,8 @@ data class BackupLog(
     val automaticTimestamping: Boolean = false,
     val sortTimestampLabel: String? = null,
     val sortNewestFirst: Boolean = true,
+    // Defaults to false so older backups round-trip as forms without a calendar.
+    val integrateCalendar: Boolean = false,
     val entries: List<BackupEntry> = emptyList(),
 )
 
@@ -135,6 +137,7 @@ object BackupCodec {
             automaticTimestamping = template.automaticTimestamping,
             sortTimestampLabel = template.sortTimestampLabel,
             sortNewestFirst = template.sortNewestFirst,
+            integrateCalendar = template.integrateCalendar,
             entries = entries.map { entry ->
                 BackupEntry(
                     id = entry.id,
@@ -163,6 +166,7 @@ object BackupCodec {
             automaticTimestamping = log.automaticTimestamping,
             sortTimestampLabel = log.sortTimestampLabel,
             sortNewestFirst = log.sortNewestFirst,
+            integrateCalendar = log.integrateCalendar,
         )
 
     fun entriesOf(log: BackupLog): List<LogEntry> =

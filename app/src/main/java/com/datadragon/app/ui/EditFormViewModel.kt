@@ -40,6 +40,9 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
     private val _sortNewestFirst = MutableStateFlow(true)
     val sortNewestFirst: StateFlow<Boolean> = _sortNewestFirst
 
+    private val _integrateCalendar = MutableStateFlow(false)
+    val integrateCalendar: StateFlow<Boolean> = _integrateCalendar
+
     fun load(id: Long) {
         templateId = id
         viewModelScope.launch {
@@ -47,6 +50,7 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
             _automaticTimestamping.value = template?.automaticTimestamping ?: false
             _sortTimestampLabel.value = template?.sortTimestampLabel
             _sortNewestFirst.value = template?.sortNewestFirst ?: true
+            _integrateCalendar.value = template?.integrateCalendar ?: false
             _fields.value = template
                 ?.let { runCatching { json.decodeFromString<List<FieldDef>>(it.schemaJson) }.getOrNull() }
                 ?: emptyList()
@@ -68,6 +72,7 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
         automaticTimestamping: Boolean,
         sortTimestampLabel: String?,
         sortNewestFirst: Boolean,
+        integrateCalendar: Boolean,
         labelRenames: Map<String, String> = emptyMap(),
         optionRenames: Map<String, Map<String, String>> = emptyMap(),
         onSaved: () -> Unit,
@@ -92,12 +97,14 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
                 automaticTimestamping,
                 sortTimestampLabel,
                 sortNewestFirst,
+                integrateCalendar,
             )
             _name.value = savedName
             _fields.value = fields
             _automaticTimestamping.value = automaticTimestamping
             _sortTimestampLabel.value = sortTimestampLabel
             _sortNewestFirst.value = sortNewestFirst
+            _integrateCalendar.value = integrateCalendar
             onSaved()
         }
     }

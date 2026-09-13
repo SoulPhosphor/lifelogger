@@ -7,6 +7,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.datadragon.app.ui.screens.CalendarConfigScreen
 import com.datadragon.app.ui.screens.ChecklistScreen
 import com.datadragon.app.ui.screens.CreateIdeaLogScreen
 import com.datadragon.app.ui.screens.CreateLogScreen
@@ -102,6 +103,17 @@ fun DataDragonNavHost(
             val logId = backStackEntry.arguments?.getString(Routes.LOG_ARG)
             EditFormScreen(
                 logId = logId,
+                onBack = { navController.popBackStack() },
+                onEditCalendar = { navController.navigate(Routes.calendarConfig(logId.orEmpty())) },
+            )
+        }
+
+        composable(
+            route = Routes.CALENDAR_CONFIG,
+            arguments = listOf(navArgument(Routes.LOG_ARG) { type = NavType.StringType }),
+        ) { backStackEntry ->
+            CalendarConfigScreen(
+                logId = backStackEntry.arguments?.getString(Routes.LOG_ARG),
                 onBack = { navController.popBackStack() },
             )
         }
