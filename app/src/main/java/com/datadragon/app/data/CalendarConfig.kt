@@ -34,6 +34,12 @@ data class CalendarConfig(
     val matchValue: String = "",
     /** For Count Matching on a choice field: the option whose occurrences to count. */
     val matchOption: String? = null,
+    /**
+     * Which timestamp assigns a log to a calendar day: null means the log's
+     * automatic created-at time; otherwise the label of a Date / Date & Time field
+     * on the form. Used only by the viewing screen.
+     */
+    val dayTimestampField: String? = null,
     // Color configuration (range types).
     val colorCount: Int? = null,
     val colorPreset: String = ColorPresets.GRADIATED,

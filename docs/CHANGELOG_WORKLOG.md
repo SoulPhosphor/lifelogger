@@ -4,6 +4,27 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-09-13 — Calendar feature, Phase 8b (engine): daily-result calculation
+
+The pure calculation engine that turns a form's logs into one result per day for
+a configured calendar, and maps it to a color. Data layer only, unit-tested;
+wired into the viewing screen in the next step.
+
+- `CalendarCalculator.dailyValues(config, fields, entries)` assigns each log to a
+  day (by `CalendarConfig.dayTimestampField` — a Date/Date & Time field, or the
+  log's created-at when null), then reduces each day's logs by the Calculation
+  Rule: Count Logs, Count Entries, Highest / Lowest / Average / Total, Count
+  Matching (numeric condition, or a choice field's chosen option), and Count Yes
+  / No / Unknown. A day with no applicable result (e.g. a zero count) gets no
+  entry, so it shows no color.
+- `colorFor` maps a day's value to a color range; `shortPressLine` builds the
+  short-press text (`<source> Highest: 8`, `<source> 5 Times`, …) leading with
+  the source label.
+- New `CalendarConfig.dayTimestampField`; unit tests cover each rule, date-field
+  day assignment, the zero-count skip, color mapping, and the line wording.
+
+---
+
 ## 2026-09-13 — Calendar feature, Phase 8a: viewing screen scaffold + entry point
 
 The calendar viewing screen's structure and how it's reached. No coloring,
