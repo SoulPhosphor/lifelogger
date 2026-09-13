@@ -4,6 +4,39 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-09-13 — Calendar feature, Phase 3: Edit Calendar screen core
+
+The single scrollable **Edit Calendar** screen's top section, plus save/list/
+reopen. Still one screen — later phases add their controls into the same scroll.
+
+- **Edit Calendar screen** (title "Edit Calendar"): `Choose Calendar Type`
+  dropdown (Heat Map / Yes/No / Min/Max Value), `Calendar Label` (required),
+  `Description` (5 visible lines, with the hint text
+  "Optional: Describes what is tracked. Shows at top of calendar." shown while
+  empty). Uses the app's existing unsaved-changes dialog on back-out.
+- **Save Calendar** persists the calendar (insert on first save, update
+  thereafter) and returns to Edit Form. **Add Another Calendar** saves the
+  current one and resets the screen to a fresh blank calendar (the saved one
+  stays). Both enabled only once a type is chosen and a label is entered.
+- **Edit Form** lists the form's configured calendars at the bottom, each its own
+  tappable item (by label); tapping opens it in the same Edit Calendar screen
+  with its values loaded. The top "Edit Calendar" button opens a new calendar.
+- Route `CALENDAR_CONFIG` now takes an optional `calendarId` (new vs. edit).
+
+**Interpretations of the spec's flow (tell me to change any):**
+
+- A new calendar's type dropdown starts unselected (the label "Choose Calendar
+  Type" acts as the prompt); Save is disabled until a type is picked, so no type
+  is silently defaulted.
+- "Edit Calendar" (top of Form Editor) opens a **new** calendar; existing
+  calendars are edited from the bottom-of-Edit-Form list. "Save Calendar" returns
+  to Edit Form; "Add Another Calendar" stays on the screen with a blank calendar.
+
+Not yet built (later phases, same screen): data source / calculation rule,
+colors + presets, and the type-specific bodies.
+
+---
+
 ## 2026-09-13 — Calendar feature, Phase 2: calendar persistence
 
 Persistence for configured calendars, wired end to end before any of the

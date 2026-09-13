@@ -22,7 +22,8 @@ object Routes {
     const val NEW_ENTRY = "log/{$LOG_ARG}/newEntry"
     const val EDIT_ENTRY = "log/{$LOG_ARG}/entry/{$ENTRY_ARG}/edit"
     const val EDIT_FORM = "log/{$LOG_ARG}/editForm"
-    const val CALENDAR_CONFIG = "log/{$LOG_ARG}/calendar"
+    const val CALENDAR_ARG = "calendarId"
+    const val CALENDAR_CONFIG = "log/{$LOG_ARG}/calendar?$CALENDAR_ARG={$CALENDAR_ARG}"
     const val CHECKLIST = "checklist/{$CHECKLIST_ARG}"
 
     // Ideas. An Idea Log's own screen, its editor, and one idea's detail /
@@ -43,7 +44,8 @@ object Routes {
     fun newEntry(logId: String) = "log/$logId/newEntry"
     fun editEntry(logId: String, entryId: Long) = "log/$logId/entry/$entryId/edit"
     fun editForm(logId: String) = "log/$logId/editForm"
-    fun calendarConfig(logId: String) = "log/$logId/calendar"
+    fun calendarConfig(logId: String, calendarId: Long? = null): String =
+        "log/$logId/calendar" + (calendarId?.let { "?$CALENDAR_ARG=$it" } ?: "")
     fun checklist(checklistId: Long) = "checklist/$checklistId"
 
     fun ideaLog(ideaLogId: Long) = "ideaLog/$ideaLogId"

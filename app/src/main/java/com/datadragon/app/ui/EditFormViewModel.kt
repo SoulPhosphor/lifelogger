@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.datadragon.app.data.AppDatabase
+import com.datadragon.app.data.Calendar
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.FormMarkdownGenerator
@@ -22,8 +23,10 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
 
     private val dao = AppDatabase.getInstance(app).logTemplateDao()
     private val entryDao = AppDatabase.getInstance(app).logEntryDao()
+    private val calendarDao = AppDatabase.getInstance(app).calendarDao()
     private val json = Json { ignoreUnknownKeys = true }
     private var templateId: Long = -1
+    private var calendarsCollected = false
 
     private val _name = MutableStateFlow<String?>(null)
     val name: StateFlow<String?> = _name
@@ -43,8 +46,19 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
     private val _integrateCalendar = MutableStateFlow(false)
     val integrateCalendar: StateFlow<Boolean> = _integrateCalendar
 
+    /** This form's configured calendars, listed at the bottom of Edit Form. */
+    private val _calendars = MutableStateFlow<List<Calendar>>(emptyList())
+    val calendars: StateFlow<List<Calendar>> = _calendars
+
     fun load(id: Long) {
         templateId = id
+        // Observe the form's calendars once so saves from the config screen show up.
+        if (!calendarsCollected) {
+            calendarsCollected = true
+            viewModelScope.launch {
+                calendarDao.observeForTemplate(id).collect { _calendars.value = it }
+            }
+        }
         viewModelScope.launch {
             val template = dao.getById(id)
             _automaticTimestamping.value = template?.automaticTimestamping ?: false

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -108,6 +109,7 @@ fun EditFormScreen(
     logId: String?,
     onBack: () -> Unit,
     onEditCalendar: () -> Unit,
+    onOpenCalendar: (Long) -> Unit,
     viewModel: EditFormViewModel = viewModel(),
 ) {
     val id = logId?.toLongOrNull()
@@ -121,6 +123,7 @@ fun EditFormScreen(
     val loadedSortTimestampLabel by viewModel.sortTimestampLabel.collectAsStateWithLifecycle()
     val loadedSortNewestFirst by viewModel.sortNewestFirst.collectAsStateWithLifecycle()
     val loadedIntegrateCalendar by viewModel.integrateCalendar.collectAsStateWithLifecycle()
+    val calendars by viewModel.calendars.collectAsStateWithLifecycle()
     // The existing form title is editable alongside the field list and is saved
     // by this screen's existing Save action.
     var formTitle by rememberSaveable { mutableStateOf<String?>(null) }
@@ -393,6 +396,22 @@ fun EditFormScreen(
                 ) {
                     Icon(Icons.Filled.Add, contentDescription = null)
                     Text("  Add Field")
+                }
+            }
+
+            // Configured calendars, each its own item; tapping opens it in the
+            // Edit Calendar screen with its saved values.
+            items(calendars, key = { "calendar-${it.id}" }) { calendar ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onOpenCalendar(calendar.id) },
+                ) {
+                    Text(
+                        calendar.label,
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(12.dp),
+                    )
                 }
             }
         }

@@ -1,0 +1,124 @@
+package com.datadragon.app.ui
+
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.datadragon.app.data.AppDatabase
+import com.datadragon.app.data.Calendar
+import com.datadragon.app.data.CalendarType
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+
+/**
+ * The values the Edit Calendar screen seeds its editable fields from: the chosen
+ * type (null when configuring a brand-new calendar and nothing is picked yet),
+ * the label, and the description.
+ */
+data class CalendarConfigInitial(
+    val type: CalendarType?,
+    val label: String,
+    val description: String,
+)
+
+/**
+ * Backs the single Edit Calendar screen. Loads one calendar for editing (or
+ * starts a new one for a form) and writes it back.
+ *
+ * The type-specific configuration (data source, calculation rule, colors, …) is
+ * carried untouched through [loadedConfigJson] so this phase's Save never drops
+ * config that later phases will add; here only the type, label and description
+ * are edited.
+ */
+class CalendarConfigViewModel(app: Application) : AndroidViewModel(app) {
+
+    private val calendarDao = AppDatabase.getInstance(app).calendarDao()
+
+    private var templateId: Long = -1
+
+    /** Null while configuring a new calendar; set once one has been saved/loaded. */
+    private var calendarId: Long? = null
+    private var loadedConfigJson: String = ""
+    private var loadedPosition: Int = 0
+
+    private val _initial = MutableStateFlow<CalendarConfigInitial?>(null)
+    val initial: StateFlow<CalendarConfigInitial?> = _initial
+
+    fun load(templateId: Long, calendarId: Long?) {
+        this.templateId = templateId
+        this.calendarId = calendarId
+        viewModelScope.launch {
+            val existing = calendarId?.let { calendarDao.getById(it) }
+            if (existing != null) {
+                loadedConfigJson = existing.configJson
+                loadedPosition = existing.position
+                _initial.value = CalendarConfigInitial(
+                    type = CalendarType.fromToken(existing.type),
+                    label = existing.label,
+                    description = existing.description,
+                )
+            } else {
+                _initial.value = CalendarConfigInitial(type = null, label = "", description = "")
+            }
+        }
+    }
+
+    /**
+     * Persist the calendar. Inserts a new row (appended after the form's existing
+     * calendars) the first time, then updates that same row on later saves.
+     * [onSaved] receives the saved calendar's id.
+     */
+    fun save(
+        type: CalendarType,
+        label: String,
+        description: String,
+        onSaved: (Long) -> Unit,
+    ) {
+        if (templateId < 0) return
+        viewModelScope.launch {
+            val id = calendarId
+            if (id == null) {
+                val position = (calendarDao.getForTemplateOnce(templateId)
+                    .maxOfOrNull { it.position } ?: -1) + 1
+                val newId = calendarDao.insert(
+                    Calendar(
+                        templateId = templateId,
+                        position = position,
+                        type = type.token,
+                        label = label.trim(),
+                        description = description,
+                        configJson = "",
+                    ),
+                )
+                calendarId = newId
+                loadedPosition = position
+                loadedConfigJson = ""
+                onSaved(newId)
+            } else {
+                calendarDao.update(
+                    Calendar(
+                        id = id,
+                        templateId = templateId,
+                        position = loadedPosition,
+                        type = type.token,
+                        label = label.trim(),
+                        description = description,
+                        configJson = loadedConfigJson,
+                    ),
+                )
+                onSaved(id)
+            }
+        }
+    }
+
+    /**
+     * Reset for "Add Another Calendar": the next Save inserts a brand-new
+     * calendar instead of updating the one just saved.
+     */
+    fun prepareNew() {
+        calendarId = null
+        loadedConfigJson = ""
+        loadedPosition = 0
+        _initial.value = CalendarConfigInitial(type = null, label = "", description = "")
+    }
+}

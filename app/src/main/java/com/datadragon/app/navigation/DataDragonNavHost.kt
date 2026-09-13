@@ -105,15 +105,26 @@ fun DataDragonNavHost(
                 logId = logId,
                 onBack = { navController.popBackStack() },
                 onEditCalendar = { navController.navigate(Routes.calendarConfig(logId.orEmpty())) },
+                onOpenCalendar = { calendarId ->
+                    navController.navigate(Routes.calendarConfig(logId.orEmpty(), calendarId))
+                },
             )
         }
 
         composable(
             route = Routes.CALENDAR_CONFIG,
-            arguments = listOf(navArgument(Routes.LOG_ARG) { type = NavType.StringType }),
+            arguments = listOf(
+                navArgument(Routes.LOG_ARG) { type = NavType.StringType },
+                navArgument(Routes.CALENDAR_ARG) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+            ),
         ) { backStackEntry ->
             CalendarConfigScreen(
                 logId = backStackEntry.arguments?.getString(Routes.LOG_ARG),
+                calendarId = backStackEntry.arguments?.getString(Routes.CALENDAR_ARG),
                 onBack = { navController.popBackStack() },
             )
         }
