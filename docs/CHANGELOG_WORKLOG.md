@@ -4,6 +4,33 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-09-13 — Calendar feature, Phase 2: calendar persistence
+
+Persistence for configured calendars, wired end to end before any of the
+configuration UI is built, so the table is never half-integrated. Owner
+direction confirmed: the whole calendar configuration is **one single scrollable
+Edit Calendar screen** (no wizard, no split screens); its title is "Edit
+Calendar".
+
+- **`calendars` table** (DB **v14**, additive `MIGRATION_13_14`). One row per
+  configured calendar: `templateId`, `position` (order), `type`
+  (`CalendarType` token — Heat Map / Yes/No / Min/Max Value), `label`,
+  `description`, and a `configJson` blob that will hold the type-specific
+  configuration (data source, calculation rule + optional condition, color
+  count/preset/ranges, Yes/No option rows) as it is filled in over the next
+  phases — so the shape can grow without another schema change each time.
+- **`Calendar` entity + `CalendarType` enum + `CalendarDao`.**
+- **Cleanup + backup.** A form's calendars are deleted with the form
+  (`LogViewModel.deleteLog`) and on Restore. Calendars ride inside each form's
+  `BackupLog`, so they round-trip on backup and re-key correctly on a Merge
+  restore (mirroring how entries are handled).
+- **Tests.** 13→14 migration guard; calendar backup round-trip (including an
+  older-backup-has-none case).
+
+No screen UI yet — the single Edit Calendar screen's controls come next.
+
+---
+
 ## 2026-09-13 — Calendar feature, Phase 1: Form Editor integration
 
 First phase of the Calendar feature. Builds only the entry point; the daily

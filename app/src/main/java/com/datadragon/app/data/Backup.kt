@@ -50,6 +50,18 @@ data class BackupLog(
     // Defaults to false so older backups round-trip as forms without a calendar.
     val integrateCalendar: Boolean = false,
     val entries: List<BackupEntry> = emptyList(),
+    // A form's configured calendars; empty in older backups and for forms without any.
+    val calendars: List<BackupCalendar> = emptyList(),
+)
+
+@Serializable
+data class BackupCalendar(
+    val id: Long,
+    val position: Int = 0,
+    val type: String,
+    val label: String,
+    val description: String = "",
+    val configJson: String = "",
 )
 
 @Serializable
@@ -123,6 +135,7 @@ object BackupCodec {
         template: LogTemplate,
         entries: List<LogEntry>,
         notes: List<EntryNote> = emptyList(),
+        calendars: List<Calendar> = emptyList(),
     ): BackupLog {
         val notesByEntry = notes.groupBy { it.entryId }
         return BackupLog(
@@ -148,6 +161,16 @@ object BackupCodec {
                     notes = notesByEntry[entry.id].orEmpty().map {
                         BackupNote(createdAt = it.createdAt, text = it.text)
                     },
+                )
+            },
+            calendars = calendars.map { calendar ->
+                BackupCalendar(
+                    id = calendar.id,
+                    position = calendar.position,
+                    type = calendar.type,
+                    label = calendar.label,
+                    description = calendar.description,
+                    configJson = calendar.configJson,
                 )
             },
         )
@@ -185,6 +208,20 @@ object BackupCodec {
     fun notesOf(log: BackupLog): List<EntryNote> =
         log.entries.flatMap { entry ->
             entry.notes.map { EntryNote(entryId = entry.id, createdAt = it.createdAt, text = it.text) }
+        }
+
+    /** The configured calendars for a restored log, keyed to the log's id. */
+    fun calendarsOf(log: BackupLog): List<Calendar> =
+        log.calendars.map {
+            Calendar(
+                id = it.id,
+                templateId = log.id,
+                position = it.position,
+                type = it.type,
+                label = it.label,
+                description = it.description,
+                configJson = it.configJson,
+            )
         }
 
     fun checklistOf(checklist: Checklist, items: List<ChecklistItem>): BackupChecklist =

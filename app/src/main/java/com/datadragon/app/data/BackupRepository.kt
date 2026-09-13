@@ -15,16 +15,19 @@ class BackupRepository(private val db: AppDatabase) {
     private val entryDao = db.logEntryDao()
     private val noteDao = db.entryNoteDao()
     private val checklistDao = db.checklistDao()
+    private val calendarDao = db.calendarDao()
 
     /** Snapshot every log, entry, follow-up note, and list into a [BackupFile]. */
     suspend fun buildFull(): BackupFile {
         val templates = templateDao.getAllOnce()
         val entriesByTemplate = entryDao.getAllOnce().groupBy { it.templateId }
         val notesByEntry = noteDao.getAllOnce().groupBy { it.entryId }
+        val calendarsByTemplate = calendarDao.getAllOnce().groupBy { it.templateId }
         val logs = templates.map { template ->
             val entries = entriesByTemplate[template.id].orEmpty()
             val notes = entries.flatMap { notesByEntry[it.id].orEmpty() }
-            BackupCodec.logOf(template, entries, notes)
+            val calendars = calendarsByTemplate[template.id].orEmpty()
+            BackupCodec.logOf(template, entries, notes, calendars)
         }
         val itemsByChecklist = checklistDao.getAllItemsOnce().groupBy { it.checklistId }
         val checklists = checklistDao.getAllChecklistsOnce().map { checklist ->
@@ -67,11 +70,13 @@ class BackupRepository(private val db: AppDatabase) {
     private suspend fun replaceForms(logs: List<BackupLog>) {
         noteDao.deleteAll()
         entryDao.deleteAll()
+        calendarDao.deleteAll()
         templateDao.deleteAll()
         logs.forEach { log ->
             templateDao.insert(BackupCodec.templateOf(log))
             BackupCodec.entriesOf(log).forEach { entryDao.insert(it) }
             BackupCodec.notesOf(log).forEach { noteDao.insert(it) }
+            BackupCodec.calendarsOf(log).forEach { calendarDao.insert(it) }
         }
     }
 
@@ -107,6 +112,7 @@ class BackupRepository(private val db: AppDatabase) {
                 // Same bucket: throw away everything it was, then re-create it.
                 noteDao.deleteForTemplate(existing.id)
                 entryDao.deleteForTemplate(existing.id)
+                calendarDao.deleteForTemplate(existing.id)
                 templateDao.delete(existing)
             }
             // Insert with a new local id so ids never collide with other logs;
@@ -125,6 +131,19 @@ class BackupRepository(private val db: AppDatabase) {
                 entry.notes.forEach { note ->
                     noteDao.insert(EntryNote(entryId = newEntryId, createdAt = note.createdAt, text = note.text))
                 }
+            }
+            // Calendars re-key to the new template id, mirroring entries above.
+            log.calendars.forEach { calendar ->
+                calendarDao.insert(
+                    Calendar(
+                        templateId = newTemplateId,
+                        position = calendar.position,
+                        type = calendar.type,
+                        label = calendar.label,
+                        description = calendar.description,
+                        configJson = calendar.configJson,
+                    ),
+                )
             }
         }
         if (lists) backup.checklists.forEach { checklist ->

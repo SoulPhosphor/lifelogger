@@ -74,4 +74,59 @@ class CalendarMigrationTest {
         }
         sqlite.close()
     }
+
+    @Test
+    fun migration13To14AddsTheCalendarsTableAndLeavesFormsAlone() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val configuration = SupportSQLiteOpenHelper.Configuration.builder(context)
+            .name(null)
+            .callback(object : SupportSQLiteOpenHelper.Callback(13) {
+                override fun onCreate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        "CREATE TABLE log_templates (" +
+                            "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                            "uuid TEXT NOT NULL DEFAULT '', name TEXT NOT NULL, " +
+                            "createdAt INTEGER NOT NULL, schemaJson TEXT NOT NULL, " +
+                            "formMarkdown TEXT NOT NULL DEFAULT '', " +
+                            "locked INTEGER NOT NULL DEFAULT 1, " +
+                            "allowAppendedNotes INTEGER NOT NULL DEFAULT 0, " +
+                            "automaticTimestamping INTEGER NOT NULL DEFAULT 0, " +
+                            "sortTimestampLabel TEXT, " +
+                            "sortNewestFirst INTEGER NOT NULL DEFAULT 1, " +
+                            "integrateCalendar INTEGER NOT NULL DEFAULT 0)"
+                    )
+                }
+
+                override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+            })
+            .build()
+
+        val sqlite = FrameworkSQLiteOpenHelperFactory().create(configuration).writableDatabase
+        sqlite.execSQL(
+            "INSERT INTO log_templates (uuid, name, createdAt, schemaJson) " +
+                "VALUES ('stable-id', 'Mood', 300, '[]')"
+        )
+
+        AppDatabase.MIGRATION_13_14.migrate(sqlite)
+
+        // The existing form is untouched.
+        sqlite.query("SELECT name FROM log_templates").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("Mood", cursor.getString(0))
+        }
+
+        // The calendars table now exists and accepts rows.
+        sqlite.execSQL(
+            "INSERT INTO calendars (templateId, position, type, label, description, configJson) " +
+                "VALUES (1, 0, 'heat_map', 'Odor Severity', 'Tracks odor', '')"
+        )
+        sqlite.query(
+            "SELECT type, label FROM calendars WHERE templateId = 1"
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("heat_map", cursor.getString(0))
+            assertEquals("Odor Severity", cursor.getString(1))
+        }
+        sqlite.close()
+    }
 }

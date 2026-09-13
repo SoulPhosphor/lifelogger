@@ -41,6 +41,7 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
     private val templateDao = db.logTemplateDao()
     private val entryDao = db.logEntryDao()
     private val noteDao = db.entryNoteDao()
+    private val calendarDao = db.calendarDao()
     private val json = Json { ignoreUnknownKeys = true }
 
     private val _template = MutableStateFlow<LogTemplate?>(null)
@@ -214,6 +215,7 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
             db.withTransaction {
                 noteDao.deleteForTemplate(template.id)
                 entryDao.deleteForTemplate(template.id)
+                calendarDao.deleteForTemplate(template.id)
                 templateDao.delete(template)
             }
             onDeleted()
