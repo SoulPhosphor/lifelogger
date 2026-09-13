@@ -84,8 +84,7 @@ import kotlinx.serialization.json.Json
  * the single Count Yes / No / Unknown rule; then — for every type — the color
  * configuration (how many colors, the Color Preset, and the Color / Min Value /
  * Max Value rows) with the swatch color picker and Save Colors as Preset. Save
- * Calendar and Add Another Calendar close the screen. Still to come on this same
- * screen: the Min/Max Value calendar type's own source control.
+ * Calendar and Add Another Calendar close the screen.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -176,9 +175,8 @@ fun CalendarConfigScreen(
     }
 
     val type = typeToken?.let { CalendarType.fromToken(it) }
-    // All three types map their daily result to the same range-based colors.
-    val isRangeType = type == CalendarType.HEAT_MAP || type == CalendarType.MIN_MAX ||
-        type == CalendarType.YES_NO
+    // Both types map their daily result to the same range-based colors.
+    val isRangeType = type == CalendarType.HEAT_MAP || type == CalendarType.YES_NO
     val canSave = type != null && label.isNotBlank()
     val colorRowsJson = encodeRows(colorRows.map { it.toRow() })
     val dirty = seeded && (
@@ -740,7 +738,6 @@ private val SWATCH_CELL_WIDTH = 56.dp
 private fun CalendarType.displayName(): String = when (this) {
     CalendarType.HEAT_MAP -> "Heat Map"
     CalendarType.YES_NO -> "Yes/No"
-    CalendarType.MIN_MAX -> "Min/Max Value"
 }
 
 /** Compose color from a "#RRGGBB" hex string; a bad value falls back to gray. */

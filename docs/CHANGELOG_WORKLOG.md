@@ -4,6 +4,27 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-09-13 — Calendar feature: remove Min/Max type; day-assignment decided
+
+Two owner rulings.
+
+- **"Min/Max Value" is no longer a separate calendar type.** It was superseded by
+  the shared Calculation Rule model — Highest Value and Lowest Value are already
+  rules for a numeric/scale source under Heat Map. Removed `CalendarType.MIN_MAX`
+  and its "Choose Calendar Type" option; the remaining types are Heat Map and
+  Yes/No. No separate Min/Max flow or source label. (The `Color / Min Value /
+  Max Value` color-range rows are unrelated and unchanged.)
+- **Day assignment (for the viewing screen, later):** the user picks which
+  timestamp the calendar uses. With no date field on the form it's the automatic
+  created-at timestamp; when the form has date/date-time fields the user chooses
+  among them. This will be a per-calendar setting added when the viewing screen
+  is built.
+
+Earlier entries that mention a Min/Max type or "Highest/Lowest as its own type"
+predate this ruling and are left as the historical record.
+
+---
+
 ## 2026-09-13 — Calendar feature, Phase 6: choice-field sources + Yes/No calendar type
 
 Two owner rulings, built on the same one-rule-per-calendar model.

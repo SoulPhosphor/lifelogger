@@ -14,11 +14,11 @@ import kotlin.math.roundToInt
  * schema change — [CalendarConfigCodec] decodes leniently so an older row missing
  * newer fields still loads.
  *
- * This phase carries the color configuration used by the range calendar types
- * (Heat Map, Min/Max Value): how many color values ([colorCount], one of 3/5/10),
- * the chosen [colorPreset], and the per-value [colorRows] (color + the blank
- * Min/Max range the user fills in). The Min/Max values are stored as typed text;
- * how a day's calculated result maps against them is the viewing screen's job.
+ * It carries the color configuration used by every calendar type: how many color
+ * values ([colorCount], one of 3/5/10), the chosen [colorPreset], and the
+ * per-value [colorRows] (color + the blank Min/Max range the user fills in). The
+ * Min/Max range values are stored as typed text; how a day's calculated result
+ * maps against them is the viewing screen's job.
  */
 @Serializable
 data class CalendarConfig(

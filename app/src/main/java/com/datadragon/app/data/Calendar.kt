@@ -32,14 +32,16 @@ data class Calendar(
 )
 
 /**
- * The three calendar types the user picks in "Choose Calendar Type". The token is
- * the stable value persisted in [Calendar.type]; the display names are the exact
- * owner-facing labels ("Heat Map", "Yes/No", "Min/Max Value") and live with the UI.
+ * The calendar types the user picks in "Choose Calendar Type". The token is the
+ * stable value persisted in [Calendar.type]; the display names are the exact
+ * owner-facing labels ("Heat Map", "Yes/No") and live with the UI.
+ *
+ * There is no separate Min/Max type: Highest Value and Lowest Value are rules in
+ * the shared Calculation Rule dropdown for a numeric/scale source.
  */
 enum class CalendarType(val token: String) {
     HEAT_MAP("heat_map"),
-    YES_NO("yes_no"),
-    MIN_MAX("min_max");
+    YES_NO("yes_no");
 
     companion object {
         fun fromToken(token: String): CalendarType? =
