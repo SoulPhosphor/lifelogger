@@ -5,6 +5,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.datadragon.app.data.AppDatabase
 import com.datadragon.app.data.Calendar
+import com.datadragon.app.data.CalendarConfig
+import com.datadragon.app.data.CalendarConfigCodec
 import com.datadragon.app.data.CalendarType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,16 +21,17 @@ data class CalendarConfigInitial(
     val type: CalendarType?,
     val label: String,
     val description: String,
+    val config: CalendarConfig,
 )
 
 /**
  * Backs the single Edit Calendar screen. Loads one calendar for editing (or
  * starts a new one for a form) and writes it back.
  *
- * The type-specific configuration (data source, calculation rule, colors, …) is
- * carried untouched through [loadedConfigJson] so this phase's Save never drops
- * config that later phases will add; here only the type, label and description
- * are edited.
+ * The type-specific configuration (colors now; data source and calculation rule
+ * in later phases) travels as a [CalendarConfig] the screen owns end to end:
+ * [load] decodes it from the stored [Calendar.configJson], and [save] re-encodes
+ * the whole config the screen hands back, so nothing is dropped on a round-trip.
  */
 class CalendarConfigViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -38,7 +41,6 @@ class CalendarConfigViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Null while configuring a new calendar; set once one has been saved/loaded. */
     private var calendarId: Long? = null
-    private var loadedConfigJson: String = ""
     private var loadedPosition: Int = 0
 
     private val _initial = MutableStateFlow<CalendarConfigInitial?>(null)
@@ -50,15 +52,20 @@ class CalendarConfigViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val existing = calendarId?.let { calendarDao.getById(it) }
             if (existing != null) {
-                loadedConfigJson = existing.configJson
                 loadedPosition = existing.position
                 _initial.value = CalendarConfigInitial(
                     type = CalendarType.fromToken(existing.type),
                     label = existing.label,
                     description = existing.description,
+                    config = CalendarConfigCodec.decode(existing.configJson),
                 )
             } else {
-                _initial.value = CalendarConfigInitial(type = null, label = "", description = "")
+                _initial.value = CalendarConfigInitial(
+                    type = null,
+                    label = "",
+                    description = "",
+                    config = CalendarConfig(),
+                )
             }
         }
     }
@@ -72,9 +79,11 @@ class CalendarConfigViewModel(app: Application) : AndroidViewModel(app) {
         type: CalendarType,
         label: String,
         description: String,
+        config: CalendarConfig,
         onSaved: (Long) -> Unit,
     ) {
         if (templateId < 0) return
+        val configJson = CalendarConfigCodec.encode(config)
         viewModelScope.launch {
             val id = calendarId
             if (id == null) {
@@ -87,12 +96,11 @@ class CalendarConfigViewModel(app: Application) : AndroidViewModel(app) {
                         type = type.token,
                         label = label.trim(),
                         description = description,
-                        configJson = "",
+                        configJson = configJson,
                     ),
                 )
                 calendarId = newId
                 loadedPosition = position
-                loadedConfigJson = ""
                 onSaved(newId)
             } else {
                 calendarDao.update(
@@ -103,7 +111,7 @@ class CalendarConfigViewModel(app: Application) : AndroidViewModel(app) {
                         type = type.token,
                         label = label.trim(),
                         description = description,
-                        configJson = loadedConfigJson,
+                        configJson = configJson,
                     ),
                 )
                 onSaved(id)
@@ -117,8 +125,12 @@ class CalendarConfigViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun prepareNew() {
         calendarId = null
-        loadedConfigJson = ""
         loadedPosition = 0
-        _initial.value = CalendarConfigInitial(type = null, label = "", description = "")
+        _initial.value = CalendarConfigInitial(
+            type = null,
+            label = "",
+            description = "",
+            config = CalendarConfig(),
+        )
     }
 }

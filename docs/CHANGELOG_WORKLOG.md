@@ -4,6 +4,33 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-09-13 — Calendar feature, Phase 4a: color configuration
+
+The color section of the Edit Calendar screen, for the range calendar types
+(Heat Map, Min/Max Value). Still the same single screen — this sits below
+Description; the data-source and calculation-rule controls (spec order 4–6) will
+be inserted above it in a later phase.
+
+- **Color count** selector (3 / 5 / 10) — starts unselected; picking one builds
+  that many rows.
+- **Color Preset** dropdown (`Gradiated` / `Primary`) seeding the colors.
+  `Gradiated` runs deep vivid blue → pure red and, for 3 or 5, picks colors
+  evenly across the 10-color sequence so the progression stays even; `Primary`
+  uses its own ordered set. Changing the preset recolors the rows and keeps any
+  typed ranges; changing the count rebuilds the rows.
+- **Color / Min Value / Max Value** rows: a colored swatch plus editable
+  Min/Max fields, headers centered over their columns. (The swatch is display
+  only for now — tapping it to pick a custom color, and Save Colors as Preset,
+  come in Phase 4b.)
+- **Persistence.** The color config serializes into `Calendar.configJson`
+  (`CalendarConfig` / `CalendarConfigCodec`, lenient decode so later phases can
+  add fields). Min/Max are stored as typed text; comparing a day's result
+  against them is the viewing screen's job (later phase).
+- **Tests.** Preset selection math (endpoints + even spacing) and the config
+  JSON round-trip, including forward-compatible decode of unknown keys.
+
+---
+
 ## 2026-09-13 — Calendar feature, Phase 3: Edit Calendar screen core
 
 The single scrollable **Edit Calendar** screen's top section, plus save/list/
