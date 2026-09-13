@@ -4,6 +4,22 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-09-13 — Calendar feature, Phase 8c: long-press logs
+
+Long-pressing a calendar day lists that day's logs beneath the calendar
+(`CalendarCalculator.entriesOnDay`, using the selected calendar's timestamp).
+Each log is a read-only card — the automatic timestamp plus each field's
+label-over-value and any notes, via the same `EntryValues` display the entry
+list uses — rather than a new log-display format. They scroll with the page.
+
+This completes the calendar feature end to end: the Integrate Calendar toggle and
+Edit Calendar entry, the single Edit Calendar screen (type, label, description,
+timestamp, source + calculation rule + condition, colors + picker + presets),
+multiple calendars per form, and the viewing screen (month grid, day coloring,
+legend, short-press summary, long-press logs).
+
+---
+
 ## 2026-09-13 — Calendar feature, Phase 8b (view): coloring, legend, short press
 
 Wires the engine into the screens.

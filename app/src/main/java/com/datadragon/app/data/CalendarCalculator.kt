@@ -45,6 +45,17 @@ object CalendarCalculator {
         return results
     }
 
+    /** The logs assigned to [day] under this calendar's timestamp (for long-press). */
+    fun entriesOnDay(
+        config: CalendarConfig,
+        fields: List<FieldDef>,
+        entries: List<LogEntry>,
+        day: LocalDate,
+    ): List<LogEntry> {
+        val timestampField = config.dayTimestampField?.let { label -> fields.firstOrNull { it.label == label } }
+        return entries.filter { dayOf(it, timestampField) == day }
+    }
+
     /** The configured color for [value], or null when no range contains it. */
     fun colorFor(config: CalendarConfig, value: Double): String? {
         for (row in config.colorRows) {

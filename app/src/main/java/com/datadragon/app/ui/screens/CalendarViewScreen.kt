@@ -1,7 +1,8 @@
 package com.datadragon.app.ui.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
+import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -46,6 +48,9 @@ import com.datadragon.app.data.Calendar
 import com.datadragon.app.data.CalendarCalculator
 import com.datadragon.app.data.CalendarConfig
 import com.datadragon.app.data.CalendarConfigCodec
+import com.datadragon.app.data.EntryValues
+import com.datadragon.app.data.FieldDef
+import com.datadragon.app.data.LogEntry
 import com.datadragon.app.ui.CalendarViewModel
 import com.datadragon.app.ui.components.AppDropdownRow
 import java.time.LocalDate
@@ -69,9 +74,9 @@ private data class CalendarDays(
  * calculated result. A short press on a day shows every calendar's result for
  * that day.
  *
- * The long-press logs list is added in the next step.
+ * A long press on a day lists that day's logs beneath the calendar.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun CalendarViewScreen(
     logId: String?,
@@ -101,6 +106,8 @@ fun CalendarViewScreen(
 
     var month by remember { mutableStateOf(YearMonth.now()) }
     var popoverDay by remember { mutableStateOf<LocalDate?>(null) }
+    // The day whose logs are listed beneath the calendar (set by a long press).
+    var logDay by remember { mutableStateOf<LocalDate?>(null) }
 
     // Every calendar's line for a given day (short press shows all of them).
     fun linesForDay(date: LocalDate): List<String> = calendarDays.mapNotNull { cd ->
@@ -173,7 +180,15 @@ fun CalendarViewScreen(
                 linesForDay = ::linesForDay,
                 onTapDay = { date -> if (linesForDay(date).isNotEmpty()) popoverDay = date },
                 onDismissPopover = { popoverDay = null },
+                onLongPressDay = { date -> logDay = date },
             )
+
+            // Long press: that day's logs, in the app's normal read-only style.
+            val day = logDay
+            if (day != null && selected != null) {
+                val dayLogs = CalendarCalculator.entriesOnDay(selected.config, fields, entries, day)
+                dayLogs.forEach { entry -> DayLogCard(entry = entry, fields = fields) }
+            }
         }
     }
 }
@@ -245,6 +260,7 @@ private fun WeekdayHeader() {
 }
 
 /** The month laid out 7 days across, each day colored by its calculated result. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MonthGrid(
     month: YearMonth,
@@ -253,6 +269,7 @@ private fun MonthGrid(
     linesForDay: (LocalDate) -> List<String>,
     onTapDay: (LocalDate) -> Unit,
     onDismissPopover: () -> Unit,
+    onLongPressDay: (LocalDate) -> Unit,
 ) {
     val daysInMonth = month.lengthOfMonth()
     // Sunday-first offset: Monday=1 … Sunday=7, so Sunday maps to column 0.
@@ -273,6 +290,7 @@ private fun MonthGrid(
                         popoverOpen = date != null && date == popoverDay,
                         popoverLines = date?.let(linesForDay).orEmpty(),
                         onTap = { date?.let(onTapDay) },
+                        onLongPress = { date?.let(onLongPressDay) },
                         onDismissPopover = onDismissPopover,
                     )
                 }
@@ -282,6 +300,7 @@ private fun MonthGrid(
 }
 
 /** One day cell: the date number over its result color, with the short-press popover. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RowScope.DayCell(
     date: LocalDate?,
@@ -290,6 +309,7 @@ private fun RowScope.DayCell(
     popoverOpen: Boolean,
     popoverLines: List<String>,
     onTap: () -> Unit,
+    onLongPress: () -> Unit,
     onDismissPopover: () -> Unit,
 ) {
     Box(
@@ -298,7 +318,9 @@ private fun RowScope.DayCell(
             .aspectRatio(1f)
             .clip(RoundedCornerShape(6.dp))
             .let { if (color != null) it.background(color) else it }
-            .let { if (date != null) it.clickable(onClick = onTap) else it },
+            .let {
+                if (date != null) it.combinedClickable(onClick = onTap, onLongClick = onLongPress) else it
+            },
         contentAlignment = Alignment.Center,
     ) {
         if (dayNumber != null) {
@@ -311,6 +333,41 @@ private fun RowScope.DayCell(
                 }
             }
         }
+    }
+}
+
+/** One of a long-pressed day's logs, shown read-only in the app's list style. */
+@Composable
+private fun DayLogCard(entry: LogEntry, fields: List<FieldDef>) {
+    val values = remember(entry.valuesJson) { EntryValues.decode(entry.valuesJson) }
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                EntryValues.displayEntryTimestamp(entry.createdAt),
+                style = MaterialTheme.typography.titleSmall,
+            )
+            fields.forEach { field ->
+                EntryValues.displayValue(field, values)?.let { value ->
+                    LabelledValue(field.label, value)
+                }
+            }
+            EntryValues.notes(values)?.let { LabelledValue("Notes", it) }
+        }
+    }
+}
+
+@Composable
+private fun LabelledValue(label: String, value: String) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(value, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
