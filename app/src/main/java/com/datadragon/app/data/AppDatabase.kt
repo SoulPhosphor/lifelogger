@@ -13,9 +13,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 @Database(
     entities = [
         LogTemplate::class, LogEntry::class, EntryNote::class, Checklist::class, ChecklistItem::class,
-        IdeaLog::class, IdeaEntry::class, Calendar::class,
+        IdeaLog::class, IdeaEntry::class, Calendar::class, ColorPreset::class,
     ],
-    version = 14,
+    version = 15,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -33,6 +33,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun ideaEntryDao(): IdeaEntryDao
 
     abstract fun calendarDao(): CalendarDao
+
+    abstract fun colorPresetDao(): ColorPresetDao
 
     companion object {
         @Volatile
@@ -277,6 +279,22 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v15 added the `color_presets` table (user-saved color presets from
+         * "Save Colors as Preset"). Purely additive — global to the app, not tied
+         * to any form, so existing data is untouched.
+         */
+        internal val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `color_presets` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`name` TEXT NOT NULL, " +
+                        "`colorsJson` TEXT NOT NULL)"
+                )
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -287,7 +305,7 @@ abstract class AppDatabase : RoomDatabase() {
                     .addMigrations(
                         MIGRATION_1_2, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
                         MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11,
-                        MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14,
+                        MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15,
                     )
                     // v3 removed the unused description column. There is no
                     // released data to preserve, so recreate cleanly on any

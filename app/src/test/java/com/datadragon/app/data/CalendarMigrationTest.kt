@@ -129,4 +129,34 @@ class CalendarMigrationTest {
         }
         sqlite.close()
     }
+
+    @Test
+    fun migration14To15AddsTheColorPresetsTable() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val configuration = SupportSQLiteOpenHelper.Configuration.builder(context)
+            .name(null)
+            .callback(object : SupportSQLiteOpenHelper.Callback(14) {
+                // The 14->15 migration only creates the app-global color_presets
+                // table, so no prior tables are needed for this guard.
+                override fun onCreate(db: SupportSQLiteDatabase) {}
+
+                override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+            })
+            .build()
+
+        val sqlite = FrameworkSQLiteOpenHelperFactory().create(configuration).writableDatabase
+
+        AppDatabase.MIGRATION_14_15.migrate(sqlite)
+
+        sqlite.execSQL(
+            "INSERT INTO color_presets (name, colorsJson) " +
+                "VALUES ('My Preset', '[\"#0033FF\",\"#FF0000\"]')"
+        )
+        sqlite.query("SELECT name, colorsJson FROM color_presets").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("My Preset", cursor.getString(0))
+            assertEquals("[\"#0033FF\",\"#FF0000\"]", cursor.getString(1))
+        }
+        sqlite.close()
+    }
 }

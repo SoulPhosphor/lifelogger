@@ -4,6 +4,23 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-09-13 — Calendar feature, Phase 4b (part): custom color preset storage
+
+Persistence for "Save Colors as Preset", committed on its own so the tree stays
+clean while the color-picker library choice is settled with the owner.
+
+- New app-global `color_presets` table (DB **v15**, additive `MIGRATION_14_15`):
+  `name` + `colorsJson` (the ordered hex list). Global, not tied to a form, so a
+  saved preset appears in the Color Preset dropdown for every calendar and is
+  left untouched by Restore. `ColorPreset` entity, `ColorPresetDao`,
+  `ColorPresetCodec`.
+- 14→15 migration guard test.
+
+Still pending (blocked on owner): the color-picker library choice, then the
+swatch picker and the Save Colors as Preset dialog + dropdown wiring.
+
+---
+
 ## 2026-09-13 — Calendar feature, Phase 4a: color configuration
 
 The color section of the Edit Calendar screen, for the range calendar types
