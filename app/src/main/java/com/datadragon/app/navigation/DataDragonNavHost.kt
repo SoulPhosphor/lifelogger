@@ -8,6 +8,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.datadragon.app.ui.screens.CalendarConfigScreen
+import com.datadragon.app.ui.screens.CalendarViewScreen
 import com.datadragon.app.ui.screens.ChecklistScreen
 import com.datadragon.app.ui.screens.CreateIdeaLogScreen
 import com.datadragon.app.ui.screens.CreateLogScreen
@@ -63,9 +64,20 @@ fun DataDragonNavHost(
                     navController.navigate(Routes.editEntry(logId.orEmpty(), entryId))
                 },
                 onEditForm = { navController.navigate(Routes.editForm(logId.orEmpty())) },
+                onOpenCalendar = { navController.navigate(Routes.calendarView(logId.orEmpty())) },
                 onOpenFollowUp = { entryId, noteId ->
                     navController.navigate(Routes.followUp(logId.orEmpty(), entryId, noteId))
                 },
+            )
+        }
+
+        composable(
+            route = Routes.CALENDAR_VIEW,
+            arguments = listOf(navArgument(Routes.LOG_ARG) { type = NavType.StringType }),
+        ) { backStackEntry ->
+            CalendarViewScreen(
+                logId = backStackEntry.arguments?.getString(Routes.LOG_ARG),
+                onBack = { navController.popBackStack() },
             )
         }
 

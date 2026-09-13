@@ -4,6 +4,33 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-09-13 — Calendar feature, Phase 8a: viewing screen scaffold + entry point
+
+The calendar viewing screen's structure and how it's reached. No coloring,
+legend, or press behavior yet.
+
+- **Entry point.** A `calendar_month` icon on the form's entry-list screen, to
+  the left of the marked-filter star, shown only when the form has Integrate
+  Calendar on. It opens the calendar view (`CALENDAR_VIEW` route).
+- **Viewing screen.** "[Form Name] Calendar" title; a `View Calendar` dropdown
+  when the form has more than one calendar; the selected calendar's label
+  (centered) and description; the Month and Year with prev/next navigation; the
+  weekday headings `Sun Mon Tues Wed Thur Fri Sat`; and the month grid (7 across,
+  enough rows).
+
+**Locked for the later short-press phase (owner rulings):**
+
+- The short-press popover is **just the data** — no header. One line per
+  configured calendar for that day (all calendars, not only the selected one).
+- Each line leads with the **source label** (the tracked field's label, or
+  "Log Frequency" for that source) — **never** the calendar label. Then the rule:
+  count rules → `<source> N Times`; value rules → `<source> Highest: V` /
+  `Lowest: V` / `Average: V` / `Total: V`.
+- Long-press a day → that day's logs appear beneath the calendar, vertically
+  scrollable, shown in the app's normal entry-list style.
+
+---
+
 ## 2026-09-13 — Calendar feature: remove Min/Max type; day-assignment decided
 
 Two owner rulings.

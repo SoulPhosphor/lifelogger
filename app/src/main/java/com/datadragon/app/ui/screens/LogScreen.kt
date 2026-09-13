@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material.icons.filled.MoreVert
@@ -78,6 +79,7 @@ fun LogScreen(
     onAddEntry: () -> Unit,
     onEditEntry: (Long) -> Unit,
     onEditForm: () -> Unit,
+    onOpenCalendar: () -> Unit,
     onOpenFollowUp: (entryId: Long, noteId: Long?) -> Unit,
     viewModel: LogViewModel = viewModel(),
 ) {
@@ -214,6 +216,13 @@ fun LogScreen(
                     }
                 },
                 actions = {
+                    // Calendar view, to the left of the star. Only shown when this
+                    // form integrates a calendar.
+                    if (template?.integrateCalendar == true) {
+                        IconButton(onClick = onOpenCalendar) {
+                            Icon(Icons.Filled.CalendarMonth, contentDescription = "View calendar")
+                        }
+                    }
                     // Filter star, just left of the plus. Only shown when some entry
                     // is marked; a filled star means the list is limited to marked
                     // entries, an outlined star means every entry shows.

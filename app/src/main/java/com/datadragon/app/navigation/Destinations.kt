@@ -24,6 +24,7 @@ object Routes {
     const val EDIT_FORM = "log/{$LOG_ARG}/editForm"
     const val CALENDAR_ARG = "calendarId"
     const val CALENDAR_CONFIG = "log/{$LOG_ARG}/calendar?$CALENDAR_ARG={$CALENDAR_ARG}"
+    const val CALENDAR_VIEW = "log/{$LOG_ARG}/calendarView"
     const val CHECKLIST = "checklist/{$CHECKLIST_ARG}"
 
     // Ideas. An Idea Log's own screen, its editor, and one idea's detail /
@@ -46,6 +47,7 @@ object Routes {
     fun editForm(logId: String) = "log/$logId/editForm"
     fun calendarConfig(logId: String, calendarId: Long? = null): String =
         "log/$logId/calendar" + (calendarId?.let { "?$CALENDAR_ARG=$it" } ?: "")
+    fun calendarView(logId: String) = "log/$logId/calendarView"
     fun checklist(checklistId: Long) = "checklist/$checklistId"
 
     fun ideaLog(ideaLogId: Long) = "ideaLog/$ideaLogId"
