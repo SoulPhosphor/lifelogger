@@ -84,11 +84,23 @@ class CalendarConfigTest {
             CalendarCalcRules.forField(FieldType.YESNO, allowUnknown = true),
         )
 
+        // Choice fields count occurrences of one chosen option (Count Matching).
+        assertEquals(
+            listOf(CalendarCalcRules.COUNT_MATCHING),
+            CalendarCalcRules.forField(FieldType.DROPDOWN, allowUnknown = false),
+        )
+        assertEquals(
+            listOf(CalendarCalcRules.COUNT_MATCHING),
+            CalendarCalcRules.forField(FieldType.MULTIPLE, allowUnknown = false),
+        )
+
         // A field type without a defined daily rule offers none and isn't mappable.
         assertTrue(CalendarCalcRules.forField(FieldType.TEXT, allowUnknown = false).isEmpty())
         assertFalse(FieldType.TEXT.heatMapApplicable())
         assertTrue(FieldType.NUMBER.heatMapApplicable())
         assertTrue(FieldType.YESNO.heatMapApplicable())
+        assertTrue(FieldType.DROPDOWN.heatMapApplicable())
+        assertTrue(FieldType.MULTIPLE.heatMapApplicable())
 
         // Only Count Matching reveals the condition + value controls.
         assertTrue(CalendarCalcRules.requiresCondition(CalendarCalcRules.COUNT_MATCHING))

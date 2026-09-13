@@ -61,6 +61,7 @@ import com.datadragon.app.data.CalendarType
 import com.datadragon.app.data.ColorPresetCodec
 import com.datadragon.app.data.ColorPresets
 import com.datadragon.app.data.FieldDef
+import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.heatMapApplicable
 import com.datadragon.app.ui.CalendarConfigViewModel
 import com.datadragon.app.ui.components.AppButton
@@ -78,12 +79,13 @@ import kotlinx.serialization.json.Json
  *
  * Built so far, top to bottom: Choose Calendar Type, Calendar Label, Description;
  * for a Heat Map, the data source (Map Heat Map to) and the Calculation Rule
- * (with the Count Matching condition + value); then — for the range types
- * (Heat Map, Min/Max Value) — the color configuration (how many colors, the Color
- * Preset, and the Color / Min Value / Max Value rows) with the swatch color picker
- * and Save Colors as Preset. Save Calendar and Add Another Calendar close the
- * screen. Still to come on this same screen: choice-field (dropdown/multiple)
- * Heat Map sources, and the Yes/No and Min/Max Value calendar types' own controls.
+ * (Count Matching reveals a numeric condition + value, or a target-option picker
+ * for a choice field); for a Yes/No calendar, Item Tracked (a Yes/No field) and
+ * the single Count Yes / No / Unknown rule; then — for every type — the color
+ * configuration (how many colors, the Color Preset, and the Color / Min Value /
+ * Max Value rows) with the swatch color picker and Save Colors as Preset. Save
+ * Calendar and Add Another Calendar close the screen. Still to come on this same
+ * screen: the Min/Max Value calendar type's own source control.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -128,11 +130,13 @@ fun CalendarConfigScreen(
     var calculationRule by rememberSaveable { mutableStateOf<String?>(null) }
     var matchCondition by rememberSaveable { mutableStateOf<String?>(null) }
     var matchValue by rememberSaveable { mutableStateOf("") }
+    var matchOption by rememberSaveable { mutableStateOf<String?>(null) }
     var savedSourceLogFrequency by rememberSaveable { mutableStateOf(false) }
     var savedSourceField by rememberSaveable { mutableStateOf<String?>(null) }
     var savedCalculationRule by rememberSaveable { mutableStateOf<String?>(null) }
     var savedMatchCondition by rememberSaveable { mutableStateOf<String?>(null) }
     var savedMatchValue by rememberSaveable { mutableStateOf("") }
+    var savedMatchOption by rememberSaveable { mutableStateOf<String?>(null) }
 
     // Which swatch's color picker is open, and the Save Colors as Preset dialog.
     var pickerRow by remember { mutableStateOf<ColorRowState?>(null) }
@@ -150,6 +154,7 @@ fun CalendarConfigScreen(
             calculationRule = i.config.calculationRule
             matchCondition = i.config.matchCondition
             matchValue = i.config.matchValue
+            matchOption = i.config.matchOption
             colorCount = i.config.colorCount
             colorPreset = i.config.colorPreset
             colorRows.clear()
@@ -162,6 +167,7 @@ fun CalendarConfigScreen(
             savedCalculationRule = calculationRule
             savedMatchCondition = matchCondition
             savedMatchValue = matchValue
+            savedMatchOption = matchOption
             savedColorCount = colorCount
             savedColorPreset = colorPreset
             savedColorRowsJson = encodeRows(colorRows.map { it.toRow() })
@@ -170,14 +176,16 @@ fun CalendarConfigScreen(
     }
 
     val type = typeToken?.let { CalendarType.fromToken(it) }
-    val isRangeType = type == CalendarType.HEAT_MAP || type == CalendarType.MIN_MAX
+    // All three types map their daily result to the same range-based colors.
+    val isRangeType = type == CalendarType.HEAT_MAP || type == CalendarType.MIN_MAX ||
+        type == CalendarType.YES_NO
     val canSave = type != null && label.isNotBlank()
     val colorRowsJson = encodeRows(colorRows.map { it.toRow() })
     val dirty = seeded && (
         typeToken != savedTypeToken || label != savedLabel || description != savedDescription ||
             sourceLogFrequency != savedSourceLogFrequency || sourceField != savedSourceField ||
             calculationRule != savedCalculationRule || matchCondition != savedMatchCondition ||
-            matchValue != savedMatchValue ||
+            matchValue != savedMatchValue || matchOption != savedMatchOption ||
             colorCount != savedColorCount || colorPreset != savedColorPreset ||
             colorRowsJson != savedColorRowsJson
         )
@@ -192,6 +200,7 @@ fun CalendarConfigScreen(
         calculationRule = calculationRule,
         matchCondition = matchCondition,
         matchValue = matchValue,
+        matchOption = matchOption,
         colorCount = colorCount,
         colorPreset = colorPreset,
         colorRows = colorRows.map { it.toRow() },
@@ -206,6 +215,7 @@ fun CalendarConfigScreen(
         savedCalculationRule = calculationRule
         savedMatchCondition = matchCondition
         savedMatchValue = matchValue
+        savedMatchOption = matchOption
         savedColorCount = colorCount
         savedColorPreset = colorPreset
         savedColorRowsJson = encodeRows(colorRows.map { it.toRow() })
@@ -273,6 +283,7 @@ fun CalendarConfigScreen(
             calculationRule = null
             matchCondition = null
             matchValue = ""
+            matchOption = null
         }
     }
 
@@ -339,27 +350,72 @@ fun CalendarConfigScreen(
                             if (!CalendarCalcRules.requiresCondition(rule)) {
                                 matchCondition = null
                                 matchValue = ""
+                                matchOption = null
                             }
                         },
                     )
 
                     if (CalendarCalcRules.requiresCondition(calculationRule)) {
-                        LabeledDropdown(
-                            label = "Condition",
-                            options = CalendarConditions.all,
-                            selected = matchCondition,
-                            optionLabel = { conditionDisplayName(it) },
-                            onSelected = { matchCondition = it },
-                        )
-                        OutlinedTextField(
-                            value = matchValue,
-                            onValueChange = { matchValue = it },
-                            label = { Text("Value") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
+                        val sourceFieldDef = (selectedSource as? SourceOption.Field)?.field
+                        if (sourceFieldDef != null &&
+                            (sourceFieldDef.type == FieldType.DROPDOWN || sourceFieldDef.type == FieldType.MULTIPLE)
+                        ) {
+                            // Choice field: count occurrences of one chosen option.
+                            LabeledDropdown(
+                                label = "Value",
+                                options = sourceFieldDef.options,
+                                selected = matchOption?.takeIf { it in sourceFieldDef.options },
+                                optionLabel = { it },
+                                onSelected = { matchOption = it },
+                            )
+                        } else {
+                            // Number / Scale: a numeric condition and value.
+                            LabeledDropdown(
+                                label = "Condition",
+                                options = CalendarConditions.all,
+                                selected = matchCondition,
+                                optionLabel = { conditionDisplayName(it) },
+                                onSelected = { matchCondition = it },
+                            )
+                            OutlinedTextField(
+                                value = matchValue,
+                                onValueChange = { matchValue = it },
+                                label = { Text("Value") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
                     }
+                }
+            }
+
+            if (type == CalendarType.YES_NO) {
+                // One calendar tracks one Yes/No response. Both Yes and No means two
+                // separate calendars, so there is a single condition here.
+                val yesNoFields = formFields.filter { it.type == FieldType.YESNO }
+                val trackedField = yesNoFields.firstOrNull { it.label == sourceField }
+                LabeledDropdown(
+                    label = "Item Tracked",
+                    options = yesNoFields,
+                    selected = trackedField,
+                    optionLabel = { it.label },
+                    onSelected = { field ->
+                        sourceLogFrequency = false
+                        sourceField = field.label
+                        val rules = CalendarCalcRules.forField(FieldType.YESNO, field.allowUnknown)
+                        if (calculationRule !in rules) calculationRule = null
+                    },
+                )
+                if (trackedField != null) {
+                    val rules = CalendarCalcRules.forField(FieldType.YESNO, trackedField.allowUnknown)
+                    LabeledDropdown(
+                        label = "Calculation Rule",
+                        options = rules,
+                        selected = calculationRule?.takeIf { it in rules },
+                        optionLabel = { calcRuleDisplayName(it) },
+                        onSelected = { calculationRule = it },
+                    )
                 }
             }
 
@@ -416,6 +472,7 @@ fun CalendarConfigScreen(
                         calculationRule = null
                         matchCondition = null
                         matchValue = ""
+                        matchOption = null
                         colorCount = null
                         colorPreset = ColorPresets.GRADIATED
                         colorRows.clear()

@@ -4,6 +4,32 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-09-13 — Calendar feature, Phase 6: choice-field sources + Yes/No calendar type
+
+Two owner rulings, built on the same one-rule-per-calendar model.
+
+- **Choice-field Heat Map sources.** Dropdown and Multiple fields are now
+  offered in "Map Heat Map to". Their single rule is **Count Matching**; instead
+  of the numeric condition + value it reveals a **Value** dropdown of the field's
+  own options, so the user counts occurrences of one chosen option (e.g. Odor =
+  Onion). Stored in `configJson` as `matchOption`.
+- **Yes/No calendar type.** Uses the same one-source/one-rule model as Heat Map,
+  restricted to Yes/No: an **Item Tracked** dropdown (the form's Yes/No fields)
+  and a single **Calculation Rule** — Count Yes / Count No / Count Unknown (the
+  last only when that field allows Unknown). A calendar tracks exactly one
+  response; tracking both Yes and No means two separate calendars. The old
+  Color / Label / Exclude table is dropped, per the owner. Yes/No now uses the
+  same range color mapping as the other types (its daily count maps to the color
+  ranges).
+- Invariant kept: one calendar = one source + one calculation/condition + one
+  daily result + one color mapping. No multi-state conflict resolution.
+- Tests extended: choice fields offer Count Matching and are heat-map applicable.
+
+Still to come: the Min/Max Value type's own source control, then the calendar
+viewing screen (where the configured rules actually turn logs into colors).
+
+---
+
 ## 2026-09-13 — Calendar feature, Phase 5: Heat Map data source + Calculation Rule
 
 The Heat Map's data-source and calculation controls, on the same Edit Calendar

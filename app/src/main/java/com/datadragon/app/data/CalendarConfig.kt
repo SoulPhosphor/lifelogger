@@ -29,9 +29,11 @@ data class CalendarConfig(
     val sourceField: String? = null,
     /** A [CalendarCalcRules] token, or null until a rule is chosen. */
     val calculationRule: String? = null,
-    /** For Count Matching: a [CalendarConditions] token and the compared value. */
+    /** For Count Matching on a number/scale field: a condition token + value. */
     val matchCondition: String? = null,
     val matchValue: String = "",
+    /** For Count Matching on a choice field: the option whose occurrences to count. */
+    val matchOption: String? = null,
     // Color configuration (range types).
     val colorCount: Int? = null,
     val colorPreset: String = ColorPresets.GRADIATED,
@@ -61,18 +63,22 @@ object CalendarCalcRules {
     /**
      * The rules a field of [type] offers. Number and Scale fields take the numeric
      * rules (including Count Matching, which needs a condition); a Yes/No field
-     * counts a specific response (Unknown only when the field allows it). Field
-     * types without a defined daily rule return an empty list.
+     * counts a specific response (Unknown only when the field allows it); a choice
+     * field (Dropdown / Multiple) counts occurrences of one chosen option (Count
+     * Matching, whose "value" is the target option). Field types without a defined
+     * daily rule return an empty list.
      */
     fun forField(type: FieldType, allowUnknown: Boolean): List<String> = when (type) {
         FieldType.NUMBER, FieldType.SCALE ->
             listOf(HIGHEST_VALUE, LOWEST_VALUE, AVERAGE, TOTAL, COUNT_ENTRIES, COUNT_MATCHING)
         FieldType.YESNO ->
             listOf(COUNT_YES, COUNT_NO) + if (allowUnknown) listOf(COUNT_UNKNOWN) else emptyList()
+        FieldType.DROPDOWN, FieldType.MULTIPLE ->
+            listOf(COUNT_MATCHING)
         else -> emptyList()
     }
 
-    /** Only Count Matching reveals the extra condition + value controls. */
+    /** Only Count Matching reveals the extra condition/value or target-option control. */
     fun requiresCondition(rule: String?): Boolean = rule == COUNT_MATCHING
 }
 
