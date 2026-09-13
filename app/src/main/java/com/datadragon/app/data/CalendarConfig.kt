@@ -5,6 +5,8 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlin.math.roundToInt
 
+// FieldType is referenced by the Heat Map calculation-rule matrix below.
+
 /**
  * The type-specific configuration for one [Calendar], serialized into
  * [Calendar.configJson]. Kept as a growing blob so later phases can add fields
@@ -20,10 +22,78 @@ import kotlin.math.roundToInt
  */
 @Serializable
 data class CalendarConfig(
+    // Heat Map data source + calculation ("Map Heat Map to" and "Calculation Rule").
+    // The source is either Log Frequency (the count of that day's logs) or one of
+    // the form's fields, named by its label.
+    val sourceLogFrequency: Boolean = false,
+    val sourceField: String? = null,
+    /** A [CalendarCalcRules] token, or null until a rule is chosen. */
+    val calculationRule: String? = null,
+    /** For Count Matching: a [CalendarConditions] token and the compared value. */
+    val matchCondition: String? = null,
+    val matchValue: String = "",
+    // Color configuration (range types).
     val colorCount: Int? = null,
     val colorPreset: String = ColorPresets.GRADIATED,
     val colorRows: List<CalendarColorRow> = emptyList(),
 )
+
+/**
+ * The daily Calculation Rule tokens (stable values stored in
+ * [CalendarConfig.calculationRule]) and which rules a given data source offers.
+ * The owner-facing rule names live with the UI.
+ */
+object CalendarCalcRules {
+    const val COUNT_LOGS = "count_logs"
+    const val HIGHEST_VALUE = "highest_value"
+    const val LOWEST_VALUE = "lowest_value"
+    const val AVERAGE = "average"
+    const val TOTAL = "total"
+    const val COUNT_ENTRIES = "count_entries"
+    const val COUNT_MATCHING = "count_matching"
+    const val COUNT_YES = "count_yes"
+    const val COUNT_NO = "count_no"
+    const val COUNT_UNKNOWN = "count_unknown"
+
+    /** Log Frequency's only rule: count the day's logs. */
+    fun forLogFrequency(): List<String> = listOf(COUNT_LOGS)
+
+    /**
+     * The rules a field of [type] offers. Number and Scale fields take the numeric
+     * rules (including Count Matching, which needs a condition); a Yes/No field
+     * counts a specific response (Unknown only when the field allows it). Field
+     * types without a defined daily rule return an empty list.
+     */
+    fun forField(type: FieldType, allowUnknown: Boolean): List<String> = when (type) {
+        FieldType.NUMBER, FieldType.SCALE ->
+            listOf(HIGHEST_VALUE, LOWEST_VALUE, AVERAGE, TOTAL, COUNT_ENTRIES, COUNT_MATCHING)
+        FieldType.YESNO ->
+            listOf(COUNT_YES, COUNT_NO) + if (allowUnknown) listOf(COUNT_UNKNOWN) else emptyList()
+        else -> emptyList()
+    }
+
+    /** Only Count Matching reveals the extra condition + value controls. */
+    fun requiresCondition(rule: String?): Boolean = rule == COUNT_MATCHING
+}
+
+/** Whether a form field can be mapped by a Heat Map (it has defined daily rules). */
+fun FieldType.heatMapApplicable(): Boolean =
+    CalendarCalcRules.forField(this, allowUnknown = true).isNotEmpty()
+
+/**
+ * The Count Matching condition tokens (stored in [CalendarConfig.matchCondition]).
+ * The owner-facing names live with the UI.
+ */
+object CalendarConditions {
+    const val GREATER_THAN = "greater_than"
+    const val GREATER_OR_EQUAL = "greater_or_equal"
+    const val EQUAL_TO = "equal_to"
+    const val LESS_OR_EQUAL = "less_or_equal"
+    const val LESS_THAN = "less_than"
+
+    /** All conditions, in the order the dropdown shows them. */
+    val all: List<String> = listOf(GREATER_THAN, GREATER_OR_EQUAL, EQUAL_TO, LESS_OR_EQUAL, LESS_THAN)
+}
 
 @Serializable
 data class CalendarColorRow(

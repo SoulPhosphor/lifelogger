@@ -10,9 +10,12 @@ import com.datadragon.app.data.CalendarConfigCodec
 import com.datadragon.app.data.CalendarType
 import com.datadragon.app.data.ColorPreset
 import com.datadragon.app.data.ColorPresetCodec
+import com.datadragon.app.data.FieldDef
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 
 /**
  * The values the Edit Calendar screen seeds its editable fields from: the chosen
@@ -39,8 +42,14 @@ class CalendarConfigViewModel(app: Application) : AndroidViewModel(app) {
 
     private val calendarDao = AppDatabase.getInstance(app).calendarDao()
     private val colorPresetDao = AppDatabase.getInstance(app).colorPresetDao()
+    private val templateDao = AppDatabase.getInstance(app).logTemplateDao()
+    private val json = Json { ignoreUnknownKeys = true }
 
     private var templateId: Long = -1
+
+    /** The form's fields, for the "Map Heat Map to" data-source dropdown. */
+    private val _formFields = MutableStateFlow<List<FieldDef>>(emptyList())
+    val formFields: StateFlow<List<FieldDef>> = _formFields
 
     /** User-saved color presets, shown in the Color Preset dropdown app-wide. */
     private val _customPresets = MutableStateFlow<List<ColorPreset>>(emptyList())
@@ -63,6 +72,9 @@ class CalendarConfigViewModel(app: Application) : AndroidViewModel(app) {
         this.templateId = templateId
         this.calendarId = calendarId
         viewModelScope.launch {
+            _formFields.value = templateDao.getById(templateId)
+                ?.let { runCatching { json.decodeFromString<List<FieldDef>>(it.schemaJson) }.getOrNull() }
+                ?: emptyList()
             val existing = calendarId?.let { calendarDao.getById(it) }
             if (existing != null) {
                 loadedPosition = existing.position

@@ -55,9 +55,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.CalendarColorRow
 import com.datadragon.app.data.CalendarConfig
+import com.datadragon.app.data.CalendarCalcRules
+import com.datadragon.app.data.CalendarConditions
 import com.datadragon.app.data.CalendarType
 import com.datadragon.app.data.ColorPresetCodec
 import com.datadragon.app.data.ColorPresets
+import com.datadragon.app.data.FieldDef
+import com.datadragon.app.data.heatMapApplicable
 import com.datadragon.app.ui.CalendarConfigViewModel
 import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.ui.components.AppDropdownRow
@@ -72,12 +76,14 @@ import kotlinx.serialization.json.Json
  * "Edit Calendar" button, or for an existing one from the calendars list at the
  * bottom of Edit Form, with that calendar's saved values loaded.
  *
- * Built so far, top to bottom: Choose Calendar Type, Calendar Label, Description,
- * then — for the range types (Heat Map, Min/Max Value) — the color configuration
- * (how many colors, the Color Preset, and the Color / Min Value / Max Value rows).
- * Save Calendar and Add Another Calendar close the screen. The data-source and
- * calculation-rule controls, the Yes/No option table, the color picker, and
- * Save Colors as Preset are added by later phases, on this same screen.
+ * Built so far, top to bottom: Choose Calendar Type, Calendar Label, Description;
+ * for a Heat Map, the data source (Map Heat Map to) and the Calculation Rule
+ * (with the Count Matching condition + value); then — for the range types
+ * (Heat Map, Min/Max Value) — the color configuration (how many colors, the Color
+ * Preset, and the Color / Min Value / Max Value rows) with the swatch color picker
+ * and Save Colors as Preset. Save Calendar and Add Another Calendar close the
+ * screen. Still to come on this same screen: choice-field (dropdown/multiple)
+ * Heat Map sources, and the Yes/No and Min/Max Value calendar types' own controls.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -95,6 +101,7 @@ fun CalendarConfigScreen(
 
     val initial by viewModel.initial.collectAsStateWithLifecycle()
     val customPresets by viewModel.customPresets.collectAsStateWithLifecycle()
+    val formFields by viewModel.formFields.collectAsStateWithLifecycle()
 
     // Screen-owned editable state, seeded once from the loaded values. Type is
     // held as its token string so it survives process death in the saved state.
@@ -115,6 +122,18 @@ fun CalendarConfigScreen(
     var savedColorPreset by rememberSaveable { mutableStateOf(ColorPresets.GRADIATED) }
     var savedColorRowsJson by rememberSaveable { mutableStateOf(encodeRows(emptyList())) }
 
+    // Heat Map data source + Calculation Rule.
+    var sourceLogFrequency by rememberSaveable { mutableStateOf(false) }
+    var sourceField by rememberSaveable { mutableStateOf<String?>(null) }
+    var calculationRule by rememberSaveable { mutableStateOf<String?>(null) }
+    var matchCondition by rememberSaveable { mutableStateOf<String?>(null) }
+    var matchValue by rememberSaveable { mutableStateOf("") }
+    var savedSourceLogFrequency by rememberSaveable { mutableStateOf(false) }
+    var savedSourceField by rememberSaveable { mutableStateOf<String?>(null) }
+    var savedCalculationRule by rememberSaveable { mutableStateOf<String?>(null) }
+    var savedMatchCondition by rememberSaveable { mutableStateOf<String?>(null) }
+    var savedMatchValue by rememberSaveable { mutableStateOf("") }
+
     // Which swatch's color picker is open, and the Save Colors as Preset dialog.
     var pickerRow by remember { mutableStateOf<ColorRowState?>(null) }
     var showSavePreset by rememberSaveable { mutableStateOf(false) }
@@ -126,6 +145,11 @@ fun CalendarConfigScreen(
             typeToken = i.type?.token
             label = i.label
             description = i.description
+            sourceLogFrequency = i.config.sourceLogFrequency
+            sourceField = i.config.sourceField
+            calculationRule = i.config.calculationRule
+            matchCondition = i.config.matchCondition
+            matchValue = i.config.matchValue
             colorCount = i.config.colorCount
             colorPreset = i.config.colorPreset
             colorRows.clear()
@@ -133,6 +157,11 @@ fun CalendarConfigScreen(
             savedTypeToken = typeToken
             savedLabel = label
             savedDescription = description
+            savedSourceLogFrequency = sourceLogFrequency
+            savedSourceField = sourceField
+            savedCalculationRule = calculationRule
+            savedMatchCondition = matchCondition
+            savedMatchValue = matchValue
             savedColorCount = colorCount
             savedColorPreset = colorPreset
             savedColorRowsJson = encodeRows(colorRows.map { it.toRow() })
@@ -146,6 +175,9 @@ fun CalendarConfigScreen(
     val colorRowsJson = encodeRows(colorRows.map { it.toRow() })
     val dirty = seeded && (
         typeToken != savedTypeToken || label != savedLabel || description != savedDescription ||
+            sourceLogFrequency != savedSourceLogFrequency || sourceField != savedSourceField ||
+            calculationRule != savedCalculationRule || matchCondition != savedMatchCondition ||
+            matchValue != savedMatchValue ||
             colorCount != savedColorCount || colorPreset != savedColorPreset ||
             colorRowsJson != savedColorRowsJson
         )
@@ -155,6 +187,11 @@ fun CalendarConfigScreen(
     BackHandler { attemptBack() }
 
     fun currentConfig(): CalendarConfig = CalendarConfig(
+        sourceLogFrequency = sourceLogFrequency,
+        sourceField = sourceField,
+        calculationRule = calculationRule,
+        matchCondition = matchCondition,
+        matchValue = matchValue,
         colorCount = colorCount,
         colorPreset = colorPreset,
         colorRows = colorRows.map { it.toRow() },
@@ -164,6 +201,11 @@ fun CalendarConfigScreen(
         savedTypeToken = typeToken
         savedLabel = label
         savedDescription = description
+        savedSourceLogFrequency = sourceLogFrequency
+        savedSourceField = sourceField
+        savedCalculationRule = calculationRule
+        savedMatchCondition = matchCondition
+        savedMatchValue = matchValue
         savedColorCount = colorCount
         savedColorPreset = colorPreset
         savedColorRowsJson = encodeRows(colorRows.map { it.toRow() })
@@ -199,6 +241,38 @@ fun CalendarConfigScreen(
         val colors = resolvePresetColors(preset, count)
         colorRows.forEachIndexed { index, row ->
             colors.getOrNull(index)?.let { row.colorHex = it }
+        }
+    }
+
+    // The "Map Heat Map to" options: the form's applicable fields, then Log Frequency.
+    val sourceOptions: List<SourceOption> =
+        formFields.filter { it.type.heatMapApplicable() }.map { SourceOption.Field(it) } +
+            SourceOption.LogFrequency
+    val selectedSource: SourceOption? = when {
+        sourceLogFrequency -> SourceOption.LogFrequency
+        sourceField != null -> formFields.firstOrNull { it.label == sourceField }?.let { SourceOption.Field(it) }
+        else -> null
+    }
+    val availableRules: List<String> = when (val s = selectedSource) {
+        null -> emptyList()
+        SourceOption.LogFrequency -> CalendarCalcRules.forLogFrequency()
+        is SourceOption.Field -> CalendarCalcRules.forField(s.field.type, s.field.allowUnknown)
+    }
+
+    fun selectSource(option: SourceOption) {
+        when (option) {
+            SourceOption.LogFrequency -> { sourceLogFrequency = true; sourceField = null }
+            is SourceOption.Field -> { sourceLogFrequency = false; sourceField = option.field.label }
+        }
+        // Drop a calculation rule that the new source doesn't offer.
+        val rules = when (option) {
+            SourceOption.LogFrequency -> CalendarCalcRules.forLogFrequency()
+            is SourceOption.Field -> CalendarCalcRules.forField(option.field.type, option.field.allowUnknown)
+        }
+        if (calculationRule !in rules) {
+            calculationRule = null
+            matchCondition = null
+            matchValue = ""
         }
     }
 
@@ -244,6 +318,50 @@ fun CalendarConfigScreen(
                 minLines = 5,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp),
             )
+
+            if (type == CalendarType.HEAT_MAP) {
+                LabeledDropdown(
+                    label = "Map Heat Map to",
+                    options = sourceOptions,
+                    selected = selectedSource,
+                    optionLabel = { it.displayName() },
+                    onSelected = { selectSource(it) },
+                )
+
+                if (selectedSource != null) {
+                    LabeledDropdown(
+                        label = "Calculation Rule",
+                        options = availableRules,
+                        selected = calculationRule?.takeIf { it in availableRules },
+                        optionLabel = { calcRuleDisplayName(it) },
+                        onSelected = { rule ->
+                            calculationRule = rule
+                            if (!CalendarCalcRules.requiresCondition(rule)) {
+                                matchCondition = null
+                                matchValue = ""
+                            }
+                        },
+                    )
+
+                    if (CalendarCalcRules.requiresCondition(calculationRule)) {
+                        LabeledDropdown(
+                            label = "Condition",
+                            options = CalendarConditions.all,
+                            selected = matchCondition,
+                            optionLabel = { conditionDisplayName(it) },
+                            onSelected = { matchCondition = it },
+                        )
+                        OutlinedTextField(
+                            value = matchValue,
+                            onValueChange = { matchValue = it },
+                            label = { Text("Value") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+            }
 
             if (isRangeType) {
                 ColorCountSelector(selected = colorCount, onSelected = { setColorCount(it) })
@@ -293,6 +411,11 @@ fun CalendarConfigScreen(
                         typeToken = null
                         label = ""
                         description = ""
+                        sourceLogFrequency = false
+                        sourceField = null
+                        calculationRule = null
+                        matchCondition = null
+                        matchValue = ""
                         colorCount = null
                         colorPreset = ColorPresets.GRADIATED
                         colorRows.clear()
@@ -400,6 +523,79 @@ private fun CalendarTypeDropdown(
             }
         }
     }
+}
+
+/**
+ * A labeled dropdown whose floating [label] is the prompt; the box is empty until
+ * an option is picked. Used for Map Heat Map to, Calculation Rule, and Condition.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun <T> LabeledDropdown(
+    label: String,
+    options: List<T>,
+    selected: T?,
+    optionLabel: (T) -> String,
+    onSelected: (T) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = selected?.let(optionLabel).orEmpty(),
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier.menuAnchor().fillMaxWidth(),
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(optionLabel(option)) },
+                    onClick = {
+                        onSelected(option)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+/** A choice in "Map Heat Map to": one of the form's fields, or Log Frequency. */
+private sealed interface SourceOption {
+    data class Field(val field: FieldDef) : SourceOption
+    data object LogFrequency : SourceOption
+}
+
+private fun SourceOption.displayName(): String = when (this) {
+    is SourceOption.Field -> field.label
+    SourceOption.LogFrequency -> "Log Frequency"
+}
+
+/** The exact owner-facing name for a Calculation Rule token. */
+private fun calcRuleDisplayName(token: String): String = when (token) {
+    CalendarCalcRules.COUNT_LOGS -> "Count Logs"
+    CalendarCalcRules.HIGHEST_VALUE -> "Highest Value"
+    CalendarCalcRules.LOWEST_VALUE -> "Lowest Value"
+    CalendarCalcRules.AVERAGE -> "Average"
+    CalendarCalcRules.TOTAL -> "Total"
+    CalendarCalcRules.COUNT_ENTRIES -> "Count Entries"
+    CalendarCalcRules.COUNT_MATCHING -> "Count Matching"
+    CalendarCalcRules.COUNT_YES -> "Count Yes"
+    CalendarCalcRules.COUNT_NO -> "Count No"
+    CalendarCalcRules.COUNT_UNKNOWN -> "Count Unknown"
+    else -> token
+}
+
+/** The exact owner-facing name for a Count Matching condition token. */
+private fun conditionDisplayName(token: String): String = when (token) {
+    CalendarConditions.GREATER_THAN -> "Greater Than"
+    CalendarConditions.GREATER_OR_EQUAL -> "Greater Than or Equal To"
+    CalendarConditions.EQUAL_TO -> "Equal To"
+    CalendarConditions.LESS_OR_EQUAL -> "Less Than or Equal To"
+    CalendarConditions.LESS_THAN -> "Less Than"
+    else -> token
 }
 
 /** Picks how many color values to use: 3, 5, or 10. */

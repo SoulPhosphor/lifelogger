@@ -4,6 +4,43 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-09-13 — Calendar feature, Phase 5: Heat Map data source + Calculation Rule
+
+The Heat Map's data-source and calculation controls, on the same Edit Calendar
+screen, between Description and the color section (the owner's section order).
+Shown only for the Heat Map type.
+
+- **Map Heat Map to** dropdown: the form's applicable fields plus **Log
+  Frequency** (the count of that day's logs).
+- **Calculation Rule** dropdown (a dropdown, per the owner — not a radio row),
+  its options driven by the source:
+  - Log Frequency → **Count Logs**.
+  - Number / Scale field → **Highest Value, Lowest Value, Average, Total, Count
+    Entries, Count Matching**. Choosing **Count Matching** reveals a **Condition**
+    dropdown (Greater Than, Greater Than or Equal To, Equal To, Less Than or Equal
+    To, Less Than) and a numeric **Value** field.
+  - Yes/No field → **Count Yes, Count No** (and **Count Unknown** only when the
+    field allows Unknown).
+- The rule matrix lives in the data layer (`CalendarCalcRules`,
+  `CalendarConditions`, `FieldType.heatMapApplicable`) and is unit-tested. Source
+  + rule + condition + value persist in `configJson`.
+
+Interpretations (tell me to change any):
+
+- "Applicable" source fields = the field types with a defined daily rule, i.e.
+  **Number, Scale, Yes/No**. Choice fields (Dropdown / Multiple) — which count a
+  chosen option — are deferred to the next phase so their option-picker is built
+  properly; Text/Date/etc. have no defined rule and are not offered.
+- Save Calendar is not blocked on choosing a source/rule (same as colors) — an
+  incomplete Heat Map can still be saved.
+- Labels taken from the spec's examples: the condition control is "Condition" and
+  its number field is "Value".
+
+The daily calculation is still only *configured* here; turning a day's logs into
+a colored result happens on the calendar viewing screen (a later phase).
+
+---
+
 ## 2026-09-13 — Calendar feature, Phase 4b: swatch color picker + Save Colors as Preset
 
 Finishes the color section. Owner chose the color-picker library (skydoves).

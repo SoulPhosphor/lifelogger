@@ -1,6 +1,7 @@
 package com.datadragon.app.data
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -51,6 +52,59 @@ class CalendarConfigTest {
         )
         val decoded = CalendarConfigCodec.decode(CalendarConfigCodec.encode(config))
         assertEquals(config, decoded)
+    }
+
+    @Test
+    fun calcRulesDependOnTheSource() {
+        // Log Frequency's only rule is counting the day's logs.
+        assertEquals(listOf(CalendarCalcRules.COUNT_LOGS), CalendarCalcRules.forLogFrequency())
+
+        // Numbers and scales take the six numeric rules, ending in Count Matching.
+        val numberRules = CalendarCalcRules.forField(FieldType.NUMBER, allowUnknown = false)
+        assertEquals(
+            listOf(
+                CalendarCalcRules.HIGHEST_VALUE,
+                CalendarCalcRules.LOWEST_VALUE,
+                CalendarCalcRules.AVERAGE,
+                CalendarCalcRules.TOTAL,
+                CalendarCalcRules.COUNT_ENTRIES,
+                CalendarCalcRules.COUNT_MATCHING,
+            ),
+            numberRules,
+        )
+        assertEquals(numberRules, CalendarCalcRules.forField(FieldType.SCALE, allowUnknown = false))
+
+        // Yes/No counts a response; Unknown only when the field allows it.
+        assertEquals(
+            listOf(CalendarCalcRules.COUNT_YES, CalendarCalcRules.COUNT_NO),
+            CalendarCalcRules.forField(FieldType.YESNO, allowUnknown = false),
+        )
+        assertEquals(
+            listOf(CalendarCalcRules.COUNT_YES, CalendarCalcRules.COUNT_NO, CalendarCalcRules.COUNT_UNKNOWN),
+            CalendarCalcRules.forField(FieldType.YESNO, allowUnknown = true),
+        )
+
+        // A field type without a defined daily rule offers none and isn't mappable.
+        assertTrue(CalendarCalcRules.forField(FieldType.TEXT, allowUnknown = false).isEmpty())
+        assertFalse(FieldType.TEXT.heatMapApplicable())
+        assertTrue(FieldType.NUMBER.heatMapApplicable())
+        assertTrue(FieldType.YESNO.heatMapApplicable())
+
+        // Only Count Matching reveals the condition + value controls.
+        assertTrue(CalendarCalcRules.requiresCondition(CalendarCalcRules.COUNT_MATCHING))
+        assertFalse(CalendarCalcRules.requiresCondition(CalendarCalcRules.AVERAGE))
+        assertFalse(CalendarCalcRules.requiresCondition(null))
+    }
+
+    @Test
+    fun heatMapConfigRoundTrips() {
+        val config = CalendarConfig(
+            sourceField = "Pain Level",
+            calculationRule = CalendarCalcRules.COUNT_MATCHING,
+            matchCondition = CalendarConditions.GREATER_OR_EQUAL,
+            matchValue = "6",
+        )
+        assertEquals(config, CalendarConfigCodec.decode(CalendarConfigCodec.encode(config)))
     }
 
     @Test
