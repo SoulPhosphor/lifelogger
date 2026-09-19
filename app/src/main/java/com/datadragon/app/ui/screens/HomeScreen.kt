@@ -213,7 +213,12 @@ fun HomeScreen(
     val homeScope = rememberCoroutineScope()
 
     LaunchedEffect(datePickerRequest) {
-        if (datePickerRequest > 0) showDailyListDatePicker = true
+        if (datePickerRequest > 0) {
+            showDailyListDatePicker = true
+            // Consume the one-shot signal so re-entering Home (e.g. tapping Back
+            // in Settings) does not reopen the date picker.
+            dailyListViewModel.consumeDatePickerRequest()
+        }
     }
 
     if (showDailyListDatePicker) {

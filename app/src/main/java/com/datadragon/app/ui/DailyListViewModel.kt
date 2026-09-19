@@ -151,6 +151,14 @@ class DailyListViewModel(
         _datePickerRequested.value += 1
     }
 
+    /**
+     * Clears the one-shot date-picker signal once Home has shown the picker, so
+     * re-entering Home (e.g. returning from Settings) does not reopen it.
+     */
+    fun consumeDatePickerRequest() {
+        _datePickerRequested.value = 0
+    }
+
     private val _retentionRaw = MutableStateFlow(settings.dailyListRetentionRaw)
     val retentionRaw: StateFlow<String> = _retentionRaw
 
