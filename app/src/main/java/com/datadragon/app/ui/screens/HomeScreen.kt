@@ -130,7 +130,11 @@ fun HomeScreen(
                     // Settings holds backup/restore and the global list options;
                     // the top-right "+" creates a form or list per the current view.
                     IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Filled.Settings, contentDescription = "Settings")
+                        Icon(
+                            Icons.Filled.Settings,
+                            contentDescription = "Settings",
+                            modifier = Modifier.size(24.dp),
+                        )
                     }
                 },
                 actions = {
@@ -143,12 +147,14 @@ fun HomeScreen(
                             Icon(
                                 painter = painterResource(R.drawable.ic_calendar_add_on),
                                 contentDescription = "New Daily List for a chosen date",
+                                modifier = Modifier.size(24.dp),
                             )
                         }
                         IconButton(onClick = onDailyListToday) {
                             Icon(
                                 imageVector = Icons.Filled.EventNote,
                                 contentDescription = "Open today's Daily List",
+                                modifier = Modifier.size(24.dp),
                             )
                         }
                     } else {
@@ -169,6 +175,7 @@ fun HomeScreen(
                                     HomeView.IDEAS -> "New Idea Log"
                                     HomeView.DAILY_LIST -> "New Daily List"
                                 },
+                                modifier = Modifier.size(24.dp),
                             )
                         }
                     }
@@ -332,6 +339,7 @@ private fun ViewToggle(
             Icon(
                 imageVector = icon,
                 contentDescription = contentDescription,
+                modifier = Modifier.size(24.dp),
                 tint = if (selected) {
                     MaterialTheme.colorScheme.surface
                 } else {
