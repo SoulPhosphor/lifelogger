@@ -67,3 +67,50 @@ jobs:
           files: dist/*.apk
           generate_release_notes: true
           prerelease: false
+
+  # Publishes this branch's build as a PRE-RELEASE so it can be installed from
+  # the Releases page without merging to main. Pinned to this branch by name, so
+  # it can never fire on main, and the main `release` job above is untouched.
+  # Delete this job when the branch is merged.
+  automatic-backup-prerelease:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/feature/automatic-backup'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download built APK
+        uses: actions/download-artifact@v4
+        with:
+          name: data-dragon-release-apk
+          path: apk
+
+      - name: Name the APK after this build
+        run: |
+          mkdir -p dist
+          cp apk/*.apk "dist/data-dragon-autobackup-build-${{ github.run_number }}.apk"
+
+      - name: Publish pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: autobackup-build-${{ github.run_number }}
+          name: Data Dragon Automatic Backup build ${{ github.run_number }}
+          body: |
+            **Automatic Backup — test build. Not merged to main.**
+
+            versionCode 3, so it installs over the versionCode 2 recovery build
+            and over any older build, without uninstalling and without touching
+            existing data.
+
+            Set it up in **Settings → Automatic Backup**: tap
+            **Choose Backup Folder…**, pick where backups should go, then turn on
+            **Back Up Every Day**. The first backup runs the next time the app is
+            opened; after that, once a day. Four are kept.
+
+            Backups are the same `.json` **Back Up All Data** writes, so
+            **Restore from Backup** reads them with no special handling.
+
+            Built from [`${{ github.sha }}`](https://github.com/${{ github.repository }}/commit/${{ github.sha }}).
+          files: dist/*.apk
+          prerelease: true

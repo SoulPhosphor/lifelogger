@@ -131,6 +131,49 @@ class SettingsRepository(context: Context) {
             prefs.edit().putString(KEY_DL_RETENTION, value.filter { it.isDigit() }.take(3)).apply()
         }
 
+    // --- Automatic Backup ---------------------------------------------------
+
+    /**
+     * The tree Uri of the folder automatic backups are written to, or null when
+     * none has been chosen. Stored as a string; the permission to write it is
+     * persisted separately through the ContentResolver.
+     */
+    var autoBackupFolderUri: String?
+        get() = prefs.getString(KEY_AUTO_BACKUP_URI, null)
+        set(value) { prefs.edit().putString(KEY_AUTO_BACKUP_URI, value).apply() }
+
+    /**
+     * Write a backup once a day. Off until the user has chosen a folder, so the
+     * feature never starts writing anywhere on its own.
+     */
+    var autoBackupEnabled: Boolean
+        get() = prefs.getBoolean(KEY_AUTO_BACKUP_ENABLED, false)
+        set(value) { prefs.edit().putBoolean(KEY_AUTO_BACKUP_ENABLED, value).apply() }
+
+    /**
+     * The folder the last recorded automatic backup was actually written to.
+     * Kept beside the time so a backup is credited to a destination rather than
+     * to the app: point the feature at a different folder and that folder is due
+     * a backup immediately, however recently the old one was written.
+     */
+    var lastAutoBackupFolderUri: String?
+        get() = prefs.getString(KEY_AUTO_BACKUP_AT_URI, null)
+        set(value) { prefs.edit().putString(KEY_AUTO_BACKUP_AT_URI, value).apply() }
+
+    /** When the last automatic backup *succeeded*, epoch millis; 0 for never. */
+    var lastAutoBackupAt: Long
+        get() = prefs.getLong(KEY_AUTO_BACKUP_AT, 0L)
+        set(value) { prefs.edit().putLong(KEY_AUTO_BACKUP_AT, value).apply() }
+
+    /**
+     * Set when the chosen folder turned out to be missing or read-only, so
+     * Settings can say the location needs choosing again rather than leaving a
+     * toggle that silently does nothing. Cleared by choosing a folder.
+     */
+    var autoBackupDestinationLost: Boolean
+        get() = prefs.getBoolean(KEY_AUTO_BACKUP_LOST, false)
+        set(value) { prefs.edit().putBoolean(KEY_AUTO_BACKUP_LOST, value).apply() }
+
     companion object {
         private const val PREFS_NAME = "data_dragon_settings"
         private const val KEY_LABELS = "auto_capitalize_labels"
@@ -151,7 +194,12 @@ class SettingsRepository(context: Context) {
     private const val KEY_DL_CELEBRATION_ENABLED = "daily_list_celebration_enabled"
     private const val KEY_DL_CELEBRATION_ICON = "daily_list_celebration_icon"
     private const val KEY_DL_PROTECT_FAVORITED = "daily_list_protect_favorited"
-    private const val KEY_DL_RETENTION = "daily_list_retention"
+        private const val KEY_DL_RETENTION = "daily_list_retention"
+        private const val KEY_AUTO_BACKUP_URI = "auto_backup_folder_uri"
+        private const val KEY_AUTO_BACKUP_ENABLED = "auto_backup_enabled"
+        private const val KEY_AUTO_BACKUP_AT = "auto_backup_last_at"
+        private const val KEY_AUTO_BACKUP_AT_URI = "auto_backup_last_folder_uri"
+        private const val KEY_AUTO_BACKUP_LOST = "auto_backup_destination_lost"
     }
 }
 
