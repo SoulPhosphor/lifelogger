@@ -92,9 +92,15 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     private val _view = MutableStateFlow(settings.lastView)
     val view: StateFlow<HomeView> = _view
 
-    /** True when the app should open straight into today's Daily List card. */
+    /**
+     * True when the app should open straight into today's Daily List card. Never
+     * when Daily Tasks is hidden — a disabled mode must not be auto-opened past
+     * the no-modes prompt, even if it was the last remembered view.
+     */
     val dailyListAutoReopen: Boolean
-        get() = settings.dailyListAutoReopen && settings.lastView == HomeView.DAILY_LIST
+        get() = settings.dailyListAutoReopen &&
+            settings.lastView == HomeView.DAILY_LIST &&
+            settings.isModeEnabled(HomeView.DAILY_LIST)
 
     fun setView(view: HomeView) {
         settings.lastView = view
