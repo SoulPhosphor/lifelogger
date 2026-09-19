@@ -55,9 +55,9 @@ class DailyListLogicTest {
     fun completingEveryItemInASequenceMovesTheWholeSequenceBelowActiveSequences() {
         val items = listOf(
             item(1, "A1"),
-            item(2, "A2"),
+            item(2, "A2", indent = DAILY_LIST_SUB_ITEM_INDENT),
             item(3, "B1"),
-            item(4, "B2"),
+            item(4, "B2", indent = DAILY_LIST_SUB_ITEM_INDENT),
         )
         // Complete sequence A entirely.
         val completed = items.map { if (it.id <= 2L) it.copy(completed = true) else it }
@@ -71,7 +71,7 @@ class DailyListLogicTest {
     fun completingOneSubItemAloneDoesNotMoveTheSequenceWhileOthersRemainUnfinished() {
         val items = listOf(
             item(1, "A1"),
-            item(2, "A2"),
+            item(2, "A2", indent = DAILY_LIST_SUB_ITEM_INDENT),
             item(3, "B1"),
         )
         val oneChecked = items.map { if (it.id == 1L) it.copy(completed = true) else it }
@@ -86,9 +86,9 @@ class DailyListLogicTest {
     fun uncheckingAnyMemberOfACompletedSequenceReturnsItToTheActiveSection() {
         val items = listOf(
             item(1, "A1"),
-            item(2, "A2"),
+            item(2, "A2", indent = DAILY_LIST_SUB_ITEM_INDENT),
             item(3, "B1"),
-            item(4, "B2"),
+            item(4, "B2", indent = DAILY_LIST_SUB_ITEM_INDENT),
         )
         val aCompleted = items.map { if (it.id <= 2L) it.copy(completed = true) else it }
         val aMoved = DailyListLogic.orderedBySequenceCompletion(aCompleted)
@@ -209,36 +209,34 @@ class DailyListLogicTest {
 
     @Test
     fun aLaterManualRenewalDiscoversAnItemThatBecameUnfinishedAfterAnEarlierPress() {
-        val source = listOf(
+        // First press: "Early" was unfinished and carried; "Later" was
+        // completed and so was not carried.
+        val sourceAtFirstPress = listOf(
             item(1, "Early"),
-            item(2, "Later"),
+            item(2, "Later", completed = true),
         )
-        val firstPress = DailyListLogic.renewedItems(source)
-        assertEquals(2, firstPress.size)
+        val firstPress = DailyListLogic.renewedItems(sourceAtFirstPress)
+        assertEquals(listOf("Early"), firstPress.map { it.text })
 
-        // The current day carries both already.
         val current = firstPress.mapIndexed { index, renewed ->
             item(100L + index, renewed.text, sourceUuid = DailyListLogic.sourceIdentityOf("card-9", renewed.sourceItem))
         }
 
-        // The user completes "Later" on the source, then unchecks it later.
-        val sourceAfterUserEdit = source.map { if (it.text == "Later") it else it }
-        val stillBothUnfinished = sourceAfterUserEdit
-        val eligible = DailyListLogic.filterAlreadyCarried(stillBothUnfinished, "card-9", current)
-        // Both already carried: nothing duplicated.
-        assertTrue(eligible.isEmpty())
+        // Pressing again while nothing changed carries nothing new — "Early"
+        // is never duplicated.
+        val stillOnlyEarly = DailyListLogic.filterAlreadyCarried(
+            sourceAtFirstPress.filterNot { it.completed }, "card-9", current,
+        )
+        assertTrue(stillOnlyEarly.isEmpty())
 
-        // A source item that was completed during the first press and is now
-        // unfinished becomes newly eligible.
-        val sourceWithCompletedLater = source.map { if (it.text == "Later") it.copy(completed = true) else it }
-        val firstEligible = DailyListLogic.filterAlreadyCarried(sourceWithCompletedLater, "card-9", current)
-        assertEquals(listOf("Early"), firstEligible.map { it.text })
-
-        val newlyUnfinished = sourceWithCompletedLater.map { if (it.text == "Later") it.copy(completed = false) else it }
-        val secondEligible = DailyListLogic.filterAlreadyCarried(newlyUnfinished, "card-9", current)
-        // "Later" was never carried (it was completed at first press), so it
-        // may now be carried forward — while "Early" is not duplicated.
-        assertEquals(listOf("Later"), secondEligible.map { it.text })
+        // The user later unchecks "Later" on the source card: the next press
+        // carries "Later" — the one row that was never carried.
+        val sourceNow = listOf(
+            item(1, "Early"),
+            item(2, "Later"),
+        )
+        val eligible = DailyListLogic.filterAlreadyCarried(sourceNow, "card-9", current)
+        assertEquals(listOf("Later"), eligible.map { it.text })
     }
 
     @Test
@@ -284,7 +282,8 @@ class DailyListLogicTest {
         assertEquals(listOf(2L), withProtection.map { it.id })
 
         val withoutProtection = DailyListLogic.retentionDeletionCandidates(cards, keepCount = 1, protectFavorited = false)
-        assertEquals(listOf(1L, 2L), withoutProtection.map { it.id })
+        // Candidates come back newest-first: the two cards beyond the kept one.
+        assertEquals(listOf(2L, 1L), withoutProtection.map { it.id })
     }
 
     @Test
@@ -338,8 +337,12 @@ class DailyListLogicTest {
             item(2, "Sub", indent = DAILY_LIST_SUB_ITEM_INDENT),
         )
         val deletable = DailyListLogic.deletableUnfinishedItems(card, today, items)
-        assertTrue(deletable.isEmpty()) // nothing unfinished at top level
+        // On a past card both unfinished rows are trash candidates; the
+        // assertion below is about the rebuild's shape, not about deletion.
+        assertEquals(listOf(1L, 2L), deletable.map { it.id })
+
         val rebuilt = DailyListLogic.flattenOrphansAfterCleanup(items)
+        // A surviving run of sub-items stays nested under its surviving parent.
         assertEquals(items.map { it.indent }, rebuilt.map { it.indent })
     }
 

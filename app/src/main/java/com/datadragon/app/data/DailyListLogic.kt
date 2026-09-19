@@ -66,22 +66,25 @@ object DailyListLogic {
         val rebuilt = mutableListOf<RenewedItem>()
         var haveParent = false
         for (item in source) {
-            if (item.completed) {
-                // Completed rows are not carried. A sub-item under a completed
-                // parent loses its parent; the next surviving sub-item (if its
-                // own parent also didn't survive) becomes top-level.
-                if (item.indent == DAILY_LIST_SUB_ITEM_INDENT) haveParent = false
-                continue
-            }
             if (item.indent == DAILY_LIST_TOP_LEVEL_INDENT) {
+                if (item.completed) {
+                    // A completed top-level item is not carried, so its
+                    // following sub-items lose their parent until the next
+                    // carried top-level item.
+                    haveParent = false
+                    continue
+                }
                 rebuilt.add(RenewedItem(text = item.text, indent = DAILY_LIST_TOP_LEVEL_INDENT, sourceItem = item))
                 haveParent = true
-            } else if (haveParent) {
-                rebuilt.add(RenewedItem(text = item.text, indent = DAILY_LIST_SUB_ITEM_INDENT, sourceItem = item))
             } else {
-                // Orphaned unfinished sub-item: promote to top level.
-                rebuilt.add(RenewedItem(text = item.text, indent = DAILY_LIST_TOP_LEVEL_INDENT, sourceItem = item))
-                haveParent = true
+                if (item.completed) continue // completed sub-items are not carried
+                if (haveParent) {
+                    rebuilt.add(RenewedItem(text = item.text, indent = DAILY_LIST_SUB_ITEM_INDENT, sourceItem = item))
+                } else {
+                    // Orphaned unfinished sub-item: promote to top level.
+                    rebuilt.add(RenewedItem(text = item.text, indent = DAILY_LIST_TOP_LEVEL_INDENT, sourceItem = item))
+                    haveParent = true
+                }
             }
         }
         return rebuilt
