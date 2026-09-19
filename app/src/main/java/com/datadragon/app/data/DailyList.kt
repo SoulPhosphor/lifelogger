@@ -45,12 +45,15 @@ import java.time.LocalDate
  * rechecked afterward.
  *
  * [genuinelyCompleted] records that the user really completed every task on
- * this day at least once. It is history, not current status: destructive
- * unfinished-item cleanup on a day that never earned it must not let the card
- * newly earn the celebration icon merely because the unfinished evidence is
- * gone, so earning is only ever set by a genuine all-completed state (and then
- * never unset by cleanup — only by the user un-completing tasks, which the
- * visible icon rules handle from current status).
+ * this day at least once. It is permanent history, not current status: once
+ * earned it is never unset — not by cleanup and not by un-completing a task —
+ * so a day that genuinely earned completion can have its celebration icon
+ * reappear whenever the card is fully completed again, including after
+ * destructive cleanup removes its unfinished items. The visible icon still
+ * follows current status. Earning is only ever set by a genuine all-completed
+ * state, so destructive unfinished-item cleanup on a day that never earned it
+ * cannot make the card newly earn the icon merely because the unfinished
+ * evidence is gone.
  *
  * [completionBlockedByCleanup] is that guard's persistent state: once
  * destructive unfinished-item removal has run on a card that never earned

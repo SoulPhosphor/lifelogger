@@ -76,6 +76,15 @@ class SettingsRepository(context: Context) {
         get() = prefs.getBoolean(KEY_DL_AUTO_TRASH_PAST, false)
         set(value) { prefs.edit().putBoolean(KEY_DL_AUTO_TRASH_PAST, value).apply() }
 
+    /**
+     * How many of the most recent past Daily List cards keep their unfinished
+     * items during cleanup. The visible dropdown offers 2, 3, 7, and 14; this
+     * is a card count (not calendar days), so gaps between dates never matter.
+     */
+    var dailyListAutoTrashKeepPast: Int
+        get() = prefs.getInt(KEY_DL_AUTO_TRASH_KEEP, 7)
+        set(value) { prefs.edit().putInt(KEY_DL_AUTO_TRASH_KEEP, value).apply() }
+
     /** Reopen straight into today's Daily List on app start (when it was the last mode). */
     var dailyListAutoReopen: Boolean
         get() = prefs.getBoolean(KEY_DL_AUTO_REOPEN, false)
@@ -136,6 +145,7 @@ class SettingsRepository(context: Context) {
     private const val KEY_DL_SHOW_CURRENT_UNFINISHED = "daily_list_show_current_unfinished"
     private const val KEY_DL_SHOW_PAST_UNFINISHED = "daily_list_show_past_unfinished"
     private const val KEY_DL_AUTO_TRASH_PAST = "daily_list_auto_trash_past"
+    private const val KEY_DL_AUTO_TRASH_KEEP = "daily_list_auto_trash_keep"
     private const val KEY_DL_AUTO_REOPEN = "daily_list_auto_reopen"
     private const val KEY_DL_ALLOW_TITLE = "daily_list_allow_title"
     private const val KEY_DL_CELEBRATION_ENABLED = "daily_list_celebration_enabled"
