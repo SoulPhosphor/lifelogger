@@ -53,7 +53,11 @@ import com.datadragon.app.ui.theme.AppTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,6 +73,10 @@ fun SettingsScreen(
     val completeIcon by settingsViewModel.completeIcon.collectAsStateWithLifecycle()
     val crossOutWhenCompleted by settingsViewModel.crossOutWhenCompleted.collectAsStateWithLifecycle()
     val moveCompletedToBottom by settingsViewModel.moveCompletedToBottom.collectAsStateWithLifecycle()
+    val backupFolderUri by settingsViewModel.backupFolderUri.collectAsStateWithLifecycle()
+    val autoBackupEnabled by settingsViewModel.autoBackupEnabled.collectAsStateWithLifecycle()
+    val lastAutoBackupAt by settingsViewModel.lastAutoBackupAt.collectAsStateWithLifecycle()
+    val backupDestinationLost by settingsViewModel.backupDestinationLost.collectAsStateWithLifecycle()
     // Not saveable: a chosen backup file's full contents can be large enough to
     // overflow the instance-state Bundle (TransactionTooLargeException), so a
     // process death simply asks the user to re-choose the file rather than risk
@@ -84,6 +92,17 @@ fun SettingsScreen(
 
     LaunchedEffect(Unit) {
         hasUndoSnapshot = viewModel.hasUndoSnapshot()
+        // The daily backup runs in the background and may have turned the toggle
+        // off or moved the last-backup time on since this screen last looked.
+        settingsViewModel.refreshAutoBackupState()
+    }
+
+    // Android's own folder picker. Whichever provider the user chooses, the app
+    // only ever holds the tree Uri it hands back.
+    val chooseBackupFolder = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { uri ->
+        if (uri != null) settingsViewModel.setBackupFolder(uri)
     }
 
     val openDocument = rememberLauncherForActivityResult(
@@ -222,6 +241,50 @@ fun SettingsScreen(
             }) {
                 Text("Back Up Now…")
             }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // The same .json the button above writes, placed in a folder chosen
+            // once here and written by the daily check in MainActivity.
+            SectionHeader("Automatic Backup")
+            Text(
+                "Saves a backup once a day when you open the app. Keeps the last four and replaces the oldest.",
+                style = AppTheme.textStyles.settingDescription,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            AppButton(onClick = { chooseBackupFolder.launch(null) }) {
+                Text(if (backupFolderUri == null) "Choose Backup Folder…" else "Change Backup Folder…")
+            }
+            if (backupDestinationLost) {
+                Text(
+                    "Backup folder is no longer available. Choose it again.",
+                    style = AppTheme.textStyles.settingDescription,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            } else if (backupFolderUri == null) {
+                Text(
+                    "No folder chosen.",
+                    style = AppTheme.textStyles.settingDescription,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            // Stays put and disabled until there is somewhere to write, rather
+            // than appearing from nowhere once a folder is picked (STYLE §4).
+            SettingToggleRow(
+                checked = autoBackupEnabled,
+                onCheckedChange = settingsViewModel::setAutoBackupEnabled,
+                title = "Back Up Every Day",
+                enabled = backupFolderUri != null,
+            )
+            Text(
+                if (lastAutoBackupAt == 0L) {
+                    "No backup yet."
+                } else {
+                    "Last backup: ${formatBackupTime(lastAutoBackupAt)}"
+                },
+                style = AppTheme.textStyles.settingDescription,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
@@ -479,11 +542,12 @@ private fun SettingToggleRow(
     onCheckedChange: (Boolean) -> Unit,
     title: String,
     subtitle: String? = null,
+    enabled: Boolean = true,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) }
+            .clickable(enabled = enabled) { onCheckedChange(!checked) }
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -498,7 +562,7 @@ private fun SettingToggleRow(
             }
         }
         Spacer(Modifier.width(12.dp))
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
     }
 }
 
@@ -542,3 +606,10 @@ private fun CompleteIconRow(
         optionLabel = { it.label() },
     )
 }
+
+/** Times read `Sep 19, 2026 at 11:42 AM` — the app's display format (STYLE §12). */
+private val BACKUP_TIME_FORMAT: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("MMM d, yyyy 'at' h:mm a", Locale.getDefault())
+
+private fun formatBackupTime(epochMillis: Long): String =
+    Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()).format(BACKUP_TIME_FORMAT)
