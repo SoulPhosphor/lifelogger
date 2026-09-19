@@ -98,8 +98,10 @@ class DailyListLogicTest {
         val oneUnchecked = aMoved.map { if (it.text == "A1") it.copy(completed = false) else it }
         val reOrdered = DailyListLogic.orderedBySequenceCompletion(oneUnchecked)
 
-        // It lands at the bottom of the active section (B is now completed).
-        assertEquals(listOf("A1", "A2", "B1", "B2"), reOrdered.map { it.text })
+        // A is active again and rejoins at the bottom of the active section —
+        // it is already there (stored last), and B never left the active
+        // section, so the order is unchanged.
+        assertEquals(listOf("B1", "B2", "A1", "A2"), reOrdered.map { it.text })
     }
 
     @Test
