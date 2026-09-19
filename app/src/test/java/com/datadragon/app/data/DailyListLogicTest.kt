@@ -313,6 +313,51 @@ class DailyListLogicTest {
     }
 
     @Test
+    fun cleanupProtectsTheMostRecentPastCardsAndCountsCardsNotCalendarDays() {
+        val today = LocalDate.of(2026, 9, 19)
+        val cards = listOf(
+            card(1, today), // today: never eligible
+            card(2, LocalDate.of(2026, 9, 18)),
+            card(3, LocalDate.of(2026, 9, 15)),
+            card(4, LocalDate.of(2026, 9, 10)),
+            card(5, LocalDate.of(2026, 8, 1)),
+        )
+        // Keep the 3 most recent past cards (Sep 18, 15, 10); only older ones
+        // are eligible. Gaps between dates do not change the card count.
+        val eligible = DailyListLogic.cleanupEligiblePastCards(cards, today, keepPastCount = 3)
+        assertEquals(listOf(5L), eligible.map { it.id })
+    }
+
+    @Test
+    fun cleanupTouchesNothingWhenThereAreNoMorePastCardsThanTheKeepCount() {
+        val today = LocalDate.of(2026, 9, 19)
+        val cards = listOf(
+            card(1, today),
+            card(2, LocalDate.of(2026, 9, 18)),
+            card(3, LocalDate.of(2026, 9, 17)),
+            card(4, LocalDate.of(2026, 9, 16)),
+        )
+        // Three past cards, keep three: none are eligible yet. Today never
+        // counts toward the protected past cards.
+        assertTrue(DailyListLogic.cleanupEligiblePastCards(cards, today, keepPastCount = 3).isEmpty())
+    }
+
+    @Test
+    fun cleanupEligibilityNeverIncludesTodayOrFutureCards() {
+        val today = LocalDate.of(2026, 9, 19)
+        val cards = listOf(
+            card(1, today.plusDays(2)), // future
+            card(2, today), // today
+            card(3, today.minusDays(1)),
+            card(4, today.minusDays(2)),
+        )
+        val eligible = DailyListLogic.cleanupEligiblePastCards(cards, today, keepPastCount = 1)
+        // Keep the newest past card (Sep 18); only the older past card is
+        // eligible. Today and the future card are excluded entirely.
+        assertEquals(listOf(4L), eligible.map { it.id })
+    }
+
+    @Test
     fun cleanupPreservesCompletedOrphanedSubItemsAndPromotesThem() {
         val today = LocalDate.of(2026, 9, 18)
         val card = today.minusDays(1)

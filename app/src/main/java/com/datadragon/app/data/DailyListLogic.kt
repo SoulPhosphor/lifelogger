@@ -138,6 +138,25 @@ object DailyListLogic {
     }
 
     /**
+     * Which past cards destructive unfinished-item cleanup is allowed to touch:
+     * the [keepPastCount] most recent past cards (by date) are protected and
+     * keep their unfinished items; only past cards older than those are
+     * eligible. Today's card and future cards are never eligible. Counted in
+     * cards, not calendar days — gaps between dates are irrelevant, and when
+     * there are no more than [keepPastCount] past cards nothing is eligible yet.
+     */
+    fun cleanupEligiblePastCards(
+        cards: List<DailyList>,
+        today: LocalDate,
+        keepPastCount: Int,
+    ): List<DailyList> {
+        val keep = keepPastCount.coerceAtLeast(0)
+        return cards.filter { it.date.isBefore(today) }
+            .sortedByDescending { it.date }
+            .drop(keep)
+    }
+
+    /**
      * Which unfinished items destructive cleanup permanently deletes from a
      * card dated [cardDate]: unfinished rows on **past** cards only — never
      * today's card, never a future-planned card. Completed rows always

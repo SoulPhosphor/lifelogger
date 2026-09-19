@@ -52,6 +52,7 @@ fun DailyListPreferencesScreen(
     val showCurrentUnfinished by viewModel.showCurrentUnfinished.collectAsStateWithLifecycle()
     val showPastUnfinished by viewModel.showPastUnfinished.collectAsStateWithLifecycle()
     val autoTrashPast by viewModel.autoTrashPast.collectAsStateWithLifecycle()
+    val autoTrashKeepPast by viewModel.autoTrashKeepPast.collectAsStateWithLifecycle()
     val autoReopen by viewModel.autoReopen.collectAsStateWithLifecycle()
     val allowTitle by viewModel.allowTitle.collectAsStateWithLifecycle()
     val celebrationEnabled by viewModel.celebrationEnabled.collectAsStateWithLifecycle()
@@ -88,6 +89,9 @@ fun DailyListPreferencesScreen(
             PreferenceToggle(showCurrentUnfinished, viewModel::setShowCurrentUnfinished, "Show current dates uncompleted list items in main view.")
             PreferenceToggle(showPastUnfinished, viewModel::setShowPastUnfinished, "Show past dates uncompleted list items in main view")
             PreferenceToggle(autoTrashPast, viewModel::setAutoTrashPast, "Automatically trash uncompleted items from past days")
+            if (autoTrashPast) {
+                CleanupKeepChoice(autoTrashKeepPast, viewModel::setAutoTrashKeepPast)
+            }
             PreferenceToggle(autoReopen, viewModel::setAutoReopen, "Automatically show current daily list when app is started.")
             PreferenceToggle(allowTitle, viewModel::setAllowTitle, "Allow creating title for daily lists.")
             PreferenceToggle(celebrationEnabled, viewModel::setCelebrationEnabled, "Mark days all tasks were completed with an icon on the home screen.")
@@ -117,6 +121,34 @@ private fun PreferenceToggle(checked: Boolean, onCheckedChange: (Boolean) -> Uni
     ) {
         Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
         Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+@Composable
+private fun CleanupKeepChoice(selected: Int, onSelected: (Int) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Text(
+            "Do not clean up days that are more then these days worth of cards old",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f),
+        )
+        Row(
+            modifier = Modifier.clickable { expanded = true }.padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(selected.toString())
+            Spacer(Modifier.width(4.dp))
+            Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                listOf(2, 3, 7, 14).forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(option.toString()) },
+                        onClick = { onSelected(option); expanded = false },
+                    )
+                }
+            }
+        }
     }
 }
 

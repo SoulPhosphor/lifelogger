@@ -113,6 +113,7 @@ class DailyListRepository(private val db: AppDatabase) {
         autoTrashEnabled: Boolean,
         retentionKeepCount: Int?,
         protectFavorited: Boolean,
+        autoTrashKeepPastCount: Int = 7,
     ) {
         val currentCard = dao.getByDate(today.toString())
         val allCardsBeforeMaintenance = dao.getAllDailyListsOnce()
@@ -137,9 +138,15 @@ class DailyListRepository(private val db: AppDatabase) {
                 toDelete.forEach { dao.deleteDailyListWithItems(it.id) }
             }
 
-            // 2. Unfinished-item trash on past cards only.
+            // 2. Unfinished-item trash on eligible past cards only. The most
+            // recent [autoTrashKeepPastCount] past cards are protected; only
+            // cards older than those may be cleaned.
             if (autoTrashEnabled) {
-                val pastCards = dao.getAllDailyListsOnce().filter { it.date.isBefore(today) }
+                val pastCards = DailyListLogic.cleanupEligiblePastCards(
+                    cards = dao.getAllDailyListsOnce(),
+                    today = today,
+                    keepPastCount = autoTrashKeepPastCount,
+                )
                 for (card in pastCards) {
                     val items = dao.getItemsOnce(card.id)
                     val deletable = DailyListLogic.deletableUnfinishedItems(card.date, today, items)

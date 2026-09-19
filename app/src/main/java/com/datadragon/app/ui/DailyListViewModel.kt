@@ -128,6 +128,9 @@ class DailyListViewModel(
     private val _autoTrashPast = MutableStateFlow(settings.dailyListAutoTrashPast)
     val autoTrashPast: StateFlow<Boolean> = _autoTrashPast
 
+    private val _autoTrashKeepPast = MutableStateFlow(settings.dailyListAutoTrashKeepPast)
+    val autoTrashKeepPast: StateFlow<Int> = _autoTrashKeepPast
+
     private val _heading = MutableStateFlow(settings.dailyListHeading)
     val heading: StateFlow<String> = _heading
 
@@ -182,6 +185,11 @@ class DailyListViewModel(
     fun setAutoTrashPast(value: Boolean) {
         settings.dailyListAutoTrashPast = value
         _autoTrashPast.value = value
+    }
+
+    fun setAutoTrashKeepPast(value: Int) {
+        settings.dailyListAutoTrashKeepPast = value
+        _autoTrashKeepPast.value = value
     }
 
     fun setCelebrationEnabled(value: Boolean) {
@@ -661,11 +669,15 @@ class DailyListViewModel(
 
     /**
      * Completion-achievement history: when every task on the card is completed
-     * (and there is at least one), the day has genuinely achieved
-     * all-completed status. Un-completing clears the flag (an already-earned
-     * day can re-earn it later by completing everything again); a
-     * cleanup-blocked card's flag is never set — destructive cleanup has
-     * removed the evidence, so it can no longer newly earn the celebration.
+     * (and there is at least one), the day has genuinely earned all-completed
+     * status. That achievement is permanent once earned — it is never unset by
+     * un-completing a task, so an earned day's celebration icon can reappear
+     * whenever the card returns to a fully-completed state (including after
+     * destructive cleanup removes the unfinished items). The visible icon still
+     * follows current status via [celebrationForCard], which also requires the
+     * card to be all-completed right now. A cleanup-blocked card's flag is
+     * never set: destructive cleanup has removed the evidence on a day that
+     * never earned it, so it can no longer newly earn the celebration.
      */
     private suspend fun updateCompletionState(cardId: Long) {
         val items = db.dailyListDao().getItemsOnce(cardId)
@@ -673,8 +685,6 @@ class DailyListViewModel(
         val allCompleted = DailyListLogic.isAllCompleted(items)
         if (allCompleted && !card.genuinelyCompleted && !card.completionBlockedByCleanup) {
             repo.setGenuinelyCompleted(cardId, earned = true)
-        } else if (!allCompleted && card.genuinelyCompleted) {
-            repo.setGenuinelyCompleted(cardId, earned = false)
         }
     }
 
@@ -708,6 +718,7 @@ class DailyListViewModel(
                 autoTrashEnabled = settings.dailyListAutoTrashPast,
                 retentionKeepCount = settings.dailyListRetentionDays,
                 protectFavorited = settings.dailyListProtectFavorited,
+                autoTrashKeepPastCount = settings.dailyListAutoTrashKeepPast,
             )
             refresh()
         }

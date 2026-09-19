@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -280,6 +281,41 @@ class DailyListDatabaseTest {
         )
 
         assertEquals(today, dao.getDailyList(id)!!.maintenanceRunOn)
+    }
+
+    @Test
+    fun cleanupKeepsAnEarnedDaysHistoryButBlocksADayThatNeverEarnedIt() = runBlocking {
+        val repo = DailyListRepository(db)
+        val today = LocalDate.of(2026, 9, 19)
+
+        // An earlier day the user genuinely completed once, then un-completed a
+        // task on (so it now has an unfinished row eligible for cleanup).
+        val earnedId = dao.insertDailyList(card(LocalDate.of(2026, 9, 17)))
+        dao.insertItem(DailyListItem(dailyListId = earnedId, text = "Done", completed = true, position = 0))
+        dao.insertItem(DailyListItem(dailyListId = earnedId, text = "Reopened", completed = false, position = 1))
+        dao.setGenuinelyCompleted(earnedId, earned = true)
+
+        // A day that never once had every task completed.
+        val neverId = dao.insertDailyList(card(LocalDate.of(2026, 9, 16)))
+        dao.insertItem(DailyListItem(dailyListId = neverId, text = "Done", completed = true, position = 0))
+        dao.insertItem(DailyListItem(dailyListId = neverId, text = "Unfinished", completed = false, position = 1))
+
+        // keepPastCount = 0 makes both past cards eligible for cleanup.
+        repo.runMaintenance(
+            today = today,
+            autoTrashEnabled = true,
+            retentionKeepCount = null,
+            protectFavorited = true,
+            autoTrashKeepPastCount = 0,
+        )
+
+        val earned = dao.getDailyList(earnedId)!!
+        assertTrue("earned history is retained", earned.genuinelyCompleted)
+        assertFalse("earned day is never blocked", earned.completionBlockedByCleanup)
+
+        val never = dao.getDailyList(neverId)!!
+        assertFalse(never.genuinelyCompleted)
+        assertTrue("a never-earned day is blocked after cleanup removes the evidence", never.completionBlockedByCleanup)
     }
 
     @Test
