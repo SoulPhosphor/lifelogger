@@ -73,7 +73,7 @@ class AutoBackupRunner(context: Context) {
 
     private suspend fun backUp(treeUri: Uri, now: Long): Outcome {
         val folder = runCatching { DocumentFile.fromTreeUri(appContext, treeUri) }.getOrNull()
-        if (folder == null || !folder.exists() || !folder.canWrite()) return destinationLost()
+        if (folder == null || !folder.exists() || !folder.canWrite()) return destinationLost(treeUri)
 
         // The same snapshot the manual backup takes, so the two formats can
         // never drift apart.
@@ -114,12 +114,22 @@ class AutoBackupRunner(context: Context) {
         }
 
         rotate(folder)
-        // Recorded only now, so a failure anywhere above means the next launch
-        // tries again rather than waiting another day.
-        settings.lastAutoBackupAt = now
-        settings.autoBackupDestinationLost = false
+
+        // Settings can change the folder while this is running. If it did, this
+        // backup went to the old one, so the newly chosen folder is still owed
+        // today's and the time deliberately goes unrecorded — the next launch
+        // writes there. Otherwise record it now, so a failure anywhere above
+        // means the next launch retries rather than waiting another day.
+        if (isStillChosen(treeUri)) {
+            settings.lastAutoBackupAt = now
+            settings.autoBackupDestinationLost = false
+        }
         return Outcome.BACKED_UP
     }
+
+    /** Whether the folder this run was given is still the one Settings holds. */
+    private fun isStillChosen(treeUri: Uri): Boolean =
+        settings.autoBackupFolderUri == treeUri.toString()
 
     /** Deletes the automatic backups beyond the newest [AutoBackup.KEEP]. */
     private fun rotate(folder: DocumentFile) {
@@ -137,9 +147,15 @@ class AutoBackupRunner(context: Context) {
      * toggle off and leave a flag, so Settings says the location needs choosing
      * again instead of the feature quietly doing nothing forever.
      */
-    private fun destinationLost(): Outcome {
-        settings.autoBackupEnabled = false
-        settings.autoBackupDestinationLost = true
+    private fun destinationLost(treeUri: Uri): Outcome {
+        // Only disown the folder this run was actually given. The user may have
+        // picked a different, perfectly good one while this was running — and
+        // releasing the old permission is what made this run fail in the first
+        // place — so turning the feature off would punish the new choice.
+        if (isStillChosen(treeUri)) {
+            settings.autoBackupEnabled = false
+            settings.autoBackupDestinationLost = true
+        }
         return Outcome.DESTINATION_UNAVAILABLE
     }
 
