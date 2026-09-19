@@ -51,7 +51,8 @@ class AutoBackupRunner(context: Context) {
         val destination = settings.autoBackupFolderUri
         val due = AutoBackup.isDue(
             enabled = settings.autoBackupEnabled,
-            hasDestination = destination != null,
+            destination = destination,
+            lastBackupDestination = settings.lastAutoBackupFolderUri,
             lastRunAt = settings.lastAutoBackupAt,
             now = now,
         )
@@ -115,15 +116,15 @@ class AutoBackupRunner(context: Context) {
 
         rotate(folder)
 
-        // Settings can change the folder while this is running. If it did, this
-        // backup went to the old one, so the newly chosen folder is still owed
-        // today's and the time deliberately goes unrecorded — the next launch
-        // writes there. Otherwise record it now, so a failure anywhere above
-        // means the next launch retries rather than waiting another day.
-        if (isStillChosen(treeUri)) {
-            settings.lastAutoBackupAt = now
-            settings.autoBackupDestinationLost = false
-        }
+        // Recorded against the folder it actually went to, not just the clock.
+        // Settings can change the folder while this is running, and no ordering
+        // of these writes can lose that: crediting this backup to the old folder
+        // leaves the new one looking un-backed-up, so the next launch writes
+        // there. Recorded only now, so a failure anywhere above means the next
+        // launch retries rather than waiting another day.
+        settings.lastAutoBackupAt = now
+        settings.lastAutoBackupFolderUri = treeUri.toString()
+        settings.autoBackupDestinationLost = false
         return Outcome.BACKED_UP
     }
 

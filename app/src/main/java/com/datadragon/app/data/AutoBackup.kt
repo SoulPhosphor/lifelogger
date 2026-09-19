@@ -36,13 +36,27 @@ object AutoBackup {
     /**
      * Whether a backup should run now.
      *
-     * A [lastRunAt] of 0 means none has ever succeeded, so the first launch
-     * after setup backs up. A [lastRunAt] in the future means the device clock
-     * moved backwards; that counts as due rather than parking backups until the
-     * clock catches up.
+     * [lastBackupDestination] is the folder the last recorded backup was written
+     * to. A folder that isn't the one that backup went to has nothing in it yet,
+     * so it is due immediately whatever the clock says — otherwise choosing a new
+     * folder would leave it empty for up to a day and look broken. It also makes
+     * the recorded time self-correcting: a backup credited to a folder that has
+     * since been replaced simply doesn't count towards the new one.
+     *
+     * A [lastRunAt] of 0 means none has ever succeeded, so the first launch after
+     * setup backs up. A [lastRunAt] in the future means the device clock moved
+     * backwards; that counts as due rather than parking backups until the clock
+     * catches up.
      */
-    fun isDue(enabled: Boolean, hasDestination: Boolean, lastRunAt: Long, now: Long): Boolean {
-        if (!enabled || !hasDestination) return false
+    fun isDue(
+        enabled: Boolean,
+        destination: String?,
+        lastBackupDestination: String?,
+        lastRunAt: Long,
+        now: Long,
+    ): Boolean {
+        if (!enabled || destination == null) return false
+        if (lastBackupDestination != destination) return true
         if (lastRunAt > now) return true
         return now - lastRunAt >= INTERVAL_MILLIS
     }

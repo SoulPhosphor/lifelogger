@@ -150,6 +150,16 @@ class SettingsRepository(context: Context) {
         get() = prefs.getBoolean(KEY_AUTO_BACKUP_ENABLED, false)
         set(value) { prefs.edit().putBoolean(KEY_AUTO_BACKUP_ENABLED, value).apply() }
 
+    /**
+     * The folder the last recorded automatic backup was actually written to.
+     * Kept beside the time so a backup is credited to a destination rather than
+     * to the app: point the feature at a different folder and that folder is due
+     * a backup immediately, however recently the old one was written.
+     */
+    var lastAutoBackupFolderUri: String?
+        get() = prefs.getString(KEY_AUTO_BACKUP_AT_URI, null)
+        set(value) { prefs.edit().putString(KEY_AUTO_BACKUP_AT_URI, value).apply() }
+
     /** When the last automatic backup *succeeded*, epoch millis; 0 for never. */
     var lastAutoBackupAt: Long
         get() = prefs.getLong(KEY_AUTO_BACKUP_AT, 0L)
@@ -188,6 +198,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_AUTO_BACKUP_URI = "auto_backup_folder_uri"
         private const val KEY_AUTO_BACKUP_ENABLED = "auto_backup_enabled"
         private const val KEY_AUTO_BACKUP_AT = "auto_backup_last_at"
+        private const val KEY_AUTO_BACKUP_AT_URI = "auto_backup_last_folder_uri"
         private const val KEY_AUTO_BACKUP_LOST = "auto_backup_destination_lost"
     }
 }

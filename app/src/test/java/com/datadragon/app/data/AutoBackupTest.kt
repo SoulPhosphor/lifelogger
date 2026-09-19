@@ -11,6 +11,17 @@ class AutoBackupTest {
 
     private val day = AutoBackup.INTERVAL_MILLIS
     private val now = 1_800_000_000_000L
+    private val folder = "content://com.android.externalstorage.documents/tree/primary%3ABackups"
+    private val otherFolder = "content://com.android.externalstorage.documents/tree/primary%3AElsewhere"
+
+    /** Due-check with the folder already backed up once, unless stated otherwise. */
+    private fun due(
+        enabled: Boolean = true,
+        destination: String? = folder,
+        lastBackupDestination: String? = folder,
+        lastRunAt: Long,
+        now: Long = this.now,
+    ) = AutoBackup.isDue(enabled, destination, lastBackupDestination, lastRunAt, now)
 
     private fun auto(date: String) = "${AutoBackup.FILE_PREFIX}$date${AutoBackup.FILE_SUFFIX}"
 
@@ -18,34 +29,47 @@ class AutoBackupTest {
 
     @Test
     fun `off means never due`() {
-        assertFalse(AutoBackup.isDue(enabled = false, hasDestination = true, lastRunAt = 0L, now = now))
+        assertFalse(due(enabled = false, lastRunAt = 0L))
     }
 
     @Test
     fun `no destination means never due even when enabled`() {
-        assertFalse(AutoBackup.isDue(enabled = true, hasDestination = false, lastRunAt = 0L, now = now))
+        assertFalse(due(destination = null, lastBackupDestination = null, lastRunAt = 0L))
     }
 
     @Test
     fun `first run after setup is due`() {
-        assertTrue(AutoBackup.isDue(enabled = true, hasDestination = true, lastRunAt = 0L, now = now))
+        assertTrue(due(lastBackupDestination = null, lastRunAt = 0L))
     }
 
     @Test
     fun `not due again until a full day has passed`() {
-        assertFalse(
-            AutoBackup.isDue(enabled = true, hasDestination = true, lastRunAt = now - day + 1, now = now)
-        )
-        assertTrue(
-            AutoBackup.isDue(enabled = true, hasDestination = true, lastRunAt = now - day, now = now)
-        )
+        assertFalse(due(lastRunAt = now - day + 1))
+        assertTrue(due(lastRunAt = now - day))
     }
 
     @Test
     fun `a clock moved backwards does not park backups forever`() {
-        assertTrue(
-            AutoBackup.isDue(enabled = true, hasDestination = true, lastRunAt = now + day, now = now)
-        )
+        assertTrue(due(lastRunAt = now + day))
+    }
+
+    @Test
+    fun `a newly chosen folder is due at once, however recent the last backup`() {
+        // Otherwise picking a new folder leaves it empty for up to a day and
+        // looks broken.
+        assertTrue(due(lastBackupDestination = otherFolder, lastRunAt = now))
+    }
+
+    @Test
+    fun `a backup credited to a replaced folder does not count towards the new one`() {
+        // A backup finishing just as the folder changes is recorded against the
+        // folder it actually went to, so the new folder is still owed one.
+        assertTrue(due(lastBackupDestination = otherFolder, lastRunAt = now - 1))
+    }
+
+    @Test
+    fun `returning to a folder respects the backup already in it`() {
+        assertFalse(due(lastRunAt = now - day + 1))
     }
 
     // --- what it may delete -------------------------------------------------
