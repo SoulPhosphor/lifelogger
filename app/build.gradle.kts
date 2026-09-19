@@ -14,8 +14,13 @@ android {
         applicationId = "com.datadragon.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        // Recovery branch only. versionCode 2 is one step above the installed
+        // build so this APK installs as an update over it — same applicationId,
+        // same signing key — without uninstalling and without touching the
+        // existing private data directory. The normal app takes a versionCode
+        // above this one afterwards.
+        versionCode = 2
+        versionName = "0.1.0-recovery"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

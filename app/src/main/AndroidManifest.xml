@@ -10,8 +10,14 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.DataDragon">
+        <!--
+          Recovery branch only: configChanges keeps the activity alive across a
+          rotation so an export in progress can't be interrupted part way
+          through and leave a truncated archive.
+        -->
         <activity
             android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|density|fontScale|layoutDirection"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.DataDragon"
