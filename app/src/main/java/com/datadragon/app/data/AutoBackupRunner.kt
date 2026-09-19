@@ -4,8 +4,10 @@ import android.content.Context
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Writes the once-a-day automatic backup into the folder the user picked.
@@ -54,7 +56,19 @@ class AutoBackupRunner(context: Context) {
             now = now,
         )
         if (!due || destination == null) return Outcome.NOT_DUE
-        return withContext(Dispatchers.IO) { backUp(Uri.parse(destination), now) }
+
+        // MainActivity checks on every onCreate and a rotation recreates it, so a
+        // second check can arrive while the first backup is still writing — and
+        // it has not recorded its time yet, so it still looks due. One at a time.
+        if (!running.compareAndSet(false, true)) return Outcome.NOT_DUE
+        return try {
+            // NonCancellable: the activity that started this is destroyed by a
+            // rotation, and a backup abandoned part way through would leave a
+            // truncated file wearing a good backup's name.
+            withContext(Dispatchers.IO + NonCancellable) { backUp(Uri.parse(destination), now) }
+        } finally {
+            running.set(false)
+        }
     }
 
     private suspend fun backUp(treeUri: Uri, now: Long): Outcome {
@@ -131,5 +145,8 @@ class AutoBackupRunner(context: Context) {
 
     private companion object {
         const val MIME_TYPE = "application/json"
+
+        /** Guards against two launches backing up at once. Process-wide. */
+        val running = AtomicBoolean(false)
     }
 }
