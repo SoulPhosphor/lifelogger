@@ -1017,3 +1017,36 @@ canonical phase order in the README.
 - Confirm the CI workflow produces a green build and a downloadable debug APK.
 - Then begin **Phase 2**: Room database + `LogTemplate`, and load real templates
   on the Home screen.
+
+---
+
+## 2026-09-19 — Daily List completion corrections
+
+Completed the remaining Daily List behavior gaps without changing ordinary Lists.
+
+- Sequence completion now reorders the entire top-level item sequence and persists the resulting order.
+- Daily List editor rows now use the existing reorderable drag interaction.
+- Main-view cards render their currently visible items, including completion state and sub-item indentation.
+- Added the missing `Automatically trash uncompleted items from past days` preference.
+- Renewal retains completed source rows while planning carry-forward items so orphaned unfinished sub-items are promoted correctly.
+- Daily List item updates preserve stable item UUIDs; the DAO no longer exposes a whole-card update path that could change a saved date.
+- Maintenance now runs when entering Daily List even if today has not yet been started, while retaining once-per-local-day protection.
+- Backup/restore and export remain intentionally out of scope.
+
+**Known issues**
+
+- Android unit tests could not run in this environment because the Android SDK is unavailable. GitHub Actions must provide the compile and test result.
+
+**Next steps**
+
+- Run CI on the pushed branch and review the pull request.
+
+---
+
+## 2026-09-19 — Daily List specification audit repairs
+
+- Repaired the Room DAO compilation issue by restoring the missing `@Update` import.
+- Removed the redundant editor-level top-level add row; the app-bar `+` remains the sole top-level add control.
+- Moved Daily List preferences to a dedicated full-screen settings route and corrected the required setting order.
+- Corrected startup behavior so automatic reopening opens today only when a saved card exists; otherwise the remembered Daily List main view remains visible.
+- Kept Daily List isolated from backup/export and ordinary List behavior.

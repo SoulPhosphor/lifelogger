@@ -5,8 +5,8 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import androidx.room.TypeConverters
 import androidx.room.Update
-import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.Flow
  * aborts (IGNORE returns -1), and nothing in this DAO ever updates a date.
  */
 @Dao
+@TypeConverters(DailyListConverters::class)
 interface DailyListDao {
 
     // --- Cards --------------------------------------------------------------
@@ -24,9 +25,6 @@ interface DailyListDao {
     /** Insert a new card. Returns -1 if a card for this date already exists. */
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertDailyList(dailyList: DailyList): Long
-
-    @Update
-    suspend fun updateDailyList(dailyList: DailyList)
 
     /** Every saved card, newest date first. */
     @Query("SELECT * FROM daily_lists ORDER BY date DESC")
@@ -43,28 +41,28 @@ interface DailyListDao {
 
     /** The one card for an exact date, if it has been saved. */
     @Query("SELECT * FROM daily_lists WHERE date = :date LIMIT 1")
-    suspend fun getByDate(date: LocalDate): DailyList?
+    suspend fun getByDate(date: String): DailyList?
 
     @Query("SELECT * FROM daily_lists WHERE date = :date LIMIT 1")
-    fun observeByDate(date: LocalDate): Flow<DailyList?>
+    fun observeByDate(date: String): Flow<DailyList?>
 
     /** The most recent saved card strictly before [date] — renewal's source. */
     @Query("SELECT * FROM daily_lists WHERE date < :date ORDER BY date DESC LIMIT 1")
-    suspend fun getPreviousBefore(date: LocalDate): DailyList?
+    suspend fun getPreviousBefore(date: String): DailyList?
 
     /** All cards before [date] whose tasks are all completed. */
     @Query(
         "SELECT l.* FROM daily_lists l WHERE l.date < :date AND NOT EXISTS (" +
             "SELECT 1 FROM daily_list_items i WHERE i.dailyListId = l.id AND i.completed = 0)",
     )
-    suspend fun getFullyCompletedBefore(date: LocalDate): List<DailyList>
+    suspend fun getFullyCompletedBefore(date: String): List<DailyList>
 
     /** All cards before [date] that still have unfinished tasks. */
     @Query(
         "SELECT l.* FROM daily_lists l WHERE l.date < :date AND EXISTS (" +
             "SELECT 1 FROM daily_list_items i WHERE i.dailyListId = l.id AND i.completed = 0)",
     )
-    suspend fun getWithUnfinishedBefore(date: LocalDate): List<DailyList>
+    suspend fun getWithUnfinishedBefore(date: String): List<DailyList>
 
     /** Cards strictly before the [n]th newest — the whole-card retention candidates. */
     @Query(
@@ -87,11 +85,11 @@ interface DailyListDao {
 
     /** Mark that this card's once-per-day maintenance pass already ran on [runOn]. */
     @Query("UPDATE daily_lists SET maintenanceRunOn = :runOn WHERE id = :id")
-    suspend fun setMaintenanceRunOn(id: Long, runOn: LocalDate)
+    suspend fun setMaintenanceRunOn(id: Long, runOn: String)
 
     /** Mark that this card's one-time automatic renewal already ran on [runOn]. */
     @Query("UPDATE daily_lists SET renewalRunOn = :runOn WHERE id = :id")
-    suspend fun markRenewalRun(id: Long, runOn: LocalDate)
+    suspend fun markRenewalRun(id: Long, runOn: String)
 
     /** Record (or re-record) a genuine all-tasks-completed achievement. */
     @Query("UPDATE daily_lists SET genuinelyCompleted = :earned WHERE id = :id")

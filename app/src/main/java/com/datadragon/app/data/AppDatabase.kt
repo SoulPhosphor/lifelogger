@@ -15,7 +15,7 @@ import java.time.LocalDate
  * exact column shape MIGRATION_15_16 creates — so the stored schema and the
  * entity stay in step.
  */
-object DailyListConverters {
+class DailyListConverters {
 
     @TypeConverter
     fun localDateToIso(value: LocalDate?): String? = value?.toString()
@@ -376,10 +376,6 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15,
                         MIGRATION_15_16,
                     )
-                    // v3 removed the unused description column. There is no
-                    // released data to preserve, so recreate cleanly on any
-                    // upgrade path not covered by an explicit migration.
-                    .fallbackToDestructiveMigration()
                     .build()
                     .also { instance = it }
             }

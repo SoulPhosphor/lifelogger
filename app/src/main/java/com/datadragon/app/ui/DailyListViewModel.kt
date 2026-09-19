@@ -56,6 +56,10 @@ class DailyListViewModel(
     private val repo = DailyListRepository(db)
     private val settings = SettingsRepository(app)
 
+    init {
+        refresh()
+    }
+
     // --- Main view ------------------------------------------------------------
 
     private val _cards = MutableStateFlow<List<DailyList>>(emptyList())
@@ -71,6 +75,7 @@ class DailyListViewModel(
     /** The display-only per-card item lists after the visibility toggles. */
     private val _cardItems = MutableStateFlow<Map<Long, List<DailyListItem>>>(emptyMap())
     val cardItems: StateFlow<Map<Long, List<DailyListItem>>> = _cardItems
+    private var allCardItems: Map<Long, List<DailyListItem>> = emptyMap()
 
     // --- Editor ----------------------------------------------------------------
 
@@ -110,6 +115,9 @@ class DailyListViewModel(
 
     private val _showPastUnfinished = MutableStateFlow(settings.dailyListShowPastUnfinished)
     val showPastUnfinished: StateFlow<Boolean> = _showPastUnfinished
+
+    private val _autoTrashPast = MutableStateFlow(settings.dailyListAutoTrashPast)
+    val autoTrashPast: StateFlow<Boolean> = _autoTrashPast
 
     private val _heading = MutableStateFlow(settings.dailyListHeading)
     val heading: StateFlow<String> = _heading
@@ -162,6 +170,11 @@ class DailyListViewModel(
         refresh()
     }
 
+    fun setAutoTrashPast(value: Boolean) {
+        settings.dailyListAutoTrashPast = value
+        _autoTrashPast.value = value
+    }
+
     fun setCelebrationEnabled(value: Boolean) {
         settings.dailyListCelebrationEnabled = value
         _celebrationEnabled.value = value
@@ -210,8 +223,10 @@ class DailyListViewModel(
     private suspend fun loadCardItems(all: List<DailyList>) {
         val todayValue = today()
         val result = mutableMapOf<Long, List<DailyListItem>>()
+        val allItems = mutableMapOf<Long, List<DailyListItem>>()
         for (card in all) {
             val items = db.dailyListDao().getItemsOnce(card.id)
+            allItems[card.id] = items
             val showUnfinished = when {
                 card.date.isAfter(todayValue) -> true // future cards untouched by past toggles
                 card.date == todayValue -> _showCurrentUnfinished.value
@@ -221,6 +236,7 @@ class DailyListViewModel(
                 if (item.completed) _showCompleted.value else showUnfinished
             }
         }
+        allCardItems = allItems
         _cardItems.value = result
     }
 
@@ -251,7 +267,8 @@ class DailyListViewModel(
      */
     fun celebrationForCard(card: DailyList, items: List<DailyListItem>): Boolean {
         if (!_celebrationEnabled.value) return false
-        return card.genuinelyCompleted && items.isNotEmpty() && items.all { it.completed }
+        val currentItems = allCardItems[card.id].orEmpty()
+        return card.genuinelyCompleted && currentItems.isNotEmpty() && currentItems.all { it.completed }
     }
 
     // --- Opening / creating ----------------------------------------------------
@@ -341,10 +358,10 @@ class DailyListViewModel(
      */
     private suspend fun maybeRunAutomaticRenewalForFresh(date: LocalDate) {
         if (!_autoRenew.value || date != today()) return
-        val source = db.dailyListDao().getPreviousBefore(date) ?: return
+        val source = db.dailyListDao().getPreviousBefore(date.toString()) ?: return
         val sourceItems = db.dailyListDao().getItemsOnce(source.id)
-            .filter { it.text.isNotBlank() && !it.completed }
-        if (sourceItems.isEmpty()) return
+            .filter { it.text.isNotBlank() }
+        if (sourceItems.isEmpty() || DailyListLogic.renewedItems(sourceItems).isEmpty()) return
 
         val card = repo.createForDate(date, System.currentTimeMillis()) ?: return
         carryInto(card, source, sourceItems)
@@ -359,10 +376,10 @@ class DailyListViewModel(
         // The one-time marker is set before the source is consulted, so the
         // source is never rechecked after this pass, whatever it held.
         repo.markRenewalRun(card.id, card.date)
-        val source = db.dailyListDao().getPreviousBefore(card.date)
+        val source = db.dailyListDao().getPreviousBefore(card.date.toString())
         if (source != null) {
             val sourceItems = db.dailyListDao().getItemsOnce(source.id)
-                .filter { it.text.isNotBlank() && !it.completed }
+                .filter { it.text.isNotBlank() }
             if (sourceItems.isNotEmpty()) {
                 carryInto(card, source, sourceItems)
                 // The editor is already open on this card (openEditor loaded it
@@ -403,9 +420,9 @@ class DailyListViewModel(
         val date = _editorDate.value ?: return
         viewModelScope.launch {
             val card = _editorCard.value ?: repo.getByDate(date) ?: return@launch
-            val source = db.dailyListDao().getPreviousBefore(card.date) ?: return@launch
+            val source = db.dailyListDao().getPreviousBefore(card.date.toString()) ?: return@launch
             val sourceItems = db.dailyListDao().getItemsOnce(source.id)
-                .filter { it.text.isNotBlank() && !it.completed }
+                .filter { it.text.isNotBlank() }
             if (sourceItems.isEmpty()) return@launch
             carryInto(card, source, sourceItems)
             openEditor(card.id, card.date)
@@ -465,7 +482,32 @@ class DailyListViewModel(
     }
 
     fun setCompleted(localId: Long, completed: Boolean) {
-        updateRow(localId) { it.copy(completed = completed) }
+        val changed = _editorRows.value.map {
+            if (it.localId == localId) it.copy(completed = completed) else it
+        }
+        // Daily List completion is sequence-based: reordering is applied to
+        // the whole top-level item plus its directly-following sub-items, and
+        // the resulting order is persisted just like any manual reorder.
+        _editorRows.value = DailyListLogic.orderedBySequenceCompletion(
+            changed.mapIndexed { index, row ->
+                DailyListItem(
+                    id = row.dbId ?: 0,
+                    dailyListId = _editorCard.value?.id ?: 0,
+                    uuid = row.uuid,
+                    text = row.text,
+                    completed = row.completed,
+                    indent = row.indent,
+                    position = index,
+                    sourceUuid = row.sourceUuid,
+                )
+            },
+        ).mapIndexed { index, item ->
+            changed.first { it.uuid == item.uuid }.copy(
+                completed = item.completed,
+                indent = item.indent,
+            )
+        }
+        viewModelScope.launch { saveAfterEdit() }
     }
 
     private fun updateRow(localId: Long, transform: (DailyListEditorRow) -> DailyListEditorRow) {
@@ -528,6 +570,7 @@ class DailyListViewModel(
             }
         }
         updateCompletionState(card.id)
+        refresh()
     }
 
     /** Turn the editor back into a fresh unsaved editor for [date]. */
@@ -548,6 +591,7 @@ class DailyListViewModel(
             // Emptying the card keeps the saved day (zero tasks never shows the
             // celebration icon); only the confirmed Delete removes a card.
             updateCompletionState(card.id)
+            refresh()
         }
     }
 
@@ -594,6 +638,7 @@ class DailyListViewModel(
                     DailyListItem(
                         id = row.dbId,
                         dailyListId = card.id,
+                        uuid = row.uuid,
                         text = row.text,
                         completed = row.completed,
                         indent = row.indent,

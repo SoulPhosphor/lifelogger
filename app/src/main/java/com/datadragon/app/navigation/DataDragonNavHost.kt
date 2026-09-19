@@ -13,6 +13,7 @@ import com.datadragon.app.ui.screens.ChecklistScreen
 import com.datadragon.app.ui.screens.CreateIdeaLogScreen
 import com.datadragon.app.ui.screens.CreateLogScreen
 import com.datadragon.app.ui.screens.DailyListEditorScreen
+import com.datadragon.app.ui.screens.DailyListPreferencesScreen
 import com.datadragon.app.ui.screens.EditIdeaLogScreen
 import com.datadragon.app.ui.screens.EditFormScreen
 import com.datadragon.app.ui.screens.FollowUpNoteScreen
@@ -52,7 +53,9 @@ fun DataDragonNavHost(
             LaunchedEffect(startupHandled) {
                 if (!startupHandled && autoReopen) {
                     startupHandled = true
-                    navController.navigate(Routes.dailyListEditor(LocalDate.now().toString()))
+                    if (dailyListViewModel.hasCardForDate(LocalDate.now())) {
+                        navController.navigate(Routes.dailyListEditor(LocalDate.now().toString()))
+                    }
                 }
             }
 
@@ -200,7 +203,12 @@ fun DataDragonNavHost(
             DailyListEditorScreen(
                 date = backStackEntry.arguments?.getString(Routes.DAILY_LIST_ARG),
                 onBack = { navController.popBackStack() },
+                onOpenPreferences = { navController.navigate(Routes.DAILY_LIST_PREFERENCES) },
             )
+        }
+
+        composable(Routes.DAILY_LIST_PREFERENCES) {
+            DailyListPreferencesScreen(onBack = { navController.popBackStack() })
         }
 
         composable(

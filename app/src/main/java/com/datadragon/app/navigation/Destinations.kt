@@ -41,6 +41,7 @@ object Routes {
     // a fresh unsaved editor for that date — nothing is created by opening).
     const val DAILY_LIST_ARG = "date"
     const val DAILY_LIST_EDITOR = "dailyList/{$DAILY_LIST_ARG}"
+    const val DAILY_LIST_PREFERENCES = "dailyListPreferences"
 
     // Add or edit a follow-up note. The optional noteId is absent when adding a
     // new note and present (as a query arg) when editing an existing one.

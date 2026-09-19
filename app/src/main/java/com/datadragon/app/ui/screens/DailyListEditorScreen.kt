@@ -74,6 +74,8 @@ import com.datadragon.app.ui.DailyListViewModel
 import com.datadragon.app.ui.theme.AppTheme
 import java.time.LocalDate
 import kotlinx.coroutines.launch
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 
 /**
  * The Daily List editor: one date's full editable list. Top bar follows the
@@ -89,6 +91,7 @@ import kotlinx.coroutines.launch
 fun DailyListEditorScreen(
     date: String?,
     onBack: () -> Unit,
+    onOpenPreferences: () -> Unit = {},
     viewModel: DailyListViewModel = viewModel(),
 ) {
     // The route argument is the exact ISO date this editor edits — an existing
@@ -106,8 +109,6 @@ fun DailyListEditorScreen(
     val heading by viewModel.heading.collectAsStateWithLifecycle()
     val autoRenew by viewModel.autoRenew.collectAsStateWithLifecycle()
     val allowTitle by viewModel.allowTitle.collectAsStateWithLifecycle()
-
-    var prefsOpen by rememberSaveable { mutableStateOf(false) }
 
     val editorHeading = heading.ifBlank { "Daily Tasks" }
     val editorDate = date
@@ -137,7 +138,7 @@ fun DailyListEditorScreen(
                         IconButton(onClick = onBack) {
                             Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
                         }
-                        IconButton(onClick = { prefsOpen = true }) {
+                        IconButton(onClick = onOpenPreferences) {
                             Icon(Icons.Filled.Settings, contentDescription = "Daily List preferences")
                         }
                     }
@@ -171,11 +172,19 @@ fun DailyListEditorScreen(
                     value = title,
                     onValueChange = viewModel::setEditorTitle,
                     singleLine = true,
+                    label = { Text("Title") },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 )
             }
 
             val lazyListState = rememberLazyListState()
+            val reorderState = rememberReorderableLazyListState(lazyListState) { from, to ->
+                val ids = rows.map { it.localId }.toMutableList()
+                if (from.index in ids.indices && to.index in ids.indices) {
+                    ids.add(to.index, ids.removeAt(from.index))
+                    viewModel.reorder(ids)
+                }
+            }
             val density = LocalDensity.current
             val imeVisible = androidx.compose.foundation.layout.WindowInsets.ime.getBottom(density) > 0
             val keyboardScrollSpace = with(density) {
@@ -187,50 +196,29 @@ fun DailyListEditorScreen(
                 contentPadding = PaddingValues(bottom = keyboardScrollSpace),
             ) {
                 itemsIndexed(rows, key = { _, item -> item.localId }) { _, item ->
-                    DailyListEditorRowView(
-                        row = item,
-                        onComplete = { viewModel.setCompleted(item.localId, !item.completed) },
-                        onTextChange = { viewModel.updateText(item.localId, it) },
-                        onAddSubItem = { viewModel.addSubItem(item.localId) },
-                        onDelete = { viewModel.deleteItem(item.localId) },
-                    )
+                    ReorderableItem(reorderState, key = item.localId) { _ ->
+                        DailyListEditorRowView(
+                            row = item,
+                            dragHandleModifier = Modifier.draggableHandle(),
+                            onComplete = { viewModel.setCompleted(item.localId, !item.completed) },
+                            onTextChange = { viewModel.updateText(item.localId, it) },
+                            onAddSubItem = { viewModel.addSubItem(item.localId) },
+                            onDelete = { viewModel.deleteItem(item.localId) },
+                        )
+                    }
                 }
             }
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { viewModel.addItem() }
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.width(16.dp))
-                Text(
-                    text = "List Item",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         }
     }
 
-    if (prefsOpen) {
-        DailyListPreferencesDialog(
-            viewModel = viewModel,
-            onDismiss = { prefsOpen = false },
-        )
-    }
 }
 
 /** One editable Daily List item row, matching the ordinary List row model. */
 @Composable
 private fun DailyListEditorRowView(
     row: DailyListEditorRow,
+    dragHandleModifier: Modifier,
     onComplete: () -> Unit,
     onTextChange: (String) -> Unit,
     onAddSubItem: () -> Unit,
@@ -249,7 +237,7 @@ private fun DailyListEditorRowView(
             imageVector = Icons.Filled.DragIndicator,
             contentDescription = "Reorder",
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+            modifier = dragHandleModifier.padding(horizontal = 8.dp, vertical = 12.dp),
         )
         IconButton(onClick = onComplete) {
             Icon(
@@ -302,6 +290,7 @@ private fun DailyListPreferencesDialog(
     val showCompleted by viewModel.showCompleted.collectAsStateWithLifecycle()
     val showCurrentUnfinished by viewModel.showCurrentUnfinished.collectAsStateWithLifecycle()
     val showPastUnfinished by viewModel.showPastUnfinished.collectAsStateWithLifecycle()
+    val autoTrashPast by viewModel.autoTrashPast.collectAsStateWithLifecycle()
     val celebrationEnabled by viewModel.celebrationEnabled.collectAsStateWithLifecycle()
     val celebrationIcon by viewModel.celebrationIcon.collectAsStateWithLifecycle()
     val allowTitle by viewModel.allowTitle.collectAsStateWithLifecycle()
@@ -346,6 +335,21 @@ private fun DailyListPreferencesDialog(
                     title = "Show past dates uncompleted list items in main view",
                 )
                 SettingToggle(
+                    checked = autoTrashPast,
+                    onCheckedChange = viewModel::setAutoTrashPast,
+                    title = "Automatically trash uncompleted items from past days",
+                )
+                SettingToggle(
+                    checked = autoReopen,
+                    onCheckedChange = viewModel::setAutoReopen,
+                    title = "Automatically show current daily list when app is started.",
+                )
+                SettingToggle(
+                    checked = allowTitle,
+                    onCheckedChange = viewModel::setAllowTitle,
+                    title = "Allow creating title for daily lists.",
+                )
+                SettingToggle(
                     checked = celebrationEnabled,
                     onCheckedChange = viewModel::setCelebrationEnabled,
                     title = "Mark days all tasks were completed with an icon on the home screen.",
@@ -360,16 +364,6 @@ private fun DailyListPreferencesDialog(
                     checked = protectFavorited,
                     onCheckedChange = viewModel::setProtectFavorited,
                     title = "Protect favorited days.",
-                )
-                SettingToggle(
-                    checked = autoReopen,
-                    onCheckedChange = viewModel::setAutoReopen,
-                    title = "Automatically show current daily list when app is started.",
-                )
-                SettingToggle(
-                    checked = allowTitle,
-                    onCheckedChange = viewModel::setAllowTitle,
-                    title = "Allow creating title for daily lists.",
                 )
 
                 // The numeric auto-delete write-in: blank disables; 1 through 999;
