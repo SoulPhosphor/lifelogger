@@ -69,11 +69,13 @@ class AutoBackupRunner(context: Context) {
         val json = BackupCodec.encode(backup)
         val name = AutoBackup.fileName(LocalDate.now())
 
-        // A file already carrying today's name can only be a previous attempt
-        // that failed before recording its time — a successful one would have
-        // held off another backup for a day. Replace it rather than letting the
-        // provider add a "(1)" copy that then eats a rotation slot.
-        runCatching { folder.findFile(name)?.takeIf { it.isFile }?.delete() }
+        // A file may already carry today's name: a previous attempt that failed
+        // before recording its time, or — when the device clock has moved
+        // backwards within the same day — a perfectly good backup. Either way it
+        // survives until the replacement is safely written, so a failure here can
+        // never leave the day with no backup at all. The provider gives the new
+        // document a unique name while both exist.
+        val existing = runCatching { folder.findFile(name)?.takeIf { it.isFile } }.getOrNull()
 
         val file = runCatching { folder.createFile(MIME_TYPE, name) }.getOrNull()
             ?: return Outcome.FAILED
@@ -84,9 +86,17 @@ class AutoBackupRunner(context: Context) {
             } ?: error("The backup file could not be opened for writing.")
         }
         if (written.isFailure) {
-            // Don't leave a half-written backup looking like a good one.
+            // Drop the half-written file, never the one that was already there.
             runCatching { file.delete() }
             return Outcome.FAILED
+        }
+
+        // Only now that the new backup is complete on disk does the old one go,
+        // and the finished file take its name. A rename that fails leaves a
+        // valid backup under the provider's chosen name rather than none.
+        if (existing != null && existing.uri != file.uri) {
+            runCatching { existing.delete() }
+            if (file.name != name) runCatching { file.renameTo(name) }
         }
 
         rotate(folder)
