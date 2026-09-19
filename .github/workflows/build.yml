@@ -67,3 +67,51 @@ jobs:
           files: dist/*.apk
           generate_release_notes: true
           prerelease: false
+
+  # Recovery branch only. Publishes the rescue APK as a PRE-RELEASE so it can be
+  # installed straight from the Releases page, without unpacking an Actions
+  # artifact. Pinned to the rescue branch by name, so it can never fire on main
+  # or on normal development — and the rescue branch is never merged, so this
+  # job never reaches main either.
+  recovery-prerelease:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/claude/lifelogger-data-recovery-2e65d4'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download built APK
+        uses: actions/download-artifact@v4
+        with:
+          name: data-dragon-release-apk
+          path: apk
+
+      - name: Name the APK after this recovery build
+        run: |
+          mkdir -p dist
+          cp apk/*.apk "dist/data-dragon-recovery-0.1.0-build-${{ github.run_number }}.apk"
+
+      - name: Publish pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: recovery-build-${{ github.run_number }}
+          name: Data Dragon Recovery build ${{ github.run_number }}
+          body: |
+            **Raw private-file recovery build — not the normal app.**
+
+            versionCode 2, versionName `0.1.0-recovery`, applicationId
+            `com.datadragon.app`, signed with the usual stable key, so it
+            installs as an update over the currently installed build without
+            uninstalling and without touching the private data directory.
+
+            Launching it opens a single recovery screen, not the app. It never
+            opens the database through Room or SQLite, runs no migration,
+            checkpoint or vacuum, and deletes, renames and rewrites nothing. The
+            one button copies the private app files into a ZIP you choose the
+            location for, and writes a `RECOVERY_MANIFEST.txt` inventory beside
+            them.
+
+            Built from [`${{ github.sha }}`](https://github.com/${{ github.repository }}/commit/${{ github.sha }}).
+          files: dist/*.apk
+          prerelease: true
