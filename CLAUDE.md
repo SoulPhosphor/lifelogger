@@ -152,10 +152,12 @@ Write like a professional technical writer, not like someone thinking out loud.
   `./gradlew` or compile here.** The app is built entirely by GitHub Actions
   (`.github/workflows/build.yml`, which runs `assembleDebug` on every push).
   That CI run is the only way to confirm a change actually compiles.
-- **Don't push unless I ask you to.** Commit your work locally and wait for me.
-  The one exception: a large or nontrivial change that needs a real compile
-  check — since it can't be built locally, push to trigger CI so we can see it
-  compile, and tell me you've done so.
+- **Always push your work to the branch when you're done.** When you finish
+  working on a change, commit it and push it to the designated feature branch on
+  GitHub — you do not need to ask first. Never leave finished work stored only
+  locally: local storage can be lost or expire. Pushing it to the branch keeps
+  it safe, and since the app can't be built locally, that push is also what
+  triggers the CI compile check.
 - **Always check the CI result after pushing.** Find the workflow run for your
   commit and confirm it passed before calling the work done. If it failed, read
   the logs, fix, and push again. Don't pile on more pushes beyond what's needed

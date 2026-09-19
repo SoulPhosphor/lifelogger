@@ -23,12 +23,15 @@ import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.EventNote
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.OnlinePrediction
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SettingsApplications
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -58,6 +61,7 @@ import com.datadragon.app.R
 import com.datadragon.app.data.Checklist
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.HomeView
+import com.datadragon.app.data.NavStyle
 import com.datadragon.app.ui.DailyListViewModel
 import com.datadragon.app.ui.HomeIdeaLog
 import com.datadragon.app.ui.HomeLog
@@ -89,74 +93,86 @@ fun HomeScreen(
     val ideaLogs by viewModel.ideaLogs.collectAsStateWithLifecycle()
     val view by viewModel.view.collectAsStateWithLifecycle()
     val pendingDraft by viewModel.pendingDraft.collectAsStateWithLifecycle()
+    val navStyle by viewModel.navStyle.collectAsStateWithLifecycle()
+    val useModeLabel by viewModel.useModeLabelInDropdown.collectAsStateWithLifecycle()
+    val enabledModes by viewModel.enabledModes.collectAsStateWithLifecycle()
+
+    // Only the modes the user has chosen appear in the bar, in their fixed order.
+    // The current mode is the one being viewed if it's still shown, otherwise the
+    // first shown one; null means nothing is chosen and Home shows its empty note.
+    val visibleModes = MODE_META.filter { it.view in enabledModes }
+    val currentMode = visibleModes.firstOrNull { it.view == view } ?: visibleModes.firstOrNull()
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Data Dragon")
-                        // A gap after the name, then the view toggles with a little
-                        // space between them so none is easy to mis-tap.
-                        Spacer(Modifier.width(16.dp))
-                        ViewToggle(
-                            icon = Icons.Filled.Description,
-                            contentDescription = "Forms",
-                            selected = view == HomeView.FORMS,
-                            onClick = { viewModel.setView(HomeView.FORMS) },
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        ViewToggle(
-                            icon = Icons.Filled.Checklist,
-                            contentDescription = "Lists",
-                            selected = view == HomeView.LISTS,
-                            onClick = { viewModel.setView(HomeView.LISTS) },
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        ViewToggle(
-                            icon = Icons.Filled.OnlinePrediction,
-                            contentDescription = "Ideas",
-                            selected = view == HomeView.IDEAS,
-                            onClick = { viewModel.setView(HomeView.IDEAS) },
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        ViewToggle(
-                            icon = Icons.Filled.EventNote,
-                            contentDescription = "Daily List",
-                            selected = view == HomeView.DAILY_LIST,
-                            onClick = { viewModel.setView(HomeView.DAILY_LIST) },
-                        )
+                    if (currentMode != null) {
+                        if (navStyle == NavStyle.ICONS) {
+                            // A row of the chosen modes' icons, left-aligned, with a
+                            // little space between them so none is easy to mis-tap.
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                visibleModes.forEachIndexed { index, mode ->
+                                    if (index > 0) Spacer(Modifier.width(4.dp))
+                                    ViewToggle(
+                                        icon = mode.icon,
+                                        contentDescription = mode.label,
+                                        selected = view == mode.view,
+                                        onClick = { viewModel.setView(mode.view) },
+                                    )
+                                }
+                            }
+                        } else {
+                            // Dropdown mode: the menu icon opens a small popup of the
+                            // chosen modes; the current one shows as its label or its
+                            // single icon, immediately after the menu icon.
+                            NavModeDropdown(
+                                current = currentMode,
+                                modes = visibleModes,
+                                useLabel = useModeLabel,
+                                onSelect = { viewModel.setView(it) },
+                            )
+                        }
                     }
                 },
                 navigationIcon = {
                     // Settings holds backup/restore and the global list options;
                     // the top-right "+" creates a form or list per the current view.
                     IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Filled.Settings, contentDescription = "Settings")
+                        Icon(
+                            Icons.Filled.SettingsApplications,
+                            contentDescription = "Settings",
+                            modifier = Modifier.size(24.dp),
+                        )
                     }
                 },
                 actions = {
+                    // The trailing controls belong to the mode being shown; with no
+                    // mode chosen there is nothing to add, so none appear.
+                    val activeView = currentMode?.view
                     // Daily List's creation controls live immediately left of
                     // where the generic + sits: Calendar Add On (a picked date,
                     // any past/present/future date), then Event Note ("today").
                     // The generic + is not used for Daily List.
-                    if (view == HomeView.DAILY_LIST) {
+                    if (activeView == HomeView.DAILY_LIST) {
                         IconButton(onClick = onDailyListPickDate) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_calendar_add_on),
                                 contentDescription = "New Daily List for a chosen date",
+                                modifier = Modifier.size(24.dp),
                             )
                         }
                         IconButton(onClick = onDailyListToday) {
                             Icon(
                                 imageVector = Icons.Filled.EventNote,
                                 contentDescription = "Open today's Daily List",
+                                modifier = Modifier.size(24.dp),
                             )
                         }
-                    } else {
+                    } else if (activeView != null) {
                         // Top-right creates a new item in whichever view is showing.
                         IconButton(onClick = {
-                            when (view) {
+                            when (activeView) {
                                 HomeView.FORMS -> onCreateForm()
                                 HomeView.LISTS -> onCreateChecklist()
                                 HomeView.IDEAS -> onCreateIdeaLog()
@@ -165,12 +181,13 @@ fun HomeScreen(
                         }) {
                             Icon(
                                 Icons.Filled.Add,
-                                contentDescription = when (view) {
+                                contentDescription = when (activeView) {
                                     HomeView.FORMS -> "New form"
                                     HomeView.LISTS -> "New list"
                                     HomeView.IDEAS -> "New Idea Log"
                                     HomeView.DAILY_LIST -> "New Daily List"
                                 },
+                                modifier = Modifier.size(24.dp),
                             )
                         }
                     }
@@ -178,7 +195,7 @@ fun HomeScreen(
             )
         },
     ) { padding ->
-        when (view) {
+        when (currentMode?.view) {
             HomeView.FORMS -> FormsBody(
                 logs = logs,
                 modifier = Modifier.fillMaxSize().padding(padding),
@@ -200,6 +217,18 @@ fun HomeScreen(
                 dailyListViewModel = dailyListViewModel,
                 onOpenCard = onOpenDailyListCard,
             )
+            // No modes chosen: point the user at the cog to turn some on.
+            null -> Box(
+                modifier = Modifier.fillMaxSize().padding(padding),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    "Click the cog in the upper left corner to select what data modes you'd like to use.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(24.dp),
+                )
+            }
         }
     }
 
@@ -334,12 +363,76 @@ private fun ViewToggle(
             Icon(
                 imageVector = icon,
                 contentDescription = contentDescription,
+                modifier = Modifier.size(24.dp),
                 tint = if (selected) {
                     MaterialTheme.colorScheme.surface
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
                 },
             )
+        }
+    }
+}
+
+/**
+ * One data mode's bar presence: which [HomeView] it is, the icon that stands for
+ * it, and its label. The single source both the icon row and the dropdown draw
+ * from, so a future "choose which modes show" filter only has to narrow this list.
+ */
+private data class ModeMeta(
+    val view: HomeView,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val label: String,
+)
+
+/** Every data mode, in the order they appear in the bar. */
+private val MODE_META = listOf(
+    ModeMeta(HomeView.FORMS, Icons.Filled.Description, "Forms"),
+    ModeMeta(HomeView.LISTS, Icons.Filled.Checklist, "Lists"),
+    ModeMeta(HomeView.IDEAS, Icons.Filled.OnlinePrediction, "Ideas"),
+    ModeMeta(HomeView.DAILY_LIST, Icons.Filled.EventNote, "Daily Tasks"),
+)
+
+/**
+ * Dropdown navigation: the Material menu icon, then the current mode shown as its
+ * label (when the setting is on) or its single icon. Tapping the menu icon opens
+ * a small popup of the chosen modes to switch between.
+ */
+@Composable
+private fun NavModeDropdown(
+    current: ModeMeta,
+    modes: List<ModeMeta>,
+    useLabel: Boolean,
+    onSelect: (HomeView) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = { expanded = true }) {
+            Icon(
+                imageVector = Icons.Filled.Menu,
+                contentDescription = "Choose data mode",
+                modifier = Modifier.size(24.dp),
+            )
+        }
+        if (useLabel) {
+            Text(current.label, style = MaterialTheme.typography.titleLarge)
+        } else {
+            Icon(
+                imageVector = current.icon,
+                contentDescription = current.label,
+                modifier = Modifier.size(24.dp),
+            )
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            modes.forEach { mode ->
+                DropdownMenuItem(
+                    text = { Text(mode.label) },
+                    onClick = {
+                        onSelect(mode.view)
+                        expanded = false
+                    },
+                )
+            }
         }
     }
 }

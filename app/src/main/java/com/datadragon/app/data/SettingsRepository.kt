@@ -1,6 +1,7 @@
 package com.datadragon.app.data
 
 import android.content.Context
+import android.content.SharedPreferences
 
 /**
  * Small key/value store for app-wide preferences, backed by [android.content.SharedPreferences].
@@ -28,6 +29,45 @@ class SettingsRepository(context: Context) {
     var lastView: HomeView
         get() = HomeView.fromKey(prefs.getString(KEY_LAST_VIEW, null))
         set(value) { prefs.edit().putString(KEY_LAST_VIEW, value.key).apply() }
+
+    // --- Navigation menu preferences (all global) ----------------------------
+
+    /** How the Home bar presents the data modes: a row of icons, or a dropdown. */
+    var navStyle: NavStyle
+        get() = NavStyle.fromKey(prefs.getString(KEY_NAV_STYLE, null))
+        set(value) { prefs.edit().putString(KEY_NAV_STYLE, value.key).apply() }
+
+    /** In dropdown mode, show the current mode's label instead of its single icon. */
+    var useModeLabelInDropdown: Boolean
+        get() = prefs.getBoolean(KEY_NAV_USE_LABEL, true)
+        set(value) { prefs.edit().putBoolean(KEY_NAV_USE_LABEL, value).apply() }
+
+    /**
+     * Whether a data mode is shown in the navigation. Hiding a mode only affects
+     * the menu — it never removes or alters that mode's data, which stays in Room
+     * and reappears the moment the mode is shown again.
+     */
+    fun isModeEnabled(view: HomeView): Boolean =
+        prefs.getBoolean(modeEnabledKey(view), true)
+
+    fun setModeEnabled(view: HomeView, enabled: Boolean) {
+        prefs.edit().putBoolean(modeEnabledKey(view), enabled).apply()
+    }
+
+    /** The data modes currently shown in the navigation, in their on-screen order. */
+    val enabledModes: List<HomeView>
+        get() = HomeView.entries.filter { isModeEnabled(it) }
+
+    private fun modeEnabledKey(view: HomeView): String = "$KEY_MODE_ENABLED_PREFIX${view.key}"
+
+    /** Keep Home's bar in sync with changes made on the Settings screen. */
+    fun registerOnChange(listener: SharedPreferences.OnSharedPreferenceChangeListener) {
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+    }
+
+    fun unregisterOnChange(listener: SharedPreferences.OnSharedPreferenceChangeListener) {
+        prefs.unregisterOnSharedPreferenceChangeListener(listener)
+    }
 
     /** What a checked-off list item shows: a checkmark or a checked box. Global. */
     var completeIcon: CompleteIcon
@@ -136,6 +176,9 @@ class SettingsRepository(context: Context) {
         private const val KEY_LABELS = "auto_capitalize_labels"
         private const val KEY_OPTIONS = "auto_capitalize_options"
         private const val KEY_LAST_VIEW = "last_home_view"
+        private const val KEY_NAV_STYLE = "nav_style"
+        private const val KEY_NAV_USE_LABEL = "nav_use_mode_label"
+        private const val KEY_MODE_ENABLED_PREFIX = "mode_enabled_"
         private const val KEY_COMPLETE_ICON = "list_complete_icon"
         private const val KEY_CROSS_OUT = "list_cross_out_completed"
         private const val KEY_MOVE_BOTTOM = "list_move_completed_bottom"
@@ -164,6 +207,16 @@ enum class HomeView(val key: String) {
 
     companion object {
         fun fromKey(key: String?): HomeView = entries.firstOrNull { it.key == key } ?: FORMS
+    }
+}
+
+/** How the Home navigation presents the data modes. */
+enum class NavStyle(val key: String) {
+    ICONS("icons"),
+    DROPDOWN("dropdown");
+
+    companion object {
+        fun fromKey(key: String?): NavStyle = entries.firstOrNull { it.key == key } ?: ICONS
     }
 }
 
