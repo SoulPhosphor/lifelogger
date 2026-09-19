@@ -112,7 +112,15 @@ object RecoveryExporter {
             return
         }
 
-        for (child in children.sortedBy { it.name.lowercase(Locale.US) }) {
+        // The irreplaceable directories go into the archive first, databases/
+        // ahead of everything, so an export that dies part way through — out of
+        // space, a crash, an interrupted write — still contains the files that
+        // actually matter. Everything else follows alphabetically.
+        val ordered = children.sortedWith(
+            compareBy<File>({ priorityOf(it.name) }, { it.name.lowercase(Locale.US) }),
+        )
+
+        for (child in ordered) {
             val name = child.name
             val alwaysIncluded = ALWAYS_INCLUDED.any { it.equals(name, ignoreCase = true) }
 
@@ -295,6 +303,12 @@ object RecoveryExporter {
 
     private fun isSymbolicLink(file: File): Boolean =
         runCatching { Files.isSymbolicLink(file.toPath()) }.getOrDefault(false)
+
+    /** Sort key putting the always-included directories first, in listed order. */
+    private fun priorityOf(name: String): Int {
+        val index = ALWAYS_INCLUDED.indexOfFirst { it.equals(name, ignoreCase = true) }
+        return if (index >= 0) index else ALWAYS_INCLUDED.size
+    }
 
     private fun extensionOf(name: String): String =
         name.substringAfterLast('.', "").lowercase(Locale.US)
