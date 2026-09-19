@@ -1,0 +1,26 @@
+<!--
+  Google Material Symbols "cheer" (filled), one of the selectable
+  Daily List completion-celebration icons.
+
+  It is bundled here rather than taken from androidx material-icons-extended:
+  that library is generated from the older Material Icons set, which has no
+  cheer — the glyph exists only in Material Symbols.
+
+  Traced verbatim from the Material Symbols source, whose viewBox is
+  "0 -960 960 960"; a VectorDrawable viewport always starts at 0,0, so the
+  group's translateY shifts the path down into it rather than the path being
+  redrawn by hand. Icon() tints it with the current content color, so the
+  fillColor here is only a placeholder.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960"
+    android:tint="#FF000000">
+    <group android:translateY="960">
+        <path
+            android:fillColor="@android:color/white"
+            android:pathData="m312,-751 -40,-120 56,-18 40,119 -56,19Zm138,-49v-120h60v120h-60Zm198,49 -56,-19 40,-119 56,19 -40,119ZM875,-40 664,-72q-34,-5 -59.5,-27.5T568,-154l-34,-106q-11,-35 -1,-69.5t36,-57.5l55,170 36,-11 -88,-278q-13,-41 2.5,-80.5T627,-647l50,-28 177,334q5,10 14.5,15.5T889,-320h29L875,-40ZM86,-40 43,-320h29q11,0 20.5,-5.5T107,-341l177,-334 50,28q37,21 52.5,60.5T389,-506l-89,278 36,11 55,-171q27,23 37,58t-1,70l-34,106q-11,32 -36.5,54.5T297,-72L86,-40Z" />
+    </group>
+</vector>

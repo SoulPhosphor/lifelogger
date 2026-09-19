@@ -90,6 +90,10 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     private val _view = MutableStateFlow(settings.lastView)
     val view: StateFlow<HomeView> = _view
 
+    /** True when the app should open straight into today's Daily List card. */
+    val dailyListAutoReopen: Boolean
+        get() = settings.dailyListAutoReopen && settings.lastView == HomeView.DAILY_LIST
+
     fun setView(view: HomeView) {
         settings.lastView = view
         _view.value = view

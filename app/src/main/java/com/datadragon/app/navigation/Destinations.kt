@@ -37,6 +37,11 @@ object Routes {
     const val IDEA_DETAIL = "ideaLog/{$IDEA_LOG_ARG}/idea/{$IDEA_ARG}"
     const val EDIT_IDEA = "ideaLog/{$IDEA_LOG_ARG}/idea/{$IDEA_ARG}/edit"
 
+    // Daily List. The editor opens for an exact ISO date (an existing card or
+    // a fresh unsaved editor for that date — nothing is created by opening).
+    const val DAILY_LIST_ARG = "date"
+    const val DAILY_LIST_EDITOR = "dailyList/{$DAILY_LIST_ARG}"
+
     // Add or edit a follow-up note. The optional noteId is absent when adding a
     // new note and present (as a query arg) when editing an existing one.
     const val FOLLOW_UP = "log/{$LOG_ARG}/entry/{$ENTRY_ARG}/note?$NOTE_ARG={$NOTE_ARG}"
@@ -55,6 +60,8 @@ object Routes {
     fun newIdea(ideaLogId: Long) = "ideaLog/$ideaLogId/newIdea"
     fun ideaDetail(ideaLogId: Long, ideaId: Long) = "ideaLog/$ideaLogId/idea/$ideaId"
     fun editIdea(ideaLogId: Long, ideaId: Long) = "ideaLog/$ideaLogId/idea/$ideaId/edit"
+
+    fun dailyListEditor(date: String) = "dailyList/$date"
 
     fun followUp(logId: String, entryId: Long, noteId: Long? = null): String =
         "log/$logId/entry/$entryId/note" + (noteId?.let { "?$NOTE_ARG=$it" } ?: "")

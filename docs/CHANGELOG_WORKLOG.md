@@ -4,6 +4,57 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-09-19 — Daily List feature
+
+The fourth Home data type: one Daily List system holding one card per saved
+date, reusing the ordinary List's interaction model without sharing its
+containers.
+
+- **Home mode selector**: Daily List is the fourth toggle (Event Note icon),
+  immediately right of Ideas; Forms, Lists, Ideas keep their order and icons.
+  The last-used view is remembered; with "Automatically show current daily list
+  when app is started." on and Daily List last used, the app opens straight into
+  today's card (an unsaved today just shows the main view — opening never
+  creates).
+- **Persistence**: new `daily_lists` / `daily_list_items` tables, database
+  v15 → v16 with an additive migration (existing data untouched; migration
+  tested). The `date` UNIQUE index enforces one card per date at the persistence
+  level; dates are date-only ISO `yyyy-MM-dd` and immutable after save. Cards
+  carry stable uuids, optional titles, favorite state, and completion history;
+  items carry stable uuids, one sub-item level, completion state, and renewal
+  source identity (never task text).
+- **Creating/opening**: the Home bar's Event Note icon means "today" — it opens
+  today's existing card or a fresh unsaved editor for today (never a duplicate).
+  A picked date (Calendar Add On icon) does the same for any past, present or
+  future date; a date that already has a card asks "Task list already exists on
+  this date. Open current card?" (Cancel / Open Card). A fresh date becomes a
+  saved card only when its first real (non-blank) item is typed.
+- **Renewal**: automatic renewal runs once, on open, for the current day's card
+  — existing card or fresh draft — carrying the previous card's unfinished items
+  forward as real items (a fresh day's card is created from them without waiting
+  for typing). Repeat presses never duplicate: carried rows are matched by
+  stable source identity. With automatic renewal off, the editor's Cycle icon
+  renews manually, repeatedly and safely. Renewal and maintenance each have
+  their own once-only/once-per-day markers.
+- **Maintenance**: entering Daily List mode runs the once-per-local-day pass —
+  whole-card retention ("Auto delete daily lists older then (N) days.", 1–999,
+  blank disabled, favorited cards protected while "Protect favorited days." is
+  on) and unfinished-item trashing on past cards (completed rows survive;
+  orphaned sub-items promote; a card that never earned completion can no longer
+  newly earn it after its unfinished evidence is removed). Never touches today's
+  or future cards.
+- **Celebration**: the chosen icon (Check Circle default; Fire Check, Celebration,
+  Cheer, Award Star, Family Star — the newer Material Symbols bundled locally)
+  marks days where every task was completed and still is; zero-task days never
+  qualify.
+- **Preferences dialog** (gear beside Back in the editor), in order: heading
+  name, automatic renewal, three show/hide item toggles, the celebration toggle
+  and icon dropdown, favorited protection, auto-reopen on start, the optional
+  per-day title toggle, and the retention field. The date is always shown,
+  full month spelled out ("September 18, 2026"), and never hidden.
+
+---
+
 ## 2026-09-13 — Calendar feature, Phase 8c: long-press logs
 
 Long-pressing a calendar day lists that day's logs beneath the calendar

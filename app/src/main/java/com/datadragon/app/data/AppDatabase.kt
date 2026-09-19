@@ -4,8 +4,25 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverter
+import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import java.time.LocalDate
+
+/**
+ * Daily List's converters. A date is stored as ISO `yyyy-MM-dd` text — the
+ * exact column shape MIGRATION_15_16 creates — so the stored schema and the
+ * entity stay in step.
+ */
+object DailyListConverters {
+
+    @TypeConverter
+    fun localDateToIso(value: LocalDate?): String? = value?.toString()
+
+    @TypeConverter
+    fun isoToLocalDate(value: String?): LocalDate? = value?.let(LocalDate::parse)
+}
 
 /**
  * The app's local Room database. Local only — no network, no sync.
@@ -14,10 +31,12 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     entities = [
         LogTemplate::class, LogEntry::class, EntryNote::class, Checklist::class, ChecklistItem::class,
         IdeaLog::class, IdeaEntry::class, Calendar::class, ColorPreset::class,
+        DailyList::class, DailyListItem::class,
     ],
-    version = 15,
+    version = 16,
     exportSchema = false,
 )
+@TypeConverters(DailyListConverters::class)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun logTemplateDao(): LogTemplateDao
@@ -35,6 +54,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun calendarDao(): CalendarDao
 
     abstract fun colorPresetDao(): ColorPresetDao
+
+    abstract fun dailyListDao(): DailyListDao
 
     companion object {
         @Volatile
@@ -295,6 +316,53 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v16 added the `daily_lists` and `daily_list_items` tables (the Daily
+         * List feature). Purely additive — forms, entries, notes, lists, ideas,
+         * calendars and color presets are untouched, so existing data survives
+         * the upgrade. The `date` UNIQUE index is the persistence-level rule
+         * that two saved Daily Lists can never share a date; dates are stored
+         * as ISO `yyyy-MM-dd` text so they sort lexicographically like
+         * chronologically. Backup/restore deliberately does not touch these
+         * tables (Daily List backup is a separate follow-up).
+         */
+        internal val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `daily_lists` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`uuid` TEXT NOT NULL, " +
+                        "`date` TEXT NOT NULL, " +
+                        "`title` TEXT NOT NULL, " +
+                        "`favorited` INTEGER NOT NULL, " +
+                        "`genuinelyCompleted` INTEGER NOT NULL, " +
+                        "`completionBlockedByCleanup` INTEGER NOT NULL, " +
+                        "`maintenanceRunOn` TEXT, " +
+                        "`renewalRunOn` TEXT, " +
+                        "`createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_daily_lists_date` " +
+                        "ON `daily_lists` (`date`)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `daily_list_items` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`dailyListId` INTEGER NOT NULL, " +
+                        "`uuid` TEXT NOT NULL, " +
+                        "`text` TEXT NOT NULL, " +
+                        "`completed` INTEGER NOT NULL, " +
+                        "`indent` INTEGER NOT NULL, " +
+                        "`position` INTEGER NOT NULL, " +
+                        "`sourceUuid` TEXT)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_daily_list_items_dailyListId` " +
+                        "ON `daily_list_items` (`dailyListId`)"
+                )
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -306,6 +374,7 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_1_2, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
                         MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11,
                         MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15,
+                        MIGRATION_15_16,
                     )
                     // v3 removed the unused description column. There is no
                     // released data to preserve, so recreate cleanly on any

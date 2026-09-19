@@ -1,0 +1,26 @@
+<!--
+  Google Material Symbols "award_star" (filled), one of the selectable
+  Daily List completion-celebration icons.
+
+  It is bundled here rather than taken from androidx material-icons-extended:
+  that library is generated from the older Material Icons set, which has no
+  award_star — the glyph exists only in Material Symbols.
+
+  Traced verbatim from the Material Symbols source, whose viewBox is
+  "0 -960 960 960"; a VectorDrawable viewport always starts at 0,0, so the
+  group's translateY shifts the path down into it rather than the path being
+  redrawn by hand. Icon() tints it with the current content color, so the
+  fillColor here is only a placeholder.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960"
+    android:tint="#FF000000">
+    <group android:translateY="960">
+        <path
+            android:fillColor="@android:color/white"
+            android:pathData="m363,-310 117,-71 117,71 -31,-133 104,-90 -137,-11 -53,-126 -53,126 -137,11 104,90 -31,133ZM480,-28 346,-160H160v-186L28,-480l132,-134v-186h186l134,-132 134,132h186v186l132,134 -132,134v186H614L480,-28Z" />
+    </group>
+</vector>

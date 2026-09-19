@@ -21,9 +21,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.EventNote
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.OnlinePrediction
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -35,8 +38,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,13 +54,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.datadragon.app.R
 import com.datadragon.app.data.Checklist
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.HomeView
+import com.datadragon.app.ui.DailyListViewModel
 import com.datadragon.app.ui.HomeIdeaLog
 import com.datadragon.app.ui.HomeLog
 import com.datadragon.app.ui.HomeViewModel
 import com.datadragon.app.ui.theme.DeleteRed
+import androidx.compose.ui.res.painterResource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,6 +77,11 @@ fun HomeScreen(
     onCreateIdeaLog: () -> Unit,
     onOpenIdeaLog: (Long) -> Unit,
     onAddIdea: (Long) -> Unit,
+    onDailyListToday: () -> Unit,
+    onDailyListPickDate: () -> Unit,
+    onDailyListDateConfirmed: (java.time.LocalDate) -> Unit,
+    onOpenDailyListCard: (Long) -> Unit,
+    dailyListViewModel: DailyListViewModel = viewModel(),
     viewModel: HomeViewModel = viewModel(),
 ) {
     val logs by viewModel.logs.collectAsStateWithLifecycle()
@@ -103,6 +119,13 @@ fun HomeScreen(
                             selected = view == HomeView.IDEAS,
                             onClick = { viewModel.setView(HomeView.IDEAS) },
                         )
+                        Spacer(Modifier.width(4.dp))
+                        ViewToggle(
+                            icon = Icons.Filled.EventNote,
+                            contentDescription = "Daily List",
+                            selected = view == HomeView.DAILY_LIST,
+                            onClick = { viewModel.setView(HomeView.DAILY_LIST) },
+                        )
                     }
                 },
                 navigationIcon = {
@@ -113,22 +136,43 @@ fun HomeScreen(
                     }
                 },
                 actions = {
-                    // Top-right creates a new item in whichever view is showing.
-                    IconButton(onClick = {
-                        when (view) {
-                            HomeView.FORMS -> onCreateForm()
-                            HomeView.LISTS -> onCreateChecklist()
-                            HomeView.IDEAS -> onCreateIdeaLog()
+                    // Daily List's creation controls live immediately left of
+                    // where the generic + sits: Calendar Add On (a picked date,
+                    // any past/present/future date), then Event Note ("today").
+                    // The generic + is not used for Daily List.
+                    if (view == HomeView.DAILY_LIST) {
+                        IconButton(onClick = onDailyListPickDate) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_calendar_add_on),
+                                contentDescription = "New Daily List for a chosen date",
+                            )
                         }
-                    }) {
-                        Icon(
-                            Icons.Filled.Add,
-                            contentDescription = when (view) {
-                                HomeView.FORMS -> "New form"
-                                HomeView.LISTS -> "New list"
-                                HomeView.IDEAS -> "New Idea Log"
-                            },
-                        )
+                        IconButton(onClick = onDailyListToday) {
+                            Icon(
+                                imageVector = Icons.Filled.EventNote,
+                                contentDescription = "Open today's Daily List",
+                            )
+                        }
+                    } else {
+                        // Top-right creates a new item in whichever view is showing.
+                        IconButton(onClick = {
+                            when (view) {
+                                HomeView.FORMS -> onCreateForm()
+                                HomeView.LISTS -> onCreateChecklist()
+                                HomeView.IDEAS -> onCreateIdeaLog()
+                                HomeView.DAILY_LIST -> Unit
+                            }
+                        }) {
+                            Icon(
+                                Icons.Filled.Add,
+                                contentDescription = when (view) {
+                                    HomeView.FORMS -> "New form"
+                                    HomeView.LISTS -> "New list"
+                                    HomeView.IDEAS -> "New Idea Log"
+                                    HomeView.DAILY_LIST -> "New Daily List"
+                                },
+                            )
+                        }
                     }
                 },
             )
@@ -152,7 +196,74 @@ fun HomeScreen(
                 onOpenIdeaLog = onOpenIdeaLog,
                 onAddIdea = onAddIdea,
             )
+            HomeView.DAILY_LIST -> DailyListHomeBody(
+                dailyListViewModel = dailyListViewModel,
+                onOpenCard = onOpenDailyListCard,
+            )
         }
+    }
+
+    // Daily List date picker: Calendar Add On opens it; the picked date is
+    // the new card's actual date (any past, present, or future date). A date
+    // that already has a card asks with the exact duplicate-date dialog.
+    val dailyListCards by dailyListViewModel.cards.collectAsStateWithLifecycle()
+    val datePickerRequest by dailyListViewModel.datePickerRequested.collectAsStateWithLifecycle()
+    var showDailyListDatePicker by remember { mutableStateOf(false) }
+    var duplicateDailyListDate by remember { mutableStateOf<java.time.LocalDate?>(null) }
+    val homeScope = rememberCoroutineScope()
+
+    LaunchedEffect(datePickerRequest) {
+        if (datePickerRequest > 0) showDailyListDatePicker = true
+    }
+
+    if (showDailyListDatePicker) {
+        val datePickerState = androidx.compose.material3.rememberDatePickerState(
+            initialSelectedDateMillis = System.currentTimeMillis(),
+        )
+        androidx.compose.material3.DatePickerDialog(
+            onDismissRequest = { showDailyListDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    val picked = datePickerState.selectedDateMillis?.let {
+                        java.time.Instant.ofEpochMilli(it)
+                            .atZone(java.time.ZoneOffset.UTC)
+                            .toLocalDate()
+                    }
+                    showDailyListDatePicker = false
+                    if (picked != null) {
+                        homeScope.launch {
+                            if (dailyListViewModel.hasCardForDate(picked)) {
+                                duplicateDailyListDate = picked
+                            } else {
+                                onDailyListDateConfirmed(picked)
+                            }
+                        }
+                    }
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDailyListDatePicker = false }) { Text("Cancel") }
+            },
+        ) {
+            androidx.compose.material3.DatePicker(state = datePickerState)
+        }
+    }
+
+    duplicateDailyListDate?.let { dupDate ->
+        AlertDialog(
+            onDismissRequest = { duplicateDailyListDate = null },
+            title = { Text("Task list already exists on this date. Open current card?") },
+            // Button order is fixed: Cancel first, Open Card second.
+            dismissButton = {
+                TextButton(onClick = { duplicateDailyListDate = null }) { Text("Cancel") }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    duplicateDailyListDate = null
+                    onDailyListDateConfirmed(dupDate)
+                }) { Text("Open Card") }
+            },
+        )
     }
 
     // Offer to recover a list left unfinished when the app was last killed. The
@@ -429,6 +540,68 @@ private fun ChecklistRow(
                 overflow = TextOverflow.Ellipsis,
             )
         }
+    }
+}
+
+/**
+ * The Daily List mode's body: the list of date cards plus the favorite filter
+ * star (equivalent to the Forms marked-only star) in the top bar's trailing
+ * cluster, handled here so the star sits beside the mode toggles like Forms'.
+ */
+@Composable
+private fun DailyListHomeBody(
+    dailyListViewModel: DailyListViewModel,
+    onOpenCard: (Long) -> Unit,
+) {
+    val cards by dailyListViewModel.cards.collectAsStateWithLifecycle()
+    val cardItems by dailyListViewModel.cardItems.collectAsStateWithLifecycle()
+    val celebrationEnabled by dailyListViewModel.celebrationEnabled.collectAsStateWithLifecycle()
+    val celebrationIcon by dailyListViewModel.celebrationIcon.collectAsStateWithLifecycle()
+    val newestFirst by dailyListViewModel.newestFirst.collectAsStateWithLifecycle()
+    val showFavoritesOnly by dailyListViewModel.showFavoritesOnly.collectAsStateWithLifecycle()
+
+    // Daily List maintenance runs only when the user enters Daily List mode —
+    // at most once per local day (guarded in the repository).
+    LaunchedEffect(Unit) { dailyListViewModel.runMaintenanceIfDue() }
+
+    val visibleCards = if (showFavoritesOnly) cards.filter { it.favorited } else cards
+    val anyFavorited = cards.any { it.favorited }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        if (anyFavorited) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                IconButton(onClick = {
+                    dailyListViewModel.setShowFavoritesOnly(!showFavoritesOnly)
+                }) {
+                    Icon(
+                        imageVector = if (showFavoritesOnly) Icons.Filled.Star else Icons.Filled.StarBorder,
+                        contentDescription = if (showFavoritesOnly) {
+                            "Showing favorited daily lists only — tap to show all"
+                        } else {
+                            "Show favorited daily lists only"
+                        },
+                    )
+                }
+            }
+        }
+        DailyListBody(
+            cards = visibleCards,
+            cardItems = cardItems,
+            celebrationEnabled = celebrationEnabled,
+            celebrationIcon = celebrationIcon,
+            celebrationVisible = { card, items ->
+                dailyListViewModel.celebrationForCard(card, items)
+            },
+            newestFirst = newestFirst,
+            onNewestFirst = dailyListViewModel::setNewestFirst,
+            onOpenCard = onOpenCard,
+            onToggleFavorite = dailyListViewModel::toggleFavorite,
+            onDeleteCard = dailyListViewModel::deleteCard,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 

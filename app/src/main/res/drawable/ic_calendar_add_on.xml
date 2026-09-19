@@ -1,0 +1,26 @@
+<!--
+  Google Material Symbols "calendar_add_on" (filled), the icon the Daily List
+  main view shows for creating a Daily List on a picked date.
+
+  It is bundled here rather than taken from androidx material-icons-extended:
+  that library is generated from the older Material Icons set, which has no
+  calendar_add_on — the glyph exists only in Material Symbols.
+
+  Traced verbatim from the Material Symbols source, whose viewBox is
+  "0 -960 960 960"; a VectorDrawable viewport always starts at 0,0, so the
+  group's translateY shifts the path down into it rather than the path being
+  redrawn by hand. Icon() tints it with the current content color, so the
+  fillColor here is only a placeholder.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960"
+    android:tint="#FF000000">
+    <group android:translateY="960">
+        <path
+            android:fillColor="@android:color/white"
+            android:pathData="M680,-80v-120H560v-80h120v-120h80v120h120v80H760v120h-80Zm-480-80q-33,0 -56.5,-23.5T120,-240v-480q0,-33 23.5,-56.5T200,-800h40v-80h80v80h240v-80h80v80h40q33,0 56.5,23.5T760,-720v244q-20,-3 -40,-3t-40,3v-84H200v320h280q0,20 3,40t11,40H200Z" />
+    </group>
+</vector>

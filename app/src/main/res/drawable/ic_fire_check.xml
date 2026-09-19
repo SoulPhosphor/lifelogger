@@ -1,0 +1,26 @@
+<!--
+  Google Material Symbols "fire_check" (filled), one of the selectable
+  Daily List completion-celebration icons.
+
+  It is bundled here rather than taken from androidx material-icons-extended:
+  that library is generated from the older Material Icons set, which has no
+  fire_check — the glyph exists only in Material Symbols.
+
+  Traced verbatim from the Material Symbols source, whose viewBox is
+  "0 -960 960 960"; a VectorDrawable viewport always starts at 0,0, so the
+  group's translateY shifts the path down into it rather than the path being
+  redrawn by hand. Icon() tints it with the current content color, so the
+  fillColor here is only a placeholder.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960"
+    android:tint="#FF000000">
+    <group android:translateY="960">
+        <path
+            android:fillColor="@android:color/white"
+            android:pathData="m654,-193 170,-170 56,57L655,-80 513,-222l56,-56 85,85ZM160,-440q0,-129 86.5,-245T480,-880v132q0,34 23.5,57t57.5,23q18,0 33.5,-7.5T622,-698l18,-22q72,41 114.5,112.5T800,-452L654,-306l-85,-85 -169,169 101,101q-5,0 -10.5,0.5t-10.5,0.5q-134,0 -227,-93t-93,-227Z" />
+    </group>
+</vector>

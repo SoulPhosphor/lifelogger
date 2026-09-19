@@ -1,0 +1,26 @@
+<!--
+  Google Material Symbols "family_star" (filled), one of the selectable
+  Daily List completion-celebration icons.
+
+  It is bundled here rather than taken from androidx material-icons-extended:
+  that library is generated from the older Material Icons set, which has no
+  family_star — the glyph exists only in Material Symbols.
+
+  Traced verbatim from the Material Symbols source, whose viewBox is
+  "0 -960 960 960"; a VectorDrawable viewport always starts at 0,0, so the
+  group's translateY shifts the path down into it rather than the path being
+  redrawn by hand. Icon() tints it with the current content color, so the
+  fillColor here is only a placeholder.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960"
+    android:tint="#FF000000">
+    <group android:translateY="960">
+        <path
+            android:fillColor="@android:color/white"
+            android:pathData="M565.5,-348.5Q603,-377 620,-422H340q17,45 54.5,73.5T480,-320q48,0 85.5,-28.5Zm-143,-149Q440,-515 440,-540t-17.5,-42.5Q405,-600 380,-600t-42.5,17.5Q320,-565 320,-540t17.5,42.5Q355,-480 380,-480t42.5,-17.5Zm200,0Q640,-515 640,-540t-17.5,-42.5Q605,-600 580,-600t-42.5,17.5Q520,-565 520,-540t17.5,42.5Q555,-480 580,-480t42.5,-17.5ZM305,-704l112,-145q12,-16 28.5,-23.5T480,-880q18,0 34.5,7.5T543,-849l112,145 170,57q26,8 41,29.5t15,47.5q0,12 -3.5,24T866,-523L756,-367l4,164q1,35 -23,59t-56,24q-2,0 -22,-3l-179,-50 -179,50q-5,2 -11,2.5t-11,0.5q-32,0 -56,-24t-23,-59l4,-165L95,-523q-8,-11 -11.5,-23T80,-570q0,-25 14.5,-46.5T135,-647l170,-57Z" />
+    </group>
+</vector>

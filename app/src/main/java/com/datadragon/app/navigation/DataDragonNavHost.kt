@@ -12,6 +12,7 @@ import com.datadragon.app.ui.screens.CalendarViewScreen
 import com.datadragon.app.ui.screens.ChecklistScreen
 import com.datadragon.app.ui.screens.CreateIdeaLogScreen
 import com.datadragon.app.ui.screens.CreateLogScreen
+import com.datadragon.app.ui.screens.DailyListEditorScreen
 import com.datadragon.app.ui.screens.EditIdeaLogScreen
 import com.datadragon.app.ui.screens.EditFormScreen
 import com.datadragon.app.ui.screens.FollowUpNoteScreen
@@ -22,6 +23,15 @@ import com.datadragon.app.ui.screens.LogScreen
 import com.datadragon.app.ui.screens.NewEntryScreen
 import com.datadragon.app.ui.screens.NewIdeaScreen
 import com.datadragon.app.ui.screens.SettingsScreen
+import com.datadragon.app.ui.DailyListViewModel
+import com.datadragon.app.ui.HomeViewModel
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.viewmodel.compose.viewModel
+import java.time.LocalDate
 
 @Composable
 fun DataDragonNavHost(
@@ -30,6 +40,22 @@ fun DataDragonNavHost(
     NavHost(navController = navController, startDestination = Routes.HOME) {
 
         composable(Routes.HOME) {
+            val dailyListViewModel: DailyListViewModel = viewModel()
+            val homeViewModel: HomeViewModel = viewModel()
+
+            // "Automatically show current daily list when app is started." — only
+            // when Daily List was the remembered mode. Today's existing card
+            // opens directly; an unsaved today just opens the Daily List main
+            // view. Opening never creates a blank card.
+            val autoReopen = homeViewModel.dailyListAutoReopen
+            var startupHandled by rememberSaveable { mutableStateOf(!autoReopen) }
+            LaunchedEffect(startupHandled) {
+                if (!startupHandled && autoReopen) {
+                    startupHandled = true
+                    navController.navigate(Routes.dailyListEditor(LocalDate.now().toString()))
+                }
+            }
+
             HomeScreen(
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                 onCreateForm = { navController.navigate(Routes.CREATE_LOG) },
@@ -40,6 +66,24 @@ fun DataDragonNavHost(
                 onCreateIdeaLog = { navController.navigate(Routes.CREATE_IDEA_LOG) },
                 onOpenIdeaLog = { ideaLogId -> navController.navigate(Routes.ideaLog(ideaLogId)) },
                 onAddIdea = { ideaLogId -> navController.navigate(Routes.newIdea(ideaLogId)) },
+                onDailyListToday = {
+                    navController.navigate(Routes.dailyListEditor(LocalDate.now().toString()))
+                },
+                onDailyListPickDate = {
+                    // Handled inside HomeScreen's date-picker dialog.
+                    dailyListViewModel.requestDatePicker()
+                },
+                onDailyListDateConfirmed = { picked ->
+                    navController.navigate(Routes.dailyListEditor(picked.toString()))
+                },
+                onOpenDailyListCard = { cardId ->
+                    val card = dailyListViewModel.cards.value.firstOrNull { it.id == cardId }
+                    navController.navigate(
+                        Routes.dailyListEditor(card?.date?.toString() ?: LocalDate.now().toString()),
+                    )
+                },
+                dailyListViewModel = dailyListViewModel,
+                viewModel = homeViewModel,
             )
         }
 
@@ -145,6 +189,16 @@ fun DataDragonNavHost(
             // A brand-new list (no id yet) — it's a draft until Save.
             ChecklistScreen(
                 checklistId = null,
+                onBack = { navController.popBackStack() },
+            )
+        }
+
+        composable(
+            route = Routes.DAILY_LIST_EDITOR,
+            arguments = listOf(navArgument(Routes.DAILY_LIST_ARG) { type = NavType.StringType }),
+        ) { backStackEntry ->
+            DailyListEditorScreen(
+                date = backStackEntry.arguments?.getString(Routes.DAILY_LIST_ARG),
                 onBack = { navController.popBackStack() },
             )
         }
