@@ -52,6 +52,15 @@ class DailyListViewModel(
     private val today: () -> LocalDate = { LocalDate.now() },
 ) : AndroidViewModel(app) {
 
+    /**
+     * The single-[Application] constructor the default [AndroidViewModelFactory]
+     * (used by Compose's `viewModel()`) requires. Kotlin's default-value
+     * machinery does not expose one to reflection when the primary constructor
+     * carries the extra [today] test seam, so `viewModel()` would otherwise fail
+     * to instantiate this ViewModel and crash the app on launch.
+     */
+    constructor(app: Application) : this(app, { LocalDate.now() })
+
     private val db = AppDatabase.getInstance(app)
     private val repo = DailyListRepository(db)
     private val settings = SettingsRepository(app)
