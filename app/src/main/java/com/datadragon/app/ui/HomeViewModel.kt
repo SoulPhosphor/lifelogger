@@ -1,6 +1,7 @@
 package com.datadragon.app.ui
 
 import android.app.Application
+import android.content.SharedPreferences
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.datadragon.app.data.AppDatabase
@@ -8,6 +9,7 @@ import com.datadragon.app.data.Checklist
 import com.datadragon.app.data.HomeView
 import com.datadragon.app.data.IdeaLog
 import com.datadragon.app.data.LogTemplate
+import com.datadragon.app.data.NavStyle
 import com.datadragon.app.data.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -97,6 +99,42 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     fun setView(view: HomeView) {
         settings.lastView = view
         _view.value = view
+    }
+
+    // --- Navigation preferences, kept live with the Settings screen ----------
+
+    private val _navStyle = MutableStateFlow(settings.navStyle)
+    val navStyle: StateFlow<NavStyle> = _navStyle
+
+    private val _useModeLabelInDropdown = MutableStateFlow(settings.useModeLabelInDropdown)
+    val useModeLabelInDropdown: StateFlow<Boolean> = _useModeLabelInDropdown
+
+    /** The data modes shown in the bar, in on-screen order (empty = none chosen). */
+    private val _enabledModes = MutableStateFlow(settings.enabledModes)
+    val enabledModes: StateFlow<List<HomeView>> = _enabledModes
+
+    // SharedPreferences keeps listeners weakly, so this strong reference must live
+    // as long as the view model does; onCleared unregisters it.
+    private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+        _navStyle.value = settings.navStyle
+        _useModeLabelInDropdown.value = settings.useModeLabelInDropdown
+        val enabled = settings.enabledModes
+        _enabledModes.value = enabled
+        // If the mode being viewed was just hidden, fall back to the first that's
+        // still shown. With nothing shown, the view is left as-is and Home renders
+        // its "choose a data mode" message instead.
+        if (enabled.isNotEmpty() && _view.value !in enabled) {
+            setView(enabled.first())
+        }
+    }
+
+    init {
+        settings.registerOnChange(prefsListener)
+    }
+
+    override fun onCleared() {
+        settings.unregisterOnChange(prefsListener)
+        super.onCleared()
     }
 }
 

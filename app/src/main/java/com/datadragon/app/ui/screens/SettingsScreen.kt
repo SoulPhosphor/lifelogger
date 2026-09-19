@@ -11,17 +11,24 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.EventNote
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
+import androidx.compose.material.icons.filled.OnlinePrediction
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -38,11 +45,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.CompleteIcon
+import com.datadragon.app.data.HomeView
+import com.datadragon.app.data.NavStyle
 import com.datadragon.app.data.RestoreMode
 import com.datadragon.app.ui.BackupViewModel
 import com.datadragon.app.ui.RestoreResult
@@ -66,6 +76,9 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val autoCapitalizeLabels by settingsViewModel.autoCapitalizeLabels.collectAsStateWithLifecycle()
     val autoCapitalizeOptions by settingsViewModel.autoCapitalizeOptions.collectAsStateWithLifecycle()
+    val navStyle by settingsViewModel.navStyle.collectAsStateWithLifecycle()
+    val useModeLabelInDropdown by settingsViewModel.useModeLabelInDropdown.collectAsStateWithLifecycle()
+    val enabledModes by settingsViewModel.enabledModes.collectAsStateWithLifecycle()
     val completeIcon by settingsViewModel.completeIcon.collectAsStateWithLifecycle()
     val crossOutWhenCompleted by settingsViewModel.crossOutWhenCompleted.collectAsStateWithLifecycle()
     val moveCompletedToBottom by settingsViewModel.moveCompletedToBottom.collectAsStateWithLifecycle()
@@ -167,6 +180,61 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            // How the Home bar presents the data modes: a row of icons, or a
+            // dropdown that shows one mode at a time.
+            SectionHeader("Main Navigation Menu")
+            NavStyleRadioRow(
+                label = "Icons",
+                selected = navStyle == NavStyle.ICONS,
+                onSelect = { settingsViewModel.setNavStyle(NavStyle.ICONS) },
+            )
+            NavStyleRadioRow(
+                label = "Dropdown",
+                selected = navStyle == NavStyle.DROPDOWN,
+                onSelect = { settingsViewModel.setNavStyle(NavStyle.DROPDOWN) },
+            )
+            SettingToggleRow(
+                checked = useModeLabelInDropdown,
+                onCheckedChange = settingsViewModel::setUseModeLabelInDropdown,
+                title = "Use mode label instead of single icon in drop-down mode.",
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // Which data modes appear in the navigation. Unchecking one only hides
+            // it from the bar — the mode's data is untouched and returns when shown.
+            SectionHeader("Choose Your Data Modes")
+            DataModeCheckRow(
+                icon = Icons.Filled.Description,
+                label = "Forms",
+                subtext = "Create dynamic forms that allow you to use text fields, multiselection options, drop-downs and more.",
+                checked = HomeView.FORMS in enabledModes,
+                onCheckedChange = { settingsViewModel.setModeEnabled(HomeView.FORMS, it) },
+            )
+            DataModeCheckRow(
+                icon = Icons.Filled.Checklist,
+                label = "Lists",
+                subtext = "Create lists that allow for sub items that helps you keep track of things that you've completed.",
+                checked = HomeView.LISTS in enabledModes,
+                onCheckedChange = { settingsViewModel.setModeEnabled(HomeView.LISTS, it) },
+            )
+            DataModeCheckRow(
+                icon = Icons.Filled.OnlinePrediction,
+                label = "Idea Logs",
+                subtext = "Keep track of your unique ideas. Somewhat like forms but also allows for storing web pages, unique item views and archiving.",
+                checked = HomeView.IDEAS in enabledModes,
+                onCheckedChange = { settingsViewModel.setModeEnabled(HomeView.IDEAS, it) },
+            )
+            DataModeCheckRow(
+                icon = Icons.Filled.EventNote,
+                label = "Daily Tasks",
+                subtext = "Keep track of everything you've done in a day. Allows for unfinished items to be brought to the next day. Special celebration icon can be selected to remember the days you've managed to do it all.",
+                checked = HomeView.DAILY_LIST in enabledModes,
+                onCheckedChange = { settingsViewModel.setModeEnabled(HomeView.DAILY_LIST, it) },
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
             // Text-formatting preferences. Their titles are deliberately kept as
             // sentences (not Title Case) because they're long. The "future items"
             // note applies to both toggles, so it sits once under the header.
@@ -499,6 +567,64 @@ private fun SettingToggleRow(
         }
         Spacer(Modifier.width(12.dp))
         Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+/**
+ * One navigation-style choice: a radio button and its label. The whole row is
+ * tappable, so the label selects it too.
+ */
+@Composable
+private fun NavStyleRadioRow(
+    label: String,
+    selected: Boolean,
+    onSelect: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onSelect)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = selected, onClick = onSelect)
+        Spacer(Modifier.width(8.dp))
+        Text(label, style = AppTheme.textStyles.settingTitle)
+    }
+}
+
+/**
+ * One "Choose Your Data Modes" row: the mode's icon and label with its
+ * description underneath, and a checkbox. Tapping anywhere on the row — icon,
+ * label, or description — toggles the checkbox, not just the box itself.
+ */
+@Composable
+private fun DataModeCheckRow(
+    icon: ImageVector,
+    label: String,
+    subtext: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp))
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(label, style = AppTheme.textStyles.settingTitle)
+            Text(
+                subtext,
+                style = AppTheme.textStyles.settingDescription,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Checkbox(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 
