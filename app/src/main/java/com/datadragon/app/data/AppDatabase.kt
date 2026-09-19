@@ -376,10 +376,6 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15,
                         MIGRATION_15_16,
                     )
-                    // v3 removed the unused description column. There is no
-                    // released data to preserve, so recreate cleanly on any
-                    // upgrade path not covered by an explicit migration.
-                    .fallbackToDestructiveMigration()
                     .build()
                     .also { instance = it }
             }

@@ -1040,3 +1040,13 @@ Completed the remaining Daily List behavior gaps without changing ordinary Lists
 **Next steps**
 
 - Run CI on the pushed branch and review the pull request.
+
+---
+
+## 2026-09-19 — Daily List specification audit repairs
+
+- Repaired the Room DAO compilation issue by restoring the missing `@Update` import.
+- Removed the redundant editor-level top-level add row; the app-bar `+` remains the sole top-level add control.
+- Moved Daily List preferences to a dedicated full-screen settings route and corrected the required setting order.
+- Corrected startup behavior so automatic reopening opens today only when a saved card exists; otherwise the remembered Daily List main view remains visible.
+- Kept Daily List isolated from backup/export and ordinary List behavior.

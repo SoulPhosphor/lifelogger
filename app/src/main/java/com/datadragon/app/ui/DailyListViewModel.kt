@@ -56,6 +56,10 @@ class DailyListViewModel(
     private val repo = DailyListRepository(db)
     private val settings = SettingsRepository(app)
 
+    init {
+        refresh()
+    }
+
     // --- Main view ------------------------------------------------------------
 
     private val _cards = MutableStateFlow<List<DailyList>>(emptyList())
@@ -71,6 +75,7 @@ class DailyListViewModel(
     /** The display-only per-card item lists after the visibility toggles. */
     private val _cardItems = MutableStateFlow<Map<Long, List<DailyListItem>>>(emptyMap())
     val cardItems: StateFlow<Map<Long, List<DailyListItem>>> = _cardItems
+    private var allCardItems: Map<Long, List<DailyListItem>> = emptyMap()
 
     // --- Editor ----------------------------------------------------------------
 
@@ -218,8 +223,10 @@ class DailyListViewModel(
     private suspend fun loadCardItems(all: List<DailyList>) {
         val todayValue = today()
         val result = mutableMapOf<Long, List<DailyListItem>>()
+        val allItems = mutableMapOf<Long, List<DailyListItem>>()
         for (card in all) {
             val items = db.dailyListDao().getItemsOnce(card.id)
+            allItems[card.id] = items
             val showUnfinished = when {
                 card.date.isAfter(todayValue) -> true // future cards untouched by past toggles
                 card.date == todayValue -> _showCurrentUnfinished.value
@@ -229,6 +236,7 @@ class DailyListViewModel(
                 if (item.completed) _showCompleted.value else showUnfinished
             }
         }
+        allCardItems = allItems
         _cardItems.value = result
     }
 
@@ -259,7 +267,8 @@ class DailyListViewModel(
      */
     fun celebrationForCard(card: DailyList, items: List<DailyListItem>): Boolean {
         if (!_celebrationEnabled.value) return false
-        return card.genuinelyCompleted && items.isNotEmpty() && items.all { it.completed }
+        val currentItems = allCardItems[card.id].orEmpty()
+        return card.genuinelyCompleted && currentItems.isNotEmpty() && currentItems.all { it.completed }
     }
 
     // --- Opening / creating ----------------------------------------------------
@@ -352,7 +361,7 @@ class DailyListViewModel(
         val source = db.dailyListDao().getPreviousBefore(date.toString()) ?: return
         val sourceItems = db.dailyListDao().getItemsOnce(source.id)
             .filter { it.text.isNotBlank() }
-        if (sourceItems.isEmpty()) return
+        if (sourceItems.isEmpty() || DailyListLogic.renewedItems(sourceItems).isEmpty()) return
 
         val card = repo.createForDate(date, System.currentTimeMillis()) ?: return
         carryInto(card, source, sourceItems)
@@ -561,6 +570,7 @@ class DailyListViewModel(
             }
         }
         updateCompletionState(card.id)
+        refresh()
     }
 
     /** Turn the editor back into a fresh unsaved editor for [date]. */
@@ -581,6 +591,7 @@ class DailyListViewModel(
             // Emptying the card keeps the saved day (zero tasks never shows the
             // celebration icon); only the confirmed Delete removes a card.
             updateCompletionState(card.id)
+            refresh()
         }
     }
 

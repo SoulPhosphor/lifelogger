@@ -91,6 +91,7 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 fun DailyListEditorScreen(
     date: String?,
     onBack: () -> Unit,
+    onOpenPreferences: () -> Unit = {},
     viewModel: DailyListViewModel = viewModel(),
 ) {
     // The route argument is the exact ISO date this editor edits — an existing
@@ -108,8 +109,6 @@ fun DailyListEditorScreen(
     val heading by viewModel.heading.collectAsStateWithLifecycle()
     val autoRenew by viewModel.autoRenew.collectAsStateWithLifecycle()
     val allowTitle by viewModel.allowTitle.collectAsStateWithLifecycle()
-
-    var prefsOpen by rememberSaveable { mutableStateOf(false) }
 
     val editorHeading = heading.ifBlank { "Daily Tasks" }
     val editorDate = date
@@ -139,7 +138,7 @@ fun DailyListEditorScreen(
                         IconButton(onClick = onBack) {
                             Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
                         }
-                        IconButton(onClick = { prefsOpen = true }) {
+                        IconButton(onClick = onOpenPreferences) {
                             Icon(Icons.Filled.Settings, contentDescription = "Daily List preferences")
                         }
                     }
@@ -210,34 +209,9 @@ fun DailyListEditorScreen(
                 }
             }
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { viewModel.addItem() }
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.width(16.dp))
-                Text(
-                    text = "List Item",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         }
     }
 
-    if (prefsOpen) {
-        DailyListPreferencesDialog(
-            viewModel = viewModel,
-            onDismiss = { prefsOpen = false },
-        )
-    }
 }
 
 /** One editable Daily List item row, matching the ordinary List row model. */
@@ -366,6 +340,16 @@ private fun DailyListPreferencesDialog(
                     title = "Automatically trash uncompleted items from past days",
                 )
                 SettingToggle(
+                    checked = autoReopen,
+                    onCheckedChange = viewModel::setAutoReopen,
+                    title = "Automatically show current daily list when app is started.",
+                )
+                SettingToggle(
+                    checked = allowTitle,
+                    onCheckedChange = viewModel::setAllowTitle,
+                    title = "Allow creating title for daily lists.",
+                )
+                SettingToggle(
                     checked = celebrationEnabled,
                     onCheckedChange = viewModel::setCelebrationEnabled,
                     title = "Mark days all tasks were completed with an icon on the home screen.",
@@ -380,16 +364,6 @@ private fun DailyListPreferencesDialog(
                     checked = protectFavorited,
                     onCheckedChange = viewModel::setProtectFavorited,
                     title = "Protect favorited days.",
-                )
-                SettingToggle(
-                    checked = autoReopen,
-                    onCheckedChange = viewModel::setAutoReopen,
-                    title = "Automatically show current daily list when app is started.",
-                )
-                SettingToggle(
-                    checked = allowTitle,
-                    onCheckedChange = viewModel::setAllowTitle,
-                    title = "Allow creating title for daily lists.",
                 )
 
                 // The numeric auto-delete write-in: blank disables; 1 through 999;
