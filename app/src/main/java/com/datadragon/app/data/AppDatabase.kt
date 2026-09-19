@@ -15,7 +15,7 @@ import java.time.LocalDate
  * exact column shape MIGRATION_15_16 creates — so the stored schema and the
  * entity stay in step.
  */
-object DailyListConverters {
+class DailyListConverters {
 
     @TypeConverter
     fun localDateToIso(value: LocalDate?): String? = value?.toString()

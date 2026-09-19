@@ -3,6 +3,7 @@ package com.datadragon.app.data
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import androidx.room.TypeConverters
 import java.time.LocalDate
 
 /**
@@ -60,6 +61,7 @@ import java.time.LocalDate
     tableName = "daily_lists",
     indices = [Index(value = ["date"], unique = true)],
 )
+@TypeConverters(DailyListConverters::class)
 data class DailyList(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val uuid: String = java.util.UUID.randomUUID().toString(),

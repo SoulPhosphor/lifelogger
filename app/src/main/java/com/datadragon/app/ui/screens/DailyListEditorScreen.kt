@@ -74,6 +74,8 @@ import com.datadragon.app.ui.DailyListViewModel
 import com.datadragon.app.ui.theme.AppTheme
 import java.time.LocalDate
 import kotlinx.coroutines.launch
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 
 /**
  * The Daily List editor: one date's full editable list. Top bar follows the
@@ -171,11 +173,19 @@ fun DailyListEditorScreen(
                     value = title,
                     onValueChange = viewModel::setEditorTitle,
                     singleLine = true,
+                    label = { Text("Title") },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 )
             }
 
             val lazyListState = rememberLazyListState()
+            val reorderState = rememberReorderableLazyListState(lazyListState) { from, to ->
+                val ids = rows.map { it.localId }.toMutableList()
+                if (from.index in ids.indices && to.index in ids.indices) {
+                    ids.add(to.index, ids.removeAt(from.index))
+                    viewModel.reorder(ids)
+                }
+            }
             val density = LocalDensity.current
             val imeVisible = androidx.compose.foundation.layout.WindowInsets.ime.getBottom(density) > 0
             val keyboardScrollSpace = with(density) {
@@ -187,13 +197,16 @@ fun DailyListEditorScreen(
                 contentPadding = PaddingValues(bottom = keyboardScrollSpace),
             ) {
                 itemsIndexed(rows, key = { _, item -> item.localId }) { _, item ->
-                    DailyListEditorRowView(
-                        row = item,
-                        onComplete = { viewModel.setCompleted(item.localId, !item.completed) },
-                        onTextChange = { viewModel.updateText(item.localId, it) },
-                        onAddSubItem = { viewModel.addSubItem(item.localId) },
-                        onDelete = { viewModel.deleteItem(item.localId) },
-                    )
+                    ReorderableItem(reorderState, key = item.localId) { _ ->
+                        DailyListEditorRowView(
+                            row = item,
+                            dragHandleModifier = Modifier.draggableHandle(),
+                            onComplete = { viewModel.setCompleted(item.localId, !item.completed) },
+                            onTextChange = { viewModel.updateText(item.localId, it) },
+                            onAddSubItem = { viewModel.addSubItem(item.localId) },
+                            onDelete = { viewModel.deleteItem(item.localId) },
+                        )
+                    }
                 }
             }
 
@@ -231,6 +244,7 @@ fun DailyListEditorScreen(
 @Composable
 private fun DailyListEditorRowView(
     row: DailyListEditorRow,
+    dragHandleModifier: Modifier,
     onComplete: () -> Unit,
     onTextChange: (String) -> Unit,
     onAddSubItem: () -> Unit,
@@ -249,7 +263,7 @@ private fun DailyListEditorRowView(
             imageVector = Icons.Filled.DragIndicator,
             contentDescription = "Reorder",
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+            modifier = dragHandleModifier.padding(horizontal = 8.dp, vertical = 12.dp),
         )
         IconButton(onClick = onComplete) {
             Icon(
@@ -302,6 +316,7 @@ private fun DailyListPreferencesDialog(
     val showCompleted by viewModel.showCompleted.collectAsStateWithLifecycle()
     val showCurrentUnfinished by viewModel.showCurrentUnfinished.collectAsStateWithLifecycle()
     val showPastUnfinished by viewModel.showPastUnfinished.collectAsStateWithLifecycle()
+    val autoTrashPast by viewModel.autoTrashPast.collectAsStateWithLifecycle()
     val celebrationEnabled by viewModel.celebrationEnabled.collectAsStateWithLifecycle()
     val celebrationIcon by viewModel.celebrationIcon.collectAsStateWithLifecycle()
     val allowTitle by viewModel.allowTitle.collectAsStateWithLifecycle()
@@ -344,6 +359,11 @@ private fun DailyListPreferencesDialog(
                     checked = showPastUnfinished,
                     onCheckedChange = viewModel::setShowPastUnfinished,
                     title = "Show past dates uncompleted list items in main view",
+                )
+                SettingToggle(
+                    checked = autoTrashPast,
+                    onCheckedChange = viewModel::setAutoTrashPast,
+                    title = "Automatically trash uncompleted items from past days",
                 )
                 SettingToggle(
                     checked = celebrationEnabled,

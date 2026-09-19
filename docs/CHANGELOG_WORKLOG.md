@@ -1017,3 +1017,26 @@ canonical phase order in the README.
 - Confirm the CI workflow produces a green build and a downloadable debug APK.
 - Then begin **Phase 2**: Room database + `LogTemplate`, and load real templates
   on the Home screen.
+
+---
+
+## 2026-09-19 — Daily List completion corrections
+
+Completed the remaining Daily List behavior gaps without changing ordinary Lists.
+
+- Sequence completion now reorders the entire top-level item sequence and persists the resulting order.
+- Daily List editor rows now use the existing reorderable drag interaction.
+- Main-view cards render their currently visible items, including completion state and sub-item indentation.
+- Added the missing `Automatically trash uncompleted items from past days` preference.
+- Renewal retains completed source rows while planning carry-forward items so orphaned unfinished sub-items are promoted correctly.
+- Daily List item updates preserve stable item UUIDs; the DAO no longer exposes a whole-card update path that could change a saved date.
+- Maintenance now runs when entering Daily List even if today has not yet been started, while retaining once-per-local-day protection.
+- Backup/restore and export remain intentionally out of scope.
+
+**Known issues**
+
+- Android unit tests could not run in this environment because the Android SDK is unavailable. GitHub Actions must provide the compile and test result.
+
+**Next steps**
+
+- Run CI on the pushed branch and review the pull request.

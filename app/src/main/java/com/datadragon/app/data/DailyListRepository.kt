@@ -15,7 +15,7 @@ class DailyListRepository(private val db: AppDatabase) {
     private val dao = db.dailyListDao()
 
     /** The one card for [date], or null when that date has not been saved. */
-    suspend fun getByDate(date: LocalDate): DailyList? = dao.getByDate(date)
+    suspend fun getByDate(date: LocalDate): DailyList? = dao.getByDate(date.toString())
 
     suspend fun getDailyList(id: Long): DailyList? = dao.getDailyList(id)
 
@@ -32,11 +32,11 @@ class DailyListRepository(private val db: AppDatabase) {
      * no duplicate is created and nothing is merged.
      */
     suspend fun createForDate(date: LocalDate, now: Long): DailyList? {
-        val existing = dao.getByDate(date)
+        val existing = dao.getByDate(date.toString())
         if (existing != null) return existing
         val row = DailyList(date = date, createdAt = now)
         val inserted = dao.insertDailyList(row)
-        return if (inserted == -1L) dao.getByDate(date) else row.copy(id = inserted)
+        return if (inserted == -1L) dao.getByDate(date.toString()) else row.copy(id = inserted)
     }
 
     /**
@@ -55,14 +55,14 @@ class DailyListRepository(private val db: AppDatabase) {
         now: Long,
         typed: DailyListItem,
     ): DailyList? = db.withTransaction {
-        val existing = dao.getByDate(date)
+        val existing = dao.getByDate(date.toString())
         if (existing != null) {
             dao.insertItem(typed.copy(dailyListId = existing.id))
             existing
         } else {
             val inserted = dao.insertDailyList(DailyList(date = date, createdAt = now))
             if (inserted == -1L) return@withTransaction null // lost the race; retry next change
-            val card = dao.getByDate(date) ?: return@withTransaction null
+            val card = dao.getByDate(date.toString()) ?: return@withTransaction null
             dao.insertItem(typed.copy(dailyListId = card.id))
             card
         }
@@ -81,11 +81,11 @@ class DailyListRepository(private val db: AppDatabase) {
      * [markRenewalRun] — so maintenance never suppresses renewal.)
      */
     suspend fun markMaintenanceRun(cardId: Long, today: LocalDate) =
-        dao.setMaintenanceRunOn(cardId, today)
+        dao.setMaintenanceRunOn(cardId, today.toString())
 
     /** Record that [cardId]'s one-time automatic renewal already ran on [runOn]. */
     suspend fun markRenewalRun(cardId: Long, runOn: LocalDate) =
-        dao.markRenewalRun(cardId, runOn)
+        dao.markRenewalRun(cardId, runOn.toString())
 
     /**
      * Record a genuine all-tasks-completed achievement on [cardId]. Never
@@ -114,8 +114,15 @@ class DailyListRepository(private val db: AppDatabase) {
         retentionKeepCount: Int?,
         protectFavorited: Boolean,
     ) {
-        val currentCard = dao.getByDate(today)
-        if (!DailyListLogic.maintenanceDue(currentCard, today)) return
+        val currentCard = dao.getByDate(today.toString())
+        val allCardsBeforeMaintenance = dao.getAllDailyListsOnce()
+        // Maintenance is triggered by entering Daily List, even when today has
+        // not been started yet. Use the per-card marker as an app-local
+        // once-per-day record and avoid rerunning if any surviving card already
+        // records today's pass.
+        if (allCardsBeforeMaintenance.isEmpty() || allCardsBeforeMaintenance.any { it.maintenanceRunOn == today }) {
+            return
+        }
 
         db.withTransaction {
             // 1. Whole-card retention. Card-count based on date order — gaps
@@ -162,7 +169,9 @@ class DailyListRepository(private val db: AppDatabase) {
                 }
             }
 
-            currentCard?.let { dao.setMaintenanceRunOn(it.id, today) }
+            val markerCard = currentCard?.let { dao.getDailyList(it.id) }
+                ?: dao.getAllDailyListsOnce().firstOrNull()
+            markerCard?.let { dao.setMaintenanceRunOn(it.id, today.toString()) }
         }
     }
 }

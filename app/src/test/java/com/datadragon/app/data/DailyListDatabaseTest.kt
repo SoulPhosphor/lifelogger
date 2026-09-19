@@ -204,11 +204,11 @@ class DailyListDatabaseTest {
 
         // Friday's renewal source is Tuesday — the latest card before Friday,
         // even though Wednesday and Thursday have no cards.
-        assertEquals(tuesday, dao.getPreviousBefore(friday)!!.date)
+        assertEquals(tuesday, dao.getPreviousBefore(friday.toString())!!.date)
 
         // A future-planned card is never a source for an earlier date.
         dao.insertDailyList(card(LocalDate.of(2026, 9, 20)))
-        assertEquals(tuesday, dao.getPreviousBefore(friday)!!.date)
+        assertEquals(tuesday, dao.getPreviousBefore(friday.toString())!!.date)
     }
 
     @Test
@@ -263,6 +263,23 @@ class DailyListDatabaseTest {
         assertEquals(1, dao.getAllDailyListsOnce().size) // no duplicate card
         assertEquals(date, result!!.date)
         assertEquals(listOf("Late addition"), dao.getItemsOnce(result.id).map { it.text })
+    }
+
+    @Test
+    fun maintenanceRunsWhenPastCardsExistEvenBeforeTodayHasACard() = runBlocking {
+        val repo = DailyListRepository(db)
+        val past = LocalDate.of(2026, 9, 17)
+        val today = LocalDate.of(2026, 9, 18)
+        val id = dao.insertDailyList(card(past))
+
+        repo.runMaintenance(
+            today = today,
+            autoTrashEnabled = false,
+            retentionKeepCount = null,
+            protectFavorited = true,
+        )
+
+        assertEquals(today, dao.getDailyList(id)!!.maintenanceRunOn)
     }
 
     @Test
