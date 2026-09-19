@@ -95,10 +95,8 @@ fun HomeScreen(
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Data Dragon")
-                        // A gap after the name, then the view toggles with a little
+                        // The view toggles sit at the left of the bar, with a little
                         // space between them so none is easy to mis-tap.
-                        Spacer(Modifier.width(16.dp))
                         ViewToggle(
                             icon = Icons.Filled.Description,
                             contentDescription = "Forms",
