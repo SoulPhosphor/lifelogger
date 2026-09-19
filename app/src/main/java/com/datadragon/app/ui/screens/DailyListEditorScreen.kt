@@ -31,7 +31,7 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.AlertDialog
@@ -139,7 +139,7 @@ fun DailyListEditorScreen(
                             Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
                         }
                         IconButton(onClick = onOpenPreferences) {
-                            Icon(Icons.Filled.Settings, contentDescription = "Daily List preferences")
+                            Icon(Icons.Filled.MoreVert, contentDescription = "Daily List Preferences")
                         }
                     }
                 },

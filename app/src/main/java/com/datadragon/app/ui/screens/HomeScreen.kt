@@ -25,7 +25,7 @@ import androidx.compose.material.icons.filled.EventNote
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.OnlinePrediction
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SettingsApplications
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.AlertDialog
@@ -140,7 +140,7 @@ fun HomeScreen(
                     // the top-right "+" creates a form or list per the current view.
                     IconButton(onClick = onOpenSettings) {
                         Icon(
-                            Icons.Filled.Settings,
+                            Icons.Filled.SettingsApplications,
                             contentDescription = "Settings",
                             modifier = Modifier.size(24.dp),
                         )
