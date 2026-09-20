@@ -11,6 +11,7 @@ object Routes {
     const val CREATE_LOG = "createLog"
     const val CREATE_CHECKLIST = "createChecklist"
     const val CREATE_IDEA_LOG = "createIdeaLog"
+    const val CREATE_CLICKER = "createClicker"
     const val SETTINGS = "settings"
 
     // Parameterised routes.

@@ -10,6 +10,7 @@ import androidx.navigation.navArgument
 import com.datadragon.app.ui.screens.CalendarConfigScreen
 import com.datadragon.app.ui.screens.CalendarViewScreen
 import com.datadragon.app.ui.screens.ChecklistScreen
+import com.datadragon.app.ui.screens.ClickerSetupScreen
 import com.datadragon.app.ui.screens.CreateIdeaLogScreen
 import com.datadragon.app.ui.screens.CreateLogScreen
 import com.datadragon.app.ui.screens.DailyListEditorScreen
@@ -85,8 +86,8 @@ fun DataDragonNavHost(
                         Routes.dailyListEditor(card?.date?.toString() ?: LocalDate.now().toString()),
                     )
                 },
-                // Wired to the Clicker setup and in-log screens in the next stage.
-                onCreateClicker = { },
+                onCreateClicker = { navController.navigate(Routes.CREATE_CLICKER) },
+                // Opening a log is wired to the in-log card screen in the next stage.
                 onOpenClicker = { },
                 dailyListViewModel = dailyListViewModel,
                 viewModel = homeViewModel,
@@ -226,6 +227,10 @@ fun DataDragonNavHost(
 
         composable(Routes.CREATE_IDEA_LOG) {
             CreateIdeaLogScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.CREATE_CLICKER) {
+            ClickerSetupScreen(existingLogId = null, onBack = { navController.popBackStack() })
         }
 
         composable(
