@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.EditSquare
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -343,13 +344,33 @@ fun EditFormScreen(
                 }
             }
 
-            item(key = "header") {
-                Text(
-                    "Tap a field to edit its label, options, and settings. Add new fields " +
-                        "or reorder them. A field's type can't change and existing fields " +
-                        "can't be removed, so past entries stay intact.",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+            item(key = "current-calendars-title") {
+                Text("Current Calendars", style = MaterialTheme.typography.titleMedium)
+            }
+
+            items(calendars, key = { "calendar-${it.id}" }) { calendar ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onOpenCalendar(calendar.id) },
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            calendar.label,
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Icon(
+                            imageVector = Icons.Filled.EditSquare,
+                            contentDescription = "Edit Calendar",
+                        )
+                    }
+                }
             }
 
             item(key = "title") {
@@ -367,6 +388,15 @@ fun EditFormScreen(
                     checked = automaticTimestamping ?: false,
                     onCheckedChange = { automaticTimestamping = it },
                     title = "Automatic Timestamping",
+                )
+            }
+
+            item(key = "header") {
+                Text(
+                    "Tap a field to edit its label, options, and settings. Add new fields " +
+                        "or reorder them. A field's type can't change and existing fields " +
+                        "can't be removed, so past entries stay intact.",
+                    style = MaterialTheme.typography.bodyMedium,
                 )
             }
 
@@ -402,21 +432,6 @@ fun EditFormScreen(
                 }
             }
 
-            // Configured calendars, each its own item; tapping opens it in the
-            // Edit Calendar screen with its saved values.
-            items(calendars, key = { "calendar-${it.id}" }) { calendar ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onOpenCalendar(calendar.id) },
-                ) {
-                    Text(
-                        calendar.label,
-                        style = MaterialTheme.typography.titleSmall,
-                        modifier = Modifier.padding(12.dp),
-                    )
-                }
-            }
         }
     }
 

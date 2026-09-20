@@ -290,6 +290,14 @@ fun CalendarConfigScreen(
         }
     }
 
+    fun saveCalendar() {
+        val chosen = type ?: return
+        viewModel.save(chosen, label, description, currentConfig()) {
+            markSaved()
+            onBack()
+        }
+    }
+
     // The "Map Heat Map to" options: the form's applicable fields, then Log Frequency.
     val sourceOptions: List<SourceOption> =
         formFields.filter { it.type.heatMapApplicable() }.map { SourceOption.Field(it) } +
@@ -331,6 +339,12 @@ fun CalendarConfigScreen(
                     IconButton(onClick = { attemptBack() }) {
                         Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
                     }
+                },
+                actions = {
+                    TextButton(
+                        enabled = canSave,
+                        onClick = { saveCalendar() },
+                    ) { Text("Save") }
                 },
             )
         },
@@ -547,20 +561,6 @@ fun CalendarConfigScreen(
                         Text("Save Colors as Preset")
                     }
                 }
-            }
-
-            AppButton(
-                onClick = {
-                    val chosen = type ?: return@AppButton
-                    viewModel.save(chosen, label, description, currentConfig()) {
-                        markSaved()
-                        onBack()
-                    }
-                },
-                enabled = canSave,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Save Calendar")
             }
 
             AppButton(
