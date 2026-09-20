@@ -34,7 +34,7 @@ class DailyListConverters {
         DailyList::class, DailyListItem::class,
         ClickerLog::class, ClickerCard::class,
     ],
-    version = 17,
+    version = 18,
     exportSchema = false,
 )
 @TypeConverters(DailyListConverters::class)
@@ -405,6 +405,22 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v18 added `lastModifiedAt` to `clicker_logs` — the "Last Saved" time
+         * shown on a Clicker grouping's Home row. Purely additive. Existing rows
+         * have no record of their true last card change, so they are seeded from
+         * `lastAccessedAt` (the closest proxy); the value becomes exact the next
+         * time a card in the grouping changes.
+         */
+        internal val MIGRATION_17_18 = object : Migration(17, 18) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE clicker_logs ADD COLUMN lastModifiedAt INTEGER NOT NULL DEFAULT 0"
+                )
+                db.execSQL("UPDATE clicker_logs SET lastModifiedAt = lastAccessedAt")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -416,7 +432,7 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_1_2, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
                         MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11,
                         MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15,
-                        MIGRATION_15_16, MIGRATION_16_17,
+                        MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18,
                     )
                     .build()
                     .also { instance = it }

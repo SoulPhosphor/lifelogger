@@ -108,6 +108,14 @@ interface DailyListDao {
     @Query("UPDATE daily_lists SET title = :title WHERE id = :id")
     suspend fun setTitle(id: Long, title: String)
 
+    /**
+     * Move a saved card to a different date. The caller must have confirmed the
+     * target date is free first (the date UNIQUE index would otherwise abort the
+     * update), which is exactly what the editor's date-collision dialogs enforce.
+     */
+    @Query("UPDATE daily_lists SET date = :date WHERE id = :id")
+    suspend fun setDate(id: Long, date: String)
+
     // --- Items ---------------------------------------------------------------
 
     @Insert

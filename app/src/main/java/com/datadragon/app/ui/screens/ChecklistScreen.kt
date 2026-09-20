@@ -77,7 +77,9 @@ import com.datadragon.app.data.CompleteIcon
 import com.datadragon.app.export.ChecklistExportFormat
 import com.datadragon.app.export.ExportContent
 import com.datadragon.app.ui.ChecklistViewModel
+import com.datadragon.app.ui.components.AddItemRow
 import com.datadragon.app.ui.components.AppDialog
+import com.datadragon.app.ui.components.ListEditorItemRow
 import com.datadragon.app.ui.components.DialogDestructiveButton
 import com.datadragon.app.ui.components.DialogDismissButton
 import com.datadragon.app.ui.components.ExportFormatDialog
@@ -257,9 +259,16 @@ fun ChecklistScreen(
                 itemsIndexed(items, key = { _, item -> item.id }) { _, item ->
                     ReorderableItem(reorderState, key = item.id) { _ ->
                         val handleModifier = Modifier.draggableHandle()
-                        ChecklistItemRow(
-                            item = item,
-                            completeIcon = completeIcon,
+                        ListEditorItemRow(
+                            rowKey = item.id,
+                            text = item.text,
+                            completed = item.completed,
+                            indent = item.indent,
+                            completedIcon = if (completeIcon == CompleteIcon.CHECKED_BOX) {
+                                Icons.Filled.CheckBox
+                            } else {
+                                Icons.Filled.Check
+                            },
                             crossOut = crossOut,
                             dragHandleModifier = handleModifier,
                             isEditing = focusedItemId == item.id,
@@ -375,125 +384,3 @@ internal fun EditableTitleField(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun ChecklistItemRow(
-    item: ChecklistItem,
-    completeIcon: CompleteIcon,
-    crossOut: Boolean,
-    dragHandleModifier: Modifier,
-    isEditing: Boolean,
-    requestFocus: Boolean,
-    onFocused: () -> Unit,
-    onFocusHandled: () -> Unit,
-    onBlur: () -> Unit,
-    onTextChange: (String) -> Unit,
-    onToggleComplete: () -> Unit,
-    onAddSubItem: () -> Unit,
-    onDelete: () -> Unit,
-) {
-    var text by remember(item.id) { mutableStateOf(item.text) }
-    val focusRequester = remember { FocusRequester() }
-    val bringIntoViewRequester = remember { BringIntoViewRequester() }
-    // Tracks focus so we can persist this item's latest text the moment it blurs.
-    var wasFocused by remember(item.id) { mutableStateOf(false) }
-    LaunchedEffect(requestFocus) {
-        if (requestFocus) {
-            focusRequester.requestFocus()
-            // Wait for the inserted row to be measured, then move only as much
-            // as necessary to keep the whole new row above the keyboard.
-            withFrameNanos { }
-            bringIntoViewRequester.bringIntoView()
-            onFocusHandled()
-        }
-    }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .bringIntoViewRequester(bringIntoViewRequester)
-            .padding(start = if (item.indent == 1) 32.dp else 0.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            imageVector = Icons.Filled.DragIndicator,
-            contentDescription = "Reorder",
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = dragHandleModifier.padding(horizontal = 8.dp, vertical = 12.dp),
-        )
-        IconButton(onClick = onToggleComplete) {
-            Icon(
-                imageVector = completedVector(item.completed, completeIcon),
-                contentDescription = if (item.completed) "Mark not done" else "Mark done",
-                tint = if (item.completed) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-            )
-        }
-        val struck = item.completed && crossOut
-        BasicTextField(
-            value = text,
-            onValueChange = { text = it; onTextChange(it) },
-            textStyle = MaterialTheme.typography.bodyLarge.copy(
-                color = if (item.completed) {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                },
-                textDecoration = if (struck) TextDecoration.LineThrough else TextDecoration.None,
-            ),
-            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-            singleLine = false,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            modifier = Modifier
-                .weight(1f)
-                .focusRequester(focusRequester)
-                .onFocusChanged {
-                    if (it.isFocused) { onFocused(); wasFocused = true }
-                    else if (wasFocused) { wasFocused = false; onBlur() }
-                },
-        )
-        // While a row is being edited: + adds a sub-item, × deletes the item.
-        if (isEditing) {
-            IconButton(onClick = onAddSubItem) {
-                Icon(Icons.Filled.Add, contentDescription = "Add sub-item")
-            }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Filled.Close, contentDescription = "Delete item")
-            }
-        }
-    }
-}
-
-@Composable
-private fun AddItemRow(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            imageVector = Icons.Filled.Add,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.width(16.dp))
-        Text(
-            text = "List Item",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-private fun completedVector(completed: Boolean, completeIcon: CompleteIcon): ImageVector = when {
-    !completed -> Icons.Outlined.CheckBoxOutlineBlank
-    completeIcon == CompleteIcon.CHECKED_BOX -> Icons.Filled.CheckBox
-    else -> Icons.Filled.Check
-}

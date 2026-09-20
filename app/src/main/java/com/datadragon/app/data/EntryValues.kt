@@ -7,10 +7,12 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.OffsetDateTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -158,6 +160,25 @@ object EntryValues {
     fun displayLastEntry(iso: String?): String? {
         val date = iso?.let { runCatching { OffsetDateTime.parse(it).toLocalDate() }.getOrNull() }
             ?: return null
+        return relativeDay(date)
+    }
+
+    /**
+     * The Clicker "Last Saved" day, from an epoch-millis timestamp
+     * ([ClickerLog.lastModifiedAt]). Same Today / Yesterday / "MMMM d" wording as
+     * [displayLastEntry], so a Clicker grouping's Home row reads like a Form's.
+     */
+    fun displayLastSaved(epochMillis: Long?): String? {
+        val date = epochMillis?.let {
+            runCatching {
+                Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+            }.getOrNull()
+        } ?: return null
+        return relativeDay(date)
+    }
+
+    /** "Today" / "Yesterday" / "MMMM d" for a date, relative to the current day. */
+    private fun relativeDay(date: LocalDate): String {
         val today = LocalDate.now()
         return when (date) {
             today -> "Today"

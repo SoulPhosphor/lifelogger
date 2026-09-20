@@ -134,6 +134,38 @@ Write like a professional technical writer, not like someone thinking out loud.
   "Edit Form", "Save Entry"). Minor words (a, an, the, and, or, of, to, for, in,
   on, at, by) stay lowercase unless they are the first word.
 
+## Terminology (read this before touching any screen)
+
+These words have caused confusion across sessions. They are defined once, in
+full, in [`docs/UI_ELEMENTS.md`](docs/UI_ELEMENTS.md) — read its **Vocabulary**
+section before doing UI work, and use these words the way I use them:
+
+- **Grouping** — one whole form / list / Idea Log / Clicker Data Log as it
+  appears on the **Home screen**, shown as a single tappable row (its title, a
+  summary line, and for some modes a "+"). It is the container. "Odor Log" on the
+  Forms Home is a grouping. I also call this "the grouping", "grouping form", or
+  "grouping of logs". Its **title** is the grouping's name.
+- **Card** — one entry/record **inside** a grouping, seen only after you open
+  the grouping. One submitted odor entry is a card; one clicker card is a card.
+- **Home screen** — the screen listing **all groupings** for a mode.
+- **Main screen** — the screen for **one grouping**, showing its **cards** (what
+  I've also called "the form main screen").
+- **The "+" buttons are different things.** The "+" in the **Home screen** top
+  bar creates a **new grouping**. The "+" on a **grouping's Home row** adds a
+  **card**. The "+" in a **Main screen's** top bar also adds a **card** (Clicker
+  Main screens have this too). And a **tracker button** on a Clicker card (often
+  captioned "Add") only steps one number — it is not any of the "+" buttons.
+  Never conflate them.
+
+When my request is ambiguous about "grouping" vs "card", or about which "+",
+stop and confirm — do not guess.
+
+- **"Daily list" always means "Daily Task."** "Daily list" is the old, dead
+  name. I still slip and say "daily list" out of habit — when I do, treat it as
+  "Daily Task" automatically; you do not need to stop and ask. (Internal code
+  identifiers like `DailyList` are a separate matter and are not renamed unless I
+  ask.)
+
 ## Form field sorting
 
 - **Only fields that carry a date are eligible for ordering.** Date and

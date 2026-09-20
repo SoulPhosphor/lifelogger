@@ -63,7 +63,7 @@ fun DailyListPreferencesScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Daily List Preferences") },
+                title = { Text("Daily Task Preferences") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
@@ -80,11 +80,11 @@ fun DailyListPreferencesScreen(
                 value = heading,
                 onValueChange = viewModel::setHeading,
                 singleLine = true,
-                label = { Text("Name showed at the top of your daily lists") },
+                label = { Text("Name showed at the top of your daily tasks") },
                 placeholder = { Text("Daily Tasks") },
                 modifier = Modifier.fillMaxWidth(),
             )
-            PreferenceToggle(autoRenew, viewModel::setAutoRenew, "Automatically renew daily list items that weren't completed.")
+            PreferenceToggle(autoRenew, viewModel::setAutoRenew, "Automatically renew daily task items that weren't completed.")
             PreferenceToggle(showCompleted, viewModel::setShowCompleted, "Show completed list items in main view.")
             PreferenceToggle(showCurrentUnfinished, viewModel::setShowCurrentUnfinished, "Show current dates uncompleted list items in main view.")
             PreferenceToggle(showPastUnfinished, viewModel::setShowPastUnfinished, "Show past dates uncompleted list items in main view")
@@ -92,15 +92,15 @@ fun DailyListPreferencesScreen(
             if (autoTrashPast) {
                 CleanupKeepChoice(autoTrashKeepPast, viewModel::setAutoTrashKeepPast)
             }
-            PreferenceToggle(autoReopen, viewModel::setAutoReopen, "Automatically show current daily list when app is started.")
-            PreferenceToggle(allowTitle, viewModel::setAllowTitle, "Allow creating title for daily lists.")
+            PreferenceToggle(autoReopen, viewModel::setAutoReopen, "Automatically show current daily task when app is started.")
+            PreferenceToggle(allowTitle, viewModel::setAllowTitle, "Allow creating title for daily tasks.")
             PreferenceToggle(celebrationEnabled, viewModel::setCelebrationEnabled, "Mark days all tasks were completed with an icon on the home screen.")
             if (celebrationEnabled) {
                 CelebrationChoice(celebrationIcon, viewModel::setCelebrationIcon)
             }
             PreferenceToggle(protectFavorited, viewModel::setProtectFavorited, "Protect favorited days.")
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Text("Auto delete daily lists older then (", style = MaterialTheme.typography.bodyMedium)
+                Text("Auto delete daily tasks older then (", style = MaterialTheme.typography.bodyMedium)
                 OutlinedTextField(
                     value = retentionRaw,
                     onValueChange = viewModel::setRetentionRaw,

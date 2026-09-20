@@ -11,6 +11,9 @@ import com.datadragon.app.data.DailyListItem
 import com.datadragon.app.data.DailyListLogic
 import com.datadragon.app.data.DailyListRepository
 import com.datadragon.app.data.SettingsRepository
+import com.datadragon.app.export.DailyTaskExport
+import com.datadragon.app.export.DailyTaskExportFormat
+import com.datadragon.app.export.ExportContent
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -378,14 +381,123 @@ class DailyListViewModel(
         val source = db.dailyListDao().getPreviousBefore(date.toString()) ?: return
         val sourceItems = db.dailyListDao().getItemsOnce(source.id)
             .filter { it.text.isNotBlank() }
-        if (sourceItems.isEmpty() || DailyListLogic.renewedItems(sourceItems).isEmpty()) return
+        if (sourceItems.isEmpty()) return
+        // A new card persists nothing until Save, so carried items go into the
+        // in-memory editor rather than creating a card up front.
+        carryIntoMemory(source.uuid, sourceItems)
+    }
 
-        val card = repo.createForDate(date, System.currentTimeMillis()) ?: return
-        carryInto(card, source, sourceItems)
-        // The once-only marker: this pass was the fresh day's one-time renewal.
-        repo.markRenewalRun(card.id, date)
-        // Reopen as a saved editor showing the renewed rows.
-        openEditor(card.id, date)
+    /**
+     * Append a source card's unfinished items into the in-memory editor rows,
+     * used while a new card is unsaved (manual Cycle or automatic renewal). Never
+     * re-adds a row already carried from the same source row.
+     */
+    private fun carryIntoMemory(sourceCardUuid: String, sourceItems: List<DailyListItem>) {
+        val existingKeys = _editorRows.value.mapNotNull { it.sourceUuid }.toSet()
+        val toAdd = DailyListLogic.renewedItems(sourceItems).filterNot { renewed ->
+            DailyListLogic.sourceIdentityOf(sourceCardUuid, renewed.sourceItem) in existingKeys
+        }
+        if (toAdd.isEmpty()) return
+        val rows = _editorRows.value.toMutableList()
+        for (renewed in toAdd) {
+            rows.add(
+                DailyListEditorRow(
+                    localId = nextTempId--,
+                    dbId = null,
+                    text = renewed.text,
+                    completed = false,
+                    indent = renewed.indent,
+                    sourceUuid = DailyListLogic.sourceIdentityOf(sourceCardUuid, renewed.sourceItem),
+                ),
+            )
+        }
+        _editorRows.value = rows
+    }
+
+    /**
+     * Open a brand-new (unsaved) card. The date defaults to today when today has
+     * no card yet; when today already has one, the date starts blank so the
+     * picker shows "Select Date". Nothing persists until Save.
+     */
+    fun openNewCard() {
+        viewModelScope.launch {
+            val todayValue = today()
+            val todayFree = repo.getByDate(todayValue) == null
+            _editorCard.value = null
+            _editorIsSaved.value = false
+            _editorTitle.value = ""
+            _editorRows.value = emptyList()
+            _editorDate.value = if (todayFree) todayValue else null
+            if (todayFree) maybeRunAutomaticRenewalForFresh(todayValue)
+        }
+    }
+
+    /**
+     * Change the editor's date. For a new (unsaved) card this is in-memory only;
+     * for a saved card it moves the card to [newDate]. The caller confirms the
+     * target date is free first (the collision dialogs do this).
+     */
+    fun setEditorDate(newDate: LocalDate) {
+        val card = _editorCard.value
+        if (card == null) {
+            _editorDate.value = newDate
+        } else {
+            viewModelScope.launch {
+                repo.setDate(card.id, newDate)
+                _editorDate.value = newDate
+                _editorCard.value = card.copy(date = newDate)
+                refresh()
+            }
+        }
+    }
+
+    /**
+     * Persist a new card at the chosen date with its current non-blank rows, set
+     * the optional title, then hand control back to the caller (which leaves the
+     * editor). After this the card is a saved card and autosaves.
+     */
+    // Guards Save against a double tap: both taps run on the main thread, so the
+    // first sets this synchronously before launching and the second bails, which
+    // stops the same rows being inserted twice (item uuids are not unique).
+    private var savingNewCard = false
+
+    fun saveNewCard(onSaved: () -> Unit) {
+        if (savingNewCard) return
+        val date = _editorDate.value ?: return
+        val rows = _editorRows.value.filter { it.text.isNotBlank() }
+        val titleText = _editorTitle.value
+        savingNewCard = true
+        viewModelScope.launch {
+            try {
+                val created = repo.createForDate(date, System.currentTimeMillis()) ?: return@launch
+                rows.forEachIndexed { index, row ->
+                    db.dailyListDao().insertItem(
+                        DailyListItem(
+                            uuid = row.uuid,
+                            dailyListId = created.id,
+                            text = row.text,
+                            completed = row.completed,
+                            indent = row.indent,
+                            position = index,
+                            sourceUuid = row.sourceUuid,
+                        ),
+                    )
+                }
+                if (titleText.isNotBlank()) repo.setTitle(created.id, titleText)
+                updateCompletionState(created.id)
+                refresh()
+                onSaved()
+            } finally {
+                savingNewCard = false
+            }
+        }
+    }
+
+    /** Build the export bytes for the saved card being edited, or null if none. */
+    suspend fun buildExport(format: DailyTaskExportFormat): ExportContent? {
+        val card = _editorCard.value ?: return null
+        val items = db.dailyListDao().getItemsOnce(card.id).filter { it.text.isNotBlank() }
+        return DailyTaskExport.of(format, card, items)
     }
 
     private suspend fun maybeRunAutomaticRenewal(card: DailyList) {
@@ -432,17 +544,30 @@ class DailyListViewModel(
         }
     }
 
-    /** Manual Cycle: repeatable; never duplicates already-carried rows. */
+    /**
+     * Manual carry-over (the three-arrow icon): pull the previous chronological
+     * card's unfinished items onto the card being edited. Repeatable; never
+     * duplicates already-carried rows. On a new (unsaved) card the carried rows
+     * go into the in-memory editor; on a saved card they are persisted.
+     */
     fun runManualRenewal() {
         val date = _editorDate.value ?: return
         viewModelScope.launch {
-            val card = _editorCard.value ?: repo.getByDate(date) ?: return@launch
-            val source = db.dailyListDao().getPreviousBefore(card.date.toString()) ?: return@launch
-            val sourceItems = db.dailyListDao().getItemsOnce(source.id)
-                .filter { it.text.isNotBlank() }
-            if (sourceItems.isEmpty()) return@launch
-            carryInto(card, source, sourceItems)
-            openEditor(card.id, card.date)
+            val card = _editorCard.value
+            if (card == null) {
+                val source = db.dailyListDao().getPreviousBefore(date.toString()) ?: return@launch
+                val sourceItems = db.dailyListDao().getItemsOnce(source.id)
+                    .filter { it.text.isNotBlank() }
+                if (sourceItems.isEmpty()) return@launch
+                carryIntoMemory(source.uuid, sourceItems)
+            } else {
+                val source = db.dailyListDao().getPreviousBefore(card.date.toString()) ?: return@launch
+                val sourceItems = db.dailyListDao().getItemsOnce(source.id)
+                    .filter { it.text.isNotBlank() }
+                if (sourceItems.isEmpty()) return@launch
+                carryInto(card, source, sourceItems)
+                openEditor(card.id, card.date)
+            }
         }
     }
 
@@ -543,28 +668,9 @@ class DailyListViewModel(
     private suspend fun saveAfterEdit() {
         val date = _editorDate.value ?: return
         val rows = _editorRows.value
-        if (_editorCard.value == null) {
-            if (!hasRealItem(rows)) return // still just a fresh date
-            val firstReal = rows.first { it.text.isNotBlank() }
-            val created = repo.createWithFirstItem(
-                date = date,
-                now = System.currentTimeMillis(),
-                typed = DailyListItem(
-                    dailyListId = 0, // replaced inside the repository's transaction
-                    uuid = firstReal.uuid,
-                    text = firstReal.text,
-                    completed = firstReal.completed,
-                    indent = firstReal.indent,
-                    position = 0,
-                    sourceUuid = firstReal.sourceUuid,
-                ),
-            ) ?: return // lost the creation race; the next change retries
-            _editorCard.value = created
-            _editorIsSaved.value = true
-            persistStructure()
-            updateCompletionState(created.id)
-            return
-        }
+        // A new (unsaved) card holds its rows in memory only — nothing persists
+        // until the user presses Save (saveNewCard). Once saved, it autosaves.
+        if (_editorCard.value == null) return
 
         val card = _editorCard.value!!
         // The card vanished under us (whole-card deletion elsewhere): drop back

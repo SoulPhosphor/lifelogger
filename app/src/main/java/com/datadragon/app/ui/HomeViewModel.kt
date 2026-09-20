@@ -69,10 +69,19 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         checklistDao.observeChecklists()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    /** Clicker Data logs, most recently used first (newest on top). */
-    val clickerLogs: StateFlow<List<ClickerLog>> =
-        clickerDao.observeLogs()
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    /**
+     * Clicker Home rows: each Clicker grouping paired with its card count, so the
+     * grouping's Home row can show "N Entries · Last Saved …" like a Form's. Most
+     * recently used first (newest on top). The "Last Saved" time rides along on
+     * the log itself ([ClickerLog.lastModifiedAt]).
+     */
+    val clickerLogs: StateFlow<List<HomeClickerLog>> =
+        combine(clickerDao.observeLogs(), clickerDao.observeCardCounts()) { logs, counts ->
+            val byLog = counts.associateBy { it.logId }
+            logs.map { log ->
+                HomeClickerLog(log = log, entryCount = byLog[log.id]?.count ?: 0)
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     // The most recent unfinished draft (if any), checked once when Home is created
     // — i.e. on app launch — so the user can be offered a chance to recover it.
@@ -163,4 +172,13 @@ data class HomeLog(
     val template: LogTemplate,
     val entryCount: Int,
     val lastEntryAt: String?,
+)
+
+/**
+ * A Clicker Home row: a Clicker grouping plus its card count. The "Last Saved"
+ * time is [ClickerLog.lastModifiedAt] on [log].
+ */
+data class HomeClickerLog(
+    val log: ClickerLog,
+    val entryCount: Int,
 )
