@@ -38,6 +38,12 @@ object Routes {
     const val IDEA_DETAIL = "ideaLog/{$IDEA_LOG_ARG}/idea/{$IDEA_ARG}"
     const val EDIT_IDEA = "ideaLog/{$IDEA_LOG_ARG}/idea/{$IDEA_ARG}/edit"
 
+    // Clicker Data. A log's own screen (its cards) and the setup screen in edit
+    // mode for the whole series.
+    const val CLICKER_LOG_ARG = "clickerLogId"
+    const val CLICKER_LOG = "clickerLog/{$CLICKER_LOG_ARG}"
+    const val EDIT_CLICKER_LOG = "clickerLog/{$CLICKER_LOG_ARG}/edit"
+
     // Daily List. The editor opens for an exact ISO date (an existing card or
     // a fresh unsaved editor for that date — nothing is created by opening).
     const val DAILY_LIST_ARG = "date"
@@ -62,6 +68,9 @@ object Routes {
     fun newIdea(ideaLogId: Long) = "ideaLog/$ideaLogId/newIdea"
     fun ideaDetail(ideaLogId: Long, ideaId: Long) = "ideaLog/$ideaLogId/idea/$ideaId"
     fun editIdea(ideaLogId: Long, ideaId: Long) = "ideaLog/$ideaLogId/idea/$ideaId/edit"
+
+    fun clickerLog(clickerLogId: Long) = "clickerLog/$clickerLogId"
+    fun editClickerLog(clickerLogId: Long) = "clickerLog/$clickerLogId/edit"
 
     fun dailyListEditor(date: String) = "dailyList/$date"
 

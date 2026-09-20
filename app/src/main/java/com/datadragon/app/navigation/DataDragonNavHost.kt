@@ -10,6 +10,7 @@ import androidx.navigation.navArgument
 import com.datadragon.app.ui.screens.CalendarConfigScreen
 import com.datadragon.app.ui.screens.CalendarViewScreen
 import com.datadragon.app.ui.screens.ChecklistScreen
+import com.datadragon.app.ui.screens.ClickerLogScreen
 import com.datadragon.app.ui.screens.ClickerSetupScreen
 import com.datadragon.app.ui.screens.CreateIdeaLogScreen
 import com.datadragon.app.ui.screens.CreateLogScreen
@@ -87,8 +88,7 @@ fun DataDragonNavHost(
                     )
                 },
                 onCreateClicker = { navController.navigate(Routes.CREATE_CLICKER) },
-                // Opening a log is wired to the in-log card screen in the next stage.
-                onOpenClicker = { },
+                onOpenClicker = { clickerLogId -> navController.navigate(Routes.clickerLog(clickerLogId)) },
                 dailyListViewModel = dailyListViewModel,
                 viewModel = homeViewModel,
             )
@@ -231,6 +231,28 @@ fun DataDragonNavHost(
 
         composable(Routes.CREATE_CLICKER) {
             ClickerSetupScreen(existingLogId = null, onBack = { navController.popBackStack() })
+        }
+
+        composable(
+            route = Routes.CLICKER_LOG,
+            arguments = listOf(navArgument(Routes.CLICKER_LOG_ARG) { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val id = backStackEntry.arguments?.getString(Routes.CLICKER_LOG_ARG)?.toLongOrNull()
+            if (id != null) {
+                ClickerLogScreen(
+                    logId = id,
+                    onBack = { navController.popBackStack() },
+                    onEditLog = { navController.navigate(Routes.editClickerLog(it)) },
+                )
+            }
+        }
+
+        composable(
+            route = Routes.EDIT_CLICKER_LOG,
+            arguments = listOf(navArgument(Routes.CLICKER_LOG_ARG) { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val id = backStackEntry.arguments?.getString(Routes.CLICKER_LOG_ARG)?.toLongOrNull()
+            ClickerSetupScreen(existingLogId = id, onBack = { navController.popBackStack() })
         }
 
         composable(
