@@ -67,6 +67,7 @@ import com.datadragon.app.ui.CalendarConfigViewModel
 import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.ui.components.AppDropdownRow
 import com.datadragon.app.ui.components.ColorPickerDialog
+import com.datadragon.app.ui.theme.AppTheme
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -326,14 +327,20 @@ fun CalendarConfigScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            OutlinedTextField(
-                value = description,
-                onValueChange = { description = it },
-                label = { Text("Description") },
-                placeholder = { Text("Optional: Describes what is tracked. Shows at top of calendar.") },
-                minLines = 5,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp),
-            )
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text("Description", style = AppTheme.textStyles.settingTitle)
+                Text(
+                    "Optional text shown at the top of the calendar.",
+                    style = AppTheme.textStyles.settingDescription,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    minLines = 5,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp),
+                )
+            }
 
             // Which timestamp assigns a log to a day. Only offered when the form
             // has a date field; otherwise the created-at time is used.
@@ -450,7 +457,13 @@ fun CalendarConfigScreen(
             }
 
             if (isRangeType) {
-                ColorCountSelector(selected = colorCount, onSelected = { setColorCount(it) })
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        "Choose number of colors to represent your data.",
+                        style = AppTheme.textStyles.settingTitle,
+                    )
+                    ColorCountSelector(selected = colorCount, onSelected = { setColorCount(it) })
+                }
 
                 if (colorCount != null) {
                     AppDropdownRow(

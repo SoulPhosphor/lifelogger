@@ -339,7 +339,7 @@ fun EditFormScreen(
                     enabled = integrateCalendar == true,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("Edit Calendar")
+                    Text("Add Calendar")
                 }
             }
 
