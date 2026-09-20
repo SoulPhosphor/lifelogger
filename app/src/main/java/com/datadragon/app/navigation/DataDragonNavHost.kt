@@ -10,6 +10,7 @@ import androidx.navigation.navArgument
 import com.datadragon.app.ui.screens.CalendarConfigScreen
 import com.datadragon.app.ui.screens.CalendarViewScreen
 import com.datadragon.app.ui.screens.ChecklistScreen
+import com.datadragon.app.ui.screens.ClickerCardEditScreen
 import com.datadragon.app.ui.screens.ClickerLogScreen
 import com.datadragon.app.ui.screens.ClickerSetupScreen
 import com.datadragon.app.ui.screens.CreateIdeaLogScreen
@@ -243,6 +244,7 @@ fun DataDragonNavHost(
                     logId = id,
                     onBack = { navController.popBackStack() },
                     onEditLog = { navController.navigate(Routes.editClickerLog(it)) },
+                    onEditCard = { navController.navigate(Routes.clickerCardEdit(it)) },
                 )
             }
         }
@@ -253,6 +255,16 @@ fun DataDragonNavHost(
         ) { backStackEntry ->
             val id = backStackEntry.arguments?.getString(Routes.CLICKER_LOG_ARG)?.toLongOrNull()
             ClickerSetupScreen(existingLogId = id, onBack = { navController.popBackStack() })
+        }
+
+        composable(
+            route = Routes.CLICKER_CARD_EDIT,
+            arguments = listOf(navArgument(Routes.CLICKER_CARD_ARG) { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val id = backStackEntry.arguments?.getString(Routes.CLICKER_CARD_ARG)?.toLongOrNull()
+            if (id != null) {
+                ClickerCardEditScreen(cardId = id, onBack = { navController.popBackStack() })
+            }
         }
 
         composable(

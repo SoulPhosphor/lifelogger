@@ -85,6 +85,7 @@ fun ClickerLogScreen(
     logId: Long,
     onBack: () -> Unit,
     onEditLog: (Long) -> Unit,
+    onEditCard: (Long) -> Unit,
     viewModel: ClickerLogViewModel = viewModel(),
 ) {
     LaunchedEffect(logId) { viewModel.start(logId) }
@@ -162,6 +163,7 @@ fun ClickerLogScreen(
                         displayOnlyClickerDateTime = log?.displayOnlyClickerDateTime ?: false,
                         onStep = { field -> viewModel.step(card, field) },
                         onSetValue = { field, raw -> viewModel.setValue(card, field.id, raw) },
+                        onEditCard = { onEditCard(card.id) },
                         onDeleteCard = { viewModel.deleteCard(card) },
                     )
                 }
@@ -193,6 +195,7 @@ private fun ClickerCardView(
     displayOnlyClickerDateTime: Boolean,
     onStep: (ClickerField) -> Unit,
     onSetValue: (ClickerField, String) -> Unit,
+    onEditCard: () -> Unit,
     onDeleteCard: () -> Unit,
 ) {
     val values = remember(card.valuesJson) { ClickerValues.decode(card.valuesJson) }
@@ -211,6 +214,10 @@ private fun ClickerCardView(
                         Icon(Icons.Filled.MoreVert, contentDescription = "Card options")
                     }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Edit") },
+                            onClick = { menuOpen = false; onEditCard() },
+                        )
                         DropdownMenuItem(
                             text = { Text("Delete") },
                             onClick = { menuOpen = false; onDeleteCard() },
