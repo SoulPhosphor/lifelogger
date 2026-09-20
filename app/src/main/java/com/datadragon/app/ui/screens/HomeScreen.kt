@@ -67,6 +67,7 @@ import com.datadragon.app.ui.components.AppDialog
 import com.datadragon.app.ui.components.DialogActionButton
 import com.datadragon.app.ui.components.DialogDestructiveButton
 import com.datadragon.app.ui.components.DialogDismissButton
+import com.datadragon.app.ui.theme.AppTheme
 import com.datadragon.app.ui.HomeIdeaLog
 import com.datadragon.app.ui.HomeLog
 import com.datadragon.app.ui.HomeViewModel
@@ -145,7 +146,7 @@ fun HomeScreen(
                         Icon(
                             Icons.Filled.SettingsApplications,
                             contentDescription = "Settings",
-                            modifier = Modifier.size(24.dp),
+                            modifier = Modifier.size(AppTheme.sizes.settingsCog),
                         )
                     }
                 },

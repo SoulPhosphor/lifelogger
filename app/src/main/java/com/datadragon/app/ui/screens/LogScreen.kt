@@ -23,6 +23,9 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.SettingsApplications
+import androidx.compose.foundation.layout.size
+import com.datadragon.app.ui.theme.AppTheme
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.AlertDialog
@@ -164,7 +167,11 @@ fun LogScreen(
                         }
                         Box {
                             IconButton(onClick = { gearMenuOpen = true }) {
-                                Icon(Icons.Filled.MoreVert, contentDescription = "Log Options")
+                                Icon(
+                                    Icons.Filled.SettingsApplications,
+                                    contentDescription = "Log Options",
+                                    modifier = Modifier.size(AppTheme.sizes.settingsCog),
+                                )
                             }
                             DropdownMenu(
                                 expanded = gearMenuOpen,

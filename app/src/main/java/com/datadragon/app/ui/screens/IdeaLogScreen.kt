@@ -21,6 +21,9 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.FolderCopy
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.SettingsApplications
+import androidx.compose.foundation.layout.size
+import com.datadragon.app.ui.theme.AppTheme
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
@@ -135,7 +138,11 @@ fun IdeaLogScreen(
                         }
                         Box {
                             IconButton(onClick = { gearMenuOpen = true }) {
-                                Icon(Icons.Filled.MoreVert, contentDescription = "Idea Log Options")
+                                Icon(
+                                    Icons.Filled.SettingsApplications,
+                                    contentDescription = "Idea Log Options",
+                                    modifier = Modifier.size(AppTheme.sizes.settingsCog),
+                                )
                             }
                             DropdownMenu(
                                 expanded = gearMenuOpen,
