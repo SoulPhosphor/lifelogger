@@ -5,6 +5,7 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
@@ -32,6 +33,16 @@ interface ClickerDao {
 
     @Delete
     suspend fun deleteLog(log: ClickerLog)
+
+    @Query("DELETE FROM clicker_cards WHERE clickerLogId = :logId")
+    suspend fun deleteCardsForLog(logId: Long)
+
+    /** Delete a log and all of its cards together, so no cards are orphaned. */
+    @Transaction
+    suspend fun deleteLogWithCards(log: ClickerLog) {
+        deleteCardsForLog(log.id)
+        deleteLog(log)
+    }
 
     /** Bump a log to the top of the recently-used order. */
     @Query("UPDATE clicker_logs SET lastAccessedAt = :time WHERE id = :id")

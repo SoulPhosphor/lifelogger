@@ -72,6 +72,21 @@ private fun stampText(date: String?, time: String?): String? {
     }
 }
 
+/** Format a display-only field's stored value for the card face, per its type. */
+private fun displayFieldValue(type: ClickerFieldType, raw: String): String = when (type) {
+    ClickerFieldType.DATE ->
+        runCatching { LocalDate.parse(raw).format(STAMP_DATE_FORMAT) }.getOrDefault(raw)
+    ClickerFieldType.TIME ->
+        runCatching { LocalTime.parse(raw).format(STAMP_TIME_FORMAT) }.getOrDefault(raw)
+    ClickerFieldType.DATE_TIME -> {
+        val parts = raw.split(" ")
+        val d = parts.getOrNull(0)?.let { runCatching { LocalDate.parse(it).format(STAMP_DATE_FORMAT) }.getOrNull() }
+        val t = parts.getOrNull(1)?.let { runCatching { LocalTime.parse(it).format(STAMP_TIME_FORMAT) }.getOrNull() }
+        if (d != null && t != null) "$d at $t" else raw
+    }
+    else -> raw
+}
+
 /** Keep an optional leading minus and digits, capped at [maxDigits]. */
 private fun numberInput(input: String, maxDigits: Int): String {
     val negative = input.startsWith("-")
@@ -290,8 +305,8 @@ private fun ClickerFieldFace(
             }
         }
         else -> {
-            // Display-only types: show the stored value, read-only on the face.
-            val shown = ClickerValues.text(values, field.id)
+            // Display-only types: show the stored value formatted, read-only on the face.
+            val shown = displayFieldValue(field.type, ClickerValues.text(values, field.id))
             if (field.type.editOnlyFromCardMenu) {
                 Text(
                     text = if (shown.isNotBlank()) "${field.label}: $shown" else field.label,

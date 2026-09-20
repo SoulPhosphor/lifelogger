@@ -22,6 +22,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 
@@ -39,6 +41,9 @@ class ClickerLogViewModel(app: Application) : AndroidViewModel(app) {
     private val dao = AppDatabase.getInstance(app).clickerDao()
     private val json = Json { ignoreUnknownKeys = true }
     private val logId = MutableStateFlow<Long?>(null)
+
+    // Serializes card value writes so concurrent taps/edits never lose an update.
+    private val writeMutex = Mutex()
 
     val log: StateFlow<ClickerLog?> =
         logId.flatMapLatest { id -> if (id == null) flowOf(null) else dao.observeLog(id) }
@@ -86,29 +91,38 @@ class ClickerLogViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Press a tracker's button: apply its signed increment to the card's value. */
+    /** Press a tracker's button: apply its signed increment to the latest stored value. */
     fun step(card: ClickerCard, field: ClickerField) {
-        val values = ClickerValues.decode(card.valuesJson).toMutableMap()
-        val start = if (field.type == ClickerFieldType.CLICK_TRACKER) field.startingNumber else 0
-        val currentValue = ClickerValues.number(values, field.id) ?: start
-        val delta =
-            if (field.incrementDirection == ClickerIncrementDirection.ADD) field.incrementAmount
-            else -field.incrementAmount
-        values[field.id] = (currentValue + delta).toString()
-        persist(card.copy(valuesJson = ClickerValues.encode(values)))
+        mutate(card.id) { values ->
+            val start = if (field.type == ClickerFieldType.CLICK_TRACKER) field.startingNumber else 0
+            val currentValue = ClickerValues.number(values, field.id) ?: start
+            val delta =
+                if (field.incrementDirection == ClickerIncrementDirection.ADD) field.incrementAmount
+                else -field.incrementAmount
+            values[field.id] = (currentValue + delta).toString()
+        }
     }
 
     /** Set a field's raw value directly (inline number entry / manual edit). */
     fun setValue(card: ClickerCard, fieldId: String, raw: String) {
-        val values = ClickerValues.decode(card.valuesJson).toMutableMap()
-        if (raw.isEmpty()) values.remove(fieldId) else values[fieldId] = raw
-        persist(card.copy(valuesJson = ClickerValues.encode(values)))
+        mutate(card.id) { values ->
+            if (raw.isEmpty()) values.remove(fieldId) else values[fieldId] = raw
+        }
     }
 
-    private fun persist(card: ClickerCard) {
+    /**
+     * Serialize a read-modify-write against the card's latest stored values, so
+     * rapid taps and concurrent field edits never overwrite one another.
+     */
+    private fun mutate(cardId: Long, change: (MutableMap<String, String>) -> Unit) {
         viewModelScope.launch {
-            dao.updateCard(card)
-            dao.touchLog(card.clickerLogId, System.currentTimeMillis())
+            writeMutex.withLock {
+                val fresh = dao.getCard(cardId) ?: return@withLock
+                val values = ClickerValues.decode(fresh.valuesJson).toMutableMap()
+                change(values)
+                dao.updateCard(fresh.copy(valuesJson = ClickerValues.encode(values)))
+                dao.touchLog(fresh.clickerLogId, System.currentTimeMillis())
+            }
         }
     }
 
@@ -119,7 +133,7 @@ class ClickerLogViewModel(app: Application) : AndroidViewModel(app) {
     fun deleteLog(onDeleted: () -> Unit) {
         val id = logId.value ?: return onDeleted()
         viewModelScope.launch {
-            dao.getLog(id)?.let { dao.deleteLog(it) }
+            dao.getLog(id)?.let { dao.deleteLogWithCards(it) }
             onDeleted()
         }
     }
