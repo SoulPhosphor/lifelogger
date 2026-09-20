@@ -296,7 +296,7 @@ fun CalendarConfigScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Edit Calendar") },
+                title = { Text(if (existingCalendarId == null) "New Calendar" else "Edit Calendar") },
                 navigationIcon = {
                     IconButton(onClick = { attemptBack() }) {
                         Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
@@ -319,13 +319,15 @@ fun CalendarConfigScreen(
                 onSelected = { typeToken = it.token },
             )
 
-            OutlinedTextField(
-                value = label,
-                onValueChange = { label = it },
-                label = { Text("Calendar Label") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text("Calendar Label", style = AppTheme.textStyles.settingTitle)
+                OutlinedTextField(
+                    value = label,
+                    onValueChange = { label = it },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
 
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text("Description", style = AppTheme.textStyles.settingTitle)
@@ -414,14 +416,16 @@ fun CalendarConfigScreen(
                                 optionLabel = { conditionDisplayName(it) },
                                 onSelected = { matchCondition = it },
                             )
-                            OutlinedTextField(
-                                value = matchValue,
-                                onValueChange = { matchValue = it },
-                                label = { Text("Value") },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.fillMaxWidth(),
-                            )
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Text("Value", style = AppTheme.textStyles.settingTitle)
+                                OutlinedTextField(
+                                    value = matchValue,
+                                    onValueChange = { matchValue = it },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
                         }
                     }
                 }
@@ -577,13 +581,15 @@ private fun SavePresetDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         text = {
-            OutlinedTextField(
-                value = name,
-                onValueChange = onNameChange,
-                label = { Text("Preset Name") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text("Preset Name", style = AppTheme.textStyles.settingTitle)
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = onNameChange,
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         },
         confirmButton = {
             TextButton(onClick = onConfirm, enabled = name.trim().isNotEmpty()) { Text("Okay") }
@@ -594,7 +600,7 @@ private fun SavePresetDialog(
     )
 }
 
-/** The "Choose Calendar Type" dropdown. Its floating label is the prompt; the box
+/** The "Choose Calendar Type" dropdown. Its external label is the prompt; the box
  *  is empty until a type is picked. Option names are the exact owner-facing labels. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -603,24 +609,26 @@ private fun CalendarTypeDropdown(
     onSelected: (CalendarType) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-        OutlinedTextField(
-            value = selected?.displayName().orEmpty(),
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Choose Calendar Type") },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.menuAnchor().fillMaxWidth(),
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            CalendarType.entries.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(option.displayName()) },
-                    onClick = {
-                        onSelected(option)
-                        expanded = false
-                    },
-                )
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text("Choose Calendar Type", style = AppTheme.textStyles.settingTitle)
+        ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+            OutlinedTextField(
+                value = selected?.displayName().orEmpty(),
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier.menuAnchor().fillMaxWidth(),
+            )
+            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                CalendarType.entries.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(option.displayName()) },
+                        onClick = {
+                            onSelected(option)
+                            expanded = false
+                        },
+                    )
+                }
             }
         }
     }

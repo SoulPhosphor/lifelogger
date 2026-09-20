@@ -32,6 +32,12 @@ These are the ones that keep getting broken. They are absolute.
 5. **A drop-down never resizes itself.** Its width is set by the widest label it
    could ever show, and stays there.
 6. **A hint goes under its label, never under the control.**
+7. **Text labels never interrupt or notch through a framed control's outline.**
+   Editable text fields use an external label above the field rather than
+   Material's floating `label`, and a blank editable field does not contain its
+   own field label. Dropdown labels may be above or beside the dropdown
+   according to the screen's design, but never inside the box or breaking its
+   border.
 
 ---
 
@@ -114,8 +120,10 @@ Because of this, adding a theme later is a change to `Theme.kt`, `Type.kt`,
 ## 5. Drop-downs
 
 - **A label never sits inside a drop-down's box or interrupts its outline.**
-  Not a floating label notching the border, not placeholder text sitting where
-  the chosen value goes. The box stays visually empty until a value is chosen.
+  Not a floating label notching the border, not placeholder text sitting where the
+  chosen value goes. The box stays visually empty until a value is chosen. The
+  general framed-control rule in §1 also applies to every editable text field.
+
 - **Where the label sits relative to the box — above it, or beside it on the
   same line — follows the direction given for that screen.** This is not one
   rigid layout forced everywhere; label-above is the current default (see
