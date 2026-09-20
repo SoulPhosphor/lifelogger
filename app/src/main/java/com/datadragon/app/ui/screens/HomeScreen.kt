@@ -347,7 +347,7 @@ private fun DailyTasksTopBar(
 ) {
     TopAppBar(
         title = {
-            Text("Daily Task", style = MaterialTheme.typography.titleLarge)
+            Text("Daily Tasks", style = MaterialTheme.typography.titleLarge)
         },
         navigationIcon = {
             Row(verticalAlignment = Alignment.CenterVertically) {
