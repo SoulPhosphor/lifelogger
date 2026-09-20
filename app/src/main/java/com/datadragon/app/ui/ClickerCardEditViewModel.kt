@@ -27,7 +27,7 @@ class ClickerCardEditViewModel(app: Application) : AndroidViewModel(app) {
     fun save(card: ClickerCard, onSaved: () -> Unit) {
         viewModelScope.launch {
             dao.updateCard(card)
-            dao.touchLog(card.clickerLogId, System.currentTimeMillis())
+            dao.touchModified(card.clickerLogId, System.currentTimeMillis())
             onSaved()
         }
     }

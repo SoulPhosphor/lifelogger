@@ -71,10 +71,11 @@ import com.datadragon.app.ui.theme.AppTheme
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
-import com.datadragon.app.data.ClickerLog
+import com.datadragon.app.ui.HomeClickerLog
 import com.datadragon.app.ui.HomeIdeaLog
 import com.datadragon.app.ui.HomeLog
 import com.datadragon.app.ui.HomeViewModel
+import com.datadragon.app.ui.components.HomeCard
 import androidx.compose.ui.res.painterResource
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -551,34 +552,16 @@ private fun IdeaLogRow(
     onOpen: () -> Unit,
     onAddIdea: () -> Unit,
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onOpen),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = ideaLog.log.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = summaryLine(ideaLog.entryCount, ideaLog.lastEntryAt),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
+    HomeCard(
+        title = ideaLog.log.name,
+        onClick = onOpen,
+        subtitle = summaryLine(ideaLog.entryCount, ideaLog.lastEntryAt),
+        trailing = {
             IconButton(onClick = onAddIdea) {
                 Icon(Icons.Filled.Add, contentDescription = "Add idea to ${ideaLog.log.name}")
             }
-        }
-    }
+        },
+    )
 }
 
 @Composable
@@ -587,44 +570,30 @@ private fun LogRow(
     onOpen: () -> Unit,
     onAddEntry: () -> Unit,
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onOpen),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (log.template.locked) {
-                        Icon(
-                            imageVector = Icons.Filled.Lock,
-                            contentDescription = "Locked log",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(16.dp).padding(end = 4.dp),
-                        )
-                    }
-                    Text(
-                        text = log.template.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                Text(
-                    text = entrySummaryLine(log),
-                    style = MaterialTheme.typography.bodySmall,
+    HomeCard(
+        title = log.template.name,
+        onClick = onOpen,
+        subtitle = entrySummaryLine(log),
+        leadingIcon = if (log.template.locked) {
+            {
+                Icon(
+                    imageVector = Icons.Filled.Lock,
+                    contentDescription = "Locked log",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp).padding(end = 4.dp),
                 )
             }
-            // Per-row add-entry button stays on the far right so the everyday
-            // action is consistent and far from any destructive control.
+        } else {
+            null
+        },
+        // Per-row add-entry button stays on the far right so the everyday
+        // action is consistent and far from any destructive control.
+        trailing = {
             IconButton(onClick = onAddEntry) {
                 Icon(Icons.Filled.Add, contentDescription = "Add entry to ${log.template.name}")
             }
-        }
-    }
+        },
+    )
 }
 
 @Composable
@@ -728,7 +697,7 @@ private fun summaryLine(entryCount: Int, lastEntryAt: String?): String {
 
 @Composable
 private fun ClickerBody(
-    logs: List<ClickerLog>,
+    logs: List<HomeClickerLog>,
     modifier: Modifier = Modifier,
     onOpenClicker: (Long) -> Unit,
 ) {
@@ -744,36 +713,33 @@ private fun ClickerBody(
             contentPadding = PaddingValues(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            items(logs, key = { it.id }) { log ->
-                ClickerLogRow(log = log, onOpen = { onOpenClicker(log.id) })
+            items(logs, key = { it.log.id }) { log ->
+                ClickerLogRow(log = log, onOpen = { onOpenClicker(log.log.id) })
             }
         }
     }
 }
 
-/** One Clicker Data log card on the Clicker home: its title, tappable to open. */
+/**
+ * One Clicker grouping's Home row: its title, tappable to open, with the same
+ * count-and-last line a Form's row shows — but "Last Saved" instead of "Last
+ * Entry", since a clicker card is used over time rather than filed once.
+ */
 @Composable
-private fun ClickerLogRow(log: ClickerLog, onOpen: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onOpen),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = log.title,
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-        }
-    }
+private fun ClickerLogRow(log: HomeClickerLog, onOpen: () -> Unit) {
+    HomeCard(
+        title = log.log.title,
+        onClick = onOpen,
+        subtitle = clickerSummaryLine(log),
+    )
+}
+
+/** "No Entries Yet" / "1 Entry" / "14 Entries · Last Saved Today" for a Clicker grouping. */
+private fun clickerSummaryLine(log: HomeClickerLog): String {
+    if (log.entryCount == 0) return "No Entries Yet"
+    val count = if (log.entryCount == 1) "1 Entry" else "${log.entryCount} Entries"
+    val last = EntryValues.displayLastSaved(log.log.lastModifiedAt)
+    return if (last != null) "$count · Last Saved $last" else count
 }
 
 @Composable

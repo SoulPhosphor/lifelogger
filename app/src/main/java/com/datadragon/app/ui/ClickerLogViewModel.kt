@@ -87,7 +87,7 @@ class ClickerLogViewModel(app: Application) : AndroidViewModel(app) {
                     valuesJson = ClickerValues.encode(values),
                 ),
             )
-            dao.touchLog(id, now)
+            dao.touchModified(id, now)
         }
     }
 
@@ -121,13 +121,16 @@ class ClickerLogViewModel(app: Application) : AndroidViewModel(app) {
                 val values = ClickerValues.decode(fresh.valuesJson).toMutableMap()
                 change(values)
                 dao.updateCard(fresh.copy(valuesJson = ClickerValues.encode(values)))
-                dao.touchLog(fresh.clickerLogId, System.currentTimeMillis())
+                dao.touchModified(fresh.clickerLogId, System.currentTimeMillis())
             }
         }
     }
 
     fun deleteCard(card: ClickerCard) {
-        viewModelScope.launch { dao.deleteCard(card) }
+        viewModelScope.launch {
+            dao.deleteCard(card)
+            dao.touchModified(card.clickerLogId, System.currentTimeMillis())
+        }
     }
 
     fun deleteLog(onDeleted: () -> Unit) {

@@ -17,6 +17,7 @@ this file to match.
 | You think (CSS) | The app calls it (Compose) | Where it lives |
 | --- | --- | --- |
 | A reusable class / component | a **composable function** (`@Composable fun …`) | `ui/components/`, `ui/screens/` |
+| The one card every Home row is built from | `HomeCard` | `ui/components/HomeCard.kt` |
 | A `<div>` / flex container | `Column` (stacks down), `Row` (across), `Box` (layered) | inline in each screen |
 | `color:` / CSS custom property | a **color token** in the theme's color scheme | `ui/theme/Color.kt`, `Theme.kt` |
 | `font-size` / `font` | a **named text style** | `ui/theme/Type.kt` (`AppTheme.textStyles.*`) |
@@ -118,10 +119,12 @@ for a card.
 - **Grouping title** — the grouping's name, the top line of its Home row (e.g.
   "Odor Log").
 - **Summary line** — the second line under the title: the card count and the
-  most recent activity, e.g. `110 Entries · Last Entry Yesterday` on Forms and
-  Ideas today. Count wording is "No Entries Yet" / "1 Entry" / "N Entries". The
-  Clicker grouping's summary line — `N Entries · Last Saved Today`, with "Last
-  Saved" instead of "Last Entry" — is being added; it does not ship yet.
+  most recent activity. Count wording is "No Entries Yet" / "1 Entry" /
+  "N Entries". Forms and Ideas read `110 Entries · Last Entry Yesterday`; the
+  Clicker grouping reads `N Entries · Last Saved Today` — "Last Saved" instead of
+  "Last Entry", because a clicker card is used over time rather than filed once.
+  "Last Saved" is [`ClickerLog.lastModifiedAt`](../app/src/main/java/com/datadragon/app/data/Clicker.kt),
+  bumped on any card change but never on a plain open or a title rename.
 
 ### The two "+" buttons are different things
 

@@ -44,9 +44,24 @@ interface ClickerDao {
         deleteLog(log)
     }
 
-    /** Bump a log to the top of the recently-used order. */
+    /** Bump a log to the top of the recently-used order (opening the log). */
     @Query("UPDATE clicker_logs SET lastAccessedAt = :time WHERE id = :id")
     suspend fun touchLog(id: Long, time: Long)
+
+    /**
+     * Record a card-content change: bump both the recently-used order and the
+     * "Last Saved" time. Called on every card add / step / value edit / delete,
+     * never on a plain open or a grouping-title rename.
+     */
+    @Query("UPDATE clicker_logs SET lastAccessedAt = :time, lastModifiedAt = :time WHERE id = :id")
+    suspend fun touchModified(id: Long, time: Long)
+
+    /**
+     * Per-log card count, so the Clicker Home row can show "N Entries" without
+     * loading every card. Mirrors the Forms entry-summary query.
+     */
+    @Query("SELECT clickerLogId AS logId, COUNT(*) AS count FROM clicker_cards GROUP BY clickerLogId")
+    fun observeCardCounts(): Flow<List<ClickerCardCount>>
 
     // --- Cards --------------------------------------------------------------
 
@@ -72,3 +87,9 @@ interface ClickerDao {
     @Delete
     suspend fun deleteCard(card: ClickerCard)
 }
+
+/** Aggregate row backing the Clicker Home row's "N Entries" count. */
+data class ClickerCardCount(
+    val logId: Long,
+    val count: Int,
+)

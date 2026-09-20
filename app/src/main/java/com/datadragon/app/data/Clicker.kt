@@ -19,6 +19,12 @@ import java.util.UUID
  * [lastAccessedAt] is bumped whenever the log is opened or a card in it changes,
  * so the Clicker home list can show the most recently used log at the top.
  *
+ * [lastModifiedAt] is the "Last Saved" time shown on the grouping's Home row. It
+ * is bumped only when a card's content changes — a card added, a tracker
+ * stepped, a value/date/text edited, or a card deleted — never by merely opening
+ * the grouping and never by renaming the grouping's title. That is what
+ * separates it from [lastAccessedAt].
+ *
  * Display settings:
  * - [displayOnlyClickerDateTime]: when on, the card face shows only the trackers
  *   and the date/time stamp; text and multitext fields are hidden on the face
@@ -36,6 +42,7 @@ data class ClickerLog(
     val title: String,
     val createdAt: Long,
     val lastAccessedAt: Long,
+    val lastModifiedAt: Long = createdAt,
     val fieldsJson: String,
     val displayOnlyClickerDateTime: Boolean = false,
     val autoDateStamp: Boolean = true,
