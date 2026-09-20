@@ -71,6 +71,7 @@ import com.datadragon.app.ui.theme.AppTheme
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.math.BigInteger
 
 /**
  * The single, vertically scrollable Edit Calendar screen (owner direction: one
@@ -118,6 +119,8 @@ fun CalendarConfigScreen(
     // Color configuration (range types). Color count is null until the user picks
     // 3/5/10; the rows are seeded from the chosen preset.
     var colorCount by rememberSaveable { mutableStateOf<Int?>(null) }
+    var autoMinimumValue by rememberSaveable { mutableStateOf("") }
+    var autoMaximumValue by rememberSaveable { mutableStateOf("") }
     var colorPreset by rememberSaveable { mutableStateOf(ColorPresets.GRADIATED) }
     val colorRows = rememberSaveable(saver = colorRowsSaver) { mutableStateListOf<ColorRowState>() }
     var savedColorCount by rememberSaveable { mutableStateOf<Int?>(null) }
@@ -257,6 +260,33 @@ fun CalendarConfigScreen(
         val colors = resolvePresetColors(preset, count)
         colorRows.forEachIndexed { index, row ->
             colors.getOrNull(index)?.let { row.colorHex = it }
+        }
+    }
+
+    // Fill the current rows with contiguous, evenly distributed whole-number ranges.
+    fun calculateColorMappingValues() {
+        val count = colorCount ?: return
+        if (colorRows.size != count) return
+        val minimum = runCatching { BigInteger(autoMinimumValue) }.getOrNull() ?: return
+        val maximum = runCatching { BigInteger(autoMaximumValue) }.getOrNull() ?: return
+        if (maximum < minimum) return
+        val countValue = BigInteger.valueOf(count.toLong())
+        val totalValues = maximum - minimum + BigInteger.ONE
+        if (totalValues < countValue) return
+
+        val calculatedRanges = (0 until count).map { index ->
+            val rowMin = minimum + (BigInteger.valueOf(index.toLong()) * totalValues / countValue)
+            val rowMax = if (index == count - 1) {
+                maximum
+            } else {
+                minimum + (BigInteger.valueOf((index + 1).toLong()) * totalValues / countValue) - BigInteger.ONE
+            }
+            rowMin.toString() to rowMax.toString()
+        }
+        colorRows.forEachIndexed { index, row ->
+            val (rowMin, rowMax) = calculatedRanges[index]
+            row.minValue = rowMin
+            row.maxValue = rowMax
         }
     }
 
@@ -469,6 +499,35 @@ fun CalendarConfigScreen(
                     ColorCountSelector(selected = colorCount, onSelected = { setColorCount(it) })
                 }
 
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        "Auto Populate Color Mapping Values",
+                        style = AppTheme.textStyles.settingTitle,
+                    )
+                    Text("Minimum Value", style = AppTheme.textStyles.settingTitle)
+                    OutlinedTextField(
+                        value = autoMinimumValue,
+                        onValueChange = { autoMinimumValue = it },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Text("Maximum Value", style = AppTheme.textStyles.settingTitle)
+                    OutlinedTextField(
+                        value = autoMaximumValue,
+                        onValueChange = { autoMaximumValue = it },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    AppButton(
+                        onClick = { calculateColorMappingValues() },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Calculate")
+                    }
+                }
+
                 if (colorCount != null) {
                     AppDropdownRow(
                         label = "Color Preset",
@@ -522,6 +581,8 @@ fun CalendarConfigScreen(
                         matchOption = null
                         dayTimestampField = null
                         colorCount = null
+                        autoMinimumValue = ""
+                        autoMaximumValue = ""
                         colorPreset = ColorPresets.GRADIATED
                         colorRows.clear()
                         markSaved()
