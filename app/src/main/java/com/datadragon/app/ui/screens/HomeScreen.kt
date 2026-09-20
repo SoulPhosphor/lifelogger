@@ -566,7 +566,7 @@ private fun IdeasBody(
     if (ideaLogs.isEmpty()) {
         EmptyMessage(
             title = "No idea logs yet.",
-            body = "Click the plus in the top right to begin",
+            body = "Click the plus in the top right to begin.",
             modifier = modifier,
         )
     } else {
