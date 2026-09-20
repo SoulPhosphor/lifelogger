@@ -143,7 +143,7 @@ fun EditIdeaLogScreen(
                 )
             },
             confirmButton = {
-                TextButton(onClick = { showArchivedIdeasExist = false }) { Text("OK") }
+                TextButton(onClick = { showArchivedIdeasExist = false }) { Text("Okay") }
             },
         )
     }

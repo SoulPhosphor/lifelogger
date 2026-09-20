@@ -129,16 +129,16 @@ fun DailyListBody(
         AlertDialog(
             onDismissRequest = { deleteCandidate = null },
             title = { Text("Delete list?") },
-            // Button order is fixed: Okay first, Cancel second. Material renders
-            // the dismiss slot before the confirm slot, so Okay goes in the
-            // dismiss slot to keep that order on screen.
-            dismissButton = {
+            // Cancel on the left, Okay on the right. Material renders the dismiss
+            // slot before the confirm slot, so Cancel goes in dismiss and Okay in
+            // confirm to keep that order on screen.
+            confirmButton = {
                 TextButton(onClick = {
                     deleteCandidate = null
                     onDeleteCard(card)
                 }) { Text("Okay") }
             },
-            confirmButton = {
+            dismissButton = {
                 TextButton(onClick = { deleteCandidate = null }) { Text("Cancel") }
             },
         )

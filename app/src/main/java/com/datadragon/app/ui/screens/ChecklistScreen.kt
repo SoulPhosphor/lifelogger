@@ -322,16 +322,16 @@ fun ChecklistScreen(
         AlertDialog(
             onDismissRequest = { showDeleteList = false },
             title = { Text("Delete list?") },
-            // Button order is fixed: Okay first, Cancel second. Material renders
-            // the dismiss slot before the confirm slot, so Okay goes in the
-            // dismiss slot to keep that order on screen.
-            dismissButton = {
+            // Cancel on the left, Okay on the right. Material renders the dismiss
+            // slot before the confirm slot, so Cancel goes in dismiss and Okay in
+            // confirm to keep that order on screen.
+            confirmButton = {
                 TextButton(onClick = {
                     showDeleteList = false
                     viewModel.deleteList(onBack)
                 }) { Text("Okay") }
             },
-            confirmButton = {
+            dismissButton = {
                 TextButton(onClick = { showDeleteList = false }) { Text("Cancel") }
             },
         )

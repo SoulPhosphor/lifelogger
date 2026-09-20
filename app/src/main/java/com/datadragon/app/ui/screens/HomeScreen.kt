@@ -268,7 +268,7 @@ fun HomeScreen(
                             }
                         }
                     }
-                }) { Text("OK") }
+                }) { Text("Okay") }
             },
             dismissButton = {
                 TextButton(onClick = { showDailyListDatePicker = false }) { Text("Cancel") }
