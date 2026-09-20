@@ -57,6 +57,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.ui.components.AppButton
+import com.datadragon.app.ui.components.AppDialog
+import com.datadragon.app.ui.components.DialogActionButton
+import com.datadragon.app.ui.components.DialogDismissButton
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.sortEligible
@@ -627,25 +630,21 @@ private fun FieldEditorScreen(
 
 
     if (showSortReplacement && otherSortLabel != null) {
-        AlertDialog(
+        AppDialog(
             onDismissRequest = {
                 draft.sortByTimestamp = false
                 showSortReplacement = false
             },
-            text = {
-                Text(
-                    "Default timestamp sorting is currently set to be $otherSortLabel. " +
-                        "Do you want to change it?",
-                )
-            },
+            body = "Default timestamp sorting is currently set to be $otherSortLabel. " +
+                "Do you want to change it?",
             dismissButton = {
-                TextButton(onClick = {
+                DialogDismissButton("Cancel") {
                     draft.sortByTimestamp = false
                     showSortReplacement = false
-                }) { Text("Cancel") }
+                }
             },
             confirmButton = {
-                TextButton(onClick = { showSortReplacement = false }) { Text("Okay") }
+                DialogActionButton("Okay") { showSortReplacement = false }
             },
         )
     }

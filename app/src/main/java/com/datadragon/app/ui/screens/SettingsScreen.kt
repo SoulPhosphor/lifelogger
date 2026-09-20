@@ -401,18 +401,11 @@ fun SettingsScreen(
                         }
                     }
                 }) {
-                    // Red only for Replace, the destructive mode; Merge is
-                    // non-destructive, so it uses the normal button color. The red
-                    // is the theme's error color, not a literal.
+                    // No red: every dialog button shares one color for now.
                     Text(
                         when (mode) {
                             RestoreMode.REPLACE -> "Replace All"
                             RestoreMode.MERGE -> "Merge"
-                        },
-                        color = if (mode == RestoreMode.REPLACE) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            Color.Unspecified
                         },
                     )
                 }

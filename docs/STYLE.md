@@ -211,14 +211,21 @@ Used by the export dialogs; the pattern for any "pick one of these" list.
 
 ## 9. Dialogs
 
+Every simple confirm/notice dialog is built from `AppDialog`
+(`ui/components/AppDialog.kt`) — not a bare `AlertDialog`. Pickers, export
+dialogs (§7), and option-list dialogs (§8) keep their own patterns.
+
 - **The question is the dialog's title**, phrased as a normal sentence:
-  "Delete list?".
-- **Button order is part of the wording and is not rearranged.** Where the
-  wording says "Okay Cancel", Okay is on the left and Cancel on the right. (In
-  Compose, Material draws the dismiss slot before the confirm slot, so the
-  left-hand button goes in `dismissButton` regardless of what it does.)
-- **Destructive confirmations use `MaterialTheme.colorScheme.error`** for the
-  destructive button's text — never a red literal.
+  "Delete list?". The title is **centered**.
+- **The body/subtext is left-aligned** — never centered.
+- **Buttons sit in a centered row.** The button that performs the action is on
+  the **right**; Cancel (or any dismiss) is on the **left**.
+- **One button color — no red.** Every dialog button uses the same color. They
+  come from `AppDialog`'s button composables: `DialogActionButton` (the
+  affirmative action), `DialogDestructiveButton` (delete/discard), and
+  `DialogDismissButton` (Cancel). Destructive is a *separate* composable from
+  the action button so a future theme can set it apart in one place — today it
+  looks identical.
 
 ---
 

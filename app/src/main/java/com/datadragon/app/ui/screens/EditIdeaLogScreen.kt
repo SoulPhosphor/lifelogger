@@ -17,6 +17,8 @@ import androidx.compose.ui.platform.LocalContext
 import com.datadragon.app.data.DEFAULT_IDEA_LINES
 import com.datadragon.app.data.SettingsRepository
 import com.datadragon.app.ui.IdeaLogEditorViewModel
+import com.datadragon.app.ui.components.AppDialog
+import com.datadragon.app.ui.components.DialogActionButton
 
 /**
  * Edit an existing Idea Log: the same settings and the same field builder as
@@ -133,17 +135,13 @@ fun EditIdeaLogScreen(
     )
 
     if (showArchivedIdeasExist) {
-        AlertDialog(
+        AppDialog(
             onDismissRequest = { showArchivedIdeasExist = false },
-            title = { Text("Archived Ideas Exist") },
-            text = {
-                Text(
-                    "Archived ideas must be unarchived or deleted before Allow " +
-                        "Archiving can be turned off.",
-                )
-            },
+            title = "Archived Ideas Exist",
+            body = "Archived ideas must be unarchived or deleted before Allow " +
+                "Archiving can be turned off.",
             confirmButton = {
-                TextButton(onClick = { showArchivedIdeasExist = false }) { Text("Okay") }
+                DialogActionButton("Okay") { showArchivedIdeasExist = false }
             },
         )
     }

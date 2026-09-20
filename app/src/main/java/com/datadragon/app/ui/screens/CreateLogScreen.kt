@@ -60,6 +60,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.ui.components.AppButton
+import com.datadragon.app.ui.components.AppDialog
+import com.datadragon.app.ui.components.DialogActionButton
+import com.datadragon.app.ui.components.DialogDismissButton
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.sortEligible
@@ -501,28 +504,24 @@ private fun BuildEditor(
     }
 
     pendingReplacement?.let { (newField, existingField) ->
-        AlertDialog(
+        AppDialog(
             onDismissRequest = {
                 newField.sortByTimestamp = false
                 pendingReplacement = null
             },
-            text = {
-                Text(
-                    "Default timestamp sorting is currently set to be ${existingField.label}. " +
-                        "Do you want to change it?",
-                )
-            },
+            body = "Default timestamp sorting is currently set to be ${existingField.label}. " +
+                "Do you want to change it?",
             dismissButton = {
-                TextButton(onClick = {
+                DialogDismissButton("Cancel") {
                     newField.sortByTimestamp = false
                     pendingReplacement = null
-                }) { Text("Cancel") }
+                }
             },
             confirmButton = {
-                TextButton(onClick = {
+                DialogActionButton("Okay") {
                     existingField.sortByTimestamp = false
                     pendingReplacement = null
-                }) { Text("Okay") }
+                }
             },
         )
     }

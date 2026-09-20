@@ -63,10 +63,13 @@ import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.HomeView
 import com.datadragon.app.data.NavStyle
 import com.datadragon.app.ui.DailyListViewModel
+import com.datadragon.app.ui.components.AppDialog
+import com.datadragon.app.ui.components.DialogActionButton
+import com.datadragon.app.ui.components.DialogDestructiveButton
+import com.datadragon.app.ui.components.DialogDismissButton
 import com.datadragon.app.ui.HomeIdeaLog
 import com.datadragon.app.ui.HomeLog
 import com.datadragon.app.ui.HomeViewModel
-import com.datadragon.app.ui.theme.DeleteRed
 import androidx.compose.ui.res.painterResource
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -279,18 +282,15 @@ fun HomeScreen(
     }
 
     duplicateDailyListDate?.let { dupDate ->
-        AlertDialog(
+        AppDialog(
             onDismissRequest = { duplicateDailyListDate = null },
-            title = { Text("Task list already exists on this date. Open current card?") },
-            // Button order is fixed: Cancel first, Open Card second.
-            dismissButton = {
-                TextButton(onClick = { duplicateDailyListDate = null }) { Text("Cancel") }
-            },
+            title = "Task list already exists on this date. Open current card?",
+            dismissButton = { DialogDismissButton("Cancel") { duplicateDailyListDate = null } },
             confirmButton = {
-                TextButton(onClick = {
+                DialogActionButton("Open Card") {
                     duplicateDailyListDate = null
                     onDailyListDateConfirmed(dupDate)
-                }) { Text("Open Card") }
+                }
             },
         )
     }
@@ -300,24 +300,18 @@ fun HomeScreen(
     // until the user chooses. Recover opens it in the editor (still a draft);
     // Discard deletes it. Tapping outside keeps it for next time.
     pendingDraft?.let { draft ->
-        AlertDialog(
+        AppDialog(
             onDismissRequest = { viewModel.clearPendingDraft() },
-            title = { Text("Recover Unfinished List?") },
-            text = {
-                Text(
-                    "You have a list that wasn't saved. Recover it to keep editing, " +
-                        "or discard it.",
-                )
+            title = "Recover Unfinished List?",
+            body = "You have a list that wasn't saved. Recover it to keep editing, " +
+                "or discard it.",
+            dismissButton = {
+                DialogDestructiveButton("Discard") { viewModel.discardPendingDraft() }
             },
             confirmButton = {
-                TextButton(onClick = {
+                DialogActionButton("Recover") {
                     viewModel.clearPendingDraft()
                     onOpenChecklist(draft.id)
-                }) { Text("Recover") }
-            },
-            dismissButton = {
-                TextButton(onClick = { viewModel.discardPendingDraft() }) {
-                    Text("Discard", color = DeleteRed)
                 }
             },
         )

@@ -1,10 +1,9 @@
 package com.datadragon.app.ui.screens
 
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import com.datadragon.app.ui.theme.DeleteRed
+import com.datadragon.app.ui.components.AppDialog
+import com.datadragon.app.ui.components.DialogDestructiveButton
+import com.datadragon.app.ui.components.DialogDismissButton
 
 /**
  * Confirmation shown when leaving a screen that has unsaved input. "Discard"
@@ -17,15 +16,11 @@ fun DiscardChangesDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
+    AppDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Discard Changes?") },
-        text = { Text("You've made changes that haven't been saved. Discard them?") },
-        confirmButton = {
-            TextButton(onClick = onConfirm) { Text("Discard", color = DeleteRed) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        },
+        title = "Discard Changes?",
+        body = "You've made changes that haven't been saved. Discard them?",
+        dismissButton = { DialogDismissButton("Cancel", onClick = onDismiss) },
+        confirmButton = { DialogDestructiveButton("Discard", onClick = onConfirm) },
     )
 }
