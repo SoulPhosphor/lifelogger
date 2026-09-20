@@ -162,6 +162,15 @@ Write like a professional technical writer, not like someone thinking out loud.
   commit and confirm it passed before calling the work done. If it failed, read
   the logs, fix, and push again. Don't pile on more pushes beyond what's needed
   to get that run green unless I ask.
+- **Android `versionCode` must never go backward.** The current normal app
+  baseline is `versionCode = 3`. Every APK that uses
+  `applicationId = "com.datadragon.app"` — including recovery, test, or other
+  special installable builds — must use a `versionCode` that is not lower than
+  the highest one ever shipped under that applicationId. Before introducing a
+  higher code in any special build, raise the normal app baseline to the same or
+  a higher value in the same change. Never reset the normal app to an older
+  value. Android rejects an APK whose versionCode is lower than the installed
+  copy as a downgrade, showing "App not installed."
 - **New builds install over the top of an existing install; data is preserved.**
   Every build — including CI — is signed with a stable, committed keystore
   (`app/datadragon-debug.keystore`) and shares one applicationId
