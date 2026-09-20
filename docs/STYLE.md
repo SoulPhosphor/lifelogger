@@ -32,6 +32,12 @@ These are the ones that keep getting broken. They are absolute.
 5. **A drop-down never resizes itself.** Its width is set by the widest label it
    could ever show, and stays there.
 6. **A hint goes under its label, never under the control.**
+7. **Text labels never interrupt or notch through a framed control's outline.**
+   Editable text fields use an external label above the field rather than
+   Material's floating `label`, and a blank editable field does not contain its
+   own field label. Dropdown labels may be above or beside the dropdown
+   according to the screen's design, but never inside the box or breaking its
+   border.
 
 ---
 
@@ -113,12 +119,21 @@ Because of this, adding a theme later is a change to `Theme.kt`, `Type.kt`,
 
 ## 5. Drop-downs
 
-- **A drop-down always sits on the same line as its label** — the label on the
-  left, the current value (with its chooser) on the right. Never stack the
-  drop-down above or below its label.
-- **A drop-down's label ends with a colon** — "Import Mode:", "Restore Type:".
-  Without it, a label reads as a heading instead of a label for the control
-  next to it.
+- **A label never sits inside a drop-down's box or interrupts its outline.**
+  Not a floating label notching the border, not placeholder text sitting where the
+  chosen value goes. The box stays visually empty until a value is chosen. The
+  general framed-control rule in §1 also applies to every editable text field.
+
+- **Where the label sits relative to the box — above it, or beside it on the
+  same line — follows the direction given for that screen.** This is not one
+  rigid layout forced everywhere; label-above is the current default (see
+  `LabeledDropdown` in `CalendarConfigScreen.kt`), but a specific screen can
+  call for something else.
+- **A drop-down's label does not need a trailing colon.** Don't go hunt down
+  and fix existing "Label:" drop-downs on your own initiative. But if a change
+  already has you touching a screen and you notice that pattern there, fix
+  every drop-down label on that same screen together — never just the one you
+  happened to be near.
 - **A drop-down's width never changes.** It is sized to the widest label it
   could ever show, plus a small, fixed slack, so choosing a different option
   never makes it grow, shrink, or shove its neighbors around. Nothing on the
@@ -126,14 +141,12 @@ Because of this, adding a theme later is a change to `Theme.kt`, `Type.kt`,
 - **The box shows exactly the same wording as the menu.** An option has one
   name, never a short name in the box and a long name in the list.
 - **The drop-down box and `AppButton` are framed identically.**
-- **A drop-down row has no hint by default.** Piling a hint straight under a
-  drop-down's label looks terrible — cramped under one word while the control
-  sits on the other side of the row. `AppDropdownRow` has no hint parameter for
-  this reason. If a drop-down ever needs one, its placement is a decision to
-  make then, not a default to fall back on.
+- **A hint under a drop-down follows §6** — label → hint → control — the same
+  as any other labeled control.
 
-Both behaviors come free from `AppDropdown` / `AppDropdownRow` in
-`ui/components/AppControls.kt`. Do not hand-roll a drop-down.
+`AppDropdown` / `AppDropdownRow` (`ui/components/AppControls.kt`) still draw
+the label to the left of the box on the same line and have not been migrated
+to the above-the-box default; screens using them keep that look until changed.
 
 ---
 

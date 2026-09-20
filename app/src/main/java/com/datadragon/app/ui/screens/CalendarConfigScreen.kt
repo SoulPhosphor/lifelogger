@@ -67,9 +67,11 @@ import com.datadragon.app.ui.CalendarConfigViewModel
 import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.ui.components.AppDropdownRow
 import com.datadragon.app.ui.components.ColorPickerDialog
+import com.datadragon.app.ui.theme.AppTheme
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.math.BigInteger
 
 /**
  * The single, vertically scrollable Edit Calendar screen (owner direction: one
@@ -117,6 +119,8 @@ fun CalendarConfigScreen(
     // Color configuration (range types). Color count is null until the user picks
     // 3/5/10; the rows are seeded from the chosen preset.
     var colorCount by rememberSaveable { mutableStateOf<Int?>(null) }
+    var autoMinimumValue by rememberSaveable { mutableStateOf("") }
+    var autoMaximumValue by rememberSaveable { mutableStateOf("") }
     var colorPreset by rememberSaveable { mutableStateOf(ColorPresets.GRADIATED) }
     val colorRows = rememberSaveable(saver = colorRowsSaver) { mutableStateListOf<ColorRowState>() }
     var savedColorCount by rememberSaveable { mutableStateOf<Int?>(null) }
@@ -259,6 +263,41 @@ fun CalendarConfigScreen(
         }
     }
 
+    // Fill the current rows with contiguous, evenly distributed whole-number ranges.
+    fun calculateColorMappingValues() {
+        val count = colorCount ?: return
+        if (colorRows.size != count) return
+        val minimum = runCatching { BigInteger(autoMinimumValue) }.getOrNull() ?: return
+        val maximum = runCatching { BigInteger(autoMaximumValue) }.getOrNull() ?: return
+        if (maximum < minimum) return
+        val countValue = BigInteger.valueOf(count.toLong())
+        val totalValues = maximum - minimum + BigInteger.ONE
+        if (totalValues < countValue) return
+
+        val calculatedRanges = (0 until count).map { index ->
+            val rowMin = minimum + (BigInteger.valueOf(index.toLong()) * totalValues / countValue)
+            val rowMax = if (index == count - 1) {
+                maximum
+            } else {
+                minimum + (BigInteger.valueOf((index + 1).toLong()) * totalValues / countValue) - BigInteger.ONE
+            }
+            rowMin.toString() to rowMax.toString()
+        }
+        colorRows.forEachIndexed { index, row ->
+            val (rowMin, rowMax) = calculatedRanges[index]
+            row.minValue = rowMin
+            row.maxValue = rowMax
+        }
+    }
+
+    fun saveCalendar() {
+        val chosen = type ?: return
+        viewModel.save(chosen, label, description, currentConfig()) {
+            markSaved()
+            onBack()
+        }
+    }
+
     // The "Map Heat Map to" options: the form's applicable fields, then Log Frequency.
     val sourceOptions: List<SourceOption> =
         formFields.filter { it.type.heatMapApplicable() }.map { SourceOption.Field(it) } +
@@ -295,11 +334,17 @@ fun CalendarConfigScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Edit Calendar") },
+                title = { Text(if (existingCalendarId == null) "New Calendar" else "Edit Calendar") },
                 navigationIcon = {
                     IconButton(onClick = { attemptBack() }) {
                         Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
                     }
+                },
+                actions = {
+                    TextButton(
+                        enabled = canSave,
+                        onClick = { saveCalendar() },
+                    ) { Text("Save") }
                 },
             )
         },
@@ -318,22 +363,30 @@ fun CalendarConfigScreen(
                 onSelected = { typeToken = it.token },
             )
 
-            OutlinedTextField(
-                value = label,
-                onValueChange = { label = it },
-                label = { Text("Calendar Label") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text("Calendar Label", style = AppTheme.textStyles.settingTitle)
+                OutlinedTextField(
+                    value = label,
+                    onValueChange = { label = it },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
 
-            OutlinedTextField(
-                value = description,
-                onValueChange = { description = it },
-                label = { Text("Description") },
-                placeholder = { Text("Optional: Describes what is tracked. Shows at top of calendar.") },
-                minLines = 5,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp),
-            )
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text("Description", style = AppTheme.textStyles.settingTitle)
+                Text(
+                    "Optional text shown at the top of the calendar.",
+                    style = AppTheme.textStyles.settingDescription,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    minLines = 5,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp),
+                )
+            }
 
             // Which timestamp assigns a log to a day. Only offered when the form
             // has a date field; otherwise the created-at time is used.
@@ -407,14 +460,16 @@ fun CalendarConfigScreen(
                                 optionLabel = { conditionDisplayName(it) },
                                 onSelected = { matchCondition = it },
                             )
-                            OutlinedTextField(
-                                value = matchValue,
-                                onValueChange = { matchValue = it },
-                                label = { Text("Value") },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.fillMaxWidth(),
-                            )
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Text("Value", style = AppTheme.textStyles.settingTitle)
+                                OutlinedTextField(
+                                    value = matchValue,
+                                    onValueChange = { matchValue = it },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
                         }
                     }
                 }
@@ -450,7 +505,42 @@ fun CalendarConfigScreen(
             }
 
             if (isRangeType) {
-                ColorCountSelector(selected = colorCount, onSelected = { setColorCount(it) })
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        "Choose number of colors to represent your data.",
+                        style = AppTheme.textStyles.settingTitle,
+                    )
+                    ColorCountSelector(selected = colorCount, onSelected = { setColorCount(it) })
+                }
+
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        "Auto Populate Color Mapping Values",
+                        style = AppTheme.textStyles.settingTitle,
+                    )
+                    Text("Minimum Value", style = AppTheme.textStyles.settingTitle)
+                    OutlinedTextField(
+                        value = autoMinimumValue,
+                        onValueChange = { autoMinimumValue = it },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Text("Maximum Value", style = AppTheme.textStyles.settingTitle)
+                    OutlinedTextField(
+                        value = autoMaximumValue,
+                        onValueChange = { autoMaximumValue = it },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    AppButton(
+                        onClick = { calculateColorMappingValues() },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Calculate")
+                    }
+                }
 
                 if (colorCount != null) {
                     AppDropdownRow(
@@ -477,20 +567,6 @@ fun CalendarConfigScreen(
                 onClick = {
                     val chosen = type ?: return@AppButton
                     viewModel.save(chosen, label, description, currentConfig()) {
-                        markSaved()
-                        onBack()
-                    }
-                },
-                enabled = canSave,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Save Calendar")
-            }
-
-            AppButton(
-                onClick = {
-                    val chosen = type ?: return@AppButton
-                    viewModel.save(chosen, label, description, currentConfig()) {
                         // Keep the just-saved calendar; start a fresh, blank one on
                         // this same screen. The next Save inserts a new calendar.
                         viewModel.prepareNew()
@@ -505,6 +581,8 @@ fun CalendarConfigScreen(
                         matchOption = null
                         dayTimestampField = null
                         colorCount = null
+                        autoMinimumValue = ""
+                        autoMaximumValue = ""
                         colorPreset = ColorPresets.GRADIATED
                         colorRows.clear()
                         markSaved()
@@ -564,13 +642,15 @@ private fun SavePresetDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         text = {
-            OutlinedTextField(
-                value = name,
-                onValueChange = onNameChange,
-                label = { Text("Preset Name") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text("Preset Name", style = AppTheme.textStyles.settingTitle)
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = onNameChange,
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         },
         confirmButton = {
             TextButton(onClick = onConfirm, enabled = name.trim().isNotEmpty()) { Text("Okay") }
@@ -581,7 +661,7 @@ private fun SavePresetDialog(
     )
 }
 
-/** The "Choose Calendar Type" dropdown. Its floating label is the prompt; the box
+/** The "Choose Calendar Type" dropdown. Its external label is the prompt; the box
  *  is empty until a type is picked. Option names are the exact owner-facing labels. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -590,32 +670,35 @@ private fun CalendarTypeDropdown(
     onSelected: (CalendarType) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-        OutlinedTextField(
-            value = selected?.displayName().orEmpty(),
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Choose Calendar Type") },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.menuAnchor().fillMaxWidth(),
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            CalendarType.entries.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(option.displayName()) },
-                    onClick = {
-                        onSelected(option)
-                        expanded = false
-                    },
-                )
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text("Choose Calendar Type", style = AppTheme.textStyles.settingTitle)
+        ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+            OutlinedTextField(
+                value = selected?.displayName().orEmpty(),
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier.menuAnchor().fillMaxWidth(),
+            )
+            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                CalendarType.entries.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(option.displayName()) },
+                        onClick = {
+                            onSelected(option)
+                            expanded = false
+                        },
+                    )
+                }
             }
         }
     }
 }
 
 /**
- * A labeled dropdown whose floating [label] is the prompt; the box is empty until
- * an option is picked. Used for Map Heat Map to, Calculation Rule, and Condition.
+ * A labeled dropdown: [label] sits above the box as its own line, and the box
+ * stays empty until an option is picked. Used for Calendar Timestamp, Map Heat
+ * Map to, Calculation Rule, Condition, Value, and Item Tracked.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -627,24 +710,26 @@ private fun <T> LabeledDropdown(
     onSelected: (T) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-        OutlinedTextField(
-            value = selected?.let(optionLabel).orEmpty(),
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(label) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.menuAnchor().fillMaxWidth(),
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            options.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(optionLabel(option)) },
-                    onClick = {
-                        onSelected(option)
-                        expanded = false
-                    },
-                )
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(label, style = AppTheme.textStyles.settingTitle)
+        ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+            OutlinedTextField(
+                value = selected?.let(optionLabel).orEmpty(),
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier.menuAnchor().fillMaxWidth(),
+            )
+            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                options.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(optionLabel(option)) },
+                        onClick = {
+                            onSelected(option)
+                            expanded = false
+                        },
+                    )
+                }
             }
         }
     }
