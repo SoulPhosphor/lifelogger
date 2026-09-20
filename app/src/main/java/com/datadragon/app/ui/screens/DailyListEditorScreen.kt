@@ -91,8 +91,14 @@ fun DailyListEditorScreen(
     viewModel: DailyListViewModel = viewModel(),
 ) {
     // A parseable date opens that day's card (existing or fresh for the date);
-    // anything else (the "+" sentinel) opens a brand-new card.
+    // anything else (the "+" sentinel) opens a brand-new card. Run this once per
+    // editor entry, not on every recreation: the view-model is activity-scoped
+    // and survives configuration changes, so re-running openNewCard() on rotation
+    // would wipe an unsaved new log's in-memory rows.
+    var initialized by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(date) {
+        if (initialized) return@LaunchedEffect
+        initialized = true
         val parsed = date?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
         if (parsed != null) viewModel.openForEditorDate(parsed) else viewModel.openNewCard()
     }

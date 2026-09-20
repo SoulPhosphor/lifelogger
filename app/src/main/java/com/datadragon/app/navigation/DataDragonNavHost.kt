@@ -220,7 +220,13 @@ fun DataDragonNavHost(
         }
 
         composable(Routes.DAILY_LIST_PREFERENCES) {
-            DailyListPreferencesScreen(onBack = { navController.popBackStack() })
+            // Same shared model as Home and the editor, so a preference change
+            // (Allow Title, Show Completed, celebration, renewal, …) is reflected
+            // immediately when returning, not only after a process restart.
+            DailyListPreferencesScreen(
+                onBack = { navController.popBackStack() },
+                viewModel = dailyListViewModel,
+            )
         }
 
         composable(

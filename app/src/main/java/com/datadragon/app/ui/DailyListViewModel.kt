@@ -456,29 +456,40 @@ class DailyListViewModel(
      * the optional title, then hand control back to the caller (which leaves the
      * editor). After this the card is a saved card and autosaves.
      */
+    // Guards Save against a double tap: both taps run on the main thread, so the
+    // first sets this synchronously before launching and the second bails, which
+    // stops the same rows being inserted twice (item uuids are not unique).
+    private var savingNewCard = false
+
     fun saveNewCard(onSaved: () -> Unit) {
+        if (savingNewCard) return
         val date = _editorDate.value ?: return
         val rows = _editorRows.value.filter { it.text.isNotBlank() }
         val titleText = _editorTitle.value
+        savingNewCard = true
         viewModelScope.launch {
-            val created = repo.createForDate(date, System.currentTimeMillis()) ?: return@launch
-            rows.forEachIndexed { index, row ->
-                db.dailyListDao().insertItem(
-                    DailyListItem(
-                        uuid = row.uuid,
-                        dailyListId = created.id,
-                        text = row.text,
-                        completed = row.completed,
-                        indent = row.indent,
-                        position = index,
-                        sourceUuid = row.sourceUuid,
-                    ),
-                )
+            try {
+                val created = repo.createForDate(date, System.currentTimeMillis()) ?: return@launch
+                rows.forEachIndexed { index, row ->
+                    db.dailyListDao().insertItem(
+                        DailyListItem(
+                            uuid = row.uuid,
+                            dailyListId = created.id,
+                            text = row.text,
+                            completed = row.completed,
+                            indent = row.indent,
+                            position = index,
+                            sourceUuid = row.sourceUuid,
+                        ),
+                    )
+                }
+                if (titleText.isNotBlank()) repo.setTitle(created.id, titleText)
+                updateCompletionState(created.id)
+                refresh()
+                onSaved()
+            } finally {
+                savingNewCard = false
             }
-            if (titleText.isNotBlank()) repo.setTitle(created.id, titleText)
-            updateCompletionState(created.id)
-            refresh()
-            onSaved()
         }
     }
 
