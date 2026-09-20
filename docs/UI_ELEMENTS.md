@@ -74,3 +74,21 @@ existing designs and are *not* changed by the simple-dialog rules above:
 - **Pickers** — date, time, and color pickers.
 - **Export dialogs** — see `STYLE.md` §7; the owner likes these as they are.
 - **Option-list dialogs** — the "pick one of these" list pattern, `STYLE.md` §8.
+
+---
+
+## Vocabulary
+
+Shared words for the app's structure, so the same thing is called the same
+thing everywhere.
+
+- **Card** — one compact unit of data, usually one per date. A data type's page
+  shows a stack of cards organized by date (the way a Form's page shows its
+  entries as cards).
+- **Editing a card** — most cards are not edited directly on the card face. You
+  open the **vertical ellipsis (three dots) in the card's upper-right corner**
+  and choose to edit. (Clicker cards are the exception: most values are meant to
+  be changed right on the card face for speed; a few field types can only be
+  changed from that edit menu.)
+- **Clicker Data Log** — one clicker "folder": a titled series of daily cards,
+  each carrying the same set of trackers and fields.
