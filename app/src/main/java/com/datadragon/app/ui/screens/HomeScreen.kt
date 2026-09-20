@@ -447,7 +447,7 @@ private fun FormsBody(
     if (logs.isEmpty()) {
         EmptyMessage(
             title = "No logs yet.",
-            body = "Tap  +  (top right) to create your first one.",
+            body = "Click the plus in the top right to begin",
             modifier = modifier,
         )
     } else {
@@ -476,7 +476,7 @@ private fun ListsBody(
     if (checklists.isEmpty()) {
         EmptyMessage(
             title = "No lists yet.",
-            body = "Tap  +  (top right) to create your first one.",
+            body = "Click the plus in the top right to begin",
             modifier = modifier,
         )
     } else {
@@ -505,7 +505,7 @@ private fun IdeasBody(
     if (ideaLogs.isEmpty()) {
         EmptyMessage(
             title = "No idea logs yet.",
-            body = "Tap  +  (top right) to create your first one.",
+            body = "Click the plus in the top right to begin",
             modifier = modifier,
         )
     } else {
