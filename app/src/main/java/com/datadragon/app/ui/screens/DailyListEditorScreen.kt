@@ -1,42 +1,31 @@
 package com.datadragon.app.ui.screens
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.border
-import androidx.compose.foundation.relocation.BringIntoViewRequester
-import androidx.compose.foundation.relocation.bringIntoViewRequester
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DragIndicator
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.SettingsApplications
-import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -45,10 +34,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -59,120 +48,163 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.R
-import com.datadragon.app.data.CelebrationIcon
+import com.datadragon.app.export.DailyTaskExportFormat
+import com.datadragon.app.export.ExportContent
 import com.datadragon.app.ui.DAILY_LIST_DATE_FORMAT
-import com.datadragon.app.ui.DailyListEditorRow
 import com.datadragon.app.ui.DailyListViewModel
-import com.datadragon.app.ui.theme.AppTheme
+import com.datadragon.app.ui.components.AppButton
+import com.datadragon.app.ui.components.AppDialog
+import com.datadragon.app.ui.components.AddItemRow
+import com.datadragon.app.ui.components.DialogActionButton
+import com.datadragon.app.ui.components.DialogDestructiveButton
+import com.datadragon.app.ui.components.DialogDismissButton
+import com.datadragon.app.ui.components.ExportFormatDialog
+import com.datadragon.app.ui.components.ExportFormatOption
+import com.datadragon.app.ui.components.ListEditorItemRow
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 import kotlinx.coroutines.launch
-import sh.calvin.reorderable.ReorderableItem
-import sh.calvin.reorderable.rememberReorderableLazyListState
 
 /**
- * The Daily List editor: one date's full editable list. Top bar follows the
- * Data Dragon pattern — Back double-chevron, then the Settings gear, with
- * Cycle (when renewal is manual) and `+` on the right. Cycle renews manually;
- * the top-right `+` adds a new top-level item through the ordinary list
- * insertion behavior.
- *
- * The date is always shown and is immutable once saved.
+ * The Daily Task editor: one day's log. It opens either as a brand-new card
+ * (from the "+", route arg not a date) or an existing saved card (tapped on the
+ * Daily Tasks screen). A new card shows Save and persists nothing until pressed;
+ * once saved it autosaves like an ordinary List and shows a ⋮ menu (Export,
+ * Delete). The date sits on top as an always-editable picker; the three-arrow
+ * icon carries the previous day's unfinished tasks onto this card.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun DailyListEditorScreen(
     date: String?,
     onBack: () -> Unit,
-    onOpenPreferences: () -> Unit = {},
     viewModel: DailyListViewModel = viewModel(),
 ) {
-    // The route argument is the exact ISO date this editor edits — an existing
-    // card's date or a fresh unsaved date. Opening never persists anything.
+    // A parseable date opens that day's card (existing or fresh for the date);
+    // anything else (the "+" sentinel) opens a brand-new card.
     LaunchedEffect(date) {
-        date?.let { iso ->
-            runCatching { LocalDate.parse(iso) }.getOrNull()?.let { viewModel.openForEditorDate(it) }
-        }
+        val parsed = date?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+        if (parsed != null) viewModel.openForEditorDate(parsed) else viewModel.openNewCard()
     }
-    val scope = rememberCoroutineScope()
-    val card by viewModel.editorCard.collectAsStateWithLifecycle()
-    val date by viewModel.editorDate.collectAsStateWithLifecycle()
+
+    val editorDate by viewModel.editorDate.collectAsStateWithLifecycle()
     val title by viewModel.editorTitle.collectAsStateWithLifecycle()
     val rows by viewModel.editorRows.collectAsStateWithLifecycle()
-    val heading by viewModel.heading.collectAsStateWithLifecycle()
-    val autoRenew by viewModel.autoRenew.collectAsStateWithLifecycle()
+    val isSaved by viewModel.editorIsSaved.collectAsStateWithLifecycle()
+    val card by viewModel.editorCard.collectAsStateWithLifecycle()
     val allowTitle by viewModel.allowTitle.collectAsStateWithLifecycle()
 
-    val editorHeading = heading.ifBlank { "Daily Tasks" }
-    val editorDate = date
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
-    // Leaving flushes nothing (autosave is immediate), so Back just leaves. A
-    // fresh date with no saved card also just leaves — opening never creates.
+    var focusedItemId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var pendingFocusId by rememberSaveable { mutableStateOf<Long?>(null) }
+
+    var menuOpen by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTodayTaken by remember { mutableStateOf(false) }
+    var pastTakenDate by remember { mutableStateOf<LocalDate?>(null) }
+    var showDelete by remember { mutableStateOf(false) }
+    var showExport by remember { mutableStateOf(false) }
+
+    // Export: the user picks the destination via the system "Save to…" sheet.
+    var pendingExport by remember { mutableStateOf<ExportContent?>(null) }
+    val saveDocument = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("*/*"),
+    ) { uri ->
+        val export = pendingExport
+        pendingExport = null
+        if (uri != null && export != null) {
+            val ok = runCatching {
+                context.contentResolver.openOutputStream(uri)?.use { it.write(export.bytes) }
+                    ?: error("No output stream")
+            }.isSuccess
+            Toast.makeText(
+                context,
+                if (ok) "Saved ${export.suggestedName}" else "Couldn't save file",
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+    }
+    val startSave: (DailyTaskExportFormat) -> Unit = { format ->
+        showExport = false
+        scope.launch {
+            val content = viewModel.buildExport(format)
+            if (content != null) {
+                pendingExport = content
+                saveDocument.launch(content.suggestedName)
+            }
+        }
+    }
+
+    // Opening a new card never persists anything, so Back just leaves.
     BackHandler { onBack() }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            text = editorDate?.format(DAILY_LIST_DATE_FORMAT) ?: "",
-                            style = MaterialTheme.typography.titleLarge,
-                        )
-                        Text(
-                            text = editorHeading,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                    Text(
+                        text = if (isSaved) "Daily Task Log" else "New Daily Task Log",
+                        style = MaterialTheme.typography.titleLarge,
+                    )
                 },
                 navigationIcon = {
-                    Row {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
-                        }
-                        IconButton(onClick = onOpenPreferences) {
-                            Icon(
-                                Icons.Filled.SettingsApplications,
-                                contentDescription = "Daily Task Preferences",
-                                modifier = Modifier.size(AppTheme.sizes.settingsCog),
-                            )
-                        }
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
                     }
                 },
                 actions = {
-                    // Cycle only when automatic renewal is off — the manual
-                    // renewal that is repeatable without duplicating carried rows.
-                    if (!autoRenew) {
-                        IconButton(onClick = { viewModel.runManualRenewal() }) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_cycle),
-                                contentDescription = "Renew unfinished items from the previous day",
-                            )
-                        }
+                    // Carry the previous day's unfinished tasks onto this card.
+                    IconButton(onClick = { viewModel.runManualRenewal() }) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_cycle),
+                            contentDescription = "Carry over unfinished tasks",
+                        )
                     }
-                    IconButton(onClick = { viewModel.addItem() }) {
-                        Icon(Icons.Filled.Add, contentDescription = "Add Daily Task item")
+                    if (isSaved) {
+                        Box {
+                            IconButton(onClick = { menuOpen = true }) {
+                                Icon(Icons.Filled.MoreVert, contentDescription = "Daily Task options")
+                            }
+                            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("Export") },
+                                    onClick = { menuOpen = false; showExport = true },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Delete") },
+                                    onClick = { menuOpen = false; showDelete = true },
+                                )
+                            }
+                        }
+                    } else {
+                        TextButton(
+                            enabled = editorDate != null && rows.any { it.text.isNotBlank() },
+                            onClick = { viewModel.saveNewCard(onBack) },
+                        ) { Text("Save") }
                     }
                 },
             )
         },
     ) { padding ->
-        Column(
-            modifier = Modifier.fillMaxSize().padding(padding).imePadding(),
-        ) {
-            // The optional per-day title field — shown only when the
-            // "Allow creating title for daily lists." toggle is on. Hiding it
-            // never deletes a stored title.
+        Column(modifier = Modifier.fillMaxSize().padding(padding).imePadding()) {
+            // The date, always editable, in the forms' picker style.
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                AppButton(onClick = { showDatePicker = true }) {
+                    Text(editorDate?.format(DAILY_LIST_DATE_FORMAT) ?: "Select Date")
+                }
+            }
+
+            // The optional per-day title — shown only when the preference is on.
             if (allowTitle) {
                 OutlinedTextField(
                     value = title,
@@ -184,7 +216,7 @@ fun DailyListEditorScreen(
             }
 
             val lazyListState = rememberLazyListState()
-            val reorderState = rememberReorderableLazyListState(lazyListState) { from, to ->
+            val reorderState = sh.calvin.reorderable.rememberReorderableLazyListState(lazyListState) { from, to ->
                 val ids = rows.map { it.localId }.toMutableList()
                 if (from.index in ids.indices && to.index in ids.indices) {
                     ids.add(to.index, ids.removeAt(from.index))
@@ -192,283 +224,150 @@ fun DailyListEditorScreen(
                 }
             }
             val density = LocalDensity.current
-            val imeVisible = androidx.compose.foundation.layout.WindowInsets.ime.getBottom(density) > 0
+            val imeVisible = WindowInsets.ime.getBottom(density) > 0
             val keyboardScrollSpace = with(density) {
                 if (imeVisible) lazyListState.layoutInfo.viewportSize.height.toDp() else 0.dp
             }
+
             LazyColumn(
                 state = lazyListState,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
                 contentPadding = PaddingValues(bottom = keyboardScrollSpace),
             ) {
                 itemsIndexed(rows, key = { _, item -> item.localId }) { _, item ->
-                    ReorderableItem(reorderState, key = item.localId) { _ ->
-                        DailyListEditorRowView(
-                            row = item,
+                    sh.calvin.reorderable.ReorderableItem(reorderState, key = item.localId) { _ ->
+                        ListEditorItemRow(
+                            rowKey = item.localId,
+                            text = item.text,
+                            completed = item.completed,
+                            indent = item.indent,
+                            completedIcon = Icons.Filled.Check,
+                            crossOut = false,
                             dragHandleModifier = Modifier.draggableHandle(),
-                            onComplete = { viewModel.setCompleted(item.localId, !item.completed) },
+                            isEditing = focusedItemId == item.localId,
+                            requestFocus = pendingFocusId == item.localId,
+                            onFocused = { focusedItemId = item.localId },
+                            onFocusHandled = { if (pendingFocusId == item.localId) pendingFocusId = null },
+                            onBlur = { },
                             onTextChange = { viewModel.updateText(item.localId, it) },
-                            onAddSubItem = { viewModel.addSubItem(item.localId) },
-                            onDelete = { viewModel.deleteItem(item.localId) },
+                            onToggleComplete = { viewModel.setCompleted(item.localId, !item.completed) },
+                            onAddSubItem = {
+                                viewModel.addSubItem(item.localId) { newId -> pendingFocusId = newId }
+                            },
+                            onDelete = {
+                                if (focusedItemId == item.localId) focusedItemId = null
+                                viewModel.deleteItem(item.localId)
+                            },
                         )
                     }
                 }
             }
 
-        }
-    }
-
-}
-
-/** One editable Daily List item row, matching the ordinary List row model. */
-@Composable
-private fun DailyListEditorRowView(
-    row: DailyListEditorRow,
-    dragHandleModifier: Modifier,
-    onComplete: () -> Unit,
-    onTextChange: (String) -> Unit,
-    onAddSubItem: () -> Unit,
-    onDelete: () -> Unit,
-) {
-    var text by remember(row.localId) { mutableStateOf(row.text) }
-    LaunchedEffect(row.text) { if (row.text != text && row.text.isNotBlank()) text = row.text }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = if (row.indent == 1) 32.dp else 0.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            imageVector = Icons.Filled.DragIndicator,
-            contentDescription = "Reorder",
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = dragHandleModifier.padding(horizontal = 8.dp, vertical = 12.dp),
-        )
-        IconButton(onClick = onComplete) {
-            Icon(
-                imageVector = if (row.completed) Icons.Filled.Check else Icons.Outlined.CheckBoxOutlineBlank,
-                contentDescription = if (row.completed) "Mark not done" else "Mark done",
-                tint = if (row.completed) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
+            AddItemRow(
+                onClick = { viewModel.addItem { newId -> pendingFocusId = newId } },
+                modifier = Modifier.fillMaxWidth(),
             )
         }
-        BasicTextField(
-            value = text,
-            onValueChange = { text = it; onTextChange(it) },
-            textStyle = MaterialTheme.typography.bodyLarge.copy(
-                color = if (row.completed) {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                },
-            ),
-            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-            singleLine = false,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            modifier = Modifier.weight(1f),
-        )
-        IconButton(onClick = onAddSubItem) {
-            Icon(Icons.Filled.Add, contentDescription = "Add sub-item")
-        }
-        IconButton(onClick = onDelete) {
-            Icon(Icons.Filled.Close, contentDescription = "Delete item")
-        }
     }
-}
 
-/**
- * Daily List preferences, opened from the gear beside Back. Exact labels and
- * defaults, in the owner's order; the completion-icon dropdown sits directly
- * underneath its toggle; the numeric auto-delete field comes underneath the
- * toggle group. Every change persists immediately.
- */
-@Composable
-private fun DailyListPreferencesDialog(
-    viewModel: DailyListViewModel,
-    onDismiss: () -> Unit,
-) {
-    val heading by viewModel.heading.collectAsStateWithLifecycle()
-    val autoRenew by viewModel.autoRenew.collectAsStateWithLifecycle()
-    val showCompleted by viewModel.showCompleted.collectAsStateWithLifecycle()
-    val showCurrentUnfinished by viewModel.showCurrentUnfinished.collectAsStateWithLifecycle()
-    val showPastUnfinished by viewModel.showPastUnfinished.collectAsStateWithLifecycle()
-    val autoTrashPast by viewModel.autoTrashPast.collectAsStateWithLifecycle()
-    val celebrationEnabled by viewModel.celebrationEnabled.collectAsStateWithLifecycle()
-    val celebrationIcon by viewModel.celebrationIcon.collectAsStateWithLifecycle()
-    val allowTitle by viewModel.allowTitle.collectAsStateWithLifecycle()
-    val protectFavorited by viewModel.protectFavorited.collectAsStateWithLifecycle()
-    val autoReopen by viewModel.autoReopen.collectAsStateWithLifecycle()
-    val retentionRaw by viewModel.retentionRaw.collectAsStateWithLifecycle()
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Daily Task Preferences") },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                OutlinedTextField(
-                    value = heading,
-                    onValueChange = viewModel::setHeading,
-                    singleLine = true,
-                    label = { Text("Name showed at the top of your daily tasks") },
-                    placeholder = { Text("Daily Tasks") },
-                )
-
-                SettingToggle(
-                    checked = autoRenew,
-                    onCheckedChange = viewModel::setAutoRenew,
-                    title = "Automatically renew daily task items that weren't completed.",
-                )
-                SettingToggle(
-                    checked = showCompleted,
-                    onCheckedChange = viewModel::setShowCompleted,
-                    title = "Show completed list items in main view.",
-                )
-                SettingToggle(
-                    checked = showCurrentUnfinished,
-                    onCheckedChange = viewModel::setShowCurrentUnfinished,
-                    title = "Show current dates uncompleted list items in main view.",
-                )
-                SettingToggle(
-                    checked = showPastUnfinished,
-                    onCheckedChange = viewModel::setShowPastUnfinished,
-                    title = "Show past dates uncompleted list items in main view",
-                )
-                SettingToggle(
-                    checked = autoTrashPast,
-                    onCheckedChange = viewModel::setAutoTrashPast,
-                    title = "Automatically trash uncompleted items from past days",
-                )
-                SettingToggle(
-                    checked = autoReopen,
-                    onCheckedChange = viewModel::setAutoReopen,
-                    title = "Automatically show current daily task when app is started.",
-                )
-                SettingToggle(
-                    checked = allowTitle,
-                    onCheckedChange = viewModel::setAllowTitle,
-                    title = "Allow creating title for daily tasks.",
-                )
-                SettingToggle(
-                    checked = celebrationEnabled,
-                    onCheckedChange = viewModel::setCelebrationEnabled,
-                    title = "Mark days all tasks were completed with an icon on the home screen.",
-                )
-                if (celebrationEnabled) {
-                    CelebrationIconDropdown(
-                        selected = celebrationIcon,
-                        onSelected = viewModel::setCelebrationIcon,
-                    )
-                }
-                SettingToggle(
-                    checked = protectFavorited,
-                    onCheckedChange = viewModel::setProtectFavorited,
-                    title = "Protect favorited days.",
-                )
-
-                // The numeric auto-delete write-in: blank disables; 1 through 999;
-                // at most three digits.
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        "Auto delete daily tasks older then (",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    OutlinedTextField(
-                        value = retentionRaw,
-                        onValueChange = viewModel::setRetentionRaw,
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.width(72.dp),
-                    )
-                    Text(") days.", style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Done") }
-        },
-    )
-}
-
-/** The same toggle row style Settings uses — no second switch design. */
-@Composable
-private fun SettingToggle(
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    title: String,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) }
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(title, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
-    }
-}
-
-/** The one global celebration-icon choice, in the owner's exact option order. */
-@Composable
-private fun CelebrationIconDropdown(
-    selected: CelebrationIcon,
-    onSelected: (CelebrationIcon) -> Unit,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            "Celebration icon:",
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f),
-        )
-        // The box shows the same wording as the menu, and its width is fixed.
-        Box(
-            modifier = Modifier
-                .clip(AppTheme.shapes.control)
-                .clickable { expanded = true }
-                .border(
-                    AppTheme.shapes.controlBorder,
-                    MaterialTheme.colorScheme.outline,
-                    AppTheme.shapes.control,
-                )
-                .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+    if (showDatePicker) {
+        val initialMillis = editorDate?.atStartOfDay(ZoneOffset.UTC)?.toInstant()?.toEpochMilli()
+        val state = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    val picked = state.selectedDateMillis?.let {
+                        Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
+                    }
+                    showDatePicker = false
+                    if (picked != null && picked != editorDate) {
+                        scope.launch {
+                            if (viewModel.hasCardForDate(picked)) {
+                                if (picked == LocalDate.now()) showTodayTaken = true else pastTakenDate = picked
+                            } else {
+                                viewModel.setEditorDate(picked)
+                            }
+                        }
+                    }
+                }) { Text("Okay") }
+            },
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancel") } },
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    selected.label,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Spacer(Modifier.width(4.dp))
-                Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
-            }
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-            ) {
-                CelebrationIcon.entries.forEach { icon ->
-                    DropdownMenuItem(
-                        text = { Text(icon.label) },
-                        onClick = {
-                            onSelected(icon)
-                            expanded = false
-                        },
-                    )
-                }
-            }
+            DatePicker(state = state)
         }
+    }
+
+    if (showTodayTaken) {
+        AppDialog(
+            onDismissRequest = { showTodayTaken = false },
+            title = "You can only have one daily task log per day.",
+            body = "Please choose a new date or use the current day's task log.",
+            dismissButton = {
+                DialogActionButton("Go to Today's Log") {
+                    showTodayTaken = false
+                    viewModel.openForEditorDate(LocalDate.now())
+                }
+            },
+            confirmButton = {
+                DialogActionButton("Okay") { showTodayTaken = false }
+            },
+        )
+    }
+
+    pastTakenDate?.let { taken ->
+        AppDialog(
+            onDismissRequest = { pastTakenDate = null },
+            title = "You can only have one daily task log per day.",
+            body = "Please use a different date or go to that date's log.",
+            dismissButton = {
+                DialogDismissButton("Cancel") { pastTakenDate = null }
+            },
+            confirmButton = {
+                DialogActionButton("Go to Past Log") {
+                    pastTakenDate = null
+                    viewModel.openForEditorDate(taken)
+                }
+            },
+        )
+    }
+
+    if (showDelete) {
+        AppDialog(
+            onDismissRequest = { showDelete = false },
+            title = "Delete daily task log?",
+            dismissButton = { DialogDismissButton("Cancel") { showDelete = false } },
+            confirmButton = {
+                DialogDestructiveButton("Okay") {
+                    showDelete = false
+                    card?.let { viewModel.deleteCard(it) { onBack() } } ?: onBack()
+                }
+            },
+        )
+    }
+
+    if (showExport) {
+        ExportFormatDialog(
+            thing = "Daily Task Log",
+            onDismiss = { showExport = false },
+            options = listOf(
+                ExportFormatOption(
+                    "Text Document (.txt)",
+                    "Simple plain text file",
+                ) { startSave(DailyTaskExportFormat.TEXT) },
+                ExportFormatOption(
+                    "Markdown (.md)",
+                    "Formatted text document",
+                ) { startSave(DailyTaskExportFormat.MARKDOWN) },
+                ExportFormatOption(
+                    "PDF Document (.pdf)",
+                    "Printable document format",
+                ) { startSave(DailyTaskExportFormat.PDF) },
+                ExportFormatOption(
+                    "Application Data (.json)",
+                    "Use this file to import or restore this daily task log later",
+                ) { startSave(DailyTaskExportFormat.JSON) },
+            ),
+        )
     }
 }

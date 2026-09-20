@@ -41,10 +41,14 @@ import java.time.LocalDate
 fun DataDragonNavHost(
     navController: NavHostController = rememberNavController(),
 ) {
+    // One Daily Task view-model shared by the Daily Tasks screen and the editor,
+    // so a card saved, moved, or deleted in the editor is reflected immediately
+    // when returning to the list.
+    val dailyListViewModel: DailyListViewModel = viewModel()
+
     NavHost(navController = navController, startDestination = Routes.HOME) {
 
         composable(Routes.HOME) {
-            val dailyListViewModel: DailyListViewModel = viewModel()
             val homeViewModel: HomeViewModel = viewModel()
 
             // "Automatically show current daily list when app is started." — only
@@ -73,7 +77,9 @@ fun DataDragonNavHost(
                 onOpenIdeaLog = { ideaLogId -> navController.navigate(Routes.ideaLog(ideaLogId)) },
                 onAddIdea = { ideaLogId -> navController.navigate(Routes.newIdea(ideaLogId)) },
                 onDailyListToday = {
-                    navController.navigate(Routes.dailyListEditor(LocalDate.now().toString()))
+                    // The "+" opens a brand-new Daily Task log (the editor picks
+                    // today's date by default when today has no log yet).
+                    navController.navigate(Routes.dailyListEditor("new"))
                 },
                 onDailyListPickDate = {
                     // Handled inside HomeScreen's date-picker dialog.
@@ -209,7 +215,7 @@ fun DataDragonNavHost(
             DailyListEditorScreen(
                 date = backStackEntry.arguments?.getString(Routes.DAILY_LIST_ARG),
                 onBack = { navController.popBackStack() },
-                onOpenPreferences = { navController.navigate(Routes.DAILY_LIST_PREFERENCES) },
+                viewModel = dailyListViewModel,
             )
         }
 

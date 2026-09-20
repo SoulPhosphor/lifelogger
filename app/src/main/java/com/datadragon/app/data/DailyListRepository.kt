@@ -68,8 +68,15 @@ class DailyListRepository(private val db: AppDatabase) {
         }
     }
 
-    /** Set the per-day title. The date itself is never written after creation. */
+    /** Set the per-day title. */
     suspend fun setTitle(id: Long, title: String) = dao.setTitle(id, title)
+
+    /**
+     * Move a saved card to [date]. The caller must confirm [date] is free first
+     * (the date-unique index would otherwise abort the move); the editor's
+     * collision dialogs do this before calling.
+     */
+    suspend fun setDate(id: Long, date: LocalDate) = dao.setDate(id, date.toString())
 
     suspend fun setFavorited(id: Long, favorited: Boolean) =
         dao.setFavorited(id, favorited)
