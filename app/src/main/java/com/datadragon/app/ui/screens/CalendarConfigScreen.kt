@@ -627,8 +627,9 @@ private fun CalendarTypeDropdown(
 }
 
 /**
- * A labeled dropdown whose floating [label] is the prompt; the box is empty until
- * an option is picked. Used for Map Heat Map to, Calculation Rule, and Condition.
+ * A labeled dropdown: [label] sits above the box as its own line, and the box
+ * stays empty until an option is picked. Used for Calendar Timestamp, Map Heat
+ * Map to, Calculation Rule, Condition, Value, and Item Tracked.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -640,24 +641,26 @@ private fun <T> LabeledDropdown(
     onSelected: (T) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-        OutlinedTextField(
-            value = selected?.let(optionLabel).orEmpty(),
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(label) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.menuAnchor().fillMaxWidth(),
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            options.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(optionLabel(option)) },
-                    onClick = {
-                        onSelected(option)
-                        expanded = false
-                    },
-                )
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(label, style = AppTheme.textStyles.settingTitle)
+        ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+            OutlinedTextField(
+                value = selected?.let(optionLabel).orEmpty(),
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier.menuAnchor().fillMaxWidth(),
+            )
+            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                options.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(optionLabel(option)) },
+                        onClick = {
+                            onSelected(option)
+                            expanded = false
+                        },
+                    )
+                }
             }
         }
     }
