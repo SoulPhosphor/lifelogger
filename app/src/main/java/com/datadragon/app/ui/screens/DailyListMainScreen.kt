@@ -35,7 +35,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -77,17 +76,10 @@ fun DailyListBody(
 
     if (cards.isEmpty()) {
         Box(modifier = modifier, contentAlignment = Alignment.Center) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text("No daily lists yet.", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    "Click the plus in the top right to begin",
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center,
-                )
-            }
+            Text(
+                text = "No daily lists yet.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
         }
     } else {
         LazyColumn(
