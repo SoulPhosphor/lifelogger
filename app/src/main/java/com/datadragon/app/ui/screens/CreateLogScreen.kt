@@ -430,6 +430,7 @@ internal fun CheckboxSettingRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     title: String,
+    subtext: String? = null,
 ) {
     Row(
         modifier = Modifier
@@ -439,7 +440,18 @@ internal fun CheckboxSettingRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Checkbox(checked = checked, onCheckedChange = null)
-        Text(title)
+        if (subtext == null) {
+            Text(title)
+        } else {
+            Column {
+                Text(title)
+                Text(
+                    subtext,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 
@@ -614,12 +626,22 @@ private fun FieldEditorCard(
                         title = "Make Dropdown Instead",
                     )
                 }
-                FieldType.DROPDOWN, FieldType.MULTIPLE -> OutlinedTextField(
-                    value = field.optionsText,
-                    onValueChange = { field.optionsText = it },
-                    label = { Text("Options (One per Line)") },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp),
-                )
+                FieldType.DROPDOWN, FieldType.MULTIPLE -> {
+                    OutlinedTextField(
+                        value = field.optionsText,
+                        onValueChange = { field.optionsText = it },
+                        label = { Text("Options (One per Line)") },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp),
+                    )
+                    if (field.type == FieldType.MULTIPLE) {
+                        CheckboxSettingRow(
+                            checked = field.allowPreselectedMultipleChoices,
+                            onCheckedChange = { field.allowPreselectedMultipleChoices = it },
+                            title = "Allow pre-selected multi-choice answers",
+                            subtext = "Put an * before a list item to make it pre-selected when opening the form. It will still deselect if you tap it a second time.",
+                        )
+                    }
+                }
                 FieldType.DATETIME -> CheckboxSettingRow(
                     checked = field.defaultNow,
                     onCheckedChange = { field.defaultNow = it },
@@ -834,6 +856,7 @@ private class DraftField(
     sortByTimestamp: Boolean = false,
     allowUnknown: Boolean = false,
     makeDropdown: Boolean = false,
+    allowPreselectedMultipleChoices: Boolean = false,
 ) {
     var label by mutableStateOf(label)
     var type by mutableStateOf(type)
@@ -848,6 +871,7 @@ private class DraftField(
     var sortByTimestamp by mutableStateOf(sortByTimestamp)
     var allowUnknown by mutableStateOf(allowUnknown)
     var makeDropdown by mutableStateOf(makeDropdown)
+    var allowPreselectedMultipleChoices by mutableStateOf(allowPreselectedMultipleChoices)
 
     fun optionList(): List<String> =
         optionsText.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
@@ -887,6 +911,7 @@ private class DraftField(
         allowOrderFiltering = type.sortEligible && allowOrderFiltering,
         allowUnknown = type == FieldType.YESNO && allowUnknown,
         makeDropdown = type == FieldType.SCALE && makeDropdown,
+        allowPreselectedMultipleChoices = type == FieldType.MULTIPLE && allowPreselectedMultipleChoices,
     )
 
     fun toSnapshot(): DraftFieldSnapshot = DraftFieldSnapshot(
@@ -903,6 +928,7 @@ private class DraftField(
         sortByTimestamp = sortByTimestamp,
         allowUnknown = allowUnknown,
         makeDropdown = makeDropdown,
+        allowPreselectedMultipleChoices = allowPreselectedMultipleChoices,
     )
 }
 
@@ -926,6 +952,7 @@ private data class DraftFieldSnapshot(
     val sortByTimestamp: Boolean = false,
     val allowUnknown: Boolean = false,
     val makeDropdown: Boolean = false,
+    val allowPreselectedMultipleChoices: Boolean = false,
 )
 
 private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
@@ -942,6 +969,7 @@ private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
     sortByTimestamp = sortByTimestamp,
     allowUnknown = allowUnknown,
     makeDropdown = makeDropdown,
+    allowPreselectedMultipleChoices = allowPreselectedMultipleChoices,
 )
 
 /**
@@ -1001,6 +1029,7 @@ private fun FieldDef.toDraft(): DraftField = DraftField(
     allowOrderFiltering = allowOrderFiltering,
     allowUnknown = allowUnknown,
     makeDropdown = makeDropdown,
+    allowPreselectedMultipleChoices = allowPreselectedMultipleChoices,
 )
 
 /** The first single-`#` line of [text], used as the log name when the box is empty. */

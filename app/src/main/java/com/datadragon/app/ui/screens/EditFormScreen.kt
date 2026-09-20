@@ -705,12 +705,22 @@ private fun SettingsControls(field: EditDraft) {
                 title = "Make Dropdown Instead",
             )
         }
-        FieldType.DROPDOWN, FieldType.MULTIPLE -> OutlinedTextField(
-            value = field.optionsText,
-            onValueChange = { field.optionsText = it },
-            label = { Text("Options (One per Line)") },
-            modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp),
-        )
+        FieldType.DROPDOWN, FieldType.MULTIPLE -> {
+            OutlinedTextField(
+                value = field.optionsText,
+                onValueChange = { field.optionsText = it },
+                label = { Text("Options (One per Line)") },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp),
+            )
+            if (field.type == FieldType.MULTIPLE) {
+                CheckboxSettingRow(
+                    checked = field.allowPreselectedMultipleChoices,
+                    onCheckedChange = { field.allowPreselectedMultipleChoices = it },
+                    title = "Allow pre-selected multi-choice answers",
+                    subtext = "Put an * before a list item to make it pre-selected when opening the form. It will still deselect if you tap it a second time.",
+                )
+            }
+        }
         FieldType.DATETIME -> CheckboxSettingRow(
             checked = field.defaultNow,
             onCheckedChange = { field.defaultNow = it },
@@ -832,6 +842,7 @@ private class EditDraft(
     sortByTimestamp: Boolean = false,
     allowUnknown: Boolean = false,
     makeDropdown: Boolean = false,
+    allowPreselectedMultipleChoices: Boolean = false,
     /** True for a field that already exists in the saved schema (type locked). */
     val existing: Boolean = false,
     /** The label this field was loaded with, for re-keying entries on rename. */
@@ -852,6 +863,7 @@ private class EditDraft(
     var sortByTimestamp by mutableStateOf(sortByTimestamp)
     var allowUnknown by mutableStateOf(allowUnknown)
     var makeDropdown by mutableStateOf(makeDropdown)
+    var allowPreselectedMultipleChoices by mutableStateOf(allowPreselectedMultipleChoices)
 
     // Baselines for rename detection; realigned after each save.
     var originalLabel by mutableStateOf(originalLabel)
@@ -868,7 +880,8 @@ private class EditDraft(
             allowOrderFiltering == o.allowOrderFiltering &&
             sortByTimestamp == o.sortByTimestamp &&
             allowUnknown == o.allowUnknown &&
-            makeDropdown == o.makeDropdown
+            makeDropdown == o.makeDropdown &&
+            allowPreselectedMultipleChoices == o.allowPreselectedMultipleChoices
 
     fun optionList(): List<String> =
         optionsText.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
@@ -937,6 +950,7 @@ private class EditDraft(
         sortByTimestamp = sortByTimestamp,
         allowUnknown = allowUnknown,
         makeDropdown = makeDropdown,
+        allowPreselectedMultipleChoices = allowPreselectedMultipleChoices,
         existing = existing,
         originalLabel = originalLabel,
         originalOptions = originalOptions,
@@ -957,6 +971,7 @@ private class EditDraft(
         sortByTimestamp = other.sortByTimestamp
         allowUnknown = other.allowUnknown
         makeDropdown = other.makeDropdown
+        allowPreselectedMultipleChoices = other.allowPreselectedMultipleChoices
     }
 
     fun toFieldDef(): FieldDef = FieldDef(
@@ -972,6 +987,7 @@ private class EditDraft(
         allowOrderFiltering = type.sortEligible && allowOrderFiltering,
         allowUnknown = type == FieldType.YESNO && allowUnknown,
         makeDropdown = type == FieldType.SCALE && makeDropdown,
+        allowPreselectedMultipleChoices = type == FieldType.MULTIPLE && allowPreselectedMultipleChoices,
     )
 
     fun toSnapshot(): EditDraftSnapshot = EditDraftSnapshot(
@@ -988,6 +1004,7 @@ private class EditDraft(
         sortByTimestamp = sortByTimestamp,
         allowUnknown = allowUnknown,
         makeDropdown = makeDropdown,
+        allowPreselectedMultipleChoices = allowPreselectedMultipleChoices,
         existing = existing,
         originalLabel = originalLabel,
         originalOptions = originalOptions,
@@ -1014,6 +1031,7 @@ private data class EditDraftSnapshot(
     val sortByTimestamp: Boolean = false,
     val allowUnknown: Boolean = false,
     val makeDropdown: Boolean = false,
+    val allowPreselectedMultipleChoices: Boolean = false,
     val existing: Boolean,
     val originalLabel: String?,
     val originalOptions: List<String>,
@@ -1033,6 +1051,7 @@ private fun EditDraftSnapshot.toEditDraft(): EditDraft = EditDraft(
     sortByTimestamp = sortByTimestamp,
     allowUnknown = allowUnknown,
     makeDropdown = makeDropdown,
+    allowPreselectedMultipleChoices = allowPreselectedMultipleChoices,
     existing = existing,
     originalLabel = originalLabel,
     originalOptions = originalOptions,
@@ -1053,6 +1072,7 @@ private fun draftOf(f: FieldDef, sortByTimestamp: Boolean): EditDraft = EditDraf
     sortByTimestamp = sortByTimestamp,
     allowUnknown = f.allowUnknown,
     makeDropdown = f.makeDropdown,
+    allowPreselectedMultipleChoices = f.allowPreselectedMultipleChoices,
     existing = true,
     originalLabel = f.label,
     originalOptions = f.options,
