@@ -24,7 +24,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.EditSquare
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -53,10 +52,12 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.datadragon.app.R
 import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.ui.components.AppDialog
 import com.datadragon.app.ui.components.DialogActionButton
@@ -366,7 +367,7 @@ fun EditFormScreen(
                             modifier = Modifier.weight(1f),
                         )
                         Icon(
-                            imageVector = Icons.Filled.EditSquare,
+                            painter = painterResource(R.drawable.ic_edit_square),
                             contentDescription = "Edit Calendar",
                         )
                     }
