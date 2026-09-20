@@ -72,6 +72,8 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import kotlinx.coroutines.launch
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 
 /**
  * The Daily Task editor: one day's log. It opens either as a brand-new card
@@ -216,7 +218,7 @@ fun DailyListEditorScreen(
             }
 
             val lazyListState = rememberLazyListState()
-            val reorderState = sh.calvin.reorderable.rememberReorderableLazyListState(lazyListState) { from, to ->
+            val reorderState = rememberReorderableLazyListState(lazyListState) { from, to ->
                 val ids = rows.map { it.localId }.toMutableList()
                 if (from.index in ids.indices && to.index in ids.indices) {
                     ids.add(to.index, ids.removeAt(from.index))
@@ -235,7 +237,7 @@ fun DailyListEditorScreen(
                 contentPadding = PaddingValues(bottom = keyboardScrollSpace),
             ) {
                 itemsIndexed(rows, key = { _, item -> item.localId }) { _, item ->
-                    sh.calvin.reorderable.ReorderableItem(reorderState, key = item.localId) { _ ->
+                    ReorderableItem(reorderState, key = item.localId) { _ ->
                         ListEditorItemRow(
                             rowKey = item.localId,
                             text = item.text,
