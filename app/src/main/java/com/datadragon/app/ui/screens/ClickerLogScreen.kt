@@ -285,7 +285,7 @@ private fun ClickerFieldFace(
         else -> {
             // Display-only types: show the stored value, read-only on the face.
             val shown = ClickerValues.text(values, field.id)
-            if (field.editOnlyFromCardMenu) {
+            if (field.type.editOnlyFromCardMenu) {
                 Text(
                     text = if (shown.isNotBlank()) "${field.label}: $shown" else field.label,
                     color = MaterialTheme.colorScheme.onSurface,
