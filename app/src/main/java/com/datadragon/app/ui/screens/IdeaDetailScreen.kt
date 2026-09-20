@@ -31,7 +31,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.IdeaValues
 import com.datadragon.app.ui.IdeaDetailViewModel
-import com.datadragon.app.ui.theme.DeleteRed
+import com.datadragon.app.ui.components.AppDialog
+import com.datadragon.app.ui.components.DialogDestructiveButton
+import com.datadragon.app.ui.components.DialogDismissButton
 
 /**
  * The full, read-only view of one idea, opened by tapping its card.
@@ -136,18 +138,16 @@ fun IdeaDetailScreen(
     }
 
     if (confirmDelete) {
-        AlertDialog(
+        AppDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Delete this idea?") },
-            text = { Text("This permanently deletes this idea. This can't be undone.") },
+            title = "Delete this idea?",
+            body = "This permanently deletes this idea. This can't be undone.",
+            dismissButton = { DialogDismissButton("Cancel") { confirmDelete = false } },
             confirmButton = {
-                TextButton(onClick = {
+                DialogDestructiveButton("Delete Idea") {
                     confirmDelete = false
                     viewModel.delete(onDeleted = onBack)
-                }) { Text("Delete Idea", color = DeleteRed) }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmDelete = false }) { Text("Cancel") }
+                }
             },
         )
     }

@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.datadragon.app.data.AppDatabase
 import com.datadragon.app.data.Checklist
+import com.datadragon.app.data.ClickerLog
 import com.datadragon.app.data.HomeView
 import com.datadragon.app.data.IdeaLog
 import com.datadragon.app.data.LogTemplate
@@ -25,6 +26,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     private val checklistDao = AppDatabase.getInstance(app).checklistDao()
     private val ideaLogDao = AppDatabase.getInstance(app).ideaLogDao()
     private val ideaEntryDao = AppDatabase.getInstance(app).ideaEntryDao()
+    private val clickerDao = AppDatabase.getInstance(app).clickerDao()
     private val settings = SettingsRepository(app)
 
     /**
@@ -65,6 +67,11 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     /** All saved lists, shown as name-only cards in the Lists view (drafts excluded). */
     val checklists: StateFlow<List<Checklist>> =
         checklistDao.observeChecklists()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Clicker Data logs, most recently used first (newest on top). */
+    val clickerLogs: StateFlow<List<ClickerLog>> =
+        clickerDao.observeLogs()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     // The most recent unfinished draft (if any), checked once when Home is created

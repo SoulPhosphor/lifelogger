@@ -23,6 +23,9 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.SettingsApplications
+import androidx.compose.foundation.layout.size
+import com.datadragon.app.ui.theme.AppTheme
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.AlertDialog
@@ -57,6 +60,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.ui.components.ExportFormatDialog
+import com.datadragon.app.ui.components.AppDialog
+import com.datadragon.app.ui.components.DialogActionButton
+import com.datadragon.app.ui.components.DialogDestructiveButton
+import com.datadragon.app.ui.components.DialogDismissButton
 import com.datadragon.app.ui.components.SortFilterBar
 import com.datadragon.app.ui.components.WebpageOpenButton
 import com.datadragon.app.ui.components.ExportFormatOption
@@ -68,7 +75,6 @@ import com.datadragon.app.data.LogEntry
 import com.datadragon.app.export.ExportContent
 import com.datadragon.app.export.LogExport
 import com.datadragon.app.ui.LogViewModel
-import com.datadragon.app.ui.theme.DeleteRed
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -161,7 +167,11 @@ fun LogScreen(
                         }
                         Box {
                             IconButton(onClick = { gearMenuOpen = true }) {
-                                Icon(Icons.Filled.MoreVert, contentDescription = "Log Options")
+                                Icon(
+                                    Icons.Filled.SettingsApplications,
+                                    contentDescription = "Log Options",
+                                    modifier = Modifier.size(AppTheme.sizes.settingsCog),
+                                )
                             }
                             DropdownMenu(
                                 expanded = gearMenuOpen,
@@ -370,61 +380,47 @@ fun LogScreen(
     }
 
     if (confirmDeleteLog) {
-        AlertDialog(
+        AppDialog(
             onDismissRequest = { confirmDeleteLog = false },
-            title = { Text("Delete \"${template?.name ?: "this log"}\"?") },
-            text = { Text("This permanently deletes this log and all of its entries. This can't be undone.") },
+            title = "Delete \"${template?.name ?: "this log"}\"?",
+            body = "This permanently deletes this log and all of its entries. This can't be undone.",
+            dismissButton = { DialogDismissButton("Cancel") { confirmDeleteLog = false } },
             confirmButton = {
-                TextButton(onClick = {
+                DialogDestructiveButton("Delete Log") {
                     confirmDeleteLog = false
                     viewModel.deleteLog(onDeleted = onBack)
-                }) {
-                    Text("Delete Log", color = DeleteRed)
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmDeleteLog = false }) { Text("Cancel") }
             },
         )
     }
 
     entryToDelete?.let { entry ->
-        AlertDialog(
+        AppDialog(
             onDismissRequest = { entryToDelete = null },
-            title = { Text("Delete this entry?") },
-            text = { Text("This permanently deletes this entry. This can't be undone.") },
+            title = "Delete this entry?",
+            body = "This permanently deletes this entry. This can't be undone.",
+            dismissButton = { DialogDismissButton("Cancel") { entryToDelete = null } },
             confirmButton = {
-                TextButton(onClick = {
+                DialogDestructiveButton("Delete Entry") {
                     entryToDelete = null
                     viewModel.deleteEntry(entry)
-                }) {
-                    Text("Delete Entry", color = DeleteRed)
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { entryToDelete = null }) { Text("Cancel") }
             },
         )
     }
 
     if (showUnlock) {
-        AlertDialog(
+        AppDialog(
             onDismissRequest = { showUnlock = false },
-            title = { Text("Unlock this log?") },
-            text = {
-                Text(
-                    "Unlocking lets you edit its entries. This is permanent — once " +
-                        "unlocked, the log can never be re-locked.",
-                )
-            },
+            title = "Unlock this log?",
+            body = "Unlocking lets you edit its entries. This is permanent — once " +
+                "unlocked, the log can never be re-locked.",
+            dismissButton = { DialogDismissButton("Cancel") { showUnlock = false } },
             confirmButton = {
-                TextButton(onClick = {
+                DialogActionButton("Unlock") {
                     showUnlock = false
                     viewModel.unlockLog()
-                }) { Text("Unlock") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showUnlock = false }) { Text("Cancel") }
+                }
             },
         )
     }

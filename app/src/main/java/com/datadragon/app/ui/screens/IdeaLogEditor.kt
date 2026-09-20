@@ -56,6 +56,9 @@ import com.datadragon.app.data.TitleCase
 import com.datadragon.app.data.ideaLineCount
 import com.datadragon.app.data.sortEligible
 import com.datadragon.app.ui.components.AppButton
+import com.datadragon.app.ui.components.AppDialog
+import com.datadragon.app.ui.components.DialogActionButton
+import com.datadragon.app.ui.components.DialogDismissButton
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -397,28 +400,24 @@ fun IdeaLogEditorScaffold(
     }
 
     pendingSortReplacement?.let { (newField, existingField) ->
-        AlertDialog(
+        AppDialog(
             onDismissRequest = {
                 newField.sortByTimestamp = false
                 pendingSortReplacement = null
             },
-            text = {
-                Text(
-                    "Default timestamp sorting is currently set to be ${existingField.label}. " +
-                        "Do you want to change it?",
-                )
-            },
+            body = "Default timestamp sorting is currently set to be ${existingField.label}. " +
+                "Do you want to change it?",
             dismissButton = {
-                TextButton(onClick = {
+                DialogDismissButton("Cancel") {
                     newField.sortByTimestamp = false
                     pendingSortReplacement = null
-                }) { Text("Cancel") }
+                }
             },
             confirmButton = {
-                TextButton(onClick = {
+                DialogActionButton("Okay") {
                     existingField.sortByTimestamp = false
                     pendingSortReplacement = null
-                }) { Text("Okay") }
+                }
             },
         )
     }

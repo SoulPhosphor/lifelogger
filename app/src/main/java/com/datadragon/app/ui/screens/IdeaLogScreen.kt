@@ -21,6 +21,9 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.FolderCopy
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.SettingsApplications
+import androidx.compose.foundation.layout.size
+import com.datadragon.app.ui.theme.AppTheme
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
@@ -60,9 +63,11 @@ import com.datadragon.app.data.IdeaFieldDef
 import com.datadragon.app.data.IdeaLog
 import com.datadragon.app.data.IdeaValues
 import com.datadragon.app.ui.IdeaLocation
+import com.datadragon.app.ui.components.AppDialog
+import com.datadragon.app.ui.components.DialogDestructiveButton
+import com.datadragon.app.ui.components.DialogDismissButton
 import com.datadragon.app.ui.IdeaLogViewModel
 import com.datadragon.app.ui.components.SortFilterBar
-import com.datadragon.app.ui.theme.DeleteRed
 
 /**
  * One Idea Log: its ideas as cards, in the log's own order.
@@ -133,7 +138,11 @@ fun IdeaLogScreen(
                         }
                         Box {
                             IconButton(onClick = { gearMenuOpen = true }) {
-                                Icon(Icons.Filled.MoreVert, contentDescription = "Idea Log Options")
+                                Icon(
+                                    Icons.Filled.SettingsApplications,
+                                    contentDescription = "Idea Log Options",
+                                    modifier = Modifier.size(AppTheme.sizes.settingsCog),
+                                )
                             }
                             DropdownMenu(
                                 expanded = gearMenuOpen,
@@ -301,37 +310,31 @@ fun IdeaLogScreen(
     }
 
     if (confirmDeleteLog) {
-        AlertDialog(
+        AppDialog(
             onDismissRequest = { confirmDeleteLog = false },
-            title = { Text("Delete \"${log?.name ?: "this Idea Log"}\"?") },
-            text = {
-                Text("This permanently deletes this Idea Log and all of its ideas. This can't be undone.")
-            },
+            title = "Delete \"${log?.name ?: "this Idea Log"}\"?",
+            body = "This permanently deletes this Idea Log and all of its ideas. This can't be undone.",
+            dismissButton = { DialogDismissButton("Cancel") { confirmDeleteLog = false } },
             confirmButton = {
-                TextButton(onClick = {
+                DialogDestructiveButton("Delete Idea Log") {
                     confirmDeleteLog = false
                     viewModel.deleteLog(onDeleted = onBack)
-                }) { Text("Delete Idea Log", color = DeleteRed) }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmDeleteLog = false }) { Text("Cancel") }
+                }
             },
         )
     }
 
     ideaToDelete?.let { entry ->
-        AlertDialog(
+        AppDialog(
             onDismissRequest = { ideaToDelete = null },
-            title = { Text("Delete this idea?") },
-            text = { Text("This permanently deletes this idea. This can't be undone.") },
+            title = "Delete this idea?",
+            body = "This permanently deletes this idea. This can't be undone.",
+            dismissButton = { DialogDismissButton("Cancel") { ideaToDelete = null } },
             confirmButton = {
-                TextButton(onClick = {
+                DialogDestructiveButton("Delete Idea") {
                     ideaToDelete = null
                     viewModel.deleteEntry(entry)
-                }) { Text("Delete Idea", color = DeleteRed) }
-            },
-            dismissButton = {
-                TextButton(onClick = { ideaToDelete = null }) { Text("Cancel") }
+                }
             },
         )
     }

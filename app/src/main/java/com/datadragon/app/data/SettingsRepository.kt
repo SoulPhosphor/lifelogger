@@ -203,7 +203,8 @@ enum class HomeView(val key: String) {
     FORMS("forms"),
     LISTS("lists"),
     IDEAS("ideas"),
-    DAILY_LIST("daily_list");
+    DAILY_LIST("daily_list"),
+    CLICKER("clicker");
 
     companion object {
         fun fromKey(key: String?): HomeView = entries.firstOrNull { it.key == key } ?: FORMS

@@ -609,7 +609,7 @@ private fun DatePickerModal(
                     Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
                 }
                 if (picked != null) onConfirm(picked) else onDismiss()
-            }) { Text("OK") }
+            }) { Text("Okay") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     ) {
@@ -632,7 +632,7 @@ private fun TimePickerModal(
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = { onConfirm(LocalTime.of(state.hour, state.minute)) }) { Text("OK") }
+            TextButton(onClick = { onConfirm(LocalTime.of(state.hour, state.minute)) }) { Text("Okay") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
         text = { TimePicker(state = state) },

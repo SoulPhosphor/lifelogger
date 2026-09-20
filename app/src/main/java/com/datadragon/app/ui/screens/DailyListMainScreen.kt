@@ -44,6 +44,9 @@ import com.datadragon.app.data.DailyList
 import com.datadragon.app.data.DailyListItem
 import com.datadragon.app.ui.DAILY_LIST_DATE_FORMAT
 import com.datadragon.app.ui.DailyListViewModel
+import com.datadragon.app.ui.components.AppDialog
+import com.datadragon.app.ui.components.DialogDestructiveButton
+import com.datadragon.app.ui.components.DialogDismissButton
 import com.datadragon.app.ui.celebrationIconVector
 import com.datadragon.app.ui.theme.AppTheme
 import java.time.LocalDate
@@ -126,20 +129,15 @@ fun DailyListBody(
     // Manual whole-card deletion — the established list deletion dialog, with
     // its exact wording and fixed Okay-then-Cancel button order.
     deleteCandidate?.let { card ->
-        AlertDialog(
+        AppDialog(
             onDismissRequest = { deleteCandidate = null },
-            title = { Text("Delete list?") },
-            // Button order is fixed: Okay first, Cancel second. Material renders
-            // the dismiss slot before the confirm slot, so Okay goes in the
-            // dismiss slot to keep that order on screen.
-            dismissButton = {
-                TextButton(onClick = {
+            title = "Delete list?",
+            dismissButton = { DialogDismissButton("Cancel") { deleteCandidate = null } },
+            confirmButton = {
+                DialogDestructiveButton("Okay") {
                     deleteCandidate = null
                     onDeleteCard(card)
-                }) { Text("Okay") }
-            },
-            confirmButton = {
-                TextButton(onClick = { deleteCandidate = null }) { Text("Cancel") }
+                }
             },
         )
     }

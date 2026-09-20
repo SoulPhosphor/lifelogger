@@ -32,8 +32,9 @@ class DailyListConverters {
         LogTemplate::class, LogEntry::class, EntryNote::class, Checklist::class, ChecklistItem::class,
         IdeaLog::class, IdeaEntry::class, Calendar::class, ColorPreset::class,
         DailyList::class, DailyListItem::class,
+        ClickerLog::class, ClickerCard::class,
     ],
-    version = 16,
+    version = 17,
     exportSchema = false,
 )
 @TypeConverters(DailyListConverters::class)
@@ -56,6 +57,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun colorPresetDao(): ColorPresetDao
 
     abstract fun dailyListDao(): DailyListDao
+
+    abstract fun clickerDao(): ClickerDao
 
     companion object {
         @Volatile
@@ -363,6 +366,45 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v17 added the `clicker_logs` and `clicker_cards` tables (the Clicker
+         * Data feature). Purely additive — every other table is untouched, so
+         * existing data survives the upgrade. A log's cards are keyed to it by
+         * `clickerLogId`; tracker/field definitions live in the log's
+         * `fieldsJson` and per-card values in each card's `valuesJson`.
+         */
+        internal val MIGRATION_16_17 = object : Migration(16, 17) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `clicker_logs` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`uuid` TEXT NOT NULL, " +
+                        "`title` TEXT NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, " +
+                        "`lastAccessedAt` INTEGER NOT NULL, " +
+                        "`fieldsJson` TEXT NOT NULL, " +
+                        "`displayOnlyClickerDateTime` INTEGER NOT NULL, " +
+                        "`autoDateStamp` INTEGER NOT NULL, " +
+                        "`autoTimeStamp` INTEGER NOT NULL, " +
+                        "`allowFollowUp` INTEGER NOT NULL)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `clicker_cards` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`clickerLogId` INTEGER NOT NULL, " +
+                        "`uuid` TEXT NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, " +
+                        "`displayDate` TEXT, " +
+                        "`displayTime` TEXT, " +
+                        "`valuesJson` TEXT NOT NULL)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_clicker_cards_clickerLogId` " +
+                        "ON `clicker_cards` (`clickerLogId`)"
+                )
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -374,7 +416,7 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_1_2, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
                         MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11,
                         MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15,
-                        MIGRATION_15_16,
+                        MIGRATION_15_16, MIGRATION_16_17,
                     )
                     .build()
                     .also { instance = it }

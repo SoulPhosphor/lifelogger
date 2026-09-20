@@ -77,6 +77,9 @@ import com.datadragon.app.data.CompleteIcon
 import com.datadragon.app.export.ChecklistExportFormat
 import com.datadragon.app.export.ExportContent
 import com.datadragon.app.ui.ChecklistViewModel
+import com.datadragon.app.ui.components.AppDialog
+import com.datadragon.app.ui.components.DialogDestructiveButton
+import com.datadragon.app.ui.components.DialogDismissButton
 import com.datadragon.app.ui.components.ExportFormatDialog
 import com.datadragon.app.ui.components.ExportFormatOption
 import kotlinx.coroutines.launch
@@ -319,20 +322,15 @@ fun ChecklistScreen(
     }
 
     if (showDeleteList) {
-        AlertDialog(
+        AppDialog(
             onDismissRequest = { showDeleteList = false },
-            title = { Text("Delete list?") },
-            // Button order is fixed: Okay first, Cancel second. Material renders
-            // the dismiss slot before the confirm slot, so Okay goes in the
-            // dismiss slot to keep that order on screen.
-            dismissButton = {
-                TextButton(onClick = {
+            title = "Delete list?",
+            dismissButton = { DialogDismissButton("Cancel") { showDeleteList = false } },
+            confirmButton = {
+                DialogDestructiveButton("Okay") {
                     showDeleteList = false
                     viewModel.deleteList(onBack)
-                }) { Text("Okay") }
-            },
-            confirmButton = {
-                TextButton(onClick = { showDeleteList = false }) { Text("Cancel") }
+                }
             },
         )
     }
