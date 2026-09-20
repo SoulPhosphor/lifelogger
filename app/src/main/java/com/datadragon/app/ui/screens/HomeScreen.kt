@@ -68,6 +68,10 @@ import com.datadragon.app.ui.components.DialogActionButton
 import com.datadragon.app.ui.components.DialogDestructiveButton
 import com.datadragon.app.ui.components.DialogDismissButton
 import com.datadragon.app.ui.theme.AppTheme
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import com.datadragon.app.data.ClickerLog
 import com.datadragon.app.ui.HomeIdeaLog
 import com.datadragon.app.ui.HomeLog
 import com.datadragon.app.ui.HomeViewModel
@@ -89,12 +93,15 @@ fun HomeScreen(
     onDailyListPickDate: () -> Unit,
     onDailyListDateConfirmed: (java.time.LocalDate) -> Unit,
     onOpenDailyListCard: (Long) -> Unit,
+    onCreateClicker: () -> Unit,
+    onOpenClicker: (Long) -> Unit,
     dailyListViewModel: DailyListViewModel = viewModel(),
     viewModel: HomeViewModel = viewModel(),
 ) {
     val logs by viewModel.logs.collectAsStateWithLifecycle()
     val checklists by viewModel.checklists.collectAsStateWithLifecycle()
     val ideaLogs by viewModel.ideaLogs.collectAsStateWithLifecycle()
+    val clickerLogs by viewModel.clickerLogs.collectAsStateWithLifecycle()
     val view by viewModel.view.collectAsStateWithLifecycle()
     val pendingDraft by viewModel.pendingDraft.collectAsStateWithLifecycle()
     val navStyle by viewModel.navStyle.collectAsStateWithLifecycle()
@@ -119,7 +126,7 @@ fun HomeScreen(
                                 visibleModes.forEachIndexed { index, mode ->
                                     if (index > 0) Spacer(Modifier.width(4.dp))
                                     ViewToggle(
-                                        icon = mode.icon,
+                                        painter = mode.iconPainter(),
                                         contentDescription = mode.label,
                                         selected = view == mode.view,
                                         onClick = { viewModel.setView(mode.view) },
@@ -180,6 +187,7 @@ fun HomeScreen(
                                 HomeView.FORMS -> onCreateForm()
                                 HomeView.LISTS -> onCreateChecklist()
                                 HomeView.IDEAS -> onCreateIdeaLog()
+                                HomeView.CLICKER -> onCreateClicker()
                                 HomeView.DAILY_LIST -> Unit
                             }
                         }) {
@@ -189,6 +197,7 @@ fun HomeScreen(
                                     HomeView.FORMS -> "New form"
                                     HomeView.LISTS -> "New list"
                                     HomeView.IDEAS -> "New Idea Log"
+                                    HomeView.CLICKER -> "New Clicker Data Log"
                                     HomeView.DAILY_LIST -> "New Daily List"
                                 },
                                 modifier = Modifier.size(24.dp),
@@ -220,6 +229,11 @@ fun HomeScreen(
             HomeView.DAILY_LIST -> DailyListHomeBody(
                 dailyListViewModel = dailyListViewModel,
                 onOpenCard = onOpenDailyListCard,
+            )
+            HomeView.CLICKER -> ClickerBody(
+                logs = clickerLogs,
+                modifier = Modifier.fillMaxSize().padding(padding),
+                onOpenClicker = onOpenClicker,
             )
             // No modes chosen: point the user at the cog to turn some on.
             null -> Box(
@@ -321,7 +335,7 @@ fun HomeScreen(
 
 @Composable
 private fun ViewToggle(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    painter: Painter,
     contentDescription: String,
     selected: Boolean,
     onClick: () -> Unit,
@@ -356,7 +370,7 @@ private fun ViewToggle(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = icon,
+                painter = painter,
                 contentDescription = contentDescription,
                 modifier = Modifier.size(24.dp),
                 tint = if (selected) {
@@ -376,17 +390,24 @@ private fun ViewToggle(
  */
 private data class ModeMeta(
     val view: HomeView,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector,
     val label: String,
+    val icon: ImageVector? = null,
+    val iconRes: Int? = null,
 )
 
 /** Every data mode, in the order they appear in the bar. */
 private val MODE_META = listOf(
-    ModeMeta(HomeView.FORMS, Icons.Filled.Description, "Forms"),
-    ModeMeta(HomeView.LISTS, Icons.Filled.Checklist, "Lists"),
-    ModeMeta(HomeView.IDEAS, Icons.Filled.OnlinePrediction, "Ideas"),
-    ModeMeta(HomeView.DAILY_LIST, Icons.Filled.EventNote, "Daily Tasks"),
+    ModeMeta(HomeView.FORMS, "Forms", icon = Icons.Filled.Description),
+    ModeMeta(HomeView.LISTS, "Lists", icon = Icons.Filled.Checklist),
+    ModeMeta(HomeView.IDEAS, "Ideas", icon = Icons.Filled.OnlinePrediction),
+    ModeMeta(HomeView.DAILY_LIST, "Daily Tasks", icon = Icons.Filled.EventNote),
+    ModeMeta(HomeView.CLICKER, "Clicker Data", iconRes = R.drawable.ic_chart_data),
 )
+
+/** The painter for a mode's bar icon, whether it's a built-in vector or a bundled drawable. */
+@Composable
+private fun ModeMeta.iconPainter(): Painter =
+    iconRes?.let { painterResource(it) } ?: rememberVectorPainter(icon!!)
 
 /**
  * Dropdown navigation: the Material menu icon, then the current mode shown as its
@@ -413,7 +434,7 @@ private fun NavModeDropdown(
             Text(current.label, style = MaterialTheme.typography.titleLarge)
         } else {
             Icon(
-                imageVector = current.icon,
+                painter = current.iconPainter(),
                 contentDescription = current.label,
                 modifier = Modifier.size(24.dp),
             )
@@ -703,6 +724,56 @@ private fun summaryLine(entryCount: Int, lastEntryAt: String?): String {
     val count = if (entryCount == 1) "1 Entry" else "$entryCount Entries"
     val last = EntryValues.displayLastEntry(lastEntryAt)
     return if (last != null) "$count · Last Entry $last" else count
+}
+
+@Composable
+private fun ClickerBody(
+    logs: List<ClickerLog>,
+    modifier: Modifier = Modifier,
+    onOpenClicker: (Long) -> Unit,
+) {
+    if (logs.isEmpty()) {
+        EmptyMessage(
+            title = "No clicker data lists yet.",
+            body = "Click the plus in the top right to begin",
+            modifier = modifier,
+        )
+    } else {
+        LazyColumn(
+            modifier = modifier,
+            contentPadding = PaddingValues(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            items(logs, key = { it.id }) { log ->
+                ClickerLogRow(log = log, onOpen = { onOpenClicker(log.id) })
+            }
+        }
+    }
+}
+
+/** One Clicker Data log card on the Clicker home: its title, tappable to open. */
+@Composable
+private fun ClickerLogRow(log: ClickerLog, onOpen: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpen),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = log.title,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
 }
 
 @Composable

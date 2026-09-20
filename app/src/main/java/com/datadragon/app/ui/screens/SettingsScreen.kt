@@ -47,7 +47,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import com.datadragon.app.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.CompleteIcon
@@ -231,6 +233,13 @@ fun SettingsScreen(
                 subtext = "Keep track of everything you've done in a day. Allows for unfinished items to be brought to the next day. Special celebration icon can be selected to remember the days you've managed to do it all.",
                 checked = HomeView.DAILY_LIST in enabledModes,
                 onCheckedChange = { settingsViewModel.setModeEnabled(HomeView.DAILY_LIST, it) },
+            )
+            DataModeCheckRow(
+                iconRes = R.drawable.ic_chart_data,
+                label = "Clicker Data",
+                subtext = "Allows you to quickly keep track of increasing number of events or items.",
+                checked = HomeView.CLICKER in enabledModes,
+                onCheckedChange = { settingsViewModel.setModeEnabled(HomeView.CLICKER, it) },
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -593,11 +602,12 @@ private fun NavStyleRadioRow(
  */
 @Composable
 private fun DataModeCheckRow(
-    icon: ImageVector,
     label: String,
     subtext: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    icon: ImageVector? = null,
+    iconRes: Int? = null,
 ) {
     Row(
         modifier = Modifier
@@ -606,7 +616,14 @@ private fun DataModeCheckRow(
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp))
+        when {
+            iconRes != null -> Icon(
+                painterResource(iconRes),
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+            )
+            icon != null -> Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp))
+        }
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(label, style = AppTheme.textStyles.settingTitle)

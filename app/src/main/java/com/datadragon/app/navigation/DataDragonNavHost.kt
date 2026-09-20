@@ -85,6 +85,9 @@ fun DataDragonNavHost(
                         Routes.dailyListEditor(card?.date?.toString() ?: LocalDate.now().toString()),
                     )
                 },
+                // Wired to the Clicker setup and in-log screens in the next stage.
+                onCreateClicker = { },
+                onOpenClicker = { },
                 dailyListViewModel = dailyListViewModel,
                 viewModel = homeViewModel,
             )
