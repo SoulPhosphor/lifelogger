@@ -160,6 +160,12 @@ section before doing UI work, and use these words the way I use them:
 When my request is ambiguous about "grouping" vs "card", or about which "+",
 stop and confirm — do not guess.
 
+- **"Daily list" always means "Daily Task."** "Daily list" is the old, dead
+  name. I still slip and say "daily list" out of habit — when I do, treat it as
+  "Daily Task" automatically; you do not need to stop and ask. (Internal code
+  identifiers like `DailyList` are a separate matter and are not renamed unless I
+  ask.)
+
 ## Form field sorting
 
 - **Only fields that carry a date are eligible for ordering.** Date and

@@ -88,6 +88,7 @@ fun DataDragonNavHost(
                         Routes.dailyListEditor(card?.date?.toString() ?: LocalDate.now().toString()),
                     )
                 },
+                onOpenDailyTaskPreferences = { navController.navigate(Routes.DAILY_LIST_PREFERENCES) },
                 onCreateClicker = { navController.navigate(Routes.CREATE_CLICKER) },
                 onOpenClicker = { clickerLogId -> navController.navigate(Routes.clickerLog(clickerLogId)) },
                 dailyListViewModel = dailyListViewModel,

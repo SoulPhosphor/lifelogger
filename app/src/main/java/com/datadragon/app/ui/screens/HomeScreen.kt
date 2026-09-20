@@ -95,6 +95,7 @@ fun HomeScreen(
     onDailyListPickDate: () -> Unit,
     onDailyListDateConfirmed: (java.time.LocalDate) -> Unit,
     onOpenDailyListCard: (Long) -> Unit,
+    onOpenDailyTaskPreferences: () -> Unit,
     onCreateClicker: () -> Unit,
     onOpenClicker: (Long) -> Unit,
     dailyListViewModel: DailyListViewModel = viewModel(),
@@ -128,7 +129,7 @@ fun HomeScreen(
                 val backMode = visibleModes.firstOrNull { it.view != HomeView.DAILY_LIST }
                 DailyTasksTopBar(
                     onBack = backMode?.let { mode -> { viewModel.setView(mode.view) } },
-                    onOpenSettings = onOpenSettings,
+                    onOpenPreferences = onOpenDailyTaskPreferences,
                     onAddCard = onDailyListToday,
                 )
             } else {
@@ -342,7 +343,7 @@ fun HomeScreen(
 @Composable
 private fun DailyTasksTopBar(
     onBack: (() -> Unit)?,
-    onOpenSettings: () -> Unit,
+    onOpenPreferences: () -> Unit,
     onAddCard: () -> Unit,
 ) {
     TopAppBar(
@@ -356,10 +357,10 @@ private fun DailyTasksTopBar(
                         Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
                     }
                 }
-                IconButton(onClick = onOpenSettings) {
+                IconButton(onClick = onOpenPreferences) {
                     Icon(
                         Icons.Filled.SettingsApplications,
-                        contentDescription = "Settings",
+                        contentDescription = "Daily Task Preferences",
                         modifier = Modifier.size(AppTheme.sizes.settingsCog),
                     )
                 }
