@@ -194,7 +194,7 @@ fun HomeScreen(
                                         HomeView.LISTS -> "New list"
                                         HomeView.IDEAS -> "New Idea Log"
                                         HomeView.CLICKER -> "New Clicker Data Log"
-                                        HomeView.DAILY_LIST -> "New Daily List"
+                                        HomeView.DAILY_LIST -> "New Daily Task"
                                     },
                                     modifier = Modifier.size(24.dp),
                                 )
@@ -369,7 +369,7 @@ private fun DailyTasksTopBar(
             IconButton(onClick = onAddCard) {
                 Icon(
                     Icons.Filled.Add,
-                    contentDescription = "New Daily List",
+                    contentDescription = "New Daily Task",
                     modifier = Modifier.size(24.dp),
                 )
             }
@@ -701,9 +701,9 @@ private fun DailyListHomeBody(
                     Icon(
                         imageVector = if (showFavoritesOnly) Icons.Filled.Star else Icons.Filled.StarBorder,
                         contentDescription = if (showFavoritesOnly) {
-                            "Showing favorited daily lists only — tap to show all"
+                            "Showing favorited daily tasks only — tap to show all"
                         } else {
-                            "Show favorited daily lists only"
+                            "Show favorited daily tasks only"
                         },
                     )
                 }

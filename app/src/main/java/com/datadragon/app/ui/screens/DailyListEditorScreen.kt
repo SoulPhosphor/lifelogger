@@ -143,7 +143,7 @@ fun DailyListEditorScreen(
                         IconButton(onClick = onOpenPreferences) {
                             Icon(
                                 Icons.Filled.SettingsApplications,
-                                contentDescription = "Daily List Preferences",
+                                contentDescription = "Daily Task Preferences",
                                 modifier = Modifier.size(AppTheme.sizes.settingsCog),
                             )
                         }
@@ -161,7 +161,7 @@ fun DailyListEditorScreen(
                         }
                     }
                     IconButton(onClick = { viewModel.addItem() }) {
-                        Icon(Icons.Filled.Add, contentDescription = "Add Daily List item")
+                        Icon(Icons.Filled.Add, contentDescription = "Add Daily Task item")
                     }
                 },
             )
@@ -306,7 +306,7 @@ private fun DailyListPreferencesDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Daily List Preferences") },
+        title = { Text("Daily Task Preferences") },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -316,14 +316,14 @@ private fun DailyListPreferencesDialog(
                     value = heading,
                     onValueChange = viewModel::setHeading,
                     singleLine = true,
-                    label = { Text("Name showed at the top of your daily lists") },
+                    label = { Text("Name showed at the top of your daily tasks") },
                     placeholder = { Text("Daily Tasks") },
                 )
 
                 SettingToggle(
                     checked = autoRenew,
                     onCheckedChange = viewModel::setAutoRenew,
-                    title = "Automatically renew daily list items that weren't completed.",
+                    title = "Automatically renew daily task items that weren't completed.",
                 )
                 SettingToggle(
                     checked = showCompleted,
@@ -348,12 +348,12 @@ private fun DailyListPreferencesDialog(
                 SettingToggle(
                     checked = autoReopen,
                     onCheckedChange = viewModel::setAutoReopen,
-                    title = "Automatically show current daily list when app is started.",
+                    title = "Automatically show current daily task when app is started.",
                 )
                 SettingToggle(
                     checked = allowTitle,
                     onCheckedChange = viewModel::setAllowTitle,
-                    title = "Allow creating title for daily lists.",
+                    title = "Allow creating title for daily tasks.",
                 )
                 SettingToggle(
                     checked = celebrationEnabled,
@@ -379,7 +379,7 @@ private fun DailyListPreferencesDialog(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        "Auto delete daily lists older then (",
+                        "Auto delete daily tasks older then (",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     OutlinedTextField(

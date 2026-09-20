@@ -80,7 +80,7 @@ fun DailyListBody(
     if (cards.isEmpty()) {
         Box(modifier = modifier, contentAlignment = Alignment.Center) {
             Text(
-                text = "No daily lists yet.",
+                text = "No daily tasks yet.",
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
@@ -236,7 +236,7 @@ private fun DailyListCardRow(
             }
             Box {
                 IconButton(onClick = { menuOpen = true }) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = "Daily List options")
+                    Icon(Icons.Filled.MoreVert, contentDescription = "Daily Task options")
                 }
                 DropdownMenu(
                     expanded = menuOpen,
