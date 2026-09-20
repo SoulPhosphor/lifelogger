@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.EventNote
+import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.OnlinePrediction
@@ -117,96 +118,91 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    if (currentMode != null) {
-                        if (navStyle == NavStyle.ICONS) {
-                            // A row of the chosen modes' icons, left-aligned, with a
-                            // little space between them so none is easy to mis-tap.
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                visibleModes.forEachIndexed { index, mode ->
-                                    if (index > 0) Spacer(Modifier.width(4.dp))
-                                    ViewToggle(
-                                        painter = mode.iconPainter(),
-                                        contentDescription = mode.label,
-                                        selected = view == mode.view,
-                                        onClick = { viewModel.setView(mode.view) },
-                                    )
+            // Daily Tasks has no Home list of its own — entering the mode drops
+            // straight into its Main screen, so its bar mirrors a grouping's Main
+            // screen (back, cog, title, "+") rather than the mode-toggle bar.
+            if (currentMode?.view == HomeView.DAILY_LIST) {
+                // Back returns to the first other chosen mode, bringing the
+                // mode-toggle bar back. With no other mode chosen there is
+                // nowhere to go, so no back arrow is shown.
+                val backMode = visibleModes.firstOrNull { it.view != HomeView.DAILY_LIST }
+                DailyTasksTopBar(
+                    onBack = backMode?.let { mode -> { viewModel.setView(mode.view) } },
+                    onOpenSettings = onOpenSettings,
+                    onAddCard = onDailyListToday,
+                )
+            } else {
+                TopAppBar(
+                    title = {
+                        if (currentMode != null) {
+                            if (navStyle == NavStyle.ICONS) {
+                                // A row of the chosen modes' icons, left-aligned, with a
+                                // little space between them so none is easy to mis-tap.
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    visibleModes.forEachIndexed { index, mode ->
+                                        if (index > 0) Spacer(Modifier.width(4.dp))
+                                        ViewToggle(
+                                            painter = mode.iconPainter(),
+                                            contentDescription = mode.label,
+                                            selected = view == mode.view,
+                                            onClick = { viewModel.setView(mode.view) },
+                                        )
+                                    }
                                 }
+                            } else {
+                                // Dropdown mode: the menu icon opens a small popup of the
+                                // chosen modes; the current one shows as its label or its
+                                // single icon, immediately after the menu icon.
+                                NavModeDropdown(
+                                    current = currentMode,
+                                    modes = visibleModes,
+                                    useLabel = useModeLabel,
+                                    onSelect = { viewModel.setView(it) },
+                                )
                             }
-                        } else {
-                            // Dropdown mode: the menu icon opens a small popup of the
-                            // chosen modes; the current one shows as its label or its
-                            // single icon, immediately after the menu icon.
-                            NavModeDropdown(
-                                current = currentMode,
-                                modes = visibleModes,
-                                useLabel = useModeLabel,
-                                onSelect = { viewModel.setView(it) },
-                            )
                         }
-                    }
-                },
-                navigationIcon = {
-                    // Settings holds backup/restore and the global list options;
-                    // the top-right "+" creates a form or list per the current view.
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(
-                            Icons.Filled.SettingsApplications,
-                            contentDescription = "Settings",
-                            modifier = Modifier.size(AppTheme.sizes.settingsCog),
-                        )
-                    }
-                },
-                actions = {
-                    // The trailing controls belong to the mode being shown; with no
-                    // mode chosen there is nothing to add, so none appear.
-                    val activeView = currentMode?.view
-                    // Daily List's creation controls live immediately left of
-                    // where the generic + sits: Calendar Add On (a picked date,
-                    // any past/present/future date), then Event Note ("today").
-                    // The generic + is not used for Daily List.
-                    if (activeView == HomeView.DAILY_LIST) {
-                        IconButton(onClick = onDailyListPickDate) {
+                    },
+                    navigationIcon = {
+                        // Settings holds backup/restore and the global list options;
+                        // the top-right "+" creates a form or list per the current view.
+                        IconButton(onClick = onOpenSettings) {
                             Icon(
-                                painter = painterResource(R.drawable.ic_calendar_add_on),
-                                contentDescription = "New Daily List for a chosen date",
-                                modifier = Modifier.size(24.dp),
+                                Icons.Filled.SettingsApplications,
+                                contentDescription = "Settings",
+                                modifier = Modifier.size(AppTheme.sizes.settingsCog),
                             )
                         }
-                        IconButton(onClick = onDailyListToday) {
-                            Icon(
-                                imageVector = Icons.Filled.EventNote,
-                                contentDescription = "Open today's Daily List",
-                                modifier = Modifier.size(24.dp),
-                            )
-                        }
-                    } else if (activeView != null) {
-                        // Top-right creates a new item in whichever view is showing.
-                        IconButton(onClick = {
-                            when (activeView) {
-                                HomeView.FORMS -> onCreateForm()
-                                HomeView.LISTS -> onCreateChecklist()
-                                HomeView.IDEAS -> onCreateIdeaLog()
-                                HomeView.CLICKER -> onCreateClicker()
-                                HomeView.DAILY_LIST -> Unit
+                    },
+                    actions = {
+                        // The trailing "+" creates a new item in whichever mode is
+                        // showing; with no mode chosen there is nothing to add.
+                        val activeView = currentMode?.view
+                        if (activeView != null) {
+                            IconButton(onClick = {
+                                when (activeView) {
+                                    HomeView.FORMS -> onCreateForm()
+                                    HomeView.LISTS -> onCreateChecklist()
+                                    HomeView.IDEAS -> onCreateIdeaLog()
+                                    HomeView.CLICKER -> onCreateClicker()
+                                    HomeView.DAILY_LIST -> Unit
+                                }
+                            }) {
+                                Icon(
+                                    Icons.Filled.Add,
+                                    contentDescription = when (activeView) {
+                                        HomeView.FORMS -> "New form"
+                                        HomeView.LISTS -> "New list"
+                                        HomeView.IDEAS -> "New Idea Log"
+                                        HomeView.CLICKER -> "New Clicker Data Log"
+                                        HomeView.DAILY_LIST -> "New Daily List"
+                                    },
+                                    modifier = Modifier.size(24.dp),
+                                )
                             }
-                        }) {
-                            Icon(
-                                Icons.Filled.Add,
-                                contentDescription = when (activeView) {
-                                    HomeView.FORMS -> "New form"
-                                    HomeView.LISTS -> "New list"
-                                    HomeView.IDEAS -> "New Idea Log"
-                                    HomeView.CLICKER -> "New Clicker Data Log"
-                                    HomeView.DAILY_LIST -> "New Daily List"
-                                },
-                                modifier = Modifier.size(24.dp),
-                            )
                         }
-                    }
-                },
-            )
+                    },
+                )
+            }
         },
     ) { padding ->
         when (currentMode?.view) {
@@ -230,6 +226,7 @@ fun HomeScreen(
             HomeView.DAILY_LIST -> DailyListHomeBody(
                 dailyListViewModel = dailyListViewModel,
                 onOpenCard = onOpenDailyListCard,
+                modifier = Modifier.fillMaxSize().padding(padding),
             )
             HomeView.CLICKER -> ClickerBody(
                 logs = clickerLogs,
@@ -332,6 +329,52 @@ fun HomeScreen(
             },
         )
     }
+}
+
+/**
+ * Daily Tasks' top bar. Daily Tasks has no Home list of its own, so entering the
+ * mode looks like opening a grouping: this bar mirrors a grouping's Main screen —
+ * a back chevron, the app cog, the "Daily Task" title, then a single "+" on the
+ * right that opens today's card. [onBack] is null when Daily Tasks is the only
+ * chosen mode, in which case no back chevron is shown (there is nowhere to go).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DailyTasksTopBar(
+    onBack: (() -> Unit)?,
+    onOpenSettings: () -> Unit,
+    onAddCard: () -> Unit,
+) {
+    TopAppBar(
+        title = {
+            Text("Daily Task", style = MaterialTheme.typography.titleLarge)
+        },
+        navigationIcon = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (onBack != null) {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
+                    }
+                }
+                IconButton(onClick = onOpenSettings) {
+                    Icon(
+                        Icons.Filled.SettingsApplications,
+                        contentDescription = "Settings",
+                        modifier = Modifier.size(AppTheme.sizes.settingsCog),
+                    )
+                }
+            }
+        },
+        actions = {
+            IconButton(onClick = onAddCard) {
+                Icon(
+                    Icons.Filled.Add,
+                    contentDescription = "New Daily List",
+                    modifier = Modifier.size(24.dp),
+                )
+            }
+        },
+    )
 }
 
 @Composable
@@ -630,6 +673,7 @@ private fun ChecklistRow(
 private fun DailyListHomeBody(
     dailyListViewModel: DailyListViewModel,
     onOpenCard: (Long) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val cards by dailyListViewModel.cards.collectAsStateWithLifecycle()
     val cardItems by dailyListViewModel.cardItems.collectAsStateWithLifecycle()
@@ -645,7 +689,7 @@ private fun DailyListHomeBody(
     val visibleCards = if (showFavoritesOnly) cards.filter { it.favorited } else cards
     val anyFavorited = cards.any { it.favorited }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = modifier) {
         if (anyFavorited) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
