@@ -11,12 +11,19 @@ object BackupFixtureTestSupport {
             ApplicationProvider.getApplicationContext<Context>(),
             AppDatabase::class.java,
         ).allowMainThreadQueries().build().also { db ->
-            val sql = requireNotNull(javaClass.classLoader?.getResource("fixtures/data_dragon_v18.sql"))
-                .readText()
-            sql.split(';')
+            val resource = checkNotNull(javaClass.classLoader?.getResource("fixtures/data_dragon_v18.sql")) {
+                "Missing test resource fixtures/data_dragon_v18.sql"
+            }
+            resource.readText()
+                .split(';')
                 .map(String::trim)
                 .filter(String::isNotEmpty)
-                .forEach(db.openHelper.writableDatabase::execSQL)
+                .forEach { statement ->
+                    runCatching { db.openHelper.writableDatabase.execSQL(statement) }
+                        .getOrElse { error ->
+                            throw IllegalStateException("Version-18 fixture statement failed: $statement", error)
+                        }
+                }
         }
 
     fun tableNames(database: SupportSQLiteDatabase): Set<String> = buildSet {
