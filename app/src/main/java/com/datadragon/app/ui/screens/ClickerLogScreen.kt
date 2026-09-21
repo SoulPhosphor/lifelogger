@@ -1,5 +1,6 @@
 package com.datadragon.app.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -111,13 +112,21 @@ fun ClickerLogScreen(
     var cogMenuOpen by remember { mutableStateOf(false) }
     var confirmDeleteLog by remember { mutableStateOf(false) }
 
+    fun leaveScreen() {
+        cogMenuOpen = false
+        onBack()
+    }
+    BackHandler {
+        if (cogMenuOpen) cogMenuOpen = false else leaveScreen()
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(log?.title ?: "Clicker Data") },
                 navigationIcon = {
                     Row {
-                        IconButton(onClick = onBack) {
+                        IconButton(onClick = { leaveScreen() }) {
                             Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
                         }
                         Box {

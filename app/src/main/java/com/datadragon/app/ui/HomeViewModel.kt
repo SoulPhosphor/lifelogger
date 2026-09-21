@@ -11,6 +11,7 @@ import com.datadragon.app.data.HomeView
 import com.datadragon.app.data.IdeaLog
 import com.datadragon.app.data.LogTemplate
 import com.datadragon.app.data.NavStyle
+import com.datadragon.app.data.ResumeTarget
 import com.datadragon.app.data.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -118,8 +119,30 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
             settings.lastView == HomeView.DAILY_LIST &&
             settings.isModeEnabled(HomeView.DAILY_LIST)
 
+    val startupTarget: ResumeTarget
+        get() = settings.resumeTarget
+
+    suspend fun canOpenClicker(logId: Long): Boolean = clickerDao.getLog(logId) != null
+
+    fun rememberDailyTask(date: java.time.LocalDate) {
+        settings.lastView = HomeView.DAILY_LIST
+        settings.resumeTarget = ResumeTarget.DailyTask(date)
+        _view.value = HomeView.DAILY_LIST
+    }
+
+    fun rememberClicker(logId: Long) {
+        settings.lastView = HomeView.CLICKER
+        settings.resumeTarget = ResumeTarget.Clicker(logId)
+        _view.value = HomeView.CLICKER
+    }
+
+    fun rememberHome() {
+        settings.resumeTarget = ResumeTarget.Home
+    }
+
     fun setView(view: HomeView) {
         settings.lastView = view
+        settings.resumeTarget = ResumeTarget.Home
         _view.value = view
     }
 

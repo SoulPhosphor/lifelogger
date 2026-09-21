@@ -29,6 +29,8 @@ import com.datadragon.app.ui.screens.NewIdeaScreen
 import com.datadragon.app.ui.screens.SettingsScreen
 import com.datadragon.app.ui.DailyListViewModel
 import com.datadragon.app.ui.HomeViewModel
+import com.datadragon.app.data.HomeView
+import com.datadragon.app.data.ResumeTarget
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,29 +47,57 @@ fun DataDragonNavHost(
     // so a card saved, moved, or deleted in the editor is reflected immediately
     // when returning to the list.
     val dailyListViewModel: DailyListViewModel = viewModel()
+    // Activity-scoped so startup restoration and deep screens update one shared
+    // canonical resume target instead of creating destination-scoped copies.
+    val homeViewModel: HomeViewModel = viewModel()
 
     NavHost(navController = navController, startDestination = Routes.HOME) {
 
         composable(Routes.HOME) {
-            val homeViewModel: HomeViewModel = viewModel()
-
-            // "Automatically show current daily list when app is started." — only
-            // when Daily List was the remembered mode. Today's existing card
-            // opens directly; an unsaved today just opens the Daily List main
-            // view. Opening never creates a blank card.
-            val autoReopen = homeViewModel.dailyListAutoReopen
-            var startupHandled by rememberSaveable { mutableStateOf(!autoReopen) }
-            LaunchedEffect(startupHandled) {
-                if (!startupHandled && autoReopen) {
+            // Restore only stable working screens. Main modes reopen on Home;
+            // Daily Tasks may reopen one exact date and Clicker Data may reopen
+            // one exact tracker. Temporary settings/create/edit screens are not
+            // startup destinations.
+            val startupTarget = homeViewModel.startupTarget
+            var startupHandled by rememberSaveable { mutableStateOf(false) }
+            LaunchedEffect(Unit) {
+                if (!startupHandled) {
                     startupHandled = true
-                    if (dailyListViewModel.hasCardForDate(LocalDate.now())) {
-                        navController.navigate(Routes.dailyListEditor(LocalDate.now().toString()))
+                    when (startupTarget) {
+                        is ResumeTarget.DailyTask -> {
+                            if (homeViewModel.enabledModes.value.contains(HomeView.DAILY_LIST)) {
+                                navController.navigate(Routes.dailyListEditor(startupTarget.date.toString()))
+                            } else {
+                                homeViewModel.rememberHome()
+                            }
+                        }
+                        is ResumeTarget.Clicker -> {
+                            if (
+                                homeViewModel.enabledModes.value.contains(HomeView.CLICKER) &&
+                                homeViewModel.canOpenClicker(startupTarget.logId)
+                            ) {
+                                navController.navigate(Routes.clickerLog(startupTarget.logId))
+                            } else {
+                                homeViewModel.rememberHome()
+                            }
+                        }
+                        ResumeTarget.Home -> {
+                            if (
+                                homeViewModel.dailyListAutoReopen &&
+                                dailyListViewModel.hasCardForDate(LocalDate.now())
+                            ) {
+                                homeViewModel.rememberDailyTask(LocalDate.now())
+                                navController.navigate(Routes.dailyListEditor(LocalDate.now().toString()))
+                            }
+                        }
                     }
                 }
             }
 
             HomeScreen(
-                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                onOpenSettings = {
+                    navController.navigate(Routes.SETTINGS) { launchSingleTop = true }
+                },
                 onCreateForm = { navController.navigate(Routes.CREATE_LOG) },
                 onOpenLog = { logId -> navController.navigate(Routes.log(logId.toString())) },
                 onAddEntry = { logId -> navController.navigate(Routes.newEntry(logId.toString())) },
@@ -79,6 +109,8 @@ fun DataDragonNavHost(
                 onDailyListToday = {
                     // The "+" opens a brand-new Daily Task log (the editor picks
                     // today's date by default when today has no log yet).
+                    val today = LocalDate.now()
+                    homeViewModel.rememberDailyTask(today)
                     navController.navigate(Routes.dailyListEditor("new"))
                 },
                 onDailyListPickDate = {
@@ -86,17 +118,21 @@ fun DataDragonNavHost(
                     dailyListViewModel.requestDatePicker()
                 },
                 onDailyListDateConfirmed = { picked ->
+                    homeViewModel.rememberDailyTask(picked)
                     navController.navigate(Routes.dailyListEditor(picked.toString()))
                 },
                 onOpenDailyListCard = { cardId ->
                     val card = dailyListViewModel.cards.value.firstOrNull { it.id == cardId }
-                    navController.navigate(
-                        Routes.dailyListEditor(card?.date?.toString() ?: LocalDate.now().toString()),
-                    )
+                    val date = card?.date ?: LocalDate.now()
+                    homeViewModel.rememberDailyTask(date)
+                    navController.navigate(Routes.dailyListEditor(date.toString()))
                 },
                 onOpenDailyTaskPreferences = { navController.navigate(Routes.DAILY_LIST_PREFERENCES) },
                 onCreateClicker = { navController.navigate(Routes.CREATE_CLICKER) },
-                onOpenClicker = { clickerLogId -> navController.navigate(Routes.clickerLog(clickerLogId)) },
+                onOpenClicker = { clickerLogId ->
+                    homeViewModel.rememberClicker(clickerLogId)
+                    navController.navigate(Routes.clickerLog(clickerLogId))
+                },
                 dailyListViewModel = dailyListViewModel,
                 viewModel = homeViewModel,
             )
@@ -214,7 +250,11 @@ fun DataDragonNavHost(
         ) { backStackEntry ->
             DailyListEditorScreen(
                 date = backStackEntry.arguments?.getString(Routes.DAILY_LIST_ARG),
-                onBack = { navController.popBackStack() },
+                onBack = {
+                    homeViewModel.rememberHome()
+                    navController.popBackStack()
+                },
+                onActiveDateChanged = homeViewModel::rememberDailyTask,
                 viewModel = dailyListViewModel,
             )
         }
@@ -255,10 +295,18 @@ fun DataDragonNavHost(
             if (id != null) {
                 ClickerLogScreen(
                     logId = id,
-                    onBack = { navController.popBackStack() },
+                    onBack = {
+                        homeViewModel.rememberHome()
+                        navController.popBackStack()
+                    },
                     onEditLog = { navController.navigate(Routes.editClickerLog(it)) },
                     onEditCard = { navController.navigate(Routes.clickerCardEdit(it)) },
                 )
+            } else {
+                LaunchedEffect(Unit) {
+                    homeViewModel.rememberHome()
+                    navController.popBackStack()
+                }
             }
         }
 
@@ -277,6 +325,8 @@ fun DataDragonNavHost(
             val id = backStackEntry.arguments?.getString(Routes.CLICKER_CARD_ARG)?.toLongOrNull()
             if (id != null) {
                 ClickerCardEditScreen(cardId = id, onBack = { navController.popBackStack() })
+            } else {
+                LaunchedEffect(Unit) { navController.popBackStack() }
             }
         }
 

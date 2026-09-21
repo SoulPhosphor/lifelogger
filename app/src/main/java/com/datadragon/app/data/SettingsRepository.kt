@@ -30,6 +30,24 @@ class SettingsRepository(context: Context) {
         get() = HomeView.fromKey(prefs.getString(KEY_LAST_VIEW, null))
         set(value) { prefs.edit().putString(KEY_LAST_VIEW, value.key).apply() }
 
+    /**
+     * The last stable screen to restore after the app is relaunched. Most modes
+     * restore their Home page; Daily Tasks and Clicker Data may restore one
+     * specific day or tracker because those are the modes used for quick input.
+     */
+    var resumeTarget: ResumeTarget
+        get() = ResumeTarget.fromStoredValues(
+            kind = prefs.getString(KEY_RESUME_KIND, null),
+            value = prefs.getString(KEY_RESUME_VALUE, null),
+        )
+        set(target) {
+            val (kind, value) = target.toStoredValues()
+            prefs.edit()
+                .putString(KEY_RESUME_KIND, kind)
+                .putString(KEY_RESUME_VALUE, value)
+                .apply()
+        }
+
     // --- Navigation menu preferences (all global) ----------------------------
 
     /** How the Home bar presents the data modes: a row of icons, or a dropdown. */
@@ -176,6 +194,8 @@ class SettingsRepository(context: Context) {
         private const val KEY_LABELS = "auto_capitalize_labels"
         private const val KEY_OPTIONS = "auto_capitalize_options"
         private const val KEY_LAST_VIEW = "last_home_view"
+        private const val KEY_RESUME_KIND = "resume_kind"
+        private const val KEY_RESUME_VALUE = "resume_value"
         private const val KEY_NAV_STYLE = "nav_style"
         private const val KEY_NAV_USE_LABEL = "nav_use_mode_label"
         private const val KEY_MODE_ENABLED_PREFIX = "mode_enabled_"
@@ -195,6 +215,29 @@ class SettingsRepository(context: Context) {
     private const val KEY_DL_CELEBRATION_ICON = "daily_list_celebration_icon"
     private const val KEY_DL_PROTECT_FAVORITED = "daily_list_protect_favorited"
     private const val KEY_DL_RETENTION = "daily_list_retention"
+    }
+}
+
+sealed interface ResumeTarget {
+    data object Home : ResumeTarget
+    data class DailyTask(val date: java.time.LocalDate) : ResumeTarget
+    data class Clicker(val logId: Long) : ResumeTarget
+
+    fun toStoredValues(): Pair<String, String?> = when (this) {
+        Home -> "home" to null
+        is DailyTask -> "daily_task" to date.toString()
+        is Clicker -> "clicker" to logId.toString()
+    }
+
+    companion object {
+        fun fromStoredValues(kind: String?, value: String?): ResumeTarget = when (kind) {
+            "daily_task" -> value
+                ?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() }
+                ?.let(::DailyTask)
+                ?: Home
+            "clicker" -> value?.toLongOrNull()?.takeIf { it > 0 }?.let(::Clicker) ?: Home
+            else -> Home
+        }
     }
 }
 

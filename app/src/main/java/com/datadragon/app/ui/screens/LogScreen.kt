@@ -144,8 +144,13 @@ fun LogScreen(
         saveDocument.launch(content.suggestedName)
     }
 
-    fun attemptBack() { viewModel.leaveAfterTitleFlush(onBack) }
-    BackHandler { attemptBack() }
+    fun attemptBack() {
+        gearMenuOpen = false
+        viewModel.leaveAfterTitleFlush(onBack)
+    }
+    BackHandler {
+        if (gearMenuOpen) gearMenuOpen = false else attemptBack()
+    }
 
     Scaffold(
         topBar = {

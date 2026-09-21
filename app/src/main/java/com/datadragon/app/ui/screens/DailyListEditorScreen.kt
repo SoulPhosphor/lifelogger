@@ -88,6 +88,7 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 fun DailyListEditorScreen(
     date: String?,
     onBack: () -> Unit,
+    onActiveDateChanged: (LocalDate) -> Unit = {},
     viewModel: DailyListViewModel = viewModel(),
 ) {
     // A parseable date opens that day's card (existing or fresh for the date);
@@ -109,6 +110,10 @@ fun DailyListEditorScreen(
     val isSaved by viewModel.editorIsSaved.collectAsStateWithLifecycle()
     val card by viewModel.editorCard.collectAsStateWithLifecycle()
     val allowTitle by viewModel.allowTitle.collectAsStateWithLifecycle()
+
+    LaunchedEffect(editorDate) {
+        editorDate?.let(onActiveDateChanged)
+    }
 
     val scope = rememberCoroutineScope()
     val context = LocalContext.current

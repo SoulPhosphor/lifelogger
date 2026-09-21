@@ -117,8 +117,13 @@ fun IdeaLogScreen(
     val anyMarked = entries.any { it.marked }
     val visibleEntries = if (showMarkedOnly && anyMarked) entries.filter { it.marked } else entries
 
-    fun attemptBack() { viewModel.leaveAfterTitleFlush(onBack) }
-    BackHandler { attemptBack() }
+    fun attemptBack() {
+        gearMenuOpen = false
+        viewModel.leaveAfterTitleFlush(onBack)
+    }
+    BackHandler {
+        if (gearMenuOpen) gearMenuOpen = false else attemptBack()
+    }
 
     Scaffold(
         topBar = {
