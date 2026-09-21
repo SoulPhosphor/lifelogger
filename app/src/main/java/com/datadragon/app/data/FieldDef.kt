@@ -23,6 +23,8 @@ data class FieldDef(
     val to: Int? = null,
     /** dropdown / multiple: the list of choices. */
     val options: List<String> = emptyList(),
+    /** multiple: allow options beginning with `*` to be pre-selected. */
+    val allowPreselectedMultipleChoices: Boolean = false,
     /** datetime: pre-fill with the current time (`default: now`). */
     val defaultNow: Boolean = false,
     /** date / datetime: offer this label as an order-sorting category. */
@@ -32,6 +34,26 @@ data class FieldDef(
     /** scale: render as a dropdown of numbers instead of tappable chips. */
     val makeDropdown: Boolean = false,
 )
+
+/**
+ * Returns the value used for a multiple-choice answer. When pre-selection is
+ * enabled, the leading marker is presentation-only and is not stored as part of
+ * the answer value.
+ */
+fun FieldDef.multipleChoiceOptionValue(option: String): String =
+    if (type == FieldType.MULTIPLE && allowPreselectedMultipleChoices && option.startsWith("*")) {
+        option.removePrefix("*").trimStart()
+    } else {
+        option
+    }
+
+/** The multiple-choice answers selected automatically when a new form opens. */
+fun FieldDef.preselectedMultipleChoices(): Set<String> =
+    if (type == FieldType.MULTIPLE && allowPreselectedMultipleChoices) {
+        options.filter { it.startsWith("*") }.map { multipleChoiceOptionValue(it) }.toSet()
+    } else {
+        emptySet()
+    }
 
 /**
  * The closed set of field types from docs/FORM_MARKDOWN_SPEC.md §2. The

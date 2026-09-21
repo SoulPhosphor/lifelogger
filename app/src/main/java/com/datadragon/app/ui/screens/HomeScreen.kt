@@ -508,7 +508,7 @@ private fun FormsBody(
     if (logs.isEmpty()) {
         EmptyMessage(
             title = "No logs yet.",
-            body = "Click the plus in the top right to begin",
+            body = "Click the plus in the top right to begin.",
             modifier = modifier,
         )
     } else {
@@ -537,7 +537,7 @@ private fun ListsBody(
     if (checklists.isEmpty()) {
         EmptyMessage(
             title = "No lists yet.",
-            body = "Click the plus in the top right to begin",
+            body = "Click the plus in the top right to begin.",
             modifier = modifier,
         )
     } else {
@@ -566,7 +566,7 @@ private fun IdeasBody(
     if (ideaLogs.isEmpty()) {
         EmptyMessage(
             title = "No idea logs yet.",
-            body = "Click the plus in the top right to begin",
+            body = "Click the plus in the top right to begin.",
             modifier = modifier,
         )
     } else {
@@ -749,7 +749,7 @@ private fun ClickerBody(
     if (logs.isEmpty()) {
         EmptyMessage(
             title = "No clicker data lists yet.",
-            body = "Click the plus in the top right to begin",
+            body = "Click the plus in the top right to begin.",
             modifier = modifier,
         )
     } else {

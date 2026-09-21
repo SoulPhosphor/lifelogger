@@ -43,6 +43,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.FieldType
+import com.datadragon.app.data.preselectedMultipleChoices
 import com.datadragon.app.data.WebAddress
 import com.datadragon.app.ui.NewEntryViewModel
 import kotlinx.serialization.decodeFromString
@@ -152,6 +153,19 @@ fun NewEntryScreen(
             }
         }
         EntryValues.notes(values)?.let { notes = it }
+    }
+
+    // Pre-select marked multiple-choice options for new entries only. The map
+    // check prevents this initialization from restoring a choice after the user
+    // has deliberately deselected every option.
+    LaunchedEffect(fields, isEditing) {
+        if (isEditing) return@LaunchedEffect
+        fields.forEach { field ->
+            if (field.type == FieldType.MULTIPLE && multiValues[field.label] == null) {
+                val preselected = field.preselectedMultipleChoices()
+                if (preselected.isNotEmpty()) multiValues[field.label] = preselected
+            }
+        }
     }
 
     // Pre-fill any `datetime` field flagged `default: now` with the current time

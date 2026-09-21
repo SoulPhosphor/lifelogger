@@ -51,6 +51,7 @@ import com.datadragon.app.ui.components.WebpageEntryField
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.FieldType
+import com.datadragon.app.data.multipleChoiceOptionValue
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -186,7 +187,7 @@ fun EntryFieldControl(
 
             FieldType.MULTIPLE -> MultipleField(
                 label = label,
-                options = field.options,
+                options = field.options.map(field::multipleChoiceOptionValue),
                 selected = multiValues[field.label].orEmpty(),
                 onToggle = { option ->
                     val current = multiValues[field.label].orEmpty()
