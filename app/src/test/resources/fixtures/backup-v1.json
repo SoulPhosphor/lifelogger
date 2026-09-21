@@ -1,0 +1,20 @@
+{
+  "format": "datadragon-backup",
+  "version": 1,
+  "exportedAt": "2025-01-15T10:30:00Z",
+  "logs": [
+    {
+      "id": 7,
+      "name": "Daily Check-In",
+      "createdAt": 1736937000000,
+      "schemaJson": "[{\"label\":\"Mood\",\"type\":\"scale\",\"from\":1,\"to\":5},{\"label\":\"Notes\",\"type\":\"multiline\"}]",
+      "entries": [
+        {
+          "id": 19,
+          "createdAt": "2025-01-15T09:00:00-05:00",
+          "valuesJson": "{\"Mood\":\"4\",\"Notes\":\"Steady morning\"}"
+        }
+      ]
+    }
+  ]
+}

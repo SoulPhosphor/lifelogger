@@ -1,0 +1,70 @@
+{
+  "format": "datadragon-backup",
+  "version": 2,
+  "exportedAt": "2026-02-03T18:45:00Z",
+  "logs": [
+    {
+      "id": 11,
+      "uuid": "4d8f7e2a-2f7f-4c31-8f0f-8a1d7c2e6001",
+      "name": "Medication Log",
+      "createdAt": 1760000000000,
+      "schemaJson": "[{\"label\":\"Medication\",\"type\":\"text\",\"required\":true},{\"label\":\"Taken\",\"type\":\"yesno\"}]",
+      "formMarkdown": "# Medication Log\n- Medication (text, required)\n- Taken (yesno)",
+      "locked": false,
+      "allowAppendedNotes": true,
+      "automaticTimestamping": true,
+      "sortTimestampLabel": null,
+      "sortNewestFirst": false,
+      "integrateCalendar": true,
+      "entries": [
+        {
+          "id": 31,
+          "createdAt": "2026-02-03T08:00:00-05:00",
+          "updatedAt": "2026-02-03T08:05:00-05:00",
+          "valuesJson": "{\"Medication\":\"Example dose\",\"Taken\":\"Yes\"}",
+          "marked": true,
+          "notes": [
+            {
+              "createdAt": "2026-02-03T12:00:00-05:00",
+              "text": "Follow-up note"
+            }
+          ]
+        }
+      ],
+      "calendars": [
+        {
+          "id": 4,
+          "position": 0,
+          "type": "yes_no",
+          "label": "Taken",
+          "description": "Medication completion",
+          "configJson": "{\"sourceLabel\":\"Taken\",\"yesColor\":\"#2E7D32\",\"noColor\":\"#C62828\"}"
+        }
+      ]
+    }
+  ],
+  "checklists": [
+    {
+      "id": 5,
+      "uuid": "6b2a9f40-6d0c-4df1-9d88-2b7e4c8a6002",
+      "name": "Release Checklist",
+      "createdAt": 1760000100000,
+      "items": [
+        {
+          "id": 21,
+          "text": "Review changes",
+          "completed": true,
+          "indent": 0,
+          "position": 0
+        },
+        {
+          "id": 22,
+          "text": "Run tests",
+          "completed": false,
+          "indent": 1,
+          "position": 1
+        }
+      ]
+    }
+  ]
+}
