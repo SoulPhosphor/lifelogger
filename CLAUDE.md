@@ -166,6 +166,35 @@ stop and confirm — do not guess.
   identifiers like `DailyList` are a separate matter and are not renamed unless I
   ask.)
 
+## Stable identity and UUIDs
+
+UUIDs are permanent internal identity, not editable content.
+
+- Generate a UUID only when creating a genuinely new independent object.
+- Renaming, editing, moving, reordering, changing dates, exporting, backing up,
+  merging, replacing, restoring, and undoing must preserve every established UUID
+  byte-for-byte.
+- A duplicate-as-new action receives a new UUID. Restoring or transferring the
+  same object keeps its UUID.
+- Never derive identity from a visible name, title, date, position, or local Room
+  row ID.
+- Room row IDs may be regenerated during restore. Remap relationships to the new
+  row IDs while retaining the portable UUIDs.
+- Do not use a normal new-object constructor during restore if it can silently
+  generate a random UUID. Use explicit new-object and restore-existing paths.
+- Do not add a random default to a serialized identity when legacy stored JSON
+  lacks that field. Assign it once in an explicit migration and persist it.
+- Valid unique UUIDs are never rewritten by a migration. Only blank or genuinely
+  duplicated legacy identities may be repaired before uniqueness is enforced.
+- Any UUID used for Merge requires uniqueness enforcement, an immutability guard,
+  and tests proving rename/edit and backup round trips preserve it.
+- Read docs/BACKUP_RESTORE_INTEGRITY_PLAN.md and
+  docs/BACKUP_SYSTEM_EXTENSION_GUIDE.md before changing persistence, backup,
+  restore, Merge, or UUID behavior.
+
+If requested work would change an existing object's UUID, stop and obtain an
+owner ruling before implementation.
+
 ## Form field sorting
 
 - **Only fields that carry a date are eligible for ordering.** Date and
