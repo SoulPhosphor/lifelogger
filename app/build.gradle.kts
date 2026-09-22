@@ -62,13 +62,14 @@ android {
             // Robolectric needs the merged Android resources/manifest available to
             // JVM unit tests (used by the Room database + migration tests).
             isIncludeAndroidResources = true
-            all {
-                testLogging {
-                    showStandardStreams = true
-                    exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
-                }
-            }
         }
+    }
+}
+
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    testLogging {
+        showStandardStreams = true
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
     }
 }
 
