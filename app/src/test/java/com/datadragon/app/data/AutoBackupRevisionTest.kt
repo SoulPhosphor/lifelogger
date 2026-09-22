@@ -126,31 +126,31 @@ class AutoBackupRevisionTest {
     fun portablePreferenceChangesIncreaseThePreferenceRevision() {
         val settings = freshSettings()
         val changes: List<Pair<String, (SettingsRepository) -> Unit>> = listOf(
-            "auto_capitalize_labels" to { it.autoCapitalizeLabels = false },
-            "auto_capitalize_options" to { it.autoCapitalizeOptions = false },
-            "last_home_view" to { it.lastView = HomeView.CLICKER },
-            "nav_style" to { it.navStyle = NavStyle.DROPDOWN },
-            "nav_use_mode_label" to { it.useModeLabelInDropdown = false },
-            "mode_enabled_ideas" to { it.setModeEnabled(HomeView.IDEAS, false) },
-            "list_complete_icon" to { it.completeIcon = CompleteIcon.CHECKMARK },
-            "list_cross_out_completed" to { it.crossOutWhenCompleted = true },
-            "list_move_completed_bottom" to { it.moveCompletedToBottom = true },
-            "daily_list_heading" to { it.dailyListHeading = "Today" },
-            "daily_list_auto_renew" to { it.dailyListAutoRenew = true },
-            "daily_list_show_completed" to { it.dailyListShowCompleted = false },
-            "daily_list_show_current_unfinished" to { it.dailyListShowCurrentUnfinished = false },
-            "daily_list_show_past_unfinished" to { it.dailyListShowPastUnfinished = true },
-            "daily_list_auto_trash_past" to { it.dailyListAutoTrashPast = true },
-            "daily_list_auto_trash_keep" to { it.dailyListAutoTrashKeepPast = 3 },
-            "daily_list_auto_reopen" to { it.dailyListAutoReopen = true },
-            "daily_list_allow_title" to { it.dailyListAllowTitle = true },
-            "daily_list_celebration_enabled" to { it.dailyListCelebrationEnabled = false },
-            "daily_list_celebration_icon" to { it.dailyListCelebrationIcon = CelebrationIcon.CHEER },
-            "daily_list_protect_favorited" to { it.dailyListProtectFavorited = false },
-            "daily_list_retention" to { it.dailyListRetentionRaw = "14" },
-            "automatic_backup_cadence" to { it.automaticBackupCadence = AutoBackupCadence.WEEKLY },
-            "automatic_backup_custom_days" to { it.automaticBackupCustomDays = 10 },
-            "automatic_backup_retention" to { it.automaticBackupRetention = 7 },
+            change("auto_capitalize_labels") { it.autoCapitalizeLabels = false },
+            change("auto_capitalize_options") { it.autoCapitalizeOptions = false },
+            change("last_home_view") { it.lastView = HomeView.CLICKER },
+            change("nav_style") { it.navStyle = NavStyle.DROPDOWN },
+            change("nav_use_mode_label") { it.useModeLabelInDropdown = false },
+            change("mode_enabled_ideas") { it.setModeEnabled(HomeView.IDEAS, false) },
+            change("list_complete_icon") { it.completeIcon = CompleteIcon.CHECKMARK },
+            change("list_cross_out_completed") { it.crossOutWhenCompleted = true },
+            change("list_move_completed_bottom") { it.moveCompletedToBottom = true },
+            change("daily_list_heading") { it.dailyListHeading = "Today" },
+            change("daily_list_auto_renew") { it.dailyListAutoRenew = true },
+            change("daily_list_show_completed") { it.dailyListShowCompleted = false },
+            change("daily_list_show_current_unfinished") { it.dailyListShowCurrentUnfinished = false },
+            change("daily_list_show_past_unfinished") { it.dailyListShowPastUnfinished = true },
+            change("daily_list_auto_trash_past") { it.dailyListAutoTrashPast = true },
+            change("daily_list_auto_trash_keep") { it.dailyListAutoTrashKeepPast = 3 },
+            change("daily_list_auto_reopen") { it.dailyListAutoReopen = true },
+            change("daily_list_allow_title") { it.dailyListAllowTitle = true },
+            change("daily_list_celebration_enabled") { it.dailyListCelebrationEnabled = false },
+            change("daily_list_celebration_icon") { it.dailyListCelebrationIcon = CelebrationIcon.CHEER },
+            change("daily_list_protect_favorited") { it.dailyListProtectFavorited = false },
+            change("daily_list_retention") { it.dailyListRetentionRaw = "14" },
+            change("automatic_backup_cadence") { it.automaticBackupCadence = AutoBackupCadence.WEEKLY },
+            change("automatic_backup_custom_days") { it.automaticBackupCustomDays = 10 },
+            change("automatic_backup_retention") { it.automaticBackupRetention = 7 },
         )
         changes.forEach { (key, change) ->
             val before = settings.portablePreferencesRevision
@@ -196,6 +196,11 @@ class AutoBackupRevisionTest {
         val restarted = SettingsRepository(ApplicationProvider.getApplicationContext())
         assertEquals(1L, restarted.portablePreferencesRevision)
     }
+
+    private fun change(
+        key: String,
+        block: (SettingsRepository) -> Unit,
+    ): Pair<String, (SettingsRepository) -> Unit> = key to block
 
     private fun freshSettings(): SettingsRepository {
         val context = ApplicationProvider.getApplicationContext<Context>()

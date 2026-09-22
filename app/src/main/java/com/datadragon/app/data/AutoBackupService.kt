@@ -14,6 +14,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * One unique, one-time WorkManager request. Re-scheduling replaces the pending
@@ -123,14 +124,14 @@ class AutoBackupService private constructor(context: Context) {
         }
     }
 
-    suspend fun selectFolder(uri: String): AutoBackupFolderSelection {
+    suspend fun selectFolder(uri: String): AutoBackupFolderSelection = withContext(Dispatchers.IO) {
         val result = runCatching { coordinator.selectFolder(uri) }
             .getOrDefault(AutoBackupFolderSelection.CANNOT_SAVE)
         refresh()
-        return result
+        result
     }
 
-    suspend fun setEnabled(enabled: Boolean) {
+    suspend fun setEnabled(enabled: Boolean) = withContext(Dispatchers.IO) {
         runCatching { coordinator.setEnabled(enabled) }
         refresh()
     }
