@@ -171,6 +171,36 @@ class SettingsRepository(context: Context) {
             prefs.edit().putString(KEY_DL_RETENTION, value.filter { it.isDigit() }.take(3)).apply()
         }
 
+    /** The explicit portable allowlist. Device-local execution state is never read here. */
+    fun portableBackupSnapshot(): BackupPortablePreferences = BackupPortablePreferences(
+        autoCapitalizeLabels = autoCapitalizeLabels,
+        autoCapitalizeOptions = autoCapitalizeOptions,
+        lastHomeView = lastView.key,
+        navStyle = navStyle.key,
+        navUseModeLabel = useModeLabelInDropdown,
+        modeEnabledForms = isModeEnabled(HomeView.FORMS),
+        modeEnabledLists = isModeEnabled(HomeView.LISTS),
+        modeEnabledIdeas = isModeEnabled(HomeView.IDEAS),
+        modeEnabledDailyList = isModeEnabled(HomeView.DAILY_LIST),
+        modeEnabledClicker = isModeEnabled(HomeView.CLICKER),
+        listCompleteIcon = completeIcon.key,
+        listCrossOutCompleted = crossOutWhenCompleted,
+        listMoveCompletedBottom = moveCompletedToBottom,
+        dailyListHeading = dailyListHeading,
+        dailyListAutoRenew = dailyListAutoRenew,
+        dailyListShowCompleted = dailyListShowCompleted,
+        dailyListShowCurrentUnfinished = dailyListShowCurrentUnfinished,
+        dailyListShowPastUnfinished = dailyListShowPastUnfinished,
+        dailyListAutoTrashPast = dailyListAutoTrashPast,
+        dailyListAutoTrashKeep = dailyListAutoTrashKeepPast,
+        dailyListAutoReopen = dailyListAutoReopen,
+        dailyListAllowTitle = dailyListAllowTitle,
+        dailyListCelebrationEnabled = dailyListCelebrationEnabled,
+        dailyListCelebrationIcon = dailyListCelebrationIcon.key,
+        dailyListProtectFavorited = dailyListProtectFavorited,
+        dailyListRetention = dailyListRetentionRaw,
+    )
+
     companion object {
         private const val PREFS_NAME = "data_dragon_settings"
         private const val KEY_LABELS = "auto_capitalize_labels"

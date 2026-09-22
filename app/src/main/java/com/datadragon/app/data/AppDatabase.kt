@@ -61,6 +61,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun clickerDao(): ClickerDao
 
     companion object {
+        const val SCHEMA_VERSION = 19
+
         @Volatile
         private var instance: AppDatabase? = null
 

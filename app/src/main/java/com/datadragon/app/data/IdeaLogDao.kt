@@ -20,6 +20,10 @@ interface IdeaLogDao {
     @Query("SELECT * FROM idea_logs WHERE id = :id")
     suspend fun getById(id: Long): IdeaLog?
 
+    /** Deterministic one-shot read used by the complete backup snapshot. */
+    @Query("SELECT * FROM idea_logs ORDER BY createdAt ASC, uuid ASC")
+    suspend fun getAllOnce(): List<IdeaLog>
+
     /** Rename an Idea Log from its own screen. */
     @Query("UPDATE idea_logs SET name = :name WHERE id = :id")
     suspend fun rename(id: Long, name: String)

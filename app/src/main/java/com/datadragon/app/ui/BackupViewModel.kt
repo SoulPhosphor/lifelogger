@@ -6,6 +6,7 @@ import com.datadragon.app.data.AppDatabase
 import com.datadragon.app.data.BackupCodec
 import com.datadragon.app.data.BackupRepository
 import com.datadragon.app.data.RestoreMode
+import com.datadragon.app.data.SettingsRepository
 import com.datadragon.app.data.UndoSnapshot
 import com.datadragon.app.data.UndoSnapshotStore
 
@@ -16,7 +17,12 @@ import com.datadragon.app.data.UndoSnapshotStore
  */
 class BackupViewModel(app: Application) : AndroidViewModel(app) {
 
-    private val repository = BackupRepository(AppDatabase.getInstance(app))
+    private val settings = SettingsRepository(app)
+    private val repository = BackupRepository(
+        db = AppDatabase.getInstance(app),
+        portablePreferences = settings::portableBackupSnapshot,
+        sourceAppVersion = app.packageManager.getPackageInfo(app.packageName, 0).versionName ?: "unknown",
+    )
     private val undoStore = UndoSnapshotStore(app)
 
     /** The full-database backup as pretty-printed JSON. */

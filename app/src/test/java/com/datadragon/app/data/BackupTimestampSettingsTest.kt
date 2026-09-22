@@ -36,6 +36,8 @@ class BackupTimestampSettingsTest {
         val decoded = BackupCodec.decode(
             """
             {
+              "format": "datadragon-backup",
+              "version": 1,
               "exportedAt": "2026-09-03T12:00:00Z",
               "logs": [{
                 "id": 1,
