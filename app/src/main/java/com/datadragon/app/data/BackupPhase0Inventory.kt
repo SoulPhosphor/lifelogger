@@ -98,6 +98,7 @@ object BackupPhase0Inventory {
 
     /** Tables created by Room or SQLite rather than by a user-data feature. */
     val roomAndSqliteTables: Set<String> = setOf(
+        "android_metadata",
         "room_master_table",
         "sqlite_sequence",
     )
