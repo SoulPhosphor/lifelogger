@@ -632,20 +632,24 @@ class BackupRepository(
             backup.payload.forms?.takeIf { BackupCategory.FORMS in selected }?.forEach { incoming ->
                 incoming.uuid.takeIf(String::isNotBlank)?.let { templateDao.getByUuid(it) }?.let { existing ->
                     val current = snapshotForm(existing)
-                    if (semantic(current) != semantic(incoming)) add(groupConflict(BackupCategory.FORMS, incoming.uuid, incoming.name, current.entries.size, incoming.entries.size))
+                    if (semantic(current) != semantic(incoming)) {
+                        add(groupConflict(BackupCategory.FORMS, incoming.uuid, current.name, incoming.name, current.entries.size, incoming.entries.size))
+                    }
                 }
             }
             backup.payload.lists?.takeIf { BackupCategory.LISTS in selected }?.forEach { incoming ->
                 checklistDao.getChecklistByUuid(incoming.uuid)?.let { existing ->
                     val current = snapshotList(existing)
-                    if (semantic(current) != semantic(incoming)) add(groupConflict(BackupCategory.LISTS, incoming.uuid, incoming.name, current.items.size, incoming.items.size))
+                    if (semantic(current) != semantic(incoming)) {
+                        add(groupConflict(BackupCategory.LISTS, incoming.uuid, current.name, incoming.name, current.items.size, incoming.items.size))
+                    }
                 }
             }
             backup.payload.ideaLogs?.takeIf { BackupCategory.IDEA_LOGS in selected }?.forEach { incoming ->
                 ideaLogDao.getByUuid(incoming.uuid)?.let { existing ->
                     val current = snapshotIdea(existing)
                     if (BackupCodec.canonicalIdeaForComparison(current) != BackupCodec.canonicalIdeaForComparison(incoming)) {
-                        add(groupConflict(BackupCategory.IDEA_LOGS, incoming.uuid, incoming.name, current.entries.size, incoming.entries.size))
+                        add(groupConflict(BackupCategory.IDEA_LOGS, incoming.uuid, current.name, incoming.name, current.entries.size, incoming.entries.size))
                     }
                 }
             }
@@ -653,14 +657,23 @@ class BackupRepository(
                 clickerDao.getLogByUuid(incoming.uuid)?.let { existing ->
                     val current = snapshotClicker(existing)
                     if (BackupCodec.canonicalClickerForComparison(current) != BackupCodec.canonicalClickerForComparison(incoming)) {
-                        add(groupConflict(BackupCategory.CLICKER_DATA, incoming.uuid, incoming.title, current.cards.size, incoming.cards.size))
+                        add(groupConflict(BackupCategory.CLICKER_DATA, incoming.uuid, current.title, incoming.title, current.cards.size, incoming.cards.size))
                     }
                 }
             }
             backup.payload.savedColorPresets?.takeIf { BackupCategory.SAVED_COLOR_PRESETS in selected }?.forEach { incoming ->
                 colorPresetDao.getByUuid(incoming.uuid)?.let { existing ->
                     if (existing.name != incoming.name || existing.colorsJson != incoming.colorsJson) {
-                        add(RestoreConflict(conflictId(BackupCategory.SAVED_COLOR_PRESETS, incoming.uuid), BackupCategory.SAVED_COLOR_PRESETS, incoming.name, existing.name, incoming.name, RestoreConflictKind.SAVED_COLOR_PRESET))
+                        add(
+                            RestoreConflict(
+                                conflictId(BackupCategory.SAVED_COLOR_PRESETS, incoming.uuid),
+                                BackupCategory.SAVED_COLOR_PRESETS,
+                                incoming.name,
+                                "${existing.name}: ${existing.colorsJson}",
+                                "${incoming.name}: ${incoming.colorsJson}",
+                                RestoreConflictKind.SAVED_COLOR_PRESET,
+                            ),
+                        )
                     }
                 }
             }
@@ -684,7 +697,16 @@ class BackupRepository(
                 incoming.items.forEach { item ->
                     val existing = dailyListDao.getItemByUuid(item.uuid)
                     if (existing != null && (target == null || existing.dailyListId != target.id || !sameDailyItem(existing, item))) {
-                        add(RestoreConflict(dailyItemConflictId(incoming.date, item.uuid), BackupCategory.DAILY_TASKS, item.text, existing.text, item.text, RestoreConflictKind.DAILY_ITEM))
+                        add(
+                            RestoreConflict(
+                                dailyItemConflictId(incoming.date, item.uuid),
+                                BackupCategory.DAILY_TASKS,
+                                item.text,
+                                dailyItemDescription(existing.text, existing.completed, existing.indent),
+                                dailyItemDescription(item.text, item.completed, item.indent),
+                                RestoreConflictKind.DAILY_ITEM,
+                            ),
+                        )
                     }
                 }
             }
@@ -694,17 +716,22 @@ class BackupRepository(
     private fun groupConflict(
         category: BackupCategory,
         uuid: String,
-        title: String,
+        currentTitle: String,
+        backupTitle: String,
         currentChildren: Int,
         backupChildren: Int,
     ) = RestoreConflict(
         id = conflictId(category, uuid),
         category = category,
-        title = title,
-        currentDescription = "$currentChildren current items",
-        backupDescription = "$backupChildren backup items",
+        title = backupTitle,
+        currentDescription = "$currentTitle — $currentChildren items",
+        backupDescription = "$backupTitle — $backupChildren items",
         kind = RestoreConflictKind.WHOLE_GROUP,
     )
+
+    private fun dailyItemDescription(text: String, completed: Boolean, indent: Int): String =
+        "$text — ${if (completed) "Completed" else "Incomplete"}, " +
+            (if (indent == 0) "top-level task" else "sub-item")
 
     private suspend fun snapshotForm(template: LogTemplate): BackupLog {
         val entries = entryDao.getForTemplateOnce(template.id)
