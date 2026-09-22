@@ -418,7 +418,9 @@ class BackupRepository(
         uuid = { it.uuid },
         category = BackupCategory.IDEA_LOGS,
         current = { uuid -> ideaLogDao.getByUuid(uuid)?.let { snapshotIdea(it) } },
-        same = { a, b -> a == b },
+        same = { a, b ->
+            BackupCodec.canonicalIdeaForComparison(a) == BackupCodec.canonicalIdeaForComparison(b)
+        },
         insert = ::insertIdeaLog,
         delete = { value -> ideaLogDao.getByUuid(value.uuid)?.let { ideaEntryDao.deleteForLog(it.id); ideaLogDao.delete(it) } },
         choices = choices,
@@ -432,7 +434,9 @@ class BackupRepository(
         uuid = { it.uuid },
         category = BackupCategory.CLICKER_DATA,
         current = { uuid -> clickerDao.getLogByUuid(uuid)?.let { snapshotClicker(it) } },
-        same = { a, b -> a == b },
+        same = { a, b ->
+            BackupCodec.canonicalClickerForComparison(a) == BackupCodec.canonicalClickerForComparison(b)
+        },
         insert = ::insertClickerLog,
         delete = { value -> clickerDao.getLogByUuid(value.uuid)?.let { clickerDao.deleteLogWithCards(it) } },
         choices = choices,
@@ -482,7 +486,6 @@ class BackupRepository(
                 val id = dailyDateConflictId(incoming)
                 val choice = requireChoice(choices, id)
                 if (choice == RestoreConflictChoice.USE_BACKUP) {
-                    dailyListDao.setDate(byUuid.id, incoming.date)
                     result += mergeDailyItems(byUuid.id, incoming, choices)
                     result = result.copy(replaced = result.replaced + 1, conflicted = result.conflicted + 1)
                 } else {
@@ -641,13 +644,17 @@ class BackupRepository(
             backup.payload.ideaLogs?.takeIf { BackupCategory.IDEA_LOGS in selected }?.forEach { incoming ->
                 ideaLogDao.getByUuid(incoming.uuid)?.let { existing ->
                     val current = snapshotIdea(existing)
-                    if (current != incoming) add(groupConflict(BackupCategory.IDEA_LOGS, incoming.uuid, incoming.name, current.entries.size, incoming.entries.size))
+                    if (BackupCodec.canonicalIdeaForComparison(current) != BackupCodec.canonicalIdeaForComparison(incoming)) {
+                        add(groupConflict(BackupCategory.IDEA_LOGS, incoming.uuid, incoming.name, current.entries.size, incoming.entries.size))
+                    }
                 }
             }
             backup.payload.clickerData?.takeIf { BackupCategory.CLICKER_DATA in selected }?.forEach { incoming ->
                 clickerDao.getLogByUuid(incoming.uuid)?.let { existing ->
                     val current = snapshotClicker(existing)
-                    if (current != incoming) add(groupConflict(BackupCategory.CLICKER_DATA, incoming.uuid, incoming.title, current.cards.size, incoming.cards.size))
+                    if (BackupCodec.canonicalClickerForComparison(current) != BackupCodec.canonicalClickerForComparison(incoming)) {
+                        add(groupConflict(BackupCategory.CLICKER_DATA, incoming.uuid, incoming.title, current.cards.size, incoming.cards.size))
+                    }
                 }
             }
             backup.payload.savedColorPresets?.takeIf { BackupCategory.SAVED_COLOR_PRESETS in selected }?.forEach { incoming ->
@@ -661,7 +668,17 @@ class BackupRepository(
                 val byDate = dailyListDao.getByDate(incoming.date)
                 val byUuid = dailyListDao.getByUuid(incoming.uuid)
                 if ((byDate != null && byDate.uuid != incoming.uuid) || (byDate == null && byUuid != null)) {
-                    add(RestoreConflict(dailyDateConflictId(incoming), BackupCategory.DAILY_TASKS, incoming.date, byDate?.title.orEmpty(), incoming.title, RestoreConflictKind.DAILY_DATE_CARD))
+                    val current = checkNotNull(byDate ?: byUuid)
+                    add(
+                        RestoreConflict(
+                            dailyDateConflictId(incoming),
+                            BackupCategory.DAILY_TASKS,
+                            incoming.date,
+                            "${current.title} (${current.date})",
+                            incoming.title,
+                            RestoreConflictKind.DAILY_DATE_CARD,
+                        ),
+                    )
                 }
                 val target = byDate ?: byUuid
                 incoming.items.forEach { item ->
@@ -759,14 +776,19 @@ class BackupRepository(
         current.text == incoming.text && current.completed == incoming.completed &&
             current.indent == incoming.indent && current.sourceUuid == incoming.sourceUuid
 
-    private fun semantic(log: BackupLog): BackupLog = log.copy(
-        id = 0,
-        entries = log.entries.map { it.copy(id = 0) },
-        calendars = log.calendars.map { it.copy(id = 0) },
-    )
+    private fun semantic(log: BackupLog): BackupLog =
+        BackupCodec.canonicalFormForComparison(log).let { canonical ->
+            canonical.copy(
+                id = 0,
+                entries = canonical.entries.map { it.copy(id = 0) },
+                calendars = canonical.calendars.map { it.copy(id = 0) },
+            )
+        }
 
     private fun semantic(list: BackupChecklist): BackupChecklist =
-        list.copy(id = 0, items = list.items.map { it.copy(id = 0) })
+        BackupCodec.canonicalListForComparison(list).let { canonical ->
+            canonical.copy(id = 0, items = canonical.items.map { it.copy(id = 0) })
+        }
 
     private fun conflictId(category: BackupCategory, uuid: String): String = "${category.name}:$uuid"
     private fun dailyDateConflictId(task: BackupDailyTask): String = "DAILY_DATE:${task.date}:${task.uuid}"

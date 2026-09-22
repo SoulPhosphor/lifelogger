@@ -494,6 +494,18 @@ object BackupCodec {
         list.copy(items = list.items.sortedWith(compareBy({ it.position }, { it.text })))
     }.sortedWith(compareBy({ it.uuid }, { it.createdAt }, { it.name }))
 
+    internal fun canonicalFormForComparison(form: BackupLog): BackupLog =
+        canonicalForms(listOf(form)).single()
+
+    internal fun canonicalListForComparison(list: BackupChecklist): BackupChecklist =
+        canonicalLists(listOf(list)).single()
+
+    internal fun canonicalIdeaForComparison(log: BackupIdeaLog): BackupIdeaLog =
+        canonicalPayload(BackupPayload(ideaLogs = listOf(log))).ideaLogs!!.single()
+
+    internal fun canonicalClickerForComparison(log: BackupClickerLog): BackupClickerLog =
+        canonicalPayload(BackupPayload(clickerData = listOf(log))).clickerData!!.single()
+
     fun logOf(
         template: LogTemplate,
         entries: List<LogEntry>,

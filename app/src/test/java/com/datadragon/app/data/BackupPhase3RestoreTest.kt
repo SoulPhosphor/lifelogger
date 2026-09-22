@@ -77,6 +77,7 @@ class BackupPhase3RestoreTest {
 
         db.checklistDao().insertChecklist(Checklist(uuid = "newer-list", name = "Newer", createdAt = 2))
         val legacy = BackupCodec.decode(javaClass.classLoader!!.getResource("fixtures/backup-v1.json")!!.readText())
+        assertEquals(setOf(BackupCategory.FORMS), repository.preflight(legacy, RestoreMode.REPLACE).selectedCategories)
         repository.restore(legacy, RestoreMode.REPLACE)
         assertEquals("Newer", db.checklistDao().getAllChecklistsOnce().single().name)
 
@@ -238,6 +239,38 @@ class BackupPhase3RestoreTest {
         assertEquals("incoming-card", dao.getByDate("2026-09-21")!!.uuid)
         assertEquals("backup-item", dao.getItemsOnce(dateCardId).single().uuid)
         assertTrue(dao.getItemsOnce(uuidCardId).isEmpty())
+    }
+
+    @Test
+    fun dailyCardUuidCollisionOnAFreeDateNeverMovesTheCurrentCard() = runBlocking {
+        val dao = db.dailyListDao()
+        val currentId = dao.insertDailyList(DailyList(uuid = "shared-card", date = LocalDate.parse("2026-09-21"), title = "Current", createdAt = 1))
+        val incoming = backup(BackupPayload(dailyTasks = listOf(
+            BackupDailyTask(
+                uuid = "shared-card",
+                date = "2026-09-22",
+                title = "Backup",
+                favorited = false,
+                genuinelyCompleted = false,
+                completionBlockedByCleanup = false,
+                maintenanceRunOn = null,
+                renewalRunOn = null,
+                createdAt = 2,
+                items = listOf(BackupDailyTaskItem("new-item", "Merged task", false, 0, 0, null)),
+            ),
+        )))
+        val repository = BackupRepository(db)
+        val preflight = repository.preflight(incoming, RestoreMode.MERGE)
+
+        repository.restore(
+            incoming,
+            RestoreMode.MERGE,
+            conflictChoices = preflight.conflicts.associate { it.id to RestoreConflictChoice.USE_BACKUP },
+        )
+
+        assertNull(dao.getByDate("2026-09-22"))
+        assertEquals("shared-card", dao.getByDate("2026-09-21")!!.uuid)
+        assertEquals("new-item", dao.getItemsOnce(currentId).single().uuid)
     }
 
     @Test

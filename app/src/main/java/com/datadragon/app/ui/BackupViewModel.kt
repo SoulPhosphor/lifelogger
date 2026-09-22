@@ -59,14 +59,19 @@ class BackupViewModel(app: Application) : AndroidViewModel(app) {
             val selected = selectedCategories(forms, lists)
             val preflight = repository.preflight(backup, mode, selected)
             if (mode == RestoreMode.MERGE && conflictPolicy == RestoreConflictPolicy.ASK && preflight.conflicts.isNotEmpty()) {
-                pendingRestore = PendingRestore(backup, mode, selected, preflight.conflicts)
+                pendingRestore = PendingRestore(backup, mode, preflight.selectedCategories, preflight.conflicts)
                 RestoreResult.NeedsConflictResolution(preflight.conflicts)
             } else {
                 val choice = when (conflictPolicy) {
                     RestoreConflictPolicy.KEEP_CURRENT, RestoreConflictPolicy.ASK -> RestoreConflictChoice.KEEP_CURRENT
                     RestoreConflictPolicy.USE_BACKUP -> RestoreConflictChoice.USE_BACKUP
                 }
-                executeRestore(backup, mode, selected, preflight.conflicts.associate { it.id to choice })
+                executeRestore(
+                    backup,
+                    mode,
+                    preflight.selectedCategories,
+                    preflight.conflicts.associate { it.id to choice },
+                )
             }
         } catch (e: Exception) {
             RestoreResult.Failure(e.message ?: "This file isn't a valid backup.")
@@ -138,11 +143,19 @@ class BackupViewModel(app: Application) : AndroidViewModel(app) {
                     "That file holds more than one item. Use Restore from Database for a full backup.",
                 )
                 else -> {
-                    val preflight = repository.preflight(backup, RestoreMode.MERGE)
-                    // Individual exports retain their established update behavior:
-                    // the imported form/list replaces the grouping with its UUID.
-                    val choices = preflight.conflicts.associate { it.id to RestoreConflictChoice.USE_BACKUP }
-                    RestoreResult.Success(repository.restore(backup, RestoreMode.MERGE, conflictChoices = choices))
+                    val category = if (backup.logs.size == 1) BackupCategory.FORMS else BackupCategory.LISTS
+                    if (backup.includedCategories.toSet() != setOf(category)) {
+                        RestoreResult.Failure(
+                            "That file contains database backup categories. Use Restore from Database.",
+                        )
+                    } else {
+                        val selected = setOf(category)
+                        val preflight = repository.preflight(backup, RestoreMode.MERGE, selected)
+                        // Individual exports retain their established update behavior:
+                        // the imported form/list replaces the grouping with its UUID.
+                        val choices = preflight.conflicts.associate { it.id to RestoreConflictChoice.USE_BACKUP }
+                        RestoreResult.Success(repository.restore(backup, RestoreMode.MERGE, selected, choices))
+                    }
                 }
             }
         } catch (e: Exception) {
