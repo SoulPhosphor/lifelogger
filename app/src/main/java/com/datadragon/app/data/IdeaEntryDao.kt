@@ -41,6 +41,10 @@ interface IdeaEntryDao {
     @Query("SELECT * FROM idea_entries WHERE id = :id")
     fun observeById(id: Long): Flow<IdeaEntry?>
 
+    /** Deterministic one-shot read used by the complete backup snapshot. */
+    @Query("SELECT * FROM idea_entries ORDER BY ideaLogId ASC, createdAt ASC, id ASC")
+    suspend fun getAllOnce(): List<IdeaEntry>
+
     /** How many archived ideas one log still holds (gates turning archiving off). */
     @Query("SELECT COUNT(*) FROM idea_entries WHERE ideaLogId = :ideaLogId AND archived = 1")
     suspend fun archivedCount(ideaLogId: Long): Int

@@ -45,7 +45,13 @@ class CalendarBackupTest {
         val log = BackupCodec.logOf(template, emptyList(), emptyList(), calendars)
         // Encode + decode so we exercise the serialized form too.
         val decoded = BackupCodec.decode(
-            BackupCodec.encode(BackupFile(exportedAt = "2026-09-13T00:00:00Z", logs = listOf(log)))
+            BackupCodec.encode(
+                BackupFile.single(
+                    exportedAt = "2026-09-13T00:00:00Z",
+                    category = BackupCategory.FORMS,
+                    payload = BackupPayload(forms = listOf(log)),
+                ),
+            ),
         )
         val restored = BackupCodec.calendarsOf(decoded.logs.single())
 
@@ -53,8 +59,8 @@ class CalendarBackupTest {
         assertEquals(listOf("Odor Severity", "Meds Taken"), restored.map { it.label })
         assertEquals(listOf("heat_map", "yes_no"), restored.map { it.type })
         assertEquals(listOf(0, 1), restored.map { it.position })
-        // Each restored calendar re-keys to the log's id.
-        assertTrue(restored.all { it.templateId == 5L })
+        // Local Room row ids are deliberately not portable in version 3.
+        assertTrue(restored.all { it.templateId == 0L })
     }
 
     @Test
@@ -62,6 +68,8 @@ class CalendarBackupTest {
         val decoded = BackupCodec.decode(
             """
             {
+              "format": "datadragon-backup",
+              "version": 1,
               "exportedAt": "2026-09-03T12:00:00Z",
               "logs": [{
                 "id": 1,

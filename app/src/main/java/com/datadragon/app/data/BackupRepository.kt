@@ -9,31 +9,136 @@ import java.time.temporal.ChronoUnit
  * Builds full backups and restores them. Restore replaces all current data with
  * the backup contents in a single transaction (docs/BUILD_PHASES.md Phase 6).
  */
-class BackupRepository(private val db: AppDatabase) {
+class BackupRepository(
+    private val db: AppDatabase,
+    private val portablePreferences: () -> BackupPortablePreferences = { BackupPortablePreferences() },
+    private val sourceAppVersion: String = "unknown",
+) {
 
     private val templateDao = db.logTemplateDao()
     private val entryDao = db.logEntryDao()
     private val noteDao = db.entryNoteDao()
     private val checklistDao = db.checklistDao()
     private val calendarDao = db.calendarDao()
+    private val ideaLogDao = db.ideaLogDao()
+    private val ideaEntryDao = db.ideaEntryDao()
+    private val dailyListDao = db.dailyListDao()
+    private val clickerDao = db.clickerDao()
+    private val colorPresetDao = db.colorPresetDao()
 
-    /** Snapshot every log, entry, follow-up note, and list into a [BackupFile]. */
-    suspend fun buildFull(): BackupFile {
-        val templates = templateDao.getAllOnce()
+    /** Build every current category from one Room read transaction. */
+    suspend fun buildFull(): BackupFile = db.withTransaction {
         val entriesByTemplate = entryDao.getAllOnce().groupBy { it.templateId }
         val notesByEntry = noteDao.getAllOnce().groupBy { it.entryId }
         val calendarsByTemplate = calendarDao.getAllOnce().groupBy { it.templateId }
-        val logs = templates.map { template ->
+        val forms = templateDao.getAllOnce().map { template ->
             val entries = entriesByTemplate[template.id].orEmpty()
-            val notes = entries.flatMap { notesByEntry[it.id].orEmpty() }
-            val calendars = calendarsByTemplate[template.id].orEmpty()
-            BackupCodec.logOf(template, entries, notes, calendars)
+            BackupCodec.logOf(
+                template,
+                entries,
+                entries.flatMap { notesByEntry[it.id].orEmpty() },
+                calendarsByTemplate[template.id].orEmpty(),
+            )
         }
-        val itemsByChecklist = checklistDao.getAllItemsOnce().groupBy { it.checklistId }
-        val checklists = checklistDao.getAllChecklistsOnce().map { checklist ->
-            BackupCodec.checklistOf(checklist, itemsByChecklist[checklist.id].orEmpty())
+
+        val checklistItems = checklistDao.getAllItemsOnce().groupBy { it.checklistId }
+        val lists = checklistDao.getAllChecklistsOnce().map { checklist ->
+            BackupCodec.checklistOf(checklist, checklistItems[checklist.id].orEmpty())
         }
-        return BackupFile(exportedAt = now(), logs = logs, checklists = checklists)
+
+        val ideaEntries = ideaEntryDao.getAllOnce().groupBy { it.ideaLogId }
+        val ideas = ideaLogDao.getAllOnce().map { log ->
+            BackupIdeaLog(
+                uuid = log.uuid,
+                name = log.name,
+                createdAt = log.createdAt,
+                fieldsJson = log.fieldsJson,
+                automaticTimestamping = log.automaticTimestamping,
+                allowArchiving = log.allowArchiving,
+                showEntireIdeaCard = log.showEntireIdeaCard,
+                previewLines = log.previewLines,
+                sortTimestampFieldId = log.sortTimestampFieldId,
+                sortNewestFirst = log.sortNewestFirst,
+                entries = ideaEntries[log.id].orEmpty().map { entry ->
+                    BackupIdeaEntry(
+                        createdAt = entry.createdAt,
+                        updatedAt = entry.updatedAt,
+                        valuesJson = entry.valuesJson,
+                        marked = entry.marked,
+                        archived = entry.archived,
+                    )
+                },
+            )
+        }
+
+        val dailyItems = dailyListDao.getAllItemsOnce().groupBy { it.dailyListId }
+        val dailyTasks = dailyListDao.getAllDailyListsOnce().map { task ->
+            BackupDailyTask(
+                uuid = task.uuid,
+                date = task.date.toString(),
+                title = task.title,
+                favorited = task.favorited,
+                genuinelyCompleted = task.genuinelyCompleted,
+                completionBlockedByCleanup = task.completionBlockedByCleanup,
+                maintenanceRunOn = task.maintenanceRunOn?.toString(),
+                renewalRunOn = task.renewalRunOn?.toString(),
+                createdAt = task.createdAt,
+                items = dailyItems[task.id].orEmpty().map { item ->
+                    BackupDailyTaskItem(
+                        uuid = item.uuid,
+                        text = item.text,
+                        completed = item.completed,
+                        indent = item.indent,
+                        position = item.position,
+                        sourceUuid = item.sourceUuid,
+                    )
+                },
+            )
+        }
+
+        val clickerCards = clickerDao.getAllCardsOnce().groupBy { it.clickerLogId }
+        val clickerData = clickerDao.getAllLogsOnce().map { log ->
+            BackupClickerLog(
+                uuid = log.uuid,
+                title = log.title,
+                createdAt = log.createdAt,
+                lastAccessedAt = log.lastAccessedAt,
+                lastModifiedAt = log.lastModifiedAt,
+                fieldsJson = log.fieldsJson,
+                displayOnlyClickerDateTime = log.displayOnlyClickerDateTime,
+                autoDateStamp = log.autoDateStamp,
+                autoTimeStamp = log.autoTimeStamp,
+                allowFollowUp = log.allowFollowUp,
+                cards = clickerCards[log.id].orEmpty().map { card ->
+                    BackupClickerCard(
+                        uuid = card.uuid,
+                        createdAt = card.createdAt,
+                        displayDate = card.displayDate,
+                        displayTime = card.displayTime,
+                        valuesJson = card.valuesJson,
+                    )
+                },
+            )
+        }
+
+        val presets = colorPresetDao.getAllOnce().map { preset ->
+            BackupColorPreset(preset.uuid, preset.name, preset.colorsJson)
+        }
+
+        BackupFile.full(
+            exportedAt = now(),
+            sourceAppVersion = sourceAppVersion,
+            roomSchemaVersion = AppDatabase.SCHEMA_VERSION,
+            payload = BackupPayload(
+                forms = forms,
+                lists = lists,
+                ideaLogs = ideas,
+                dailyTasks = dailyTasks,
+                clickerData = clickerData,
+                savedColorPresets = presets,
+                portablePreferences = portablePreferences(),
+            ),
+        )
     }
 
     /**
@@ -73,10 +178,33 @@ class BackupRepository(private val db: AppDatabase) {
         calendarDao.deleteAll()
         templateDao.deleteAll()
         logs.forEach { log ->
-            templateDao.insert(BackupCodec.templateOf(log))
-            BackupCodec.entriesOf(log).forEach { entryDao.insert(it) }
-            BackupCodec.notesOf(log).forEach { noteDao.insert(it) }
-            BackupCodec.calendarsOf(log).forEach { calendarDao.insert(it) }
+            val templateId = templateDao.insert(BackupCodec.templateOf(log).copy(id = 0))
+            log.entries.forEach { entry ->
+                val entryId = entryDao.insert(
+                    LogEntry(
+                        templateId = templateId,
+                        createdAt = entry.createdAt,
+                        updatedAt = entry.updatedAt,
+                        valuesJson = entry.valuesJson,
+                        marked = entry.marked,
+                    ),
+                )
+                entry.notes.forEach { note ->
+                    noteDao.insert(EntryNote(entryId = entryId, createdAt = note.createdAt, text = note.text))
+                }
+            }
+            log.calendars.forEach { calendar ->
+                calendarDao.insert(
+                    Calendar(
+                        templateId = templateId,
+                        position = calendar.position,
+                        type = calendar.type,
+                        label = calendar.label,
+                        description = calendar.description,
+                        configJson = calendar.configJson,
+                    ),
+                )
+            }
         }
     }
 
@@ -84,8 +212,20 @@ class BackupRepository(private val db: AppDatabase) {
         checklistDao.deleteAllItems()
         checklistDao.deleteAllChecklists()
         checklists.forEach { checklist ->
-            checklistDao.insertChecklist(BackupCodec.checklistEntityOf(checklist))
-            BackupCodec.itemsOf(checklist).forEach { checklistDao.insertItem(it) }
+            val checklistId = checklistDao.insertChecklist(
+                BackupCodec.checklistEntityOf(checklist).copy(id = 0),
+            )
+            checklist.items.forEach { item ->
+                checklistDao.insertItem(
+                    ChecklistItem(
+                        checklistId = checklistId,
+                        text = item.text,
+                        completed = item.completed,
+                        indent = item.indent,
+                        position = item.position,
+                    ),
+                )
+            }
         }
     }
 

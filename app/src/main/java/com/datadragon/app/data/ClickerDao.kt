@@ -24,6 +24,10 @@ interface ClickerDao {
     @Query("SELECT * FROM clicker_logs WHERE id = :id")
     suspend fun getLog(id: Long): ClickerLog?
 
+    /** Deterministic one-shot read used by the complete backup snapshot. */
+    @Query("SELECT * FROM clicker_logs ORDER BY createdAt ASC, uuid ASC")
+    suspend fun getAllLogsOnce(): List<ClickerLog>
+
     @Insert
     suspend fun insertLog(log: ClickerLog): Long
 
@@ -76,6 +80,10 @@ interface ClickerDao {
 
     @Query("SELECT * FROM clicker_cards WHERE clickerLogId = :logId ORDER BY createdAt DESC")
     suspend fun getCardsForLog(logId: Long): List<ClickerCard>
+
+    /** Deterministic one-shot read of every card used by the complete backup snapshot. */
+    @Query("SELECT * FROM clicker_cards ORDER BY clickerLogId ASC, createdAt ASC, uuid ASC")
+    suspend fun getAllCardsOnce(): List<ClickerCard>
 
     @Insert
     suspend fun insertCard(card: ClickerCard): Long
