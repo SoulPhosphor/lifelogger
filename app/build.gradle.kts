@@ -66,12 +66,6 @@ android {
     }
 }
 
-tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
-    testLogging {
-        showStandardStreams = true
-        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
-    }
-}
 
 dependencies {
     implementation(libs.androidx.core.ktx)
