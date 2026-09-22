@@ -66,6 +66,17 @@ class BackupPhase4Test {
     }
 
     @Test
+    fun semanticValidationFailureStopsBeforeDestinationWrite() {
+        val encoded = completeBackup(
+            BackupPortablePreferences(lastHomeView = "invalid-home-view"),
+        )
+        val destination = MemoryDestination()
+
+        assertTrue(runCatching { BackupFileWriter().writeAndVerify(destination, encoded) }.isFailure)
+        assertFalse(destination.outputClosed)
+    }
+
+    @Test
     fun manualBackupUsesTheCompleteCurrentPayload() = runBlocking {
         val db = BackupFixtureTestSupport.newVersion18Database()
         try {
@@ -106,7 +117,9 @@ class BackupPhase4Test {
         assertEquals(decoded, BackupCodec.decode(BackupCodec.encode(decoded)))
     }
 
-    private fun completeBackup(): String = BackupCodec.encode(
+    private fun completeBackup(
+        preferences: BackupPortablePreferences = BackupPortablePreferences(),
+    ): String = BackupCodec.encode(
         BackupFile.full(
             exportedAt = "2026-09-22T00:00:00Z",
             sourceAppVersion = "phase-4-test",
@@ -118,7 +131,7 @@ class BackupPhase4Test {
                 dailyTasks = emptyList(),
                 clickerData = emptyList(),
                 savedColorPresets = emptyList(),
-                portablePreferences = BackupPortablePreferences(),
+                portablePreferences = preferences,
             ),
             backupId = "phase-4-backup",
         ),

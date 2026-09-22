@@ -39,6 +39,9 @@ interface DailyListDao {
     @Query("SELECT * FROM daily_lists WHERE id = :id")
     suspend fun getDailyList(id: Long): DailyList?
 
+    @Query("SELECT * FROM daily_lists WHERE uuid = :uuid LIMIT 1")
+    suspend fun getByUuid(uuid: String): DailyList?
+
     /** The one card for an exact date, if it has been saved. */
     @Query("SELECT * FROM daily_lists WHERE date = :date LIMIT 1")
     suspend fun getByDate(date: String): DailyList?
@@ -149,6 +152,12 @@ interface DailyListDao {
     /** Removes every item of one card. */
     @Query("DELETE FROM daily_list_items WHERE dailyListId = :dailyListId")
     suspend fun deleteItemsForDailyList(dailyListId: Long)
+
+    @Query("DELETE FROM daily_list_items")
+    suspend fun deleteAllItems()
+
+    @Query("SELECT * FROM daily_list_items WHERE uuid = :uuid LIMIT 1")
+    suspend fun getItemByUuid(uuid: String): DailyListItem?
 
     /** Removes items left completely blank when leaving an editor. */
     @Query("DELETE FROM daily_list_items WHERE dailyListId = :dailyListId AND text = ''")

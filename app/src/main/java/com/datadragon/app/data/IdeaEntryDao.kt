@@ -53,6 +53,9 @@ interface IdeaEntryDao {
     @Query("DELETE FROM idea_entries WHERE ideaLogId = :ideaLogId")
     suspend fun deleteForLog(ideaLogId: Long)
 
+    @Query("DELETE FROM idea_entries")
+    suspend fun deleteAll()
+
     /**
      * Per-log count and most-recent timestamp for the Ideas Home cards. Archived
      * ideas are excluded: the summary describes the log's active contents, so

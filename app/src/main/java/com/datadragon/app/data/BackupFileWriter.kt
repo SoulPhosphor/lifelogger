@@ -12,7 +12,7 @@ interface BackupDestination {
 
 /**
  * Writes a complete current backup and reports success only after reopening the
- * actual destination and validating its contents with the shared codec.
+ * actual destination and validating its contents with the shared codec and semantic validator.
  */
 class BackupFileWriter {
     fun validateFullBackup(encoded: String): BackupFile = validatedFullBackup(encoded)
@@ -41,6 +41,7 @@ class BackupFileWriter {
         require(backup.includedCategories == BackupCategory.entries) {
             "Manual backup does not contain the complete portable payload."
         }
+        BackupRestoreValidator.validate(backup)
         return backup
     }
 }

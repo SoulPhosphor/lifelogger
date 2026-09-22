@@ -24,6 +24,9 @@ interface ClickerDao {
     @Query("SELECT * FROM clicker_logs WHERE id = :id")
     suspend fun getLog(id: Long): ClickerLog?
 
+    @Query("SELECT * FROM clicker_logs WHERE uuid = :uuid LIMIT 1")
+    suspend fun getLogByUuid(uuid: String): ClickerLog?
+
     /** Deterministic one-shot read used by the complete backup snapshot. */
     @Query("SELECT * FROM clicker_logs ORDER BY createdAt ASC, uuid ASC")
     suspend fun getAllLogsOnce(): List<ClickerLog>
@@ -37,8 +40,14 @@ interface ClickerDao {
     @Delete
     suspend fun deleteLog(log: ClickerLog)
 
+    @Query("DELETE FROM clicker_logs")
+    suspend fun deleteAllLogs()
+
     @Query("DELETE FROM clicker_cards WHERE clickerLogId = :logId")
     suspend fun deleteCardsForLog(logId: Long)
+
+    @Query("DELETE FROM clicker_cards")
+    suspend fun deleteAllCards()
 
     /** Delete a log and all of its cards together, so no cards are orphaned. */
     @Transaction
