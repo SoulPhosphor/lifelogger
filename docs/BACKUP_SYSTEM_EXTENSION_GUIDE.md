@@ -182,7 +182,9 @@ Every independently matched object must participate in the shared conflict polic
 - **Use Backup Data** applies the incoming object according to the category's approved replacement boundary;
 - **Ask Me** reports every conflict during preflight and changes nothing until the user resolves all conflicts and continues.
 
-Conflict detection happens before the undo snapshot is replaced and before the restore transaction begins. Do not interrupt a running transaction with prompts. Daily Task card collisions are matched by date for user-facing organization: the current card owns an occupied date and retains its UUID and metadata, while the selected policy determines whether the incoming card's tasks are merged into it.
+Daily Task items are the approved exception: they are never conflicts. A task already on the receiving card keeps its current state, and a task whose UUID belongs to a card on another date stays there while the incoming copy is added with a new permanent UUID.
+
+Conflict detection happens before the undo snapshot is replaced and before the restore transaction begins. Do not interrupt a running transaction with prompts. Daily Task card collisions are matched by date for user-facing organization: the current card owns an occupied date and retains its UUID and metadata, while the selected policy determines whether the incoming card's tasks are merged into it. When the incoming card's date is free but its UUID belongs to a card on another date, the incoming card is created on its own date with a new permanent UUID, and the current card is left unchanged.
 
 ### 7. Register change tracking
 

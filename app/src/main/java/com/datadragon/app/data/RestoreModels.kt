@@ -13,7 +13,6 @@ data class RestoreConflict(
 enum class RestoreConflictKind {
     WHOLE_GROUP,
     DAILY_DATE_CARD,
-    DAILY_ITEM,
     SAVED_COLOR_PRESET,
 }
 
