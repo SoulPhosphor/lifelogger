@@ -75,6 +75,7 @@ The backup system should have an exhaustive BackupDataRegistry. Every backup cat
 - validator;
 - Replace handler;
 - Merge handler;
+- conflict comparison and the current/backup details shown during review;
 - restored-count reporter;
 - identity and conflict rule;
 - change-revision coverage;
@@ -173,6 +174,16 @@ At minimum, define:
 
 Do not silently use names as identity. Do not silently select newest, longest, current, or incoming data without an approved rule.
 
+Every independently matched object must participate in the shared conflict policy:
+
+- a matching UUID with identical contents is skipped without prompting;
+- a matching UUID with different contents is a conflict;
+- **Keep Current Data** preserves the current object;
+- **Use Backup Data** applies the incoming object according to the category's approved replacement boundary;
+- **Ask Me** reports every conflict during preflight and changes nothing until the user resolves all conflicts and continues.
+
+Conflict detection happens before the undo snapshot is replaced and before the restore transaction begins. Do not interrupt a running transaction with prompts. Daily Task card collisions are matched by date for user-facing organization: the current card owns an occupied date and retains its UUID and metadata, while the selected policy determines whether the incoming card's tasks are merged into it.
+
 ### 7. Register change tracking
 
 Add each protected table to the database revision triggers and BackupDataRegistry.
@@ -197,6 +208,16 @@ Add the category to:
 - individual-item restore when supported.
 
 Exact wording and layout require owner approval before UI implementation.
+
+The shared Restore screen conflict-policy wording is approved as:
+
+**If there is a conflict, what would you like to have happen?**
+
+- **Keep Current Data**
+- **Use Backup Data**
+- **Ask Me**
+
+Show it only for Merge. Default to **Ask Me**, remember the last selection locally, and exclude that workflow preference from portable backup.
 
 ### 9. Test the complete path
 
@@ -316,6 +337,8 @@ Before declaring a new mode protected, confirm all of the following:
 - [ ] The full snapshot reads it in the shared transaction.
 - [ ] Replace is defined and tested.
 - [ ] Merge conflicts have owner-approved rules.
+- [ ] Matching UUIDs are compared before writes and participate in the shared conflict policy.
+- [ ] Conflict review identifies the current and backup versions without using local Room IDs as identity.
 - [ ] Undo includes it.
 - [ ] Change revisions include every table and portable preference.
 - [ ] Manual and automatic backup share the same writer.

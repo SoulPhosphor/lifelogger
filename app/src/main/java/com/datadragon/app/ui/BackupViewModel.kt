@@ -4,7 +4,13 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import com.datadragon.app.data.AppDatabase
 import com.datadragon.app.data.BackupCodec
+import com.datadragon.app.data.BackupCategory
+import com.datadragon.app.data.BackupFile
 import com.datadragon.app.data.BackupRepository
+import com.datadragon.app.data.RestoreConflict
+import com.datadragon.app.data.RestoreConflictChoice
+import com.datadragon.app.data.RestoreConflictPolicy
+import com.datadragon.app.data.RestoreCounts
 import com.datadragon.app.data.RestoreMode
 import com.datadragon.app.data.SettingsRepository
 import com.datadragon.app.data.UndoSnapshot
@@ -21,9 +27,17 @@ class BackupViewModel(app: Application) : AndroidViewModel(app) {
     private val repository = BackupRepository(
         db = AppDatabase.getInstance(app),
         portablePreferences = settings::portableBackupSnapshot,
+        applyPortablePreferences = settings::applyPortableBackup,
         sourceAppVersion = app.packageManager.getPackageInfo(app.packageName, 0).versionName ?: "unknown",
     )
     private val undoStore = UndoSnapshotStore(app)
+    private var pendingRestore: PendingRestore? = null
+
+    val restoreConflictPolicy: RestoreConflictPolicy get() = settings.restoreConflictPolicy
+
+    fun setRestoreConflictPolicy(policy: RestoreConflictPolicy) {
+        settings.restoreConflictPolicy = policy
+    }
 
     /** The full-database backup as pretty-printed JSON. */
     suspend fun buildBackupJson(): String = BackupCodec.encode(repository.buildFull())
@@ -38,16 +52,69 @@ class BackupViewModel(app: Application) : AndroidViewModel(app) {
         mode: RestoreMode,
         forms: Boolean = true,
         lists: Boolean = true,
+        conflictPolicy: RestoreConflictPolicy = settings.restoreConflictPolicy,
     ): RestoreResult =
         try {
             val backup = BackupCodec.decode(text)
-            val preImage = repository.buildFull()
-            val counts = repository.restore(backup, mode, forms, lists)
-            undoStore.save(UndoSnapshot(capturedAt = BackupRepository.now(), data = preImage))
-            RestoreResult.Success(logs = counts.logs, lists = counts.lists)
+            val selected = selectedCategories(forms, lists)
+            val preflight = repository.preflight(backup, mode, selected)
+            if (mode == RestoreMode.MERGE && conflictPolicy == RestoreConflictPolicy.ASK && preflight.conflicts.isNotEmpty()) {
+                pendingRestore = PendingRestore(backup, mode, selected, preflight.conflicts)
+                RestoreResult.NeedsConflictResolution(preflight.conflicts)
+            } else {
+                val choice = when (conflictPolicy) {
+                    RestoreConflictPolicy.KEEP_CURRENT, RestoreConflictPolicy.ASK -> RestoreConflictChoice.KEEP_CURRENT
+                    RestoreConflictPolicy.USE_BACKUP -> RestoreConflictChoice.USE_BACKUP
+                }
+                executeRestore(backup, mode, selected, preflight.conflicts.associate { it.id to choice })
+            }
         } catch (e: Exception) {
             RestoreResult.Failure(e.message ?: "This file isn't a valid backup.")
         }
+
+    suspend fun continueRestore(choices: Map<String, RestoreConflictChoice>): RestoreResult {
+        val pending = pendingRestore ?: return RestoreResult.Failure("There is no pending restore to continue.")
+        if (pending.conflicts.any { it.id !in choices }) {
+            return RestoreResult.Failure("Choose how to handle every conflict before continuing.")
+        }
+        pendingRestore = null
+        return executeRestore(pending.backup, pending.mode, pending.selectedCategories, choices)
+    }
+
+    fun cancelPendingRestore() {
+        pendingRestore = null
+    }
+
+    private suspend fun executeRestore(
+        backup: BackupFile,
+        mode: RestoreMode,
+        selected: Set<BackupCategory>,
+        choices: Map<String, RestoreConflictChoice>,
+    ): RestoreResult {
+        val preImage = repository.buildFull()
+        try {
+            undoStore.saveVerified(
+                UndoSnapshot(
+                    capturedAt = BackupRepository.now(),
+                    data = preImage,
+                    selectedCategories = selected.sortedBy { it.ordinal },
+                ),
+            )
+        } catch (error: Exception) {
+            return RestoreResult.Failure(
+                "Restore did not start because a verified Undo Last Import snapshot could not be saved: " +
+                    (error.message ?: "unknown file error"),
+            )
+        }
+        return try {
+            RestoreResult.Success(repository.restore(backup, mode, selected, choices))
+        } catch (error: Exception) {
+            RestoreResult.Failure(
+                "Restore failed. Database changes were rolled back and Undo Last Import remains available: " +
+                    (error.message ?: "unknown database error"),
+            )
+        }
+    }
 
     /**
      * Restore one exported list or form.
@@ -71,8 +138,9 @@ class BackupViewModel(app: Application) : AndroidViewModel(app) {
                     "That file holds more than one item. Use Restore from Database for a full backup.",
                 )
                 else -> {
-                    val counts = repository.restore(backup, RestoreMode.MERGE)
-                    RestoreResult.Success(logs = counts.logs, lists = counts.lists)
+                    val preflight = repository.preflight(backup, RestoreMode.MERGE)
+                    val choices = preflight.conflicts.associate { it.id to RestoreConflictChoice.KEEP_CURRENT }
+                    RestoreResult.Success(repository.restore(backup, RestoreMode.MERGE, conflictChoices = choices))
                 }
             }
         } catch (e: Exception) {
@@ -87,19 +155,32 @@ class BackupViewModel(app: Application) : AndroidViewModel(app) {
      * not asked for are left exactly as they are, so undoing lists never touches
      * forms and the other way round.
      */
-    suspend fun undoImport(forms: Boolean, lists: Boolean): String {
+    suspend fun undoImport(): String {
         val snapshot = undoStore.load() ?: return "Nothing to restore."
-        if (forms) repository.restoreFormsFromSnapshot(snapshot.data)
-        if (lists) repository.restoreListsFromSnapshot(snapshot.data)
-        return when {
-            forms && lists -> "Previous state restored."
-            lists -> "List state restored."
-            else -> "Form state restored."
-        }
+        repository.undo(snapshot)
+        return "Previous state restored."
     }
+
+    private fun selectedCategories(forms: Boolean, lists: Boolean): Set<BackupCategory> = when {
+        forms && lists -> BackupCategory.entries.toSet()
+        forms -> setOf(BackupCategory.FORMS)
+        lists -> setOf(BackupCategory.LISTS)
+        else -> emptySet()
+    }
+
+    private data class PendingRestore(
+        val backup: BackupFile,
+        val mode: RestoreMode,
+        val selectedCategories: Set<BackupCategory>,
+        val conflicts: List<RestoreConflict>,
+    )
 }
 
 sealed interface RestoreResult {
-    data class Success(val logs: Int, val lists: Int) : RestoreResult
+    data class Success(val counts: RestoreCounts) : RestoreResult {
+        val logs: Int get() = counts.logs
+        val lists: Int get() = counts.lists
+    }
+    data class NeedsConflictResolution(val conflicts: List<RestoreConflict>) : RestoreResult
     data class Failure(val message: String) : RestoreResult
 }

@@ -19,4 +19,13 @@ interface ColorPresetDao {
     /** One-shot snapshot of every saved preset. */
     @Query("SELECT * FROM color_presets ORDER BY name COLLATE NOCASE ASC, id ASC")
     suspend fun getAllOnce(): List<ColorPreset>
+
+    @Query("SELECT * FROM color_presets WHERE uuid = :uuid LIMIT 1")
+    suspend fun getByUuid(uuid: String): ColorPreset?
+
+    @Query("DELETE FROM color_presets WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM color_presets")
+    suspend fun deleteAll()
 }

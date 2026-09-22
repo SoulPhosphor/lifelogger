@@ -55,6 +55,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.CompleteIcon
 import com.datadragon.app.data.HomeView
 import com.datadragon.app.data.NavStyle
+import com.datadragon.app.data.RestoreConflict
+import com.datadragon.app.data.RestoreConflictChoice
+import com.datadragon.app.data.RestoreConflictKind
+import com.datadragon.app.data.RestoreConflictPolicy
+import com.datadragon.app.data.RestoreCounts
 import com.datadragon.app.data.RestoreMode
 import com.datadragon.app.ui.BackupViewModel
 import com.datadragon.app.ui.RestoreResult
@@ -93,9 +98,11 @@ fun SettingsScreen(
     // Non-destructive by default: Merge can only add or update, never delete
     // something the chosen backup didn't include.
     var importMode by remember { mutableStateOf(RestoreMode.MERGE) }
+    var conflictPolicy by rememberSaveable { mutableStateOf(viewModel.restoreConflictPolicy) }
     var restoreType by remember { mutableStateOf(RestoreType.EVERYTHING) }
     var hasUndoSnapshot by remember { mutableStateOf(false) }
     var pendingUndo by remember { mutableStateOf(false) }
+    var pendingConflicts by remember { mutableStateOf<List<RestoreConflict>?>(null) }
 
     LaunchedEffect(Unit) {
         hasUndoSnapshot = viewModel.hasUndoSnapshot()
@@ -134,6 +141,8 @@ fun SettingsScreen(
                 } else {
                     when (val result = viewModel.restoreSingleItem(text)) {
                         is RestoreResult.Success -> singleItemSummary(result.logs, result.lists)
+                        is RestoreResult.NeedsConflictResolution ->
+                            "This individual item conflicts with current data."
                         is RestoreResult.Failure -> result.message
                     }
                 }
@@ -158,6 +167,30 @@ fun SettingsScreen(
                 )
             }
         }
+    }
+
+    pendingConflicts?.let { conflicts ->
+        ConflictReviewScreen(
+            conflicts = conflicts,
+            onCancel = {
+                viewModel.cancelPendingRestore()
+                pendingConflicts = null
+            },
+            onContinue = { choices ->
+                scope.launch {
+                    when (val result = viewModel.continueRestore(choices)) {
+                        is RestoreResult.Success -> {
+                            hasUndoSnapshot = true
+                            status = restoreSummary(RestoreMode.MERGE, result.counts)
+                            pendingConflicts = null
+                        }
+                        is RestoreResult.Failure -> status = result.message
+                        is RestoreResult.NeedsConflictResolution -> pendingConflicts = result.conflicts
+                    }
+                }
+            },
+        )
+        return
     }
 
     Scaffold(
@@ -318,6 +351,36 @@ fun SettingsScreen(
             // land, then the file itself.
             RestoreTypeRow(selected = restoreType, onSelected = { restoreType = it })
             ImportModeRow(selected = importMode, onSelected = { importMode = it })
+            if (importMode == RestoreMode.MERGE) {
+                Text(
+                    "If there is a conflict, what would you like to have happen?",
+                    style = AppTheme.textStyles.settingTitle,
+                )
+                ConflictPolicyRadioRow(
+                    label = "Keep Current Data",
+                    selected = conflictPolicy == RestoreConflictPolicy.KEEP_CURRENT,
+                    onSelect = {
+                        conflictPolicy = RestoreConflictPolicy.KEEP_CURRENT
+                        viewModel.setRestoreConflictPolicy(conflictPolicy)
+                    },
+                )
+                ConflictPolicyRadioRow(
+                    label = "Use Backup Data",
+                    selected = conflictPolicy == RestoreConflictPolicy.USE_BACKUP,
+                    onSelect = {
+                        conflictPolicy = RestoreConflictPolicy.USE_BACKUP
+                        viewModel.setRestoreConflictPolicy(conflictPolicy)
+                    },
+                )
+                ConflictPolicyRadioRow(
+                    label = "Ask Me",
+                    selected = conflictPolicy == RestoreConflictPolicy.ASK,
+                    onSelect = {
+                        conflictPolicy = RestoreConflictPolicy.ASK
+                        viewModel.setRestoreConflictPolicy(conflictPolicy)
+                    },
+                )
+            }
             AppButton(onClick = {
                 status = null
                 openDocument.launch(BACKUP_MIME_TYPES)
@@ -377,13 +440,11 @@ fun SettingsScreen(
                 Text(
                     when (mode) {
                         RestoreMode.REPLACE ->
-                            "All forms, entries, and lists currently in the app will be " +
-                                "permanently removed and replaced with the contents of this " +
-                                "backup. This can't be undone."
+                            "Selected categories present in the backup will be replaced. " +
+                                "Undo Last Import will preserve their current state first."
                         RestoreMode.MERGE ->
-                            "New forms and lists will be added, and any that already exist " +
-                                "will be updated to match the backup. Existing items you didn't " +
-                                "include stay untouched. This can't be undone."
+                            "New data will be added. Matching data follows your conflict choice, " +
+                                "and anything absent from the backup stays untouched."
                     }
                 )
             },
@@ -399,11 +460,16 @@ fun SettingsScreen(
                                     mode,
                                     forms = type.forms(),
                                     lists = type.lists(),
+                                    conflictPolicy = conflictPolicy,
                                 )
                             ) {
                                 is RestoreResult.Success -> {
                                     hasUndoSnapshot = true
-                                    restoreSummary(mode, result.logs, result.lists)
+                                    restoreSummary(mode, result.counts)
+                                }
+                                is RestoreResult.NeedsConflictResolution -> {
+                                    pendingConflicts = result.conflicts
+                                    null
                                 }
                                 is RestoreResult.Failure -> result.message
                             }
@@ -444,10 +510,7 @@ fun SettingsScreen(
                 TextButton(onClick = {
                     pendingUndo = false
                     scope.launch {
-                        status = viewModel.undoImport(
-                            forms = restoreType.forms(),
-                            lists = restoreType.lists(),
-                        )
+                        status = viewModel.undoImport()
                     }
                 }) {
                     Text("Restore")
@@ -515,13 +578,12 @@ private fun RestoreMode.label(): String = when (this) {
 }
 
 /** The status line shown after a successful restore. */
-private fun restoreSummary(mode: RestoreMode, logs: Int, lists: Int): String {
-    val forms = "$logs ${if (logs == 1) "form" else "forms"}"
-    val listsText = "$lists ${if (lists == 1) "list" else "lists"}"
-    return when (mode) {
-        RestoreMode.REPLACE -> "Replaced all data \u2014 restored $forms and $listsText."
-        RestoreMode.MERGE -> "Merge complete \u2014 $forms and $listsText added or updated."
-    }
+private fun restoreSummary(mode: RestoreMode, counts: RestoreCounts): String = when (mode) {
+    RestoreMode.REPLACE ->
+        "Replace complete — ${counts.replaced} restored, ${counts.skipped} skipped."
+    RestoreMode.MERGE ->
+        "Merge complete — ${counts.added} added, ${counts.replaced} updated, " +
+            "${counts.skipped} skipped, ${counts.conflicted} conflicts handled."
 }
 
 /**
@@ -593,6 +655,114 @@ private fun NavStyleRadioRow(
         Spacer(Modifier.width(8.dp))
         Text(label, style = AppTheme.textStyles.settingTitle)
     }
+}
+
+@Composable
+private fun ConflictPolicyRadioRow(
+    label: String,
+    selected: Boolean,
+    onSelect: () -> Unit,
+) = NavStyleRadioRow(label = label, selected = selected, onSelect = onSelect)
+
+/** One preflight review containing every conflict; no restore has started yet. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ConflictReviewScreen(
+    conflicts: List<RestoreConflict>,
+    onCancel: () -> Unit,
+    onContinue: (Map<String, RestoreConflictChoice>) -> Unit,
+) {
+    var choices by remember(conflicts) {
+        mutableStateOf(conflicts.associate { it.id to RestoreConflictChoice.KEEP_CURRENT })
+    }
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Review Merge Conflicts") },
+                navigationIcon = {
+                    IconButton(onClick = onCancel) {
+                        Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Cancel")
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                "Nothing will change until you continue.",
+                style = AppTheme.textStyles.settingDescription,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(modifier = Modifier.fillMaxWidth()) {
+                TextButton(
+                    onClick = {
+                        choices = conflicts.associate { it.id to RestoreConflictChoice.KEEP_CURRENT }
+                    },
+                ) { Text("Keep Current for All") }
+                TextButton(
+                    onClick = {
+                        choices = conflicts.associate { it.id to RestoreConflictChoice.USE_BACKUP }
+                    },
+                ) { Text("Use Backup for All") }
+            }
+            conflicts.groupBy { it.category }.forEach { (category, categoryConflicts) ->
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                SubsectionHeader(category.restoreLabel())
+                categoryConflicts.forEach { conflict ->
+                    Text(conflict.title, style = AppTheme.textStyles.settingTitle)
+                    Text(
+                        "Current: ${conflict.currentDescription}",
+                        style = AppTheme.textStyles.settingDescription,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        "Backup: ${conflict.backupDescription}",
+                        style = AppTheme.textStyles.settingDescription,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    val currentLabel = if (conflict.kind == RestoreConflictKind.DAILY_DATE_CARD) {
+                        "Keep Current Card"
+                    } else {
+                        "Keep Current"
+                    }
+                    val backupLabel = if (conflict.kind == RestoreConflictKind.DAILY_DATE_CARD) {
+                        "Merge Backup Tasks"
+                    } else {
+                        "Use Backup"
+                    }
+                    ConflictPolicyRadioRow(
+                        label = currentLabel,
+                        selected = choices[conflict.id] == RestoreConflictChoice.KEEP_CURRENT,
+                        onSelect = { choices = choices + (conflict.id to RestoreConflictChoice.KEEP_CURRENT) },
+                    )
+                    ConflictPolicyRadioRow(
+                        label = backupLabel,
+                        selected = choices[conflict.id] == RestoreConflictChoice.USE_BACKUP,
+                        onSelect = { choices = choices + (conflict.id to RestoreConflictChoice.USE_BACKUP) },
+                    )
+                }
+            }
+            AppButton(onClick = { onContinue(choices) }) { Text("Continue Merge") }
+            TextButton(onClick = onCancel) { Text("Cancel") }
+        }
+    }
+}
+
+private fun com.datadragon.app.data.BackupCategory.restoreLabel(): String = when (this) {
+    com.datadragon.app.data.BackupCategory.FORMS -> "Forms"
+    com.datadragon.app.data.BackupCategory.LISTS -> "Lists"
+    com.datadragon.app.data.BackupCategory.IDEA_LOGS -> "Idea Logs"
+    com.datadragon.app.data.BackupCategory.DAILY_TASKS -> "Daily Tasks"
+    com.datadragon.app.data.BackupCategory.CLICKER_DATA -> "Clicker Data"
+    com.datadragon.app.data.BackupCategory.SAVED_COLOR_PRESETS -> "Saved Color Presets"
+    com.datadragon.app.data.BackupCategory.PORTABLE_PREFERENCES -> "Preferences"
 }
 
 /**

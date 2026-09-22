@@ -20,6 +20,9 @@ interface IdeaLogDao {
     @Query("SELECT * FROM idea_logs WHERE id = :id")
     suspend fun getById(id: Long): IdeaLog?
 
+    @Query("SELECT * FROM idea_logs WHERE uuid = :uuid LIMIT 1")
+    suspend fun getByUuid(uuid: String): IdeaLog?
+
     /** Deterministic one-shot read used by the complete backup snapshot. */
     @Query("SELECT * FROM idea_logs ORDER BY createdAt ASC, uuid ASC")
     suspend fun getAllOnce(): List<IdeaLog>
@@ -50,4 +53,7 @@ interface IdeaLogDao {
 
     @Delete
     suspend fun delete(log: IdeaLog)
+
+    @Query("DELETE FROM idea_logs")
+    suspend fun deleteAll()
 }

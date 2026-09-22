@@ -38,6 +38,9 @@ interface EntryNoteDao {
     @Query("SELECT * FROM entry_notes ORDER BY createdAt ASC, id ASC")
     suspend fun getAllOnce(): List<EntryNote>
 
+    @Query("SELECT * FROM entry_notes WHERE entryId = :entryId ORDER BY createdAt ASC, id ASC")
+    suspend fun getForEntryOnce(entryId: Long): List<EntryNote>
+
     /** Remove the notes for one entry — used when that entry is deleted. */
     @Query("DELETE FROM entry_notes WHERE entryId = :entryId")
     suspend fun deleteForEntry(entryId: Long)

@@ -294,7 +294,11 @@ data class BackupPortablePreferences(
     val dailyListRetention: String = "",
 )
 
-data class UndoSnapshot(val capturedAt: String, val data: BackupFile)
+data class UndoSnapshot(
+    val capturedAt: String,
+    val data: BackupFile,
+    val selectedCategories: List<BackupCategory> = data.includedCategories,
+)
 
 @Serializable
 private data class BackupEnvelopeV3(
@@ -311,7 +315,11 @@ private data class BackupEnvelopeV3(
 )
 
 @Serializable
-private data class UndoEnvelopeV3(val capturedAt: String, val data: BackupEnvelopeV3)
+private data class UndoEnvelopeV3(
+    val capturedAt: String,
+    val selectedCategories: List<BackupCategory> = BackupCategory.entries,
+    val data: BackupEnvelopeV3,
+)
 
 @Serializable
 private data class LegacyBackupFile(
@@ -355,12 +363,23 @@ object BackupCodec {
 
     fun encodeSnapshot(snapshot: UndoSnapshot): String = diskJson.encodeToString(
         UndoEnvelopeV3.serializer(),
-        UndoEnvelopeV3(snapshot.capturedAt, currentEnvelope(snapshot.data)),
+        UndoEnvelopeV3(
+            capturedAt = snapshot.capturedAt,
+            selectedCategories = snapshot.selectedCategories.distinct().sortedBy { it.ordinal },
+            data = currentEnvelope(snapshot.data),
+        ),
     )
 
     fun decodeSnapshot(text: String): UndoSnapshot {
         val disk = diskJson.decodeFromString(UndoEnvelopeV3.serializer(), text)
-        return UndoSnapshot(disk.capturedAt, validateAndConvert(disk.data))
+        val data = validateAndConvert(disk.data)
+        require(disk.selectedCategories.size == disk.selectedCategories.distinct().size) {
+            "Undo category boundary contains duplicates."
+        }
+        require(disk.selectedCategories.all { it in data.includedCategories }) {
+            "Undo category boundary is not present in its snapshot."
+        }
+        return UndoSnapshot(disk.capturedAt, data, disk.selectedCategories.sortedBy { it.ordinal })
     }
 
     private fun decodeCurrent(text: String): BackupFile =

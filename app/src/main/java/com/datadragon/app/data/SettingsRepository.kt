@@ -84,6 +84,11 @@ class SettingsRepository(context: Context) {
         get() = prefs.getBoolean(KEY_MOVE_BOTTOM, false)
         set(value) { prefs.edit().putBoolean(KEY_MOVE_BOTTOM, value).apply() }
 
+    /** Last Merge conflict policy. Device-local restore workflow state, never portable. */
+    var restoreConflictPolicy: RestoreConflictPolicy
+        get() = RestoreConflictPolicy.fromKey(prefs.getString(KEY_RESTORE_CONFLICT_POLICY, null))
+        set(value) { prefs.edit().putString(KEY_RESTORE_CONFLICT_POLICY, value.key).apply() }
+
     // --- Daily List preferences (all global; per-day data stays in Room) -----
 
     /** The heading shown atop Daily List editors when nothing custom is set. */
@@ -201,6 +206,39 @@ class SettingsRepository(context: Context) {
         dailyListRetention = dailyListRetentionRaw,
     )
 
+    /** Apply the complete portable allowlist synchronously so restore can detect write failure. */
+    fun applyPortableBackup(preferences: BackupPortablePreferences) {
+        val committed = prefs.edit()
+            .putBoolean(KEY_LABELS, preferences.autoCapitalizeLabels)
+            .putBoolean(KEY_OPTIONS, preferences.autoCapitalizeOptions)
+            .putString(KEY_LAST_VIEW, preferences.lastHomeView)
+            .putString(KEY_NAV_STYLE, preferences.navStyle)
+            .putBoolean(KEY_NAV_USE_LABEL, preferences.navUseModeLabel)
+            .putBoolean(modeEnabledKey(HomeView.FORMS), preferences.modeEnabledForms)
+            .putBoolean(modeEnabledKey(HomeView.LISTS), preferences.modeEnabledLists)
+            .putBoolean(modeEnabledKey(HomeView.IDEAS), preferences.modeEnabledIdeas)
+            .putBoolean(modeEnabledKey(HomeView.DAILY_LIST), preferences.modeEnabledDailyList)
+            .putBoolean(modeEnabledKey(HomeView.CLICKER), preferences.modeEnabledClicker)
+            .putString(KEY_COMPLETE_ICON, preferences.listCompleteIcon)
+            .putBoolean(KEY_CROSS_OUT, preferences.listCrossOutCompleted)
+            .putBoolean(KEY_MOVE_BOTTOM, preferences.listMoveCompletedBottom)
+            .putString(KEY_DL_HEADING, preferences.dailyListHeading)
+            .putBoolean(KEY_DL_AUTO_RENEW, preferences.dailyListAutoRenew)
+            .putBoolean(KEY_DL_SHOW_COMPLETED, preferences.dailyListShowCompleted)
+            .putBoolean(KEY_DL_SHOW_CURRENT_UNFINISHED, preferences.dailyListShowCurrentUnfinished)
+            .putBoolean(KEY_DL_SHOW_PAST_UNFINISHED, preferences.dailyListShowPastUnfinished)
+            .putBoolean(KEY_DL_AUTO_TRASH_PAST, preferences.dailyListAutoTrashPast)
+            .putInt(KEY_DL_AUTO_TRASH_KEEP, preferences.dailyListAutoTrashKeep)
+            .putBoolean(KEY_DL_AUTO_REOPEN, preferences.dailyListAutoReopen)
+            .putBoolean(KEY_DL_ALLOW_TITLE, preferences.dailyListAllowTitle)
+            .putBoolean(KEY_DL_CELEBRATION_ENABLED, preferences.dailyListCelebrationEnabled)
+            .putString(KEY_DL_CELEBRATION_ICON, preferences.dailyListCelebrationIcon)
+            .putBoolean(KEY_DL_PROTECT_FAVORITED, preferences.dailyListProtectFavorited)
+            .putString(KEY_DL_RETENTION, preferences.dailyListRetention)
+            .commit()
+        check(committed) { "Portable preferences could not be saved." }
+    }
+
     companion object {
         private const val PREFS_NAME = "data_dragon_settings"
         private const val KEY_LABELS = "auto_capitalize_labels"
@@ -212,6 +250,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_COMPLETE_ICON = "list_complete_icon"
         private const val KEY_CROSS_OUT = "list_cross_out_completed"
         private const val KEY_MOVE_BOTTOM = "list_move_completed_bottom"
+        private const val KEY_RESTORE_CONFLICT_POLICY = "restore_conflict_policy"
     private const val KEY_DL_HEADING = "daily_list_heading"
     private const val KEY_DL_AUTO_RENEW = "daily_list_auto_renew"
     private const val KEY_DL_SHOW_COMPLETED = "daily_list_show_completed"

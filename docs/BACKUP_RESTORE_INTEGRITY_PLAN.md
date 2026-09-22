@@ -137,10 +137,24 @@ Merge:
 
 - adds unmatched groupings;
 - uses permanent UUIDs to identify the same grouping;
-- preserves the existing incoming-wins whole-group behavior for Forms and ordinary Lists unless the owner explicitly changes it;
-- applies the same explicitly documented whole-group rule to Idea Logs and Clicker Data;
+- never silently overwrites differing current data merely because a matching UUID exists;
+- compares matching Forms, ordinary Lists, Idea Logs, Clicker Data, saved color presets, and independently matched Daily Task items before writing;
+- treats a matching UUID with identical contents as a duplicate to skip, and a matching UUID with different contents as a conflict;
+- applies a user-selected conflict policy to whole matching groupings for Forms, Lists, Idea Logs, and Clicker Data, because their child rows are restored as one grouping;
 - keeps current portable preferences rather than trying to combine scalar settings;
 - never treats a display name, title, date, position, or local Room ID as identity.
+
+The Restore screen shows the following control only while **Merge with Existing Data** is selected:
+
+**If there is a conflict, what would you like to have happen?**
+
+- **Keep Current Data**;
+- **Use Backup Data**;
+- **Ask Me**.
+
+**Ask Me** is the default. The last selection is remembered as device-local restore workflow state and is not included in portable backups. The two blanket choices resolve ordinary conflicts without another decision. **Ask Me** performs a complete preflight comparison and, when conflicts exist, opens one conflict-review screen containing all conflicts before any database change. The review is grouped by category, shows enough current and backup detail to identify each difference, and allows **Keep Current** or **Use Backup** per conflict. Canceling leaves all data unchanged.
+
+A Daily Task date collision is resolved by date before card UUID. When an incoming card's date is already occupied, the current card remains the card for that date and keeps its UUID and metadata. **Keep Current Data** leaves that date card alone; **Use Backup Data** merges the incoming tasks into it under the approved Daily Task item rules; and **Ask Me** asks whether to keep the current date card alone or merge the backup tasks. A current card on another date is not deleted or moved merely because it shares the incoming card UUID.
 
 Daily Tasks use the following approved Merge rule when both databases contain a card for the same date:
 
@@ -152,6 +166,8 @@ Daily Tasks use the following approved Merge rule when both databases contain a 
 6. Keep incoming task sequences together. If a matching top-level task already exists, attach new incoming sub-items to that current sequence. Do not create orphaned indented rows.
 7. Two separately created tasks with identical visible wording but different UUIDs are distinct and both survive.
 8. Report added, skipped, and conflicted counts.
+
+The current card for an occupied date remains that date's card and retains its UUID. A same-date incoming card with a different UUID is a date-card conflict governed by the selected policy above. When merging is chosen, its non-conflicting tasks are combined under the rule above. A matching task UUID with different contents is a separate item conflict resolved by the selected policy. If an incoming task UUID already belongs to another current date, it must never be duplicated or silently assigned a new UUID: keeping current leaves it where it is, while using backup moves that task to the incoming date and preserves its UUID. Moving a top-level task also moves the newly accepted members of its incoming sequence so no sub-item is orphaned.
 
 ### Individual-item files
 
@@ -379,6 +395,8 @@ This leaves no repeating job that writes identical files while the app is unused
 - Implement category-aware Replace and Merge.
 - Implement the approved Daily Task combination rule.
 - Preserve current preferences during Merge.
+- Add preflight conflict detection and the remembered device-local **Keep Current Data** / **Use Backup Data** / **Ask Me** policy.
+- Add the narrowly scoped conflict-review presentation required to resolve **Ask Me** and irreducible Daily Task collisions; broader restore category UI remains Phase 6.
 - Make pre-import snapshots complete and atomic.
 - Expand restore summaries and failure reports.
 - Prove rollback through injected failures.
