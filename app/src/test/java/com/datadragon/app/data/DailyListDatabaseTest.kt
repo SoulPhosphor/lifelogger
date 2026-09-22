@@ -48,6 +48,7 @@ class DailyListDatabaseTest {
     }
 
     private fun card(date: LocalDate, title: String = "") = DailyList(
+        uuid = StableUuid.createNew(),
         date = date,
         title = title,
         createdAt = date.toEpochDay(),
@@ -182,8 +183,8 @@ class DailyListDatabaseTest {
     @Test
     fun deletingEveryTaskDoesNotDeleteTheCard() = runBlocking {
         val id = dao.insertDailyList(card(LocalDate.of(2026, 9, 18)))
-        dao.insertItem(DailyListItem(dailyListId = id, text = "One", position = 0))
-        dao.insertItem(DailyListItem(dailyListId = id, text = "Two", position = 1))
+        dao.insertItem(DailyListItem(dailyListId = id, uuid = StableUuid.createNew(), text = "One", position = 0))
+        dao.insertItem(DailyListItem(dailyListId = id, uuid = StableUuid.createNew(), text = "Two", position = 1))
 
         dao.deleteBlankItems(id) // would remove blanks; tasks have text
         assertEquals(2, dao.getItemsOnce(id).size)
@@ -215,7 +216,7 @@ class DailyListDatabaseTest {
     @Test
     fun deletingAWholeCardRemovesItsItemsWithIt() = runBlocking {
         val id = dao.insertDailyList(card(LocalDate.of(2026, 9, 18)))
-        dao.insertItem(DailyListItem(dailyListId = id, text = "One", position = 0))
+        dao.insertItem(DailyListItem(dailyListId = id, uuid = StableUuid.createNew(), text = "One", position = 0))
 
         dao.deleteDailyListWithItems(id)
 
@@ -226,8 +227,12 @@ class DailyListDatabaseTest {
     @Test
     fun itemsKeepStableIdentityAndOrder() = runBlocking {
         val listId = dao.insertDailyList(card(LocalDate.of(2026, 9, 18)))
-        val one = dao.insertItem(DailyListItem(dailyListId = listId, text = "One", position = 0))
-        val two = dao.insertItem(DailyListItem(dailyListId = listId, text = "Two", position = 1))
+        val one = dao.insertItem(
+            DailyListItem(dailyListId = listId, uuid = StableUuid.createNew(), text = "One", position = 0),
+        )
+        val two = dao.insertItem(
+            DailyListItem(dailyListId = listId, uuid = StableUuid.createNew(), text = "Two", position = 1),
+        )
 
         dao.applyOrder(listOf(two, one))
 
@@ -257,7 +262,12 @@ class DailyListDatabaseTest {
         val repo = DailyListRepository(db)
         val date = LocalDate.of(2026, 9, 18)
         dao.insertDailyList(card(date))
-        val typed = DailyListItem(dailyListId = 0, text = "Late addition", position = 0)
+        val typed = DailyListItem(
+            dailyListId = 0,
+            uuid = StableUuid.createNew(),
+            text = "Late addition",
+            position = 0,
+        )
 
         val result = repo.createWithFirstItem(date, now = 500, typed = typed)
 
@@ -291,14 +301,14 @@ class DailyListDatabaseTest {
         // An earlier day the user genuinely completed once, then un-completed a
         // task on (so it now has an unfinished row eligible for cleanup).
         val earnedId = dao.insertDailyList(card(LocalDate.of(2026, 9, 17)))
-        dao.insertItem(DailyListItem(dailyListId = earnedId, text = "Done", completed = true, position = 0))
-        dao.insertItem(DailyListItem(dailyListId = earnedId, text = "Reopened", completed = false, position = 1))
+        dao.insertItem(DailyListItem(dailyListId = earnedId, uuid = StableUuid.createNew(), text = "Done", completed = true, position = 0))
+        dao.insertItem(DailyListItem(dailyListId = earnedId, uuid = StableUuid.createNew(), text = "Reopened", completed = false, position = 1))
         dao.setGenuinelyCompleted(earnedId, earned = true)
 
         // A day that never once had every task completed.
         val neverId = dao.insertDailyList(card(LocalDate.of(2026, 9, 16)))
-        dao.insertItem(DailyListItem(dailyListId = neverId, text = "Done", completed = true, position = 0))
-        dao.insertItem(DailyListItem(dailyListId = neverId, text = "Unfinished", completed = false, position = 1))
+        dao.insertItem(DailyListItem(dailyListId = neverId, uuid = StableUuid.createNew(), text = "Done", completed = true, position = 0))
+        dao.insertItem(DailyListItem(dailyListId = neverId, uuid = StableUuid.createNew(), text = "Unfinished", completed = false, position = 1))
 
         // keepPastCount = 0 makes both past cards eligible for cleanup.
         repo.runMaintenance(

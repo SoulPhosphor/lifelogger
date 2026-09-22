@@ -62,12 +62,15 @@ import java.time.LocalDate
  */
 @Entity(
     tableName = "daily_lists",
-    indices = [Index(value = ["date"], unique = true)],
+    indices = [
+        Index(value = ["date"], unique = true),
+        Index(value = ["uuid"], unique = true),
+    ],
 )
 @TypeConverters(DailyListConverters::class)
 data class DailyList(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val uuid: String = java.util.UUID.randomUUID().toString(),
+    val uuid: String,
     val date: LocalDate,
     val title: String = "",
     val favorited: Boolean = false,

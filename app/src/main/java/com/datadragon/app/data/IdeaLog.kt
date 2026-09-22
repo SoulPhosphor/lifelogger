@@ -1,8 +1,8 @@
 package com.datadragon.app.data
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
-import java.util.UUID
 
 /**
  * A user-defined Idea Log — the Ideas counterpart of a form, with its own
@@ -27,10 +27,13 @@ import java.util.UUID
  * [sortTimestampFieldId] names the field (by its stable [IdeaFieldDef.id]) used
  * as the default sort timestamp, or null to fall back to `createdAt`.
  */
-@Entity(tableName = "idea_logs")
+@Entity(
+    tableName = "idea_logs",
+    indices = [Index(value = ["uuid"], unique = true)],
+)
 data class IdeaLog(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val uuid: String = UUID.randomUUID().toString(),
+    val uuid: String,
     val name: String,
     val createdAt: Long,
     val fieldsJson: String,

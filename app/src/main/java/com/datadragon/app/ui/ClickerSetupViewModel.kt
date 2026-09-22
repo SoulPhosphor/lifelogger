@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.datadragon.app.data.AppDatabase
 import com.datadragon.app.data.ClickerField
 import com.datadragon.app.data.ClickerLog
+import com.datadragon.app.data.StableUuid
 import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -51,6 +52,7 @@ class ClickerSetupViewModel(app: Application) : AndroidViewModel(app) {
             if (existingId == null) {
                 dao.insertLog(
                     ClickerLog(
+                        uuid = StableUuid.createNew(),
                         title = title,
                         createdAt = now,
                         lastAccessedAt = now,

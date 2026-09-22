@@ -29,11 +29,28 @@ private class FakeChecklistStore : ChecklistStore {
     private var nextItemId = 1000L
 
     override suspend fun getChecklist(id: Long): Checklist? =
-        lists[id]?.let { Checklist(id = id, name = it.name, createdAt = it.createdAt, draft = it.draft) }
+        lists[id]?.let {
+            Checklist(
+                id = id,
+                uuid = "list-$id",
+                name = it.name,
+                createdAt = it.createdAt,
+                draft = it.draft,
+            )
+        }
 
     override suspend fun getItemsOnce(checklistId: Long): List<ChecklistItem> =
         rows.filterKeys { itemList[it] == checklistId }
-            .map { (id, r) -> ChecklistItem(id, checklistId, r.text, r.completed, r.indent, r.position) }
+            .map { (id, r) ->
+                ChecklistItem(
+                    id = id,
+                    checklistId = checklistId,
+                    text = r.text,
+                    completed = r.completed,
+                    indent = r.indent,
+                    position = r.position,
+                )
+            }
             .sortedBy { it.position }
 
     override suspend fun renameChecklist(id: Long, name: String) {
@@ -111,7 +128,15 @@ private class FakeChecklistStore : ChecklistStore {
     override suspend fun mostRecentDraft(): Checklist? =
         lists.entries.filter { it.value.draft }
             .maxByOrNull { it.value.createdAt }
-            ?.let { Checklist(id = it.key, name = it.value.name, createdAt = it.value.createdAt, draft = true) }
+            ?.let {
+                Checklist(
+                    id = it.key,
+                    uuid = "list-${it.key}",
+                    name = it.value.name,
+                    createdAt = it.value.createdAt,
+                    draft = true,
+                )
+            }
 
     /** A pre-existing draft in the store, as if written before a process death. */
     fun seedDraft(name: String, createdAt: Long, itemTexts: List<String>): Long {

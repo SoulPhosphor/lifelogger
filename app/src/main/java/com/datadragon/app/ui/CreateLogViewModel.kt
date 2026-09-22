@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.datadragon.app.data.AppDatabase
 import com.datadragon.app.data.LogTemplate
+import com.datadragon.app.data.StableUuid
 import kotlinx.coroutines.launch
 
 class CreateLogViewModel(app: Application) : AndroidViewModel(app) {
@@ -32,6 +33,7 @@ class CreateLogViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             dao.insert(
                 LogTemplate(
+                    uuid = StableUuid.createNew(),
                     name = name.trim(),
                     createdAt = System.currentTimeMillis(),
                     schemaJson = schemaJson,

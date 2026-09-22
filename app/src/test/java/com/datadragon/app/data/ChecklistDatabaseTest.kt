@@ -46,8 +46,8 @@ class ChecklistDatabaseTest {
 
     @Test
     fun draftsAreExcludedFromTheHomeList() = runBlocking {
-        dao.insertChecklist(Checklist(name = "Saved", createdAt = 1, draft = false))
-        dao.insertChecklist(Checklist(name = "Draft", createdAt = 2, draft = true))
+        dao.insertChecklist(Checklist(uuid = StableUuid.createNew(), name = "Saved", createdAt = 1, draft = false))
+        dao.insertChecklist(Checklist(uuid = StableUuid.createNew(), name = "Draft", createdAt = 2, draft = true))
 
         val visible = dao.observeChecklists().first().map { it.name }
         assertEquals(listOf("Saved"), visible)
@@ -55,7 +55,9 @@ class ChecklistDatabaseTest {
 
     @Test
     fun finalizingADraftMakesItAppearOnHome() = runBlocking {
-        val id = dao.insertChecklist(Checklist(name = "New", createdAt = 1, draft = true))
+        val id = dao.insertChecklist(
+            Checklist(uuid = StableUuid.createNew(), name = "New", createdAt = 1, draft = true),
+        )
         assertTrue(dao.observeChecklists().first().isEmpty())
 
         dao.finalizeChecklist(id)
@@ -65,7 +67,9 @@ class ChecklistDatabaseTest {
 
     @Test
     fun deleteChecklistWithItemsRemovesTheListAndItsItems() = runBlocking {
-        val id = dao.insertChecklist(Checklist(name = "Trip", createdAt = 1, draft = true))
+        val id = dao.insertChecklist(
+            Checklist(uuid = StableUuid.createNew(), name = "Trip", createdAt = 1, draft = true),
+        )
         dao.insertItem(ChecklistItem(checklistId = id, text = "Tent", position = 0))
         dao.insertItem(ChecklistItem(checklistId = id, text = "Stove", position = 1))
 
@@ -77,9 +81,9 @@ class ChecklistDatabaseTest {
 
     @Test
     fun mostRecentDraftReturnsOnlyTheLatestDraft() = runBlocking {
-        dao.insertChecklist(Checklist(name = "Saved", createdAt = 10, draft = false))
-        dao.insertChecklist(Checklist(name = "Old draft", createdAt = 1, draft = true))
-        dao.insertChecklist(Checklist(name = "New draft", createdAt = 5, draft = true))
+        dao.insertChecklist(Checklist(uuid = StableUuid.createNew(), name = "Saved", createdAt = 10, draft = false))
+        dao.insertChecklist(Checklist(uuid = StableUuid.createNew(), name = "Old draft", createdAt = 1, draft = true))
+        dao.insertChecklist(Checklist(uuid = StableUuid.createNew(), name = "New draft", createdAt = 5, draft = true))
 
         assertEquals("New draft", dao.mostRecentDraft()?.name)
     }

@@ -31,7 +31,7 @@ class BackupPhase0InventoryTest {
     fun version18FixturePopulatesEveryCurrentUserDataTable() {
         val db = BackupFixtureTestSupport.newVersion18Database()
         try {
-            assertEquals(18, db.openHelper.readableDatabase.version)
+            assertEquals(19, db.openHelper.readableDatabase.version)
             val counts = BackupPhase0Inventory.userDataTables.associate { entry ->
                 entry.tableName to db.openHelper.readableDatabase.query(
                     "SELECT COUNT(*) FROM ${entry.tableName}"

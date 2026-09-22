@@ -10,6 +10,7 @@ import com.datadragon.app.data.CalendarConfigCodec
 import com.datadragon.app.data.CalendarType
 import com.datadragon.app.data.ColorPreset
 import com.datadragon.app.data.ColorPresetCodec
+import com.datadragon.app.data.StableUuid
 import com.datadragon.app.data.FieldDef
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -153,7 +154,13 @@ class CalendarConfigViewModel(app: Application) : AndroidViewModel(app) {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return
         viewModelScope.launch {
-            colorPresetDao.insert(ColorPreset(name = trimmed, colorsJson = ColorPresetCodec.encode(colors)))
+            colorPresetDao.insert(
+                ColorPreset(
+                    uuid = StableUuid.createNew(),
+                    name = trimmed,
+                    colorsJson = ColorPresetCodec.encode(colors),
+                ),
+            )
         }
     }
 

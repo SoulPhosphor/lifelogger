@@ -10,6 +10,7 @@ import com.datadragon.app.data.ClickerFieldType
 import com.datadragon.app.data.ClickerIncrementDirection
 import com.datadragon.app.data.ClickerLog
 import com.datadragon.app.data.ClickerValues
+import com.datadragon.app.data.StableUuid
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -80,6 +81,7 @@ class ClickerLogViewModel(app: Application) : AndroidViewModel(app) {
                 .associate { it.id to it.startingNumber.toString() }
             dao.insertCard(
                 ClickerCard(
+                    uuid = StableUuid.createNew(),
                     clickerLogId = id,
                     createdAt = now,
                     displayDate = if (current.autoDateStamp) LocalDate.now().toString() else null,

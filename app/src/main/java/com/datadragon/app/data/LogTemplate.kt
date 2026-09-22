@@ -2,8 +2,8 @@ package com.datadragon.app.data
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
-import java.util.UUID
 
 /**
  * A user-defined log system.
@@ -26,11 +26,14 @@ import java.util.UUID
  * - `allowAppendedNotes` (default false): entries may have append-only,
  *   time-stamped follow-up notes added later (see [EntryNote]).
  */
-@Entity(tableName = "log_templates")
+@Entity(
+    tableName = "log_templates",
+    indices = [Index(value = ["uuid"], unique = true)],
+)
 data class LogTemplate(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     @ColumnInfo(defaultValue = "")
-    val uuid: String = UUID.randomUUID().toString(),
+    val uuid: String,
     val name: String,
     val createdAt: Long,
     val schemaJson: String,

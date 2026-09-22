@@ -1,6 +1,8 @@
 package com.datadragon.app.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
@@ -13,9 +15,14 @@ import kotlinx.serialization.json.Json
  * with; when applied at a different color count they are spread with the same
  * even-selection rule as the built-in presets.
  */
-@Entity(tableName = "color_presets")
+@Entity(
+    tableName = "color_presets",
+    indices = [Index(value = ["uuid"], unique = true)],
+)
 data class ColorPreset(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @ColumnInfo(defaultValue = "")
+    val uuid: String,
     val name: String,
     val colorsJson: String,
 )

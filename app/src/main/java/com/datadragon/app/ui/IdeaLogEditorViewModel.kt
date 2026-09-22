@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.datadragon.app.data.AppDatabase
 import com.datadragon.app.data.IdeaFieldDef
 import com.datadragon.app.data.IdeaLog
+import com.datadragon.app.data.StableUuid
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -65,6 +66,7 @@ class IdeaLogEditorViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             logDao.insert(
                 IdeaLog(
+                    uuid = StableUuid.createNew(),
                     name = name.trim(),
                     createdAt = System.currentTimeMillis(),
                     fieldsJson = json.encodeToString(fields),

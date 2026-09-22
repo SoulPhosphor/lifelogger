@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import com.datadragon.app.data.DEFAULT_IDEA_LINES
 import com.datadragon.app.data.IdeaFieldDef
 import com.datadragon.app.data.IdeaFieldKind
+import com.datadragon.app.data.StableUuid
 import com.datadragon.app.data.MAX_IDEA_LINES
 import com.datadragon.app.data.SettingsRepository
 import com.datadragon.app.data.TitleCase
@@ -64,7 +65,6 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import sh.calvin.reorderable.ReorderableColumn
-import java.util.UUID
 
 /** The default fields "Use Default Fields" fills in, in the order they belong. */
 private val DEFAULT_FIELD_KINDS = listOf(
@@ -80,7 +80,7 @@ private val DEFAULT_FIELD_KINDS = listOf(
  * renaming or reordering a field never disconnects it from its stored values.
  */
 class IdeaDraftField(
-    val id: String = UUID.randomUUID().toString(),
+    val id: String = StableUuid.createNew(),
     label: String = "",
     kind: IdeaFieldKind = IdeaFieldKind.TEXT,
     required: Boolean = false,

@@ -34,7 +34,7 @@ class DailyListRepository(private val db: AppDatabase) {
     suspend fun createForDate(date: LocalDate, now: Long): DailyList? {
         val existing = dao.getByDate(date.toString())
         if (existing != null) return existing
-        val row = DailyList(date = date, createdAt = now)
+        val row = DailyList(uuid = StableUuid.createNew(), date = date, createdAt = now)
         val inserted = dao.insertDailyList(row)
         return if (inserted == -1L) dao.getByDate(date.toString()) else row.copy(id = inserted)
     }
@@ -60,7 +60,9 @@ class DailyListRepository(private val db: AppDatabase) {
             dao.insertItem(typed.copy(dailyListId = existing.id))
             existing
         } else {
-            val inserted = dao.insertDailyList(DailyList(date = date, createdAt = now))
+            val inserted = dao.insertDailyList(
+                DailyList(uuid = StableUuid.createNew(), date = date, createdAt = now),
+            )
             if (inserted == -1L) return@withTransaction null // lost the race; retry next change
             val card = dao.getByDate(date.toString()) ?: return@withTransaction null
             dao.insertItem(typed.copy(dailyListId = card.id))

@@ -2,7 +2,6 @@ package com.datadragon.app.data
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import java.util.UUID
 
 /**
  * On-disk shape of a backup / single-log export (docs/FORMATTING_SPEC.md §4).
@@ -179,7 +178,7 @@ object BackupCodec {
     fun templateOf(log: BackupLog): LogTemplate =
         LogTemplate(
             id = log.id,
-            uuid = log.uuid.ifBlank { UUID.randomUUID().toString() },
+            uuid = restoredOrLegacyUuid(log.uuid),
             name = log.name,
             createdAt = log.createdAt,
             schemaJson = log.schemaJson,
@@ -244,7 +243,7 @@ object BackupCodec {
     fun checklistEntityOf(checklist: BackupChecklist): Checklist =
         Checklist(
             id = checklist.id,
-            uuid = checklist.uuid.ifBlank { UUID.randomUUID().toString() },
+            uuid = restoredOrLegacyUuid(checklist.uuid),
             name = checklist.name,
             createdAt = checklist.createdAt,
         )
@@ -286,4 +285,11 @@ object BackupCodec {
                 checklists = listOf(checklistOf(checklist, items)),
             )
         )
+
+    /**
+     * Version-1 files genuinely had no UUID. Make that legacy creation explicit;
+     * every current object must instead pass through the strict restore path.
+     */
+    private fun restoredOrLegacyUuid(uuid: String): String =
+        if (uuid.isBlank()) StableUuid.createNew() else StableUuid.restoreExisting(uuid)
 }
