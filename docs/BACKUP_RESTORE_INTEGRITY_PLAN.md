@@ -138,7 +138,7 @@ Merge:
 - adds unmatched groupings;
 - uses permanent UUIDs to identify the same grouping;
 - never silently overwrites differing current data merely because a matching UUID exists;
-- compares matching Forms, ordinary Lists, Idea Logs, Clicker Data, saved color presets, and independently matched Daily Task items before writing;
+- compares matching Forms, ordinary Lists, Idea Logs, Clicker Data, and saved color presets before writing; Daily Tasks follow the date-first rules below instead, and their tasks are never item conflicts;
 - treats a matching UUID with identical contents as a duplicate to skip, and a matching UUID with different contents as a conflict;
 - applies a user-selected conflict policy to whole matching groupings for Forms, Lists, Idea Logs, and Clicker Data, because their child rows are restored as one grouping;
 - keeps current portable preferences rather than trying to combine scalar settings;
@@ -396,7 +396,7 @@ This leaves no repeating job that writes identical files while the app is unused
 - Implement the approved Daily Task combination rule.
 - Preserve current preferences during Merge.
 - Add preflight conflict detection and the remembered device-local **Keep Current Data** / **Use Backup Data** / **Ask Me** policy.
-- Add the narrowly scoped conflict-review presentation required to resolve **Ask Me** and irreducible Daily Task collisions; broader restore category UI remains Phase 6.
+- Add the narrowly scoped conflict-review presentation required to resolve **Ask Me** and Daily Task date-card collisions; broader restore category UI remains Phase 6.
 - Make pre-import snapshots complete and atomic.
 - Expand restore summaries and failure reports.
 - Prove rollback through injected failures.
@@ -449,7 +449,7 @@ At minimum, tests must cover:
 - Replace with present empty categories;
 - Replace with categories absent from an old file;
 - Merge for each grouping type;
-- same-date Daily Task combination, sub-item attachment, current-wins conflicts, and duplicate visible wording with distinct UUIDs;
+- same-date Daily Task combination, sub-item attachment, current task state always kept, no task moved between dates, a free-date card UUID collision creating a new card with a new UUID, and duplicate visible wording with distinct UUIDs;
 - preference behavior in Replace and Merge;
 - undo across every category;
 - write failure, permission loss, folder replacement, clock change, process restart, and concurrent worker/foreground attempts;
