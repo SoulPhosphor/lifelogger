@@ -60,7 +60,7 @@ object BackupRestoreValidator {
         val logs = backup.payload.ideaLogs ?: return
         requireUniqueIdentities(logs.map { it.uuid }, "Idea Log")
         logs.forEach { log ->
-            decode<List<IdeaFieldDef>>(log.fieldsJson, "Idea Log fields")
+            validateIdeaFields(log.fieldsJson)
             require(log.previewLines in MIN_IDEA_LINES..MAX_IDEA_LINES) { "Idea Log preview lines are invalid." }
             log.entries.forEach { requireJsonObject(it.valuesJson, "Idea entry values") }
         }
@@ -86,7 +86,7 @@ object BackupRestoreValidator {
         requireUniqueIdentities(logs.map { it.uuid }, "Clicker Data grouping")
         requireUniqueIdentities(logs.flatMap { log -> log.cards.map { it.uuid } }, "Clicker card")
         logs.forEach { log ->
-            decode<List<ClickerField>>(log.fieldsJson, "Clicker fields")
+            validateClickerFields(log.fieldsJson)
             log.cards.forEach { requireJsonObject(it.valuesJson, "Clicker card values") }
         }
     }
@@ -152,6 +152,59 @@ object BackupRestoreValidator {
     private fun requireJsonObject(value: String, label: String) {
         val parsed = runCatching { json.parseToJsonElement(value) }.getOrNull()
         require(parsed is JsonObject) { "$label is invalid JSON." }
+    }
+
+    /**
+     * Idea fields are stored with the stable lowercase FieldType token, while
+     * kotlinx enum serialization expects the enum name. Normalize only that
+     * stored token before decoding the full object so all other validation stays
+     * strict.
+     */
+    private fun validateIdeaFields(value: String) {
+        val parsed = runCatching { json.parseToJsonElement(value) }.getOrNull()
+        require(parsed is JsonArray) { "Idea Log fields are invalid JSON." }
+        val normalized = JsonArray(parsed.map { element ->
+            require(element is JsonObject) { "Idea Log fields are invalid JSON." }
+            val token = (element["type"] as? JsonPrimitive)?.contentOrNull
+            val fieldType = token?.let(FieldType::fromToken)
+            require(fieldType != null) { "Idea Log fields contain an unsupported field type." }
+            JsonObject(element + ("type" to JsonPrimitive(fieldType.name)))
+        })
+        runCatching { json.decodeFromJsonElement<List<IdeaFieldDef>>(normalized) }
+            .getOrElse { throw IllegalArgumentException("Idea Log fields are invalid JSON.", it) }
+    }
+
+    /**
+     * Clicker fields use stable lowercase tokens for both the field type and
+     * increment direction. Normalize those established on-disk tokens before
+     * decoding the complete field objects.
+     */
+    private fun validateClickerFields(value: String) {
+        val parsed = runCatching { json.parseToJsonElement(value) }.getOrNull()
+        require(parsed is JsonArray) { "Clicker fields are invalid JSON." }
+        val normalized = JsonArray(parsed.map { element ->
+            require(element is JsonObject) { "Clicker fields are invalid JSON." }
+
+            val typeToken = (element["type"] as? JsonPrimitive)?.contentOrNull
+            val fieldType = typeToken?.let(ClickerFieldType::fromToken)
+            require(fieldType != null) { "Clicker fields contain an unsupported field type." }
+
+            var normalizedElement = element + ("type" to JsonPrimitive(fieldType.name))
+            val directionToken = (element["incrementDirection"] as? JsonPrimitive)?.contentOrNull
+            if (directionToken != null) {
+                val direction = ClickerIncrementDirection.entries.firstOrNull {
+                    it.token == directionToken.trim().lowercase()
+                }
+                require(direction != null) {
+                    "Clicker fields contain an unsupported increment direction."
+                }
+                normalizedElement = normalizedElement +
+                    ("incrementDirection" to JsonPrimitive(direction.name))
+            }
+            JsonObject(normalizedElement)
+        })
+        runCatching { json.decodeFromJsonElement<List<ClickerField>>(normalized) }
+            .getOrElse { throw IllegalArgumentException("Clicker fields are invalid JSON.", it) }
     }
 
     /**
