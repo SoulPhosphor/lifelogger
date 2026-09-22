@@ -11,6 +11,7 @@ import com.datadragon.app.data.DailyListItem
 import com.datadragon.app.data.DailyListLogic
 import com.datadragon.app.data.DailyListRepository
 import com.datadragon.app.data.SettingsRepository
+import com.datadragon.app.data.StableUuid
 import com.datadragon.app.export.DailyTaskExport
 import com.datadragon.app.export.DailyTaskExportFormat
 import com.datadragon.app.export.ExportContent
@@ -37,7 +38,7 @@ data class DailyListEditorRow(
     val completed: Boolean,
     val indent: Int,
     val sourceUuid: String?,
-    val uuid: String = java.util.UUID.randomUUID().toString(),
+    val uuid: String = StableUuid.createNew(),
 )
 
 /**
@@ -458,7 +459,8 @@ class DailyListViewModel(
      */
     // Guards Save against a double tap: both taps run on the main thread, so the
     // first sets this synchronously before launching and the second bails, which
-    // stops the same rows being inserted twice (item uuids are not unique).
+    // stops the same rows being inserted twice before the UUID uniqueness guard
+    // would reject the second write.
     private var savingNewCard = false
 
     fun saveNewCard(onSaved: () -> Unit) {
@@ -534,6 +536,7 @@ class DailyListViewModel(
         for (renewed in DailyListLogic.renewedItems(eligible)) {
             db.dailyListDao().insertItem(
                 DailyListItem(
+                    uuid = StableUuid.createNew(),
                     dailyListId = card.id,
                     text = renewed.text,
                     indent = renewed.indent,

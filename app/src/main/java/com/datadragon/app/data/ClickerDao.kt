@@ -3,7 +3,6 @@ package com.datadragon.app.data
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
-import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
@@ -25,7 +24,7 @@ interface ClickerDao {
     @Query("SELECT * FROM clicker_logs WHERE id = :id")
     suspend fun getLog(id: Long): ClickerLog?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert
     suspend fun insertLog(log: ClickerLog): Long
 
     @Update
@@ -78,7 +77,7 @@ interface ClickerDao {
     @Query("SELECT * FROM clicker_cards WHERE clickerLogId = :logId ORDER BY createdAt DESC")
     suspend fun getCardsForLog(logId: Long): List<ClickerCard>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert
     suspend fun insertCard(card: ClickerCard): Long
 
     @Update

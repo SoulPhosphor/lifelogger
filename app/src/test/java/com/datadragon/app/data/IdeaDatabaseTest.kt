@@ -46,7 +46,9 @@ class IdeaDatabaseTest {
     }
 
     private suspend fun newLog(name: String = "Ideas"): Long =
-        logDao.insert(IdeaLog(name = name, createdAt = 1, fieldsJson = "[]"))
+        logDao.insert(
+            IdeaLog(uuid = StableUuid.createNew(), name = name, createdAt = 1, fieldsJson = "[]"),
+        )
 
     private suspend fun newIdea(logId: Long, at: String, archived: Boolean = false): Long =
         entryDao.insert(

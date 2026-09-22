@@ -1,7 +1,6 @@
 package com.datadragon.app.data
 
 import kotlinx.serialization.Serializable
-import java.util.UUID
 
 /** The default number of rendered lines a multiline field is limited to. */
 const val DEFAULT_IDEA_LINES = 20
@@ -33,7 +32,7 @@ const val MAX_IDEA_LINES = 999
  */
 @Serializable
 data class IdeaFieldDef(
-    val id: String = UUID.randomUUID().toString(),
+    val id: String,
     val label: String,
     val type: FieldType,
     val required: Boolean = false,

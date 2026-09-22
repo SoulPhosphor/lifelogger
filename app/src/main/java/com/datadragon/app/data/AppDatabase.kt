@@ -34,7 +34,7 @@ class DailyListConverters {
         DailyList::class, DailyListItem::class,
         ClickerLog::class, ClickerCard::class,
     ],
-    version = 18,
+    version = 19,
     exportSchema = false,
 )
 @TypeConverters(DailyListConverters::class)
@@ -63,6 +63,47 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         @Volatile
         private var instance: AppDatabase? = null
+
+        private val UUID_SQL_EXPRESSION =
+            "lower(hex(randomblob(4))) || '-' || " +
+                "lower(hex(randomblob(2))) || '-4' || " +
+                "substr(lower(hex(randomblob(2))), 2) || '-' || " +
+                "substr('89ab', abs(random()) % 4 + 1, 1) || " +
+                "substr(lower(hex(randomblob(2))), 2) || '-' || " +
+                "lower(hex(randomblob(6)))"
+
+        private val UUID_TABLES = listOf(
+            "log_templates",
+            "checklists",
+            "idea_logs",
+            "daily_lists",
+            "daily_list_items",
+            "clicker_logs",
+            "clicker_cards",
+            "color_presets",
+        )
+
+        private fun installUuidImmutabilityTriggers(db: SupportSQLiteDatabase) {
+            UUID_TABLES.forEach { table ->
+                db.execSQL(
+                    "CREATE TRIGGER IF NOT EXISTS `prevent_${table}_uuid_update` " +
+                        "BEFORE UPDATE OF `uuid` ON `$table` " +
+                        "FOR EACH ROW WHEN OLD.`uuid` <> NEW.`uuid` " +
+                        "BEGIN SELECT RAISE(ABORT, 'UUID is immutable'); END"
+                )
+            }
+        }
+
+        /** Custom SQLite triggers are not part of Room's generated table schema. */
+        internal val UUID_IDENTITY_CALLBACK = object : RoomDatabase.Callback() {
+            override fun onCreate(db: SupportSQLiteDatabase) {
+                installUuidImmutabilityTriggers(db)
+            }
+
+            override fun onOpen(db: SupportSQLiteDatabase) {
+                installUuidImmutabilityTriggers(db)
+            }
+        }
 
         /** v2 added the original Form Markdown alongside the parsed schema. */
         private val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -185,22 +226,14 @@ abstract class AppDatabase : RoomDatabase() {
         // internal (not private) so the migration test can apply it directly.
         internal val MIGRATION_8_9 = object : Migration(8, 9) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // A SQLite expression that builds a random v4 UUID string.
-                val uuidExpr =
-                    "lower(hex(randomblob(4))) || '-' || " +
-                        "lower(hex(randomblob(2))) || '-4' || " +
-                        "substr(lower(hex(randomblob(2))), 2) || '-' || " +
-                        "substr('89ab', abs(random()) % 4 + 1, 1) || " +
-                        "substr(lower(hex(randomblob(2))), 2) || '-' || " +
-                        "lower(hex(randomblob(6)))"
                 db.execSQL(
                     "ALTER TABLE log_templates ADD COLUMN uuid TEXT NOT NULL DEFAULT ''"
                 )
-                db.execSQL("UPDATE log_templates SET uuid = $uuidExpr")
+                db.execSQL("UPDATE log_templates SET uuid = $UUID_SQL_EXPRESSION")
                 db.execSQL(
                     "ALTER TABLE checklists ADD COLUMN uuid TEXT NOT NULL DEFAULT ''"
                 )
-                db.execSQL("UPDATE checklists SET uuid = $uuidExpr")
+                db.execSQL("UPDATE checklists SET uuid = $UUID_SQL_EXPRESSION")
             }
         }
 
@@ -421,6 +454,35 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v19 makes every persisted UUID a database-enforced identity. Existing
+         * unique, non-blank values are left byte-for-byte unchanged. Blank
+         * values receive an identity, and when legacy rows share an identity,
+         * the lowest local row id keeps it while only later rows are repaired.
+         * Unique indexes are installed after that repair, followed by triggers
+         * that reject any later attempt to change an established UUID.
+         */
+        internal val MIGRATION_18_19 = object : Migration(18, 19) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE color_presets ADD COLUMN uuid TEXT NOT NULL DEFAULT ''"
+                )
+
+                UUID_TABLES.forEach { table ->
+                    db.execSQL(
+                        "UPDATE `$table` SET `uuid` = $UUID_SQL_EXPRESSION " +
+                            "WHERE trim(`uuid`) = '' OR `id` NOT IN (" +
+                            "SELECT MIN(`id`) FROM `$table` GROUP BY `uuid`)"
+                    )
+                    db.execSQL(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS `index_${table}_uuid` " +
+                            "ON `$table` (`uuid`)"
+                    )
+                }
+                installUuidImmutabilityTriggers(db)
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -432,8 +494,9 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_1_2, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
                         MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11,
                         MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15,
-                        MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18,
+                        MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19,
                     )
+                    .addCallback(UUID_IDENTITY_CALLBACK)
                     .build()
                     .also { instance = it }
             }

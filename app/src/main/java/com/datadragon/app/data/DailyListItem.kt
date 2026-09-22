@@ -23,12 +23,15 @@ import androidx.room.PrimaryKey
  */
 @Entity(
     tableName = "daily_list_items",
-    indices = [Index("dailyListId")],
+    indices = [
+        Index("dailyListId"),
+        Index(value = ["uuid"], unique = true),
+    ],
 )
 data class DailyListItem(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val dailyListId: Long,
-    val uuid: String = java.util.UUID.randomUUID().toString(),
+    val uuid: String,
     val text: String = "",
     val completed: Boolean = false,
     val indent: Int = 0,

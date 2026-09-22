@@ -68,7 +68,14 @@ class RoomChecklistStore(private val db: AppDatabase) : ChecklistStore {
         createdAt: Long,
         items: List<ChecklistItem>,
     ): CreatedList = db.withTransaction {
-        val listId = dao.insertChecklist(Checklist(name = name, createdAt = createdAt, draft = true))
+        val listId = dao.insertChecklist(
+            Checklist(
+                uuid = StableUuid.createNew(),
+                name = name,
+                createdAt = createdAt,
+                draft = true,
+            ),
+        )
         val itemIds = items.mapIndexed { index, item ->
             dao.insertItem(item.copy(id = 0, checklistId = listId, position = index))
         }

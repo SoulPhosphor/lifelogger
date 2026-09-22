@@ -41,12 +41,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.ClickerField
 import com.datadragon.app.data.ClickerFieldType
 import com.datadragon.app.data.ClickerIncrementDirection
+import com.datadragon.app.data.StableUuid
 import com.datadragon.app.data.editOnlyFromCardMenu
 import com.datadragon.app.ui.ClickerSetupViewModel
 import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.ui.components.AppDropdownRow
 import com.datadragon.app.ui.theme.AppTheme
-import java.util.UUID
 
 /** The note shown under a display-only field type in a clicker log's setup. */
 private const val EDIT_ONLY_NOTE =
@@ -243,7 +243,7 @@ fun ClickerSetupScreen(
             }
 
             AddFieldButton(onAdd = { type ->
-                fields.add(ClickerDraftField(id = UUID.randomUUID().toString(), type = type))
+                fields.add(ClickerDraftField(id = StableUuid.createNew(), type = type))
             })
         }
     }

@@ -3,7 +3,6 @@ package com.datadragon.app.data
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import java.util.UUID
 
 /**
  * A Clicker Data Log — one "folder" of daily cards that all share the same set
@@ -35,10 +34,13 @@ import java.util.UUID
  *   [ClickerCard.createdAt] regardless, so cards can be ordered either way.
  * - [allowFollowUp]: cards may carry follow-up notes, added from the edit menu.
  */
-@Entity(tableName = "clicker_logs")
+@Entity(
+    tableName = "clicker_logs",
+    indices = [Index(value = ["uuid"], unique = true)],
+)
 data class ClickerLog(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val uuid: String = UUID.randomUUID().toString(),
+    val uuid: String,
     val title: String,
     val createdAt: Long,
     val lastAccessedAt: Long,
@@ -65,12 +67,15 @@ data class ClickerLog(
  */
 @Entity(
     tableName = "clicker_cards",
-    indices = [Index("clickerLogId")],
+    indices = [
+        Index("clickerLogId"),
+        Index(value = ["uuid"], unique = true),
+    ],
 )
 data class ClickerCard(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val clickerLogId: Long,
-    val uuid: String = UUID.randomUUID().toString(),
+    val uuid: String,
     val createdAt: Long,
     val displayDate: String? = null,
     val displayTime: String? = null,

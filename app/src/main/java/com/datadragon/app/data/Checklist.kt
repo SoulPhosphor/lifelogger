@@ -2,8 +2,8 @@ package com.datadragon.app.data
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
-import java.util.UUID
 
 /**
  * A user-defined checklist (a "list" in the UI).
@@ -23,11 +23,14 @@ import java.util.UUID
  * hidden from Home and is either finalized (draft = false) by Save or deleted by
  * Discard. Every normal saved list has draft = false.
  */
-@Entity(tableName = "checklists")
+@Entity(
+    tableName = "checklists",
+    indices = [Index(value = ["uuid"], unique = true)],
+)
 data class Checklist(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     @ColumnInfo(defaultValue = "")
-    val uuid: String = UUID.randomUUID().toString(),
+    val uuid: String,
     val name: String = "",
     val createdAt: Long,
     val draft: Boolean = false,
