@@ -79,6 +79,11 @@ class BackupPhase3RestoreTest {
         val legacy = BackupCodec.decode(javaClass.classLoader!!.getResource("fixtures/backup-v1.json")!!.readText())
         repository.restore(legacy, RestoreMode.REPLACE)
         assertEquals("Newer", db.checklistDao().getAllChecklistsOnce().single().name)
+
+        db.ideaLogDao().insert(IdeaLog(uuid = "newer-idea", name = "Newer Idea", createdAt = 3, fieldsJson = "[]"))
+        val legacyV2 = BackupCodec.decode(javaClass.classLoader!!.getResource("fixtures/backup-v2.json")!!.readText())
+        repository.restore(legacyV2, RestoreMode.REPLACE)
+        assertEquals("Newer Idea", db.ideaLogDao().getAllOnce().single().name)
     }
 
     @Test
@@ -202,16 +207,18 @@ class BackupPhase3RestoreTest {
         var preferences = BackupPortablePreferences(autoCapitalizeLabels = true)
         val repository = BackupRepository(db, { preferences }, "test", { preferences = it })
         repository.restore(completeBackup(preferences), RestoreMode.REPLACE)
-        val before = repository.buildFull()
-        val snapshot = UndoSnapshot("2026-09-22T00:00:00Z", before, BackupCategory.entries)
+        val before = BackupCodec.decode(BackupCodec.encode(repository.buildFull()))
+        val directory = ApplicationProvider.getApplicationContext<Context>().cacheDir.resolve("complete-undo-${System.nanoTime()}")
+        val store = UndoSnapshotStore(File(directory, "pre_import_snapshot.json"))
+        store.saveVerified(UndoSnapshot("2026-09-22T00:00:00Z", before, BackupCategory.entries))
 
         repository.restore(backup(BackupPayload(
             forms = emptyList(), lists = emptyList(), ideaLogs = emptyList(), dailyTasks = emptyList(),
             clickerData = emptyList(), savedColorPresets = emptyList(),
             portablePreferences = preferences.copy(autoCapitalizeLabels = false),
         )), RestoreMode.REPLACE)
-        repository.undo(snapshot)
-        val after = repository.buildFull()
+        repository.undo(store.load()!!)
+        val after = BackupCodec.decode(BackupCodec.encode(repository.buildFull()))
         assertEquals(before.payload, after.payload)
         assertEquals("form-uuid", after.payload.forms!!.single().uuid)
         assertEquals("daily-item-uuid", after.payload.dailyTasks!!.single().items.single().uuid)

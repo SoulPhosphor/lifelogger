@@ -5,7 +5,11 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.decodeFromJsonElement
 
 /** Complete semantic validation performed before restore preflight or database writes. */
 object BackupRestoreValidator {
@@ -34,7 +38,7 @@ object BackupRestoreValidator {
         val forms = backup.payload.forms ?: return
         requireUniqueIdentities(forms.map { it.uuid }, "Form", allowBlank = backup.version < 3)
         forms.forEach { form ->
-            decode<List<FieldDef>>(form.schemaJson, "Form schema")
+            validateFormSchema(form.schemaJson)
             requireUniquePositions(form.calendars.map { it.position }, "Form calendar")
             form.entries.forEach { requireJsonObject(it.valuesJson, "Form entry values") }
             form.calendars.forEach { calendar ->
@@ -148,6 +152,26 @@ object BackupRestoreValidator {
     private fun requireJsonObject(value: String, label: String) {
         val parsed = runCatching { json.parseToJsonElement(value) }.getOrNull()
         require(parsed is JsonObject) { "$label is invalid JSON." }
+    }
+
+    /**
+     * v1/v2 stored the documented lowercase field tokens (for example
+     * `"scale"`), while current kotlinx serialization writes enum names. Both
+     * are established backup representations, so normalize only the type token
+     * before decoding the complete schema.
+     */
+    private fun validateFormSchema(value: String) {
+        val parsed = runCatching { json.parseToJsonElement(value) }.getOrNull()
+        require(parsed is JsonArray) { "Form schema is invalid JSON." }
+        val normalized = JsonArray(parsed.map { element ->
+            require(element is JsonObject) { "Form schema is invalid JSON." }
+            val token = (element["type"] as? JsonPrimitive)?.contentOrNull
+            val fieldType = token?.let(FieldType::fromToken)
+            require(fieldType != null) { "Form schema contains an unsupported field type." }
+            JsonObject(element + ("type" to JsonPrimitive(fieldType.name)))
+        })
+        runCatching { json.decodeFromJsonElement<List<FieldDef>>(normalized) }
+            .getOrElse { throw IllegalArgumentException("Form schema is invalid JSON.", it) }
     }
 
     private inline fun <reified T> decode(value: String, label: String): T =
