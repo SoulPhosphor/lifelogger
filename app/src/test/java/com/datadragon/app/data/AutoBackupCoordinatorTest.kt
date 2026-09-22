@@ -322,6 +322,109 @@ class AutoBackupCoordinatorTest {
     }
 
     @Test
+    fun lostPermissionDoesNotScheduleATimedRetryAndKeepsTheFolderAndError() = runBlocking {
+        enabledWith("content://tree/A")
+        insertList("Changed")
+        folders.permissions.remove("content://tree/A")
+
+        now = start + day
+        assertEquals(AutoBackupRunResult.FAILED, coordinator().runIfNeeded())
+
+        val local = store.read()
+        assertTrue(local.enabled)
+        assertEquals("content://tree/A", local.folderUri)
+        assertEquals(AutoBackupError.PERMISSION_LOST, local.error)
+        assertNull("No background retry for a folder-access problem", scheduler.scheduledAt)
+        assertNull(local.scheduledAt)
+
+        // Leaving the app does not re-arm a timed retry for the same problem.
+        coordinator().ensureScheduled()
+        assertNull(scheduler.scheduledAt)
+        assertEquals(AutoBackupError.PERMISSION_LOST, store.read().error)
+
+        // The next foreground check retries; still blocked, still no timer.
+        now += 60 * 60 * 1000
+        assertEquals(AutoBackupRunResult.FAILED, coordinator().runIfNeeded())
+        assertNull(scheduler.scheduledAt)
+    }
+
+    @Test
+    fun foregroundCheckClearsARecoveredFolderErrorAndBacksUp() = runBlocking {
+        val folder = enabledWith("content://tree/A")
+        insertList("Changed")
+        folder.missing = true
+        now = start + day
+        coordinator().runIfNeeded()
+        assertEquals(AutoBackupError.FOLDER_MISSING, store.read().error)
+        assertNull(scheduler.scheduledAt)
+
+        folder.missing = false
+        now += 60 * 60 * 1000
+        assertEquals(AutoBackupRunResult.BACKED_UP, coordinator().runIfNeeded())
+        assertNull(store.read().error)
+        assertFalse(store.read().accessNoticePending)
+        assertEquals(now, store.read().lastSuccessAt)
+        assertEquals(2, folder.automaticFiles().size)
+    }
+
+    @Test
+    fun reselectingTheFolderRetriesAfterLostPermission() = runBlocking {
+        val folder = enabledWith("content://tree/A")
+        insertList("Changed")
+        folders.permissions.remove("content://tree/A")
+        now = start + day
+        coordinator().runIfNeeded()
+        assertEquals(AutoBackupError.PERMISSION_LOST, store.read().error)
+
+        now += 60_000
+        assertEquals(AutoBackupFolderSelection.SELECTED, coordinator().selectFolder("content://tree/A"))
+
+        assertNull(store.read().error)
+        assertEquals(now, store.read().lastSuccessAt)
+        assertEquals(2, folder.automaticFiles().size)
+    }
+
+    @Test
+    fun accessLostDuringTheWriteIsReportedWithoutATimedRetry() = runBlocking {
+        val folder = enabledWith("content://tree/A")
+        insertList("Changed")
+        folder.onWrite = { folders.permissions.remove("content://tree/A") }
+        folder.failWrite = true
+
+        now = start + day
+        assertEquals(AutoBackupRunResult.FAILED, coordinator().runIfNeeded())
+
+        assertEquals(AutoBackupError.PERMISSION_LOST, store.read().error)
+        assertTrue(store.read().accessNoticePending)
+        assertNull(scheduler.scheduledAt)
+        assertEquals(start, store.read().lastSuccessAt)
+    }
+
+    @Test
+    fun verificationFailureStillSchedulesTheTimedRetry() = runBlocking {
+        val folder = enabledWith("content://tree/A")
+        insertList("Changed")
+        folder.corruptReads = true
+
+        now = start + day
+        assertEquals(AutoBackupRunResult.FAILED, coordinator().runIfNeeded())
+        assertEquals(AutoBackupError.VERIFY_FAILED, store.read().error)
+        assertEquals(now + AutoBackupPolicy.RETRY_DELAY_MILLIS, scheduler.scheduledAt)
+    }
+
+    @Test
+    fun aFolderProblemWithNothingDirtyIsShownWithoutTheDialogOrARetry() = runBlocking {
+        enabledWith("content://tree/A")
+        folders.permissions.remove("content://tree/A")
+
+        now = start + day
+        assertEquals(AutoBackupRunResult.CLEAN, coordinator().runIfNeeded())
+        assertEquals(AutoBackupError.PERMISSION_LOST, store.read().error)
+        assertFalse(store.read().accessNoticePending)
+        assertNull(scheduler.scheduledAt)
+    }
+
+    @Test
     fun missingFolderIsReportedAsItsOwnError() = runBlocking {
         enabledWith("content://tree/A")
         insertList("Changed")

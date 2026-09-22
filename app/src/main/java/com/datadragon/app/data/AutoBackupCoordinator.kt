@@ -121,6 +121,12 @@ class AutoBackupCoordinator(
             cancelSchedule()
             return@withLock
         }
+        if (local.error?.needsUserAction == true) {
+            // An unresolved folder-access problem is retried only on the next
+            // foreground check or folder choice, never on a background timer.
+            cancelSchedule()
+            return@withLock
+        }
         val now = clock()
         val decision = decisionState(local)
         if (AutoBackupSchedule.isDirty(decision)) {
@@ -152,7 +158,9 @@ class AutoBackupCoordinator(
             else -> {
                 if (dirty) {
                     state.recordFailure(now, accessError(status))
-                    scheduleAt(now + AutoBackupPolicy.RETRY_DELAY_MILLIS, now)
+                    // Folder access needs the user, so there is no timed retry.
+                    // The next foreground check or folder choice tries again.
+                    cancelSchedule()
                     return AutoBackupRunResult.FAILED
                 }
                 // Nothing needs protecting, but Settings must still show the problem.
@@ -254,7 +262,12 @@ class AutoBackupCoordinator(
         val recorded = if (status == AutoBackupFolderStatus.AVAILABLE) error else accessError(status)
         withContext(NonCancellable) {
             state.recordFailure(now, recorded)
-            scheduleAt(now + AutoBackupPolicy.RETRY_DELAY_MILLIS, now)
+            if (recorded.needsUserAction) {
+                // Waits for the next foreground check or folder choice.
+                cancelSchedule()
+            } else {
+                scheduleAt(now + AutoBackupPolicy.RETRY_DELAY_MILLIS, now)
+            }
         }
         return AutoBackupRunResult.FAILED
     }

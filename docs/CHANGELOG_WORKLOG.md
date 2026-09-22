@@ -1078,10 +1078,17 @@ Completed the remaining Daily List behavior gaps without changing ordinary Lists
 - Automatic backup uses the same complete snapshot, codec, validator, and verified writer as manual backup. A backup is created only when enabled, the folder is usable, the interval is due, and protected data or portable preferences changed since the last verified automatic backup. Only the revisions a snapshot captured become protected.
 - Folder selection acquires the new persisted permission, verifies the folder internally, saves the destination only after that check, and releases the old permission only afterwards. A new destination is due immediately.
 - One process-wide runner serializes WorkManager and foreground attempts. WorkManager uses one unique one-time request; the foreground check runs overdue dirty backups and repairs scheduling, and leaving the app schedules any pending protection.
-- Automatic files use `datadragon_autobackup_YYYY-MM-DD.json`, adding the time only when that date already has an automatic backup. Rotation counts and deletes only exact automatic-backup names, and only after a new backup is verified. Failed attempts delete their partial file, keep earlier backups, record the error, and retry after 15 minutes.
+- Automatic files use `datadragon_autobackup_YYYY-MM-DD.json`, adding the time only when that date already has an automatic backup. Rotation counts and deletes only exact automatic-backup names, and only after a new backup is verified. Failed attempts delete their partial file, keep earlier backups, and record the error. Save and verification failures retry after 15 minutes; folder-access failures (lost permission, missing folder) are not retried on a timer and are retried on the next foreground check or folder choice.
 - Folder, permission, enabled state, success history, errors, revisions, and scheduling stay in device-local storage outside the portable backup.
 - Added the Automatic Backup section in Settings and the one-time folder-access failure dialog using the owner-approved strings.
 
 **Known issues**
 
 - Local unit tests and APK builds require Java/Android tooling unavailable in this sandbox; GitHub Actions provides the authoritative result.
+
+---
+
+## 2026-09-22 — Phase 5 follow-up: worker result and folder-access retries
+
+- The automatic-backup worker returns success only when the coordinator completes; an unexpected exception escaping the coordinator returns retry. Expected backup failures are still handled inside the coordinator.
+- Lost folder permission and a missing folder no longer schedule a 15-minute background retry. Automatic backup stays on with the folder and error preserved, and the next foreground check or folder choice retries and clears the error when the folder works again.

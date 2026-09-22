@@ -3,11 +3,13 @@ package com.datadragon.app.data
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
+import androidx.work.ListenableWorker
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -55,12 +57,33 @@ class AutoBackupWorker(
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val service = AutoBackupService.get(applicationContext)
-        runCatching { service.coordinator.runIfNeeded() }
-        service.refresh()
-        // The coordinator schedules its own retry or next run, so WorkManager
-        // never repeats this request on its own.
-        return Result.success()
+        return runAutoBackupWork(
+            run = { service.coordinator.runIfNeeded() },
+            refresh = service::refresh,
+        )
     }
+}
+
+/**
+ * The worker's result. Expected backup failures are handled inside the
+ * coordinator, which records them and schedules its own retry, so a completed
+ * run is a success. An unexpected exception escaping the coordinator is not
+ * treated as success: WorkManager retries that request.
+ */
+internal suspend fun runAutoBackupWork(
+    run: suspend () -> Unit,
+    refresh: () -> Unit,
+): ListenableWorker.Result {
+    val result = try {
+        run()
+        ListenableWorker.Result.success()
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (unexpected: Exception) {
+        ListenableWorker.Result.retry()
+    }
+    refresh()
+    return result
 }
 
 /**
