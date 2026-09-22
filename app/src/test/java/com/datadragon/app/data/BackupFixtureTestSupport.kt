@@ -21,6 +21,8 @@ object BackupFixtureTestSupport {
                 .forEach { statement ->
                     runCatching { db.openHelper.writableDatabase.execSQL(statement) }
                         .getOrElse { error ->
+                            System.err.println("Version-18 fixture statement failed: $statement")
+                            System.err.println("SQLite error: ${error.message}")
                             throw IllegalStateException("Version-18 fixture statement failed: $statement", error)
                         }
                 }

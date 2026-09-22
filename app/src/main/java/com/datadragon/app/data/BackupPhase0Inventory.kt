@@ -12,6 +12,11 @@ data class BackupTableInventoryEntry(
     val category: String,
 )
 
+data class BackupExcludedOperationalStateEntry(
+    val token: String,
+    val reason: String,
+)
+
 object BackupPhase0Inventory {
     val userDataTables: List<BackupTableInventoryEntry> = listOf(
         BackupTableInventoryEntry("log_templates", "forms"),
@@ -59,29 +64,37 @@ object BackupPhase0Inventory {
         "daily_list_retention",
     )
 
+    /** Approved future portable preference categories whose concrete keys do not exist yet. */
+    val approvedFuturePortablePreferenceTokens: Set<String> = setOf(
+        "automatic_backup_cadence",
+        "automatic_backup_retention",
+    )
+
     /**
      * Device-local or reproducible state intentionally excluded from portable
-     * backup. These names are inventory tokens, not SharedPreferences keys.
+     * backup. These are structured inventory entries, not SharedPreferences keys.
      */
-    val excludedOperationalState: Set<String> = setOf(
-        "automatic_backup_folder_uri",
-        "android_persisted_folder_permission",
-        "automatic_backup_enabled",
-        "automatic_backup_last_success",
-        "automatic_backup_destination",
-        "automatic_backup_errors",
-        "automatic_backup_dirty_revisions",
-        "work_manager_identifiers",
-        "automatic_backup_attempt_history",
-        "pre_import_snapshot.json",
-        "data_dragon.db",
-        "data_dragon.db-wal",
-        "data_dragon.db-shm",
-        "cache_files",
-        "generated_previews",
-        "rendered_heat_maps",
-        "generated_reports",
+    val excludedOperationalState: List<BackupExcludedOperationalStateEntry> = listOf(
+        BackupExcludedOperationalStateEntry("automatic_backup_folder_uri", "Device-specific folder access"),
+        BackupExcludedOperationalStateEntry("android_persisted_folder_permission", "Device-specific permission grant"),
+        BackupExcludedOperationalStateEntry("automatic_backup_enabled", "Device-local execution state"),
+        BackupExcludedOperationalStateEntry("automatic_backup_last_success", "Device-local backup history"),
+        BackupExcludedOperationalStateEntry("automatic_backup_destination", "Device-local backup history"),
+        BackupExcludedOperationalStateEntry("automatic_backup_errors", "Device-local backup history"),
+        BackupExcludedOperationalStateEntry("automatic_backup_dirty_revisions", "Device-local change-tracking state"),
+        BackupExcludedOperationalStateEntry("work_manager_identifiers", "Device-local scheduler state"),
+        BackupExcludedOperationalStateEntry("automatic_backup_attempt_history", "Device-local backup history"),
+        BackupExcludedOperationalStateEntry("pre_import_snapshot.json", "Local undo slot, rebuilt by restore"),
+        BackupExcludedOperationalStateEntry("data_dragon.db", "Raw database transport is not portable"),
+        BackupExcludedOperationalStateEntry("data_dragon.db-wal", "Raw database transport is not portable"),
+        BackupExcludedOperationalStateEntry("data_dragon.db-shm", "Raw database transport is not portable"),
+        BackupExcludedOperationalStateEntry("cache_files", "Reproducible output"),
+        BackupExcludedOperationalStateEntry("generated_previews", "Reproducible output"),
+        BackupExcludedOperationalStateEntry("rendered_heat_maps", "Reproducible output"),
+        BackupExcludedOperationalStateEntry("generated_reports", "Reproducible output"),
     )
+
+    val excludedOperationalStateTokens: Set<String> = excludedOperationalState.map { it.token }.toSet()
 
     /** Tables created by Room or SQLite rather than by a user-data feature. */
     val roomAndSqliteTables: Set<String> = setOf(

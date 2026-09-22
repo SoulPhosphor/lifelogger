@@ -47,25 +47,25 @@ class BackupPhase0InventoryTest {
 
     @Test
     fun allCurrentUserDataTablesAreRepresentedInTheInventory() {
-        assertEquals(
-            setOf(
-                "log_templates", "log_entries", "entry_notes", "calendars",
-                "checklists", "checklist_items", "idea_logs", "idea_entries",
-                "color_presets", "daily_lists", "daily_list_items",
-                "clicker_logs", "clicker_cards",
-            ),
-            BackupPhase0Inventory.protectedTableNames,
-        )
+        val db = BackupFixtureTestSupport.newVersion18Database()
+        try {
+            val actualUserTables = BackupFixtureTestSupport.tableNames(db.openHelper.readableDatabase)
+                .filterNot { it in BackupPhase0Inventory.roomAndSqliteTables }
+                .toSet()
+            assertEquals(BackupPhase0Inventory.protectedTableNames, actualUserTables)
+        } finally {
+            db.close()
+        }
     }
 
     @Test
     fun operationalStateIsExplicitlyExcluded() {
         val excluded = BackupPhase0Inventory.excludedOperationalState
-        assertTrue(excluded.contains("automatic_backup_folder_uri"))
-        assertTrue(excluded.contains("android_persisted_folder_permission"))
-        assertTrue(excluded.contains("work_manager_identifiers"))
-        assertTrue(excluded.contains("data_dragon.db-wal"))
-        assertFalse(excluded.contains("log_templates"))
+        assertTrue(excluded.any { it.token == "automatic_backup_folder_uri" && it.reason.isNotBlank() })
+        assertTrue(excluded.any { it.token == "android_persisted_folder_permission" })
+        assertTrue(excluded.any { it.token == "work_manager_identifiers" })
+        assertTrue(excluded.any { it.token == "data_dragon.db-wal" })
+        assertFalse(excluded.any { it.token == "log_templates" })
     }
 
     @Test
@@ -76,6 +76,19 @@ class BackupPhase0InventoryTest {
         assertTrue(keys.contains("daily_list_retention"))
         assertTrue(keys.contains("mode_enabled_clicker"))
         assertFalse(keys.contains("automatic_backup_folder_uri"))
+    }
+
+    @Test
+    fun approvedFuturePortablePreferenceCategoriesAreInventoriedWithoutImplementingThem() {
+        assertEquals(
+            setOf("automatic_backup_cadence", "automatic_backup_retention"),
+            BackupPhase0Inventory.approvedFuturePortablePreferenceTokens,
+        )
+        assertTrue(
+            BackupPhase0Inventory.approvedFuturePortablePreferenceTokens.none {
+                it in BackupPhase0Inventory.portablePreferenceKeys
+            },
+        )
     }
 
     @Test
