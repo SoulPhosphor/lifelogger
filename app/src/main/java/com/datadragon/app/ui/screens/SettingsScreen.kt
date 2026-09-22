@@ -94,6 +94,7 @@ fun SettingsScreen(
     // process death simply asks the user to re-choose the file rather than risk
     // a crash. status is a short message, so it's safe and worth restoring.
     var pendingJson by remember { mutableStateOf<String?>(null) }
+    var preparedManualBackupJson by remember { mutableStateOf<String?>(null) }
     var status by rememberSaveable { mutableStateOf<String?>(null) }
     // Non-destructive by default: Merge can only add or update, never delete
     // something the chosen backup didn't include.
@@ -155,16 +156,18 @@ fun SettingsScreen(
     val createDocument = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json"),
     ) { uri ->
+        val json = preparedManualBackupJson
+        preparedManualBackupJson = null
         if (uri != null) {
             scope.launch {
-                val json = viewModel.buildBackupJson()
-                status = runCatching {
-                    context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
-                        ?: error("No output stream")
-                }.fold(
-                    onSuccess = { "Backup saved." },
-                    onFailure = { "Couldn't save backup: ${it.message}" },
-                )
+                status = if (json == null) {
+                    "Couldn't save backup: No prepared backup."
+                } else {
+                    viewModel.saveManualBackup(uri, json).fold(
+                        onSuccess = { "Backup saved." },
+                        onFailure = { "Couldn't save backup: ${it.message}" },
+                    )
+                }
             }
         }
     }
@@ -322,13 +325,21 @@ fun SettingsScreen(
             // never below the control (docs/STYLE.md).
             SectionHeader("Back Up All Data")
             Text(
-                "Saves every log and entry into a single .json file you choose the location for.",
+                "Protects all supported data and portable preferences in a single .json file you choose the location for.",
                 style = AppTheme.textStyles.settingDescription,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             AppButton(onClick = {
                 status = null
-                createDocument.launch("datadragon_backup_${LocalDate.now()}.json")
+                scope.launch {
+                    runCatching { viewModel.prepareManualBackupJson() }.fold(
+                        onSuccess = {
+                            preparedManualBackupJson = it
+                            createDocument.launch("datadragon_backup_${LocalDate.now()}.json")
+                        },
+                        onFailure = { status = "Couldn't prepare backup: ${it.message}" },
+                    )
+                }
             }) {
                 Text("Back Up Now…")
             }

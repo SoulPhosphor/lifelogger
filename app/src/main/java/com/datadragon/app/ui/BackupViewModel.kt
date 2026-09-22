@@ -1,9 +1,12 @@
 package com.datadragon.app.ui
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import com.datadragon.app.data.AppDatabase
 import com.datadragon.app.data.BackupCodec
+import com.datadragon.app.data.BackupDestination
+import com.datadragon.app.data.BackupFileWriter
 import com.datadragon.app.data.BackupCategory
 import com.datadragon.app.data.BackupFile
 import com.datadragon.app.data.BackupRepository
@@ -15,6 +18,8 @@ import com.datadragon.app.data.RestoreMode
 import com.datadragon.app.data.SettingsRepository
 import com.datadragon.app.data.UndoSnapshot
 import com.datadragon.app.data.UndoSnapshotStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Backs the Backup and Restore actions. Backup builds the JSON for the whole
@@ -39,8 +44,29 @@ class BackupViewModel(app: Application) : AndroidViewModel(app) {
         settings.restoreConflictPolicy = policy
     }
 
-    /** The full-database backup as pretty-printed JSON. */
-    suspend fun buildBackupJson(): String = BackupCodec.encode(repository.buildFull())
+    /** The full-database backup as validated, pretty-printed JSON. */
+    suspend fun buildBackupJson(): String {
+        val encoded = BackupCodec.encode(repository.buildFull())
+        BackupFileWriter().validateFullBackup(encoded)
+        return encoded
+    }
+
+    /** Build and validate the complete payload before the destination picker opens. */
+    suspend fun prepareManualBackupJson(): String = buildBackupJson()
+
+    /** Write, close, reopen, read, and validate the selected destination off the UI thread. */
+    suspend fun saveManualBackup(uri: Uri, encoded: String): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val destination = object : BackupDestination {
+                override fun openOutputStream() =
+                    getApplication<Application>().contentResolver.openOutputStream(uri)
+
+                override fun openInputStream() =
+                    getApplication<Application>().contentResolver.openInputStream(uri)
+            }
+            BackupFileWriter().writeAndVerify(destination, encoded)
+        }.map { Unit }
+    }
 
     /**
      * Parse [text] and apply it with [mode]. The state right before the import
