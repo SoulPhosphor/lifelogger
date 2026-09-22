@@ -476,21 +476,15 @@ class BackupRepository(
         tasks.forEach { incoming ->
             val byDate = dailyListDao.getByDate(incoming.date)
             val byUuid = dailyListDao.getByUuid(incoming.uuid)
-            if (byDate == null && byUuid == null) {
-                val targetId = insertDailyTaskCard(incoming)
+            if (byDate == null) {
+                // The date decides where the card belongs. When the incoming UUID
+                // already belongs to a card on another date, that card stays where
+                // it is and the incoming card is created as a new card with a new
+                // permanent UUID.
+                val card = if (byUuid == null) incoming else incoming.copy(uuid = StableUuid.createNew())
+                val targetId = insertDailyTaskCard(card)
                 result = result.copy(added = result.added + 1)
-                result += mergeDailyItems(targetId, incoming, choices)
-                return@forEach
-            }
-            if (byDate == null && byUuid != null) {
-                val id = dailyDateConflictId(incoming)
-                val choice = requireChoice(choices, id)
-                if (choice == RestoreConflictChoice.USE_BACKUP) {
-                    result += mergeDailyItems(byUuid.id, incoming, choices)
-                    result = result.copy(replaced = result.replaced + 1, conflicted = result.conflicted + 1)
-                } else {
-                    result = result.copy(skipped = result.skipped + 1, conflicted = result.conflicted + 1)
-                }
+                result += mergeDailyItems(targetId, incoming)
                 return@forEach
             }
 
@@ -504,7 +498,7 @@ class BackupRepository(
                 }
                 result = result.copy(conflicted = result.conflicted + 1)
             }
-            result += mergeDailyItems(byDate.id, incoming, choices)
+            result += mergeDailyItems(byDate.id, incoming)
         }
         return result
     }
@@ -512,39 +506,24 @@ class BackupRepository(
     private suspend fun mergeDailyItems(
         targetCardId: Long,
         incoming: BackupDailyTask,
-        choices: Map<String, RestoreConflictChoice>,
     ): RestoreCategoryCounts {
         var counts = RestoreCategoryCounts()
         val initialTarget = dailyListDao.getItemsOnce(targetCardId).sortedBy { it.position }
         val insertionsByTop = linkedMapOf<String, MutableList<DailyListItem>>()
         val appendedSequences = mutableListOf<List<DailyListItem>>()
 
+        // A task already on the target card always keeps its current state. A
+        // task whose UUID belongs to another card stays on that card; the
+        // incoming copy is added here as a new task with a new permanent UUID.
         suspend fun accept(item: BackupDailyTaskItem): Pair<DailyListItem?, Boolean> {
             val globalMatch = dailyListDao.getItemByUuid(item.uuid)
-            if (globalMatch == null) {
-                counts = counts.copy(added = counts.added + 1)
-                return item.toEntity(targetCardId) to true
-            }
-            if (sameDailyItem(globalMatch, item) && globalMatch.dailyListId == targetCardId) {
+            if (globalMatch != null && globalMatch.dailyListId == targetCardId) {
                 counts = counts.copy(skipped = counts.skipped + 1)
                 return globalMatch to false
             }
-            val choice = requireChoice(choices, dailyItemConflictId(incoming.date, item.uuid))
-            if (choice == RestoreConflictChoice.KEEP_CURRENT) {
-                counts = counts.copy(skipped = counts.skipped + 1, conflicted = counts.conflicted + 1)
-                return globalMatch.takeIf { it.dailyListId == targetCardId } to false
-            }
-            val moved = globalMatch.dailyListId != targetCardId
-            val updated = globalMatch.copy(
-                dailyListId = targetCardId,
-                text = item.text,
-                completed = item.completed,
-                indent = item.indent,
-                sourceUuid = item.sourceUuid,
-            )
-            dailyListDao.updateItem(updated)
-            counts = counts.copy(replaced = counts.replaced + 1, conflicted = counts.conflicted + 1)
-            return updated to moved
+            counts = counts.copy(added = counts.added + 1)
+            val entity = item.toEntity(targetCardId)
+            return (if (globalMatch == null) entity else entity.copy(uuid = StableUuid.createNew())) to true
         }
 
         val sequences = mutableListOf<MutableList<BackupDailyTaskItem>>()
@@ -679,35 +658,17 @@ class BackupRepository(
             }
             backup.payload.dailyTasks?.takeIf { BackupCategory.DAILY_TASKS in selected }?.forEach { incoming ->
                 val byDate = dailyListDao.getByDate(incoming.date)
-                val byUuid = dailyListDao.getByUuid(incoming.uuid)
-                if ((byDate != null && byDate.uuid != incoming.uuid) || (byDate == null && byUuid != null)) {
-                    val current = checkNotNull(byDate ?: byUuid)
+                if (byDate != null && byDate.uuid != incoming.uuid) {
                     add(
                         RestoreConflict(
                             dailyDateConflictId(incoming),
                             BackupCategory.DAILY_TASKS,
                             incoming.date,
-                            "${current.title} (${current.date})",
+                            "${byDate.title} (${byDate.date})",
                             incoming.title,
                             RestoreConflictKind.DAILY_DATE_CARD,
                         ),
                     )
-                }
-                val target = byDate ?: byUuid
-                incoming.items.forEach { item ->
-                    val existing = dailyListDao.getItemByUuid(item.uuid)
-                    if (existing != null && (target == null || existing.dailyListId != target.id || !sameDailyItem(existing, item))) {
-                        add(
-                            RestoreConflict(
-                                dailyItemConflictId(incoming.date, item.uuid),
-                                BackupCategory.DAILY_TASKS,
-                                item.text,
-                                dailyItemDescription(existing.text, existing.completed, existing.indent),
-                                dailyItemDescription(item.text, item.completed, item.indent),
-                                RestoreConflictKind.DAILY_ITEM,
-                            ),
-                        )
-                    }
                 }
             }
         }.distinctBy { it.id }
@@ -728,10 +689,6 @@ class BackupRepository(
         backupDescription = "$backupTitle — $backupChildren items",
         kind = RestoreConflictKind.WHOLE_GROUP,
     )
-
-    private fun dailyItemDescription(text: String, completed: Boolean, indent: Int): String =
-        "$text — ${if (completed) "Completed" else "Incomplete"}, " +
-            (if (indent == 0) "top-level task" else "sub-item")
 
     private suspend fun snapshotForm(template: LogTemplate): BackupLog {
         val entries = entryDao.getForTemplateOnce(template.id)
@@ -799,10 +756,6 @@ class BackupRepository(
         indent = indent, position = position, sourceUuid = sourceUuid,
     )
 
-    private fun sameDailyItem(current: DailyListItem, incoming: BackupDailyTaskItem): Boolean =
-        current.text == incoming.text && current.completed == incoming.completed &&
-            current.indent == incoming.indent && current.sourceUuid == incoming.sourceUuid
-
     private fun semantic(log: BackupLog): BackupLog =
         BackupCodec.canonicalFormForComparison(log).let { canonical ->
             canonical.copy(
@@ -819,7 +772,6 @@ class BackupRepository(
 
     private fun conflictId(category: BackupCategory, uuid: String): String = "${category.name}:$uuid"
     private fun dailyDateConflictId(task: BackupDailyTask): String = "DAILY_DATE:${task.date}:${task.uuid}"
-    private fun dailyItemConflictId(date: String, uuid: String): String = "DAILY_ITEM:$date:$uuid"
 
     private fun requireChoice(
         choices: Map<String, RestoreConflictChoice>,

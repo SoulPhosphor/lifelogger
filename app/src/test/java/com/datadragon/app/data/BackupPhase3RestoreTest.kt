@@ -10,7 +10,6 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -122,10 +121,10 @@ class BackupPhase3RestoreTest {
     }
 
     @Test
-    fun dailySameDateMergeKeepsCurrentCardAndSequenceAndReportsItemConflict() = runBlocking {
+    fun dailySameDateMergeKeepsCurrentCardSequenceAndTaskState() = runBlocking {
         val dao = db.dailyListDao()
         val cardId = dao.insertDailyList(DailyList(uuid = "current-card", date = LocalDate.parse("2026-09-22"), title = "Current", favorited = true, createdAt = 1))
-        dao.insertItem(DailyListItem(dailyListId = cardId, uuid = "shared-top", text = "Current wording", position = 0))
+        dao.insertItem(DailyListItem(dailyListId = cardId, uuid = "shared-top", text = "Current wording", completed = true, position = 0))
         dao.insertItem(DailyListItem(dailyListId = cardId, uuid = "later-top", text = "Later", position = 1))
         val incoming = backup(
             BackupPayload(dailyTasks = listOf(
@@ -149,13 +148,8 @@ class BackupPhase3RestoreTest {
         )
         val repository = BackupRepository(db)
         val preflight = repository.preflight(incoming, RestoreMode.MERGE)
-        val choices = preflight.conflicts.associate {
-            it.id to if (it.kind == RestoreConflictKind.DAILY_DATE_CARD) {
-                RestoreConflictChoice.USE_BACKUP
-            } else {
-                RestoreConflictChoice.KEEP_CURRENT
-            }
-        }
+        assertEquals(listOf(RestoreConflictKind.DAILY_DATE_CARD), preflight.conflicts.map { it.kind })
+        val choices = preflight.conflicts.associate { it.id to RestoreConflictChoice.USE_BACKUP }
         val result = repository.restore(incoming, RestoreMode.MERGE, conflictChoices = choices)
 
         val card = dao.getByDate("2026-09-22")!!
@@ -166,12 +160,13 @@ class BackupPhase3RestoreTest {
         assertEquals(listOf("shared-top", "new-sub", "later-top", "distinct-top"), items.map { it.uuid })
         assertEquals(listOf(0, 1, 0, 0), items.map { it.indent })
         assertEquals("Current wording", items.first().text)
-        assertTrue(result.conflicted >= 2)
+        assertTrue(items.first().completed)
+        assertEquals(1, result.conflicted)
         assertEquals(2, result.added)
     }
 
     @Test
-    fun dailyNewDateStillPreflightsAndMovesAConflictingItemUuidOnlyWhenChosen() = runBlocking {
+    fun dailyNewDateNeverMovesATaskFromAnotherDate() = runBlocking {
         val dao = db.dailyListDao()
         val oldCardId = dao.insertDailyList(DailyList(uuid = "old-card", date = LocalDate.parse("2026-09-21"), createdAt = 1))
         dao.insertItem(DailyListItem(dailyListId = oldCardId, uuid = "shared-item", text = "Current", position = 0))
@@ -191,19 +186,18 @@ class BackupPhase3RestoreTest {
         )))
         val repository = BackupRepository(db)
         val preflight = repository.preflight(incoming, RestoreMode.MERGE)
-        assertEquals(listOf(RestoreConflictKind.DAILY_ITEM), preflight.conflicts.map { it.kind })
+        assertTrue(preflight.conflicts.isEmpty())
 
-        repository.restore(
-            incoming,
-            RestoreMode.MERGE,
-            conflictChoices = preflight.conflicts.associate { it.id to RestoreConflictChoice.USE_BACKUP },
-        )
+        repository.restore(incoming, RestoreMode.MERGE)
 
         val newCard = dao.getByDate("2026-09-22")!!
         assertEquals("new-card", newCard.uuid)
-        assertTrue(dao.getItemsOnce(oldCardId).isEmpty())
-        assertEquals("shared-item", dao.getItemsOnce(newCard.id).single().uuid)
-        assertEquals("Backup", dao.getItemsOnce(newCard.id).single().text)
+        val oldItem = dao.getItemsOnce(oldCardId).single()
+        assertEquals("shared-item", oldItem.uuid)
+        assertEquals("Current", oldItem.text)
+        val newItem = dao.getItemsOnce(newCard.id).single()
+        assertEquals("Backup", newItem.text)
+        assertTrue(newItem.uuid.isNotBlank() && newItem.uuid != "shared-item")
     }
 
     @Test
@@ -242,9 +236,10 @@ class BackupPhase3RestoreTest {
     }
 
     @Test
-    fun dailyCardUuidCollisionOnAFreeDateNeverMovesTheCurrentCard() = runBlocking {
+    fun dailyCardUuidCollisionOnAFreeDateCreatesANewCardForThatDate() = runBlocking {
         val dao = db.dailyListDao()
         val currentId = dao.insertDailyList(DailyList(uuid = "shared-card", date = LocalDate.parse("2026-09-21"), title = "Current", createdAt = 1))
+        dao.insertItem(DailyListItem(dailyListId = currentId, uuid = "shared-item", text = "Current task", completed = true, position = 0))
         val incoming = backup(BackupPayload(dailyTasks = listOf(
             BackupDailyTask(
                 uuid = "shared-card",
@@ -256,21 +251,31 @@ class BackupPhase3RestoreTest {
                 maintenanceRunOn = null,
                 renewalRunOn = null,
                 createdAt = 2,
-                items = listOf(BackupDailyTaskItem("new-item", "Merged task", false, 0, 0, null)),
+                items = listOf(
+                    BackupDailyTaskItem("shared-item", "Backup task", false, 0, 0, null),
+                    BackupDailyTaskItem("new-item", "Merged task", false, 0, 1, null),
+                ),
             ),
         )))
         val repository = BackupRepository(db)
-        val preflight = repository.preflight(incoming, RestoreMode.MERGE)
+        assertTrue(repository.preflight(incoming, RestoreMode.MERGE).conflicts.isEmpty())
 
-        repository.restore(
-            incoming,
-            RestoreMode.MERGE,
-            conflictChoices = preflight.conflicts.associate { it.id to RestoreConflictChoice.USE_BACKUP },
-        )
+        repository.restore(incoming, RestoreMode.MERGE)
 
-        assertNull(dao.getByDate("2026-09-22"))
-        assertEquals("shared-card", dao.getByDate("2026-09-21")!!.uuid)
-        assertEquals("new-item", dao.getItemsOnce(currentId).single().uuid)
+        val current = dao.getByDate("2026-09-21")!!
+        assertEquals("shared-card", current.uuid)
+        assertEquals("Current", current.title)
+        val currentItem = dao.getItemsOnce(currentId).single()
+        assertEquals("shared-item", currentItem.uuid)
+        assertTrue(currentItem.completed)
+
+        val created = dao.getByDate("2026-09-22")!!
+        assertTrue(created.uuid.isNotBlank() && created.uuid != "shared-card")
+        assertEquals("Backup", created.title)
+        val createdItems = dao.getItemsOnce(created.id)
+        assertEquals(listOf("Backup task", "Merged task"), createdItems.map { it.text })
+        assertTrue(createdItems[0].uuid != "shared-item")
+        assertEquals("new-item", createdItems[1].uuid)
     }
 
     @Test

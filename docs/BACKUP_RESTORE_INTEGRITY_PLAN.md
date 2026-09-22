@@ -154,20 +154,20 @@ The Restore screen shows the following control only while **Merge with Existing 
 
 **Ask Me** is the default. The last selection is remembered as device-local restore workflow state and is not included in portable backups. The two blanket choices resolve ordinary conflicts without another decision. **Ask Me** performs a complete preflight comparison and, when conflicts exist, opens one conflict-review screen containing all conflicts before any database change. The review is grouped by category, shows enough current and backup detail to identify each difference, and allows **Keep Current** or **Use Backup** per conflict. Canceling leaves all data unchanged.
 
-A Daily Task date collision is resolved by date before card UUID. When an incoming card's date is already occupied, the current card remains the card for that date and keeps its UUID and metadata. **Keep Current Data** leaves that date card alone; **Use Backup Data** merges the incoming tasks into it under the approved Daily Task item rules; and **Ask Me** asks whether to keep the current date card alone or merge the backup tasks. A current card on another date is not deleted or moved merely because it shares the incoming card UUID.
+A Daily Task date collision is resolved by date before card UUID. When an incoming card's date is already occupied, the current card remains the card for that date and keeps its UUID and metadata. **Keep Current Data** leaves that date card alone; **Use Backup Data** merges the incoming tasks into it under the approved Daily Task item rules; and **Ask Me** asks whether to keep the current date card alone or merge the backup tasks. A current card on another date is not deleted or moved merely because it shares the incoming card UUID. When the incoming card's date is free but its UUID belongs to a current card on another date, the incoming card is created on its own date with a new permanent UUID, without a conflict prompt, and the current card is left unchanged.
 
 Daily Tasks use the following approved Merge rule when both databases contain a card for the same date:
 
 1. Keep the current card, its UUID, title, favorite state, completion history, maintenance state, renewal state, and current ordering.
 2. Match tasks by their immutable item UUID.
 3. Skip an incoming task whose UUID and contents are identical.
-4. If the same task UUID has different contents, keep the current version and report a conflict.
+4. If the same task UUID is already on the card with different contents, keep the current version (including its completed state) without a conflict prompt.
 5. Add incoming tasks with new UUIDs.
 6. Keep incoming task sequences together. If a matching top-level task already exists, attach new incoming sub-items to that current sequence. Do not create orphaned indented rows.
 7. Two separately created tasks with identical visible wording but different UUIDs are distinct and both survive.
 8. Report added, skipped, and conflicted counts.
 
-The current card for an occupied date remains that date's card and retains its UUID. A same-date incoming card with a different UUID is a date-card conflict governed by the selected policy above. When merging is chosen, its non-conflicting tasks are combined under the rule above. A matching task UUID with different contents is a separate item conflict resolved by the selected policy. If an incoming task UUID already belongs to another current date, it must never be duplicated or silently assigned a new UUID: keeping current leaves it where it is, while using backup moves that task to the incoming date and preserves its UUID. Moving a top-level task also moves the newly accepted members of its incoming sequence so no sub-item is orphaned.
+The current card for an occupied date remains that date's card and retains its UUID. A same-date incoming card with a different UUID is a date-card conflict governed by the selected policy above. When merging is chosen, its non-conflicting tasks are combined under the rule above. A matching task UUID with different contents on the same card keeps the current version. If an incoming task UUID already belongs to a card on another date, the current task stays on its card unchanged, and the incoming task is added to the incoming date's card as a new task with a new permanent UUID. Tasks are never moved between dates by a Merge.
 
 ### Individual-item files
 
