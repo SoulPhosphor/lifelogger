@@ -119,6 +119,21 @@ object BackupRestoreValidator {
             preferences.dailyListRetention.isBlank() ||
                 preferences.dailyListRetention.toIntOrNull()?.let { it in 1..999 } == true
         ) { "Portable preference dailyListRetention is invalid." }
+        preferences.automaticBackupCadence?.let { cadence ->
+            require(AutoBackupCadence.entries.any { it.key == cadence }) {
+                "Portable preference automaticBackupCadence is invalid."
+            }
+        }
+        preferences.automaticBackupCustomDays?.let { days ->
+            require(days in AutoBackupPolicy.CUSTOM_DAYS_RANGE) {
+                "Portable preference automaticBackupCustomDays is invalid."
+            }
+        }
+        preferences.automaticBackupRetention?.let { retention ->
+            require(retention in AutoBackupPolicy.RETENTION_CHOICES) {
+                "Portable preference automaticBackupRetention is invalid."
+            }
+        }
     }
 
     private fun validateFlatItems(items: List<Pair<Int, Int>>, label: String) {

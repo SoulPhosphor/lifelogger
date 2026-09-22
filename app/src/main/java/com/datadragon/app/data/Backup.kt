@@ -1,6 +1,8 @@
 package com.datadragon.app.data
 
 import java.security.MessageDigest
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
@@ -44,7 +46,10 @@ data class BackupFile(
 
     companion object {
         const val FORMAT = "datadragon-backup"
-        const val VERSION = 3
+        const val VERSION = 4
+
+        /** Version 3 is the first envelope format; it lacks the automatic-backup preferences. */
+        const val FIRST_ENVELOPE_VERSION = 3
 
         fun full(
             exportedAt: String,
@@ -89,6 +94,9 @@ data class BackupPayload(
     val portablePreferences: BackupPortablePreferences? = null,
 )
 
+private const val BASE_PORTABLE_PREFERENCE_COUNT = 26
+private const val AUTOMATIC_BACKUP_PREFERENCE_COUNT = 3
+
 @Serializable
 data class BackupCounts(
     val forms: Int = 0,
@@ -123,7 +131,10 @@ data class BackupCounts(
             clickerLogs = payload.clickerData?.size ?: 0,
             clickerCards = payload.clickerData?.sumOf { it.cards.size } ?: 0,
             savedColorPresets = payload.savedColorPresets?.size ?: 0,
-            portablePreferences = if (payload.portablePreferences == null) 0 else 26,
+            portablePreferences = payload.portablePreferences?.let { preferences ->
+                BASE_PORTABLE_PREFERENCE_COUNT +
+                    if (preferences.hasAutomaticBackupPreferences) AUTOMATIC_BACKUP_PREFERENCE_COUNT else 0
+            } ?: 0,
         )
     }
 }
@@ -263,7 +274,14 @@ data class BackupClickerCard(
 @Serializable
 data class BackupColorPreset(val uuid: String, val name: String, val colorsJson: String)
 
-/** Explicit allowlist of the 26 portable preferences that currently exist. */
+/**
+ * Explicit allowlist of the portable preferences. The automatic-backup cadence,
+ * custom day count, and retention were added in format version 4. They are null
+ * only for a version-3 file, which never carried them, and are then omitted from
+ * the canonical payload so version-3 checksums remain valid. Restoring a
+ * version-3 file leaves the current automatic-backup preferences unchanged.
+ */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class BackupPortablePreferences(
     val autoCapitalizeLabels: Boolean = true,
@@ -292,7 +310,25 @@ data class BackupPortablePreferences(
     val dailyListCelebrationIcon: String = CelebrationIcon.CHECK_CIRCLE.key,
     val dailyListProtectFavorited: Boolean = true,
     val dailyListRetention: String = "",
-)
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val automaticBackupCadence: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val automaticBackupCustomDays: Int? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val automaticBackupRetention: Int? = null,
+) {
+    val hasAutomaticBackupPreferences: Boolean
+        get() = automaticBackupCadence != null || automaticBackupCustomDays != null || automaticBackupRetention != null
+
+    val hasCompleteAutomaticBackupPreferences: Boolean
+        get() = automaticBackupCadence != null && automaticBackupCustomDays != null && automaticBackupRetention != null
+
+    companion object {
+        /** Every portable preference at its default, including the version-4 automatic-backup fields. */
+        fun defaults(): BackupPortablePreferences = BackupPortablePreferences(
+            automaticBackupCadence = AutoBackupCadence.DEFAULT.key,
+            automaticBackupCustomDays = AutoBackupPolicy.DEFAULT_CUSTOM_DAYS,
+            automaticBackupRetention = AutoBackupPolicy.DEFAULT_RETENTION,
+        )
+    }
+}
 
 data class UndoSnapshot(
     val capturedAt: String,
@@ -358,7 +394,11 @@ object BackupCodec {
                 "This backup version is not supported."
             }
         }
-        return if (version == BackupFile.VERSION) decodeCurrent(text) else decodeLegacy(text, version)
+        return if (version >= BackupFile.FIRST_ENVELOPE_VERSION) {
+            decodeCurrent(text)
+        } else {
+            decodeLegacy(text, version)
+        }
     }
 
     fun encodeSnapshot(snapshot: UndoSnapshot): String = diskJson.encodeToString(
@@ -411,9 +451,22 @@ object BackupCodec {
         require(backup.format == BackupFile.FORMAT) { "This file is not a Data Dragon backup." }
         val payload = canonicalPayload(backup.payload)
         validateManifest(backup.includedCategories, payload)
+        val preferences = payload.portablePreferences
+        require(
+            preferences == null ||
+                !preferences.hasAutomaticBackupPreferences ||
+                preferences.hasCompleteAutomaticBackupPreferences,
+        ) { "Backup automatic backup preferences are incomplete." }
+        // Preferences converted from a version-3 file lack the version-4 fields,
+        // so they are re-encoded with the version that truthfully describes them.
+        val version = if (preferences != null && !preferences.hasAutomaticBackupPreferences) {
+            BackupFile.FIRST_ENVELOPE_VERSION
+        } else {
+            BackupFile.VERSION
+        }
         return BackupEnvelopeV3(
             format = BackupFile.FORMAT,
-            version = BackupFile.VERSION,
+            version = version,
             backupId = backup.backupId ?: StableUuid.createNew(),
             createdAt = backup.exportedAt,
             sourceAppVersion = backup.sourceAppVersion ?: "legacy-import",
@@ -427,8 +480,21 @@ object BackupCodec {
 
     private fun validateAndConvert(envelope: BackupEnvelopeV3): BackupFile {
         require(envelope.format == BackupFile.FORMAT) { "This file is not a Data Dragon backup." }
-        require(envelope.version == BackupFile.VERSION) { "This backup version is not supported." }
+        require(envelope.version in BackupFile.FIRST_ENVELOPE_VERSION..BackupFile.VERSION) {
+            "This backup version is not supported."
+        }
         require(envelope.backupId.isNotBlank()) { "Backup ID is missing." }
+        envelope.payload.portablePreferences?.let { preferences ->
+            if (envelope.version == BackupFile.FIRST_ENVELOPE_VERSION) {
+                require(!preferences.hasAutomaticBackupPreferences) {
+                    "A version 3 backup cannot contain automatic backup preferences."
+                }
+            } else {
+                require(preferences.hasCompleteAutomaticBackupPreferences) {
+                    "Backup is missing its automatic backup preferences."
+                }
+            }
+        }
         validateManifest(envelope.includedCategories, envelope.payload)
         val canonical = canonicalPayload(envelope.payload)
         require(envelope.counts == BackupCounts.from(canonical)) { "Backup category counts do not match its payload." }

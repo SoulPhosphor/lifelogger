@@ -15,32 +15,54 @@ class SettingsRepository(context: Context) {
     private val prefs =
         context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
+    /**
+     * Device-local operational counter for automatic backup. Every write that
+     * changes a portable preference increases it in the same editor commit as
+     * the change itself. It is not a portable preference and is never exported.
+     */
+    val portablePreferencesRevision: Long
+        get() = prefs.getLong(KEY_PORTABLE_PREFERENCES_REVISION, 0L)
+
+    /**
+     * Apply a portable-preference change and its revision increase together.
+     * Writes that leave the effective value unchanged do not count as changes.
+     */
+    private inline fun editPortable(changed: () -> Boolean, block: SharedPreferences.Editor.() -> Unit) {
+        synchronized(PORTABLE_LOCK) {
+            if (!changed()) return
+            prefs.edit()
+                .apply(block)
+                .putLong(KEY_PORTABLE_PREFERENCES_REVISION, portablePreferencesRevision + 1)
+                .apply()
+        }
+    }
+
     /** Auto-capitalize the major words of field labels as new fields are created. */
     var autoCapitalizeLabels: Boolean
         get() = prefs.getBoolean(KEY_LABELS, true)
-        set(value) { prefs.edit().putBoolean(KEY_LABELS, value).apply() }
+        set(value) { editPortable({ autoCapitalizeLabels != value }) { putBoolean(KEY_LABELS, value) } }
 
     /** Auto-capitalize the major words of dropdown/multiple options as they're created. */
     var autoCapitalizeOptions: Boolean
         get() = prefs.getBoolean(KEY_OPTIONS, true)
-        set(value) { prefs.edit().putBoolean(KEY_OPTIONS, value).apply() }
+        set(value) { editPortable({ autoCapitalizeOptions != value }) { putBoolean(KEY_OPTIONS, value) } }
 
     /** Which Home view (Forms, Lists or Ideas) was open last, so it reopens there. */
     var lastView: HomeView
         get() = HomeView.fromKey(prefs.getString(KEY_LAST_VIEW, null))
-        set(value) { prefs.edit().putString(KEY_LAST_VIEW, value.key).apply() }
+        set(value) { editPortable({ lastView != value }) { putString(KEY_LAST_VIEW, value.key) } }
 
     // --- Navigation menu preferences (all global) ----------------------------
 
     /** How the Home bar presents the data modes: a row of icons, or a dropdown. */
     var navStyle: NavStyle
         get() = NavStyle.fromKey(prefs.getString(KEY_NAV_STYLE, null))
-        set(value) { prefs.edit().putString(KEY_NAV_STYLE, value.key).apply() }
+        set(value) { editPortable({ navStyle != value }) { putString(KEY_NAV_STYLE, value.key) } }
 
     /** In dropdown mode, show the current mode's label instead of its single icon. */
     var useModeLabelInDropdown: Boolean
         get() = prefs.getBoolean(KEY_NAV_USE_LABEL, true)
-        set(value) { prefs.edit().putBoolean(KEY_NAV_USE_LABEL, value).apply() }
+        set(value) { editPortable({ useModeLabelInDropdown != value }) { putBoolean(KEY_NAV_USE_LABEL, value) } }
 
     /**
      * Whether a data mode is shown in the navigation. Hiding a mode only affects
@@ -51,7 +73,7 @@ class SettingsRepository(context: Context) {
         prefs.getBoolean(modeEnabledKey(view), true)
 
     fun setModeEnabled(view: HomeView, enabled: Boolean) {
-        prefs.edit().putBoolean(modeEnabledKey(view), enabled).apply()
+        editPortable({ isModeEnabled(view) != enabled }) { putBoolean(modeEnabledKey(view), enabled) }
     }
 
     /** The data modes currently shown in the navigation, in their on-screen order. */
@@ -72,17 +94,17 @@ class SettingsRepository(context: Context) {
     /** What a checked-off list item shows: a checkmark or a checked box. Global. */
     var completeIcon: CompleteIcon
         get() = CompleteIcon.fromKey(prefs.getString(KEY_COMPLETE_ICON, null))
-        set(value) { prefs.edit().putString(KEY_COMPLETE_ICON, value.key).apply() }
+        set(value) { editPortable({ completeIcon != value }) { putString(KEY_COMPLETE_ICON, value.key) } }
 
     /** Strike through a list item's text once it's completed. Global. */
     var crossOutWhenCompleted: Boolean
         get() = prefs.getBoolean(KEY_CROSS_OUT, false)
-        set(value) { prefs.edit().putBoolean(KEY_CROSS_OUT, value).apply() }
+        set(value) { editPortable({ crossOutWhenCompleted != value }) { putBoolean(KEY_CROSS_OUT, value) } }
 
     /** Move a list item to the bottom of its list when it's marked complete. Global. */
     var moveCompletedToBottom: Boolean
         get() = prefs.getBoolean(KEY_MOVE_BOTTOM, false)
-        set(value) { prefs.edit().putBoolean(KEY_MOVE_BOTTOM, value).apply() }
+        set(value) { editPortable({ moveCompletedToBottom != value }) { putBoolean(KEY_MOVE_BOTTOM, value) } }
 
     /** Last Merge conflict policy. Device-local restore workflow state, never portable. */
     var restoreConflictPolicy: RestoreConflictPolicy
@@ -94,32 +116,32 @@ class SettingsRepository(context: Context) {
     /** The heading shown atop Daily List editors when nothing custom is set. */
     var dailyListHeading: String
         get() = prefs.getString(KEY_DL_HEADING, "").orEmpty()
-        set(value) { prefs.edit().putString(KEY_DL_HEADING, value).apply() }
+        set(value) { editPortable({ dailyListHeading != value }) { putString(KEY_DL_HEADING, value) } }
 
     /** Automatically renew unfinished items from the last previous card. */
     var dailyListAutoRenew: Boolean
         get() = prefs.getBoolean(KEY_DL_AUTO_RENEW, false)
-        set(value) { prefs.edit().putBoolean(KEY_DL_AUTO_RENEW, value).apply() }
+        set(value) { editPortable({ dailyListAutoRenew != value }) { putBoolean(KEY_DL_AUTO_RENEW, value) } }
 
     /** Show completed items on Daily List main-view cards. */
     var dailyListShowCompleted: Boolean
         get() = prefs.getBoolean(KEY_DL_SHOW_COMPLETED, true)
-        set(value) { prefs.edit().putBoolean(KEY_DL_SHOW_COMPLETED, value).apply() }
+        set(value) { editPortable({ dailyListShowCompleted != value }) { putBoolean(KEY_DL_SHOW_COMPLETED, value) } }
 
     /** Show today's unfinished items on its card. */
     var dailyListShowCurrentUnfinished: Boolean
         get() = prefs.getBoolean(KEY_DL_SHOW_CURRENT_UNFINISHED, true)
-        set(value) { prefs.edit().putBoolean(KEY_DL_SHOW_CURRENT_UNFINISHED, value).apply() }
+        set(value) { editPortable({ dailyListShowCurrentUnfinished != value }) { putBoolean(KEY_DL_SHOW_CURRENT_UNFINISHED, value) } }
 
     /** Show past days' unfinished items on their cards. */
     var dailyListShowPastUnfinished: Boolean
         get() = prefs.getBoolean(KEY_DL_SHOW_PAST_UNFINISHED, false)
-        set(value) { prefs.edit().putBoolean(KEY_DL_SHOW_PAST_UNFINISHED, value).apply() }
+        set(value) { editPortable({ dailyListShowPastUnfinished != value }) { putBoolean(KEY_DL_SHOW_PAST_UNFINISHED, value) } }
 
     /** Permanently trash unfinished items from past days during maintenance. */
     var dailyListAutoTrashPast: Boolean
         get() = prefs.getBoolean(KEY_DL_AUTO_TRASH_PAST, false)
-        set(value) { prefs.edit().putBoolean(KEY_DL_AUTO_TRASH_PAST, value).apply() }
+        set(value) { editPortable({ dailyListAutoTrashPast != value }) { putBoolean(KEY_DL_AUTO_TRASH_PAST, value) } }
 
     /**
      * How many of the most recent past Daily List cards keep their unfinished
@@ -128,32 +150,32 @@ class SettingsRepository(context: Context) {
      */
     var dailyListAutoTrashKeepPast: Int
         get() = prefs.getInt(KEY_DL_AUTO_TRASH_KEEP, 7)
-        set(value) { prefs.edit().putInt(KEY_DL_AUTO_TRASH_KEEP, value).apply() }
+        set(value) { editPortable({ dailyListAutoTrashKeepPast != value }) { putInt(KEY_DL_AUTO_TRASH_KEEP, value) } }
 
     /** Reopen straight into today's Daily List on app start (when it was the last mode). */
     var dailyListAutoReopen: Boolean
         get() = prefs.getBoolean(KEY_DL_AUTO_REOPEN, false)
-        set(value) { prefs.edit().putBoolean(KEY_DL_AUTO_REOPEN, value).apply() }
+        set(value) { editPortable({ dailyListAutoReopen != value }) { putBoolean(KEY_DL_AUTO_REOPEN, value) } }
 
     /** Offer the optional one-line per-day title in Daily List editors. */
     var dailyListAllowTitle: Boolean
         get() = prefs.getBoolean(KEY_DL_ALLOW_TITLE, false)
-        set(value) { prefs.edit().putBoolean(KEY_DL_ALLOW_TITLE, value).apply() }
+        set(value) { editPortable({ dailyListAllowTitle != value }) { putBoolean(KEY_DL_ALLOW_TITLE, value) } }
 
     /** Mark all-completed days with the chosen celebration icon on the Daily List main view. */
     var dailyListCelebrationEnabled: Boolean
         get() = prefs.getBoolean(KEY_DL_CELEBRATION_ENABLED, true)
-        set(value) { prefs.edit().putBoolean(KEY_DL_CELEBRATION_ENABLED, value).apply() }
+        set(value) { editPortable({ dailyListCelebrationEnabled != value }) { putBoolean(KEY_DL_CELEBRATION_ENABLED, value) } }
 
     /** Which celebration icon all-completed cards show. */
     var dailyListCelebrationIcon: CelebrationIcon
         get() = CelebrationIcon.fromKey(prefs.getString(KEY_DL_CELEBRATION_ICON, null))
-        set(value) { prefs.edit().putString(KEY_DL_CELEBRATION_ICON, value.key).apply() }
+        set(value) { editPortable({ dailyListCelebrationIcon != value }) { putString(KEY_DL_CELEBRATION_ICON, value.key) } }
 
     /** Never auto-delete a favorited card through whole-card retention. */
     var dailyListProtectFavorited: Boolean
         get() = prefs.getBoolean(KEY_DL_PROTECT_FAVORITED, true)
-        set(value) { prefs.edit().putBoolean(KEY_DL_PROTECT_FAVORITED, value).apply() }
+        set(value) { editPortable({ dailyListProtectFavorited != value }) { putBoolean(KEY_DL_PROTECT_FAVORITED, value) } }
 
     /**
      * How many newest cards (by date) whole-card retention keeps, or null when
@@ -166,14 +188,55 @@ class SettingsRepository(context: Context) {
             ?.takeIf { it in 1..999 }
         set(value) {
             val text = value?.toString().orEmpty()
-            prefs.edit().putString(KEY_DL_RETENTION, text).apply()
+            editPortable({ dailyListRetentionRaw != text }) { putString(KEY_DL_RETENTION, text) }
         }
 
     /** The raw retention text as typed ("" = blank = disabled), for the field itself. */
     var dailyListRetentionRaw: String
         get() = prefs.getString(KEY_DL_RETENTION, "").orEmpty()
         set(value) {
-            prefs.edit().putString(KEY_DL_RETENTION, value.filter { it.isDigit() }.take(3)).apply()
+            val text = value.filter { it.isDigit() }.take(3)
+            editPortable({ dailyListRetentionRaw != text }) { putString(KEY_DL_RETENTION, text) }
+        }
+
+    // --- Automatic backup preferences (portable; folder and history are device-local) ---
+
+    var automaticBackupCadence: AutoBackupCadence
+        get() = AutoBackupCadence.fromKey(prefs.getString(KEY_AUTO_BACKUP_CADENCE, null))
+        set(value) { editPortable({ automaticBackupCadence != value }) { putString(KEY_AUTO_BACKUP_CADENCE, value.key) } }
+
+    /** Days between backups when the cadence is Custom, 1 through 365. */
+    var automaticBackupCustomDays: Int
+        get() = prefs.getInt(KEY_AUTO_BACKUP_CUSTOM_DAYS, AutoBackupPolicy.DEFAULT_CUSTOM_DAYS)
+            .takeIf { it in AutoBackupPolicy.CUSTOM_DAYS_RANGE } ?: AutoBackupPolicy.DEFAULT_CUSTOM_DAYS
+        set(value) {
+            require(value in AutoBackupPolicy.CUSTOM_DAYS_RANGE) { "Custom days must be 1 to 365." }
+            editPortable({ automaticBackupCustomDays != value }) { putInt(KEY_AUTO_BACKUP_CUSTOM_DAYS, value) }
+        }
+
+    /** How many automatic backups rotation keeps: 3, 5, or 7. */
+    var automaticBackupRetention: Int
+        get() = AutoBackupPolicy.normalizeRetention(
+            prefs.getInt(KEY_AUTO_BACKUP_RETENTION, AutoBackupPolicy.DEFAULT_RETENTION),
+        )
+        set(value) {
+            require(value in AutoBackupPolicy.RETENTION_CHOICES) { "Retention must be 3, 5, or 7." }
+            editPortable({ automaticBackupRetention != value }) { putInt(KEY_AUTO_BACKUP_RETENTION, value) }
+        }
+
+    val automaticBackupIntervalMillis: Long
+        get() = AutoBackupPolicy.intervalMillis(automaticBackupCadence, automaticBackupCustomDays)
+
+    /**
+     * The portable preferences and the revision they represent. The revision is
+     * read first, so a change racing this read can only make the captured
+     * revision older than the values, which leaves the backup dirty (never the
+     * reverse).
+     */
+    fun portableBackupSnapshotWithRevision(): Pair<BackupPortablePreferences, Long> =
+        synchronized(PORTABLE_LOCK) {
+            val revision = portablePreferencesRevision
+            portableBackupSnapshot() to revision
         }
 
     /** The explicit portable allowlist. Device-local execution state is never read here. */
@@ -204,11 +267,14 @@ class SettingsRepository(context: Context) {
         dailyListCelebrationIcon = dailyListCelebrationIcon.key,
         dailyListProtectFavorited = dailyListProtectFavorited,
         dailyListRetention = dailyListRetentionRaw,
+        automaticBackupCadence = automaticBackupCadence.key,
+        automaticBackupCustomDays = automaticBackupCustomDays,
+        automaticBackupRetention = automaticBackupRetention,
     )
 
     /** Apply the complete portable allowlist synchronously so restore can detect write failure. */
-    fun applyPortableBackup(preferences: BackupPortablePreferences) {
-        val committed = prefs.edit()
+    fun applyPortableBackup(preferences: BackupPortablePreferences) = synchronized(PORTABLE_LOCK) {
+        val editor = prefs.edit()
             .putBoolean(KEY_LABELS, preferences.autoCapitalizeLabels)
             .putBoolean(KEY_OPTIONS, preferences.autoCapitalizeOptions)
             .putString(KEY_LAST_VIEW, preferences.lastHomeView)
@@ -235,12 +301,22 @@ class SettingsRepository(context: Context) {
             .putString(KEY_DL_CELEBRATION_ICON, preferences.dailyListCelebrationIcon)
             .putBoolean(KEY_DL_PROTECT_FAVORITED, preferences.dailyListProtectFavorited)
             .putString(KEY_DL_RETENTION, preferences.dailyListRetention)
-            .commit()
+        // A version-3 backup never carried these, so the current values stay.
+        preferences.automaticBackupCadence?.let { editor.putString(KEY_AUTO_BACKUP_CADENCE, it) }
+        preferences.automaticBackupCustomDays?.let { editor.putInt(KEY_AUTO_BACKUP_CUSTOM_DAYS, it) }
+        preferences.automaticBackupRetention?.let { editor.putInt(KEY_AUTO_BACKUP_RETENTION, it) }
+        editor.putLong(KEY_PORTABLE_PREFERENCES_REVISION, portablePreferencesRevision + 1)
+        val committed = editor.commit()
         check(committed) { "Portable preferences could not be saved." }
     }
 
     companion object {
+        private val PORTABLE_LOCK = Any()
         private const val PREFS_NAME = "data_dragon_settings"
+        private const val KEY_PORTABLE_PREFERENCES_REVISION = "portable_preferences_revision"
+        private const val KEY_AUTO_BACKUP_CADENCE = "automatic_backup_cadence"
+        private const val KEY_AUTO_BACKUP_CUSTOM_DAYS = "automatic_backup_custom_days"
+        private const val KEY_AUTO_BACKUP_RETENTION = "automatic_backup_retention"
         private const val KEY_LABELS = "auto_capitalize_labels"
         private const val KEY_OPTIONS = "auto_capitalize_options"
         private const val KEY_LAST_VIEW = "last_home_view"

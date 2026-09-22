@@ -25,7 +25,7 @@ object BackupFixtureTestSupport {
 
         val configuration = SupportSQLiteOpenHelper.Configuration.builder(context)
             .name(name)
-            .callback(object : SupportSQLiteOpenHelper.Callback(19) {
+            .callback(object : SupportSQLiteOpenHelper.Callback(AppDatabase.SCHEMA_VERSION) {
                 override fun onCreate(db: SupportSQLiteDatabase) = Unit
                 override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
             })
@@ -46,6 +46,7 @@ object BackupFixtureTestSupport {
             sqlite.execSQL("DROP INDEX IF EXISTS `index_${table}_uuid`")
             sqlite.execSQL("DROP TRIGGER IF EXISTS `prevent_${table}_uuid_update`")
         }
+        sqlite.execSQL("DROP TABLE IF EXISTS `${BackupRevisionTracking.TABLE}`")
         sqlite.execSQL("ALTER TABLE color_presets RENAME TO color_presets_v19")
         sqlite.execSQL(
             "CREATE TABLE color_presets (" +
@@ -74,8 +75,9 @@ object BackupFixtureTestSupport {
 
         return Room.databaseBuilder(context, AppDatabase::class.java, name)
             .allowMainThreadQueries()
-            .addMigrations(AppDatabase.MIGRATION_18_19)
+            .addMigrations(AppDatabase.MIGRATION_18_19, AppDatabase.MIGRATION_19_20)
             .addCallback(AppDatabase.UUID_IDENTITY_CALLBACK)
+            .addCallback(AppDatabase.BACKUP_REVISION_CALLBACK)
             .build()
             .also { it.openHelper.writableDatabase }
     }

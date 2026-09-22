@@ -12,7 +12,7 @@ import java.time.temporal.ChronoUnit
  */
 class BackupRepository(
     private val db: AppDatabase,
-    private val portablePreferences: () -> BackupPortablePreferences = { BackupPortablePreferences() },
+    private val portablePreferences: () -> BackupPortablePreferences = { BackupPortablePreferences.defaults() },
     private val sourceAppVersion: String = "unknown",
     private val applyPortablePreferences: (BackupPortablePreferences) -> Unit = {},
     private val restoreFailureInjector: ((BackupCategory) -> Unit)? = null,
@@ -30,7 +30,29 @@ class BackupRepository(
     private val colorPresetDao = db.colorPresetDao()
 
     /** Build every current category from one Room read transaction. */
-    suspend fun buildFull(): BackupFile = db.withTransaction {
+    suspend fun buildFull(): BackupFile = buildFullCaptured().backup
+
+    /**
+     * The same complete snapshot, together with the protected-data revision read
+     * inside the same transaction and the portable-preference revision captured
+     * with the preferences. Automatic backup marks only these revisions protected.
+     */
+    suspend fun buildFullCaptured(
+        capturePreferences: () -> Pair<BackupPortablePreferences, Long> = { portablePreferences() to 0L },
+    ): CapturedBackup = db.withTransaction {
+        val dataRevision = db.backupStateDao().dataRevision() ?: 0L
+        val (preferences, preferencesRevision) = capturePreferences()
+        CapturedBackup(
+            backup = snapshotInTransaction(preferences),
+            dataRevision = dataRevision,
+            preferencesRevision = preferencesRevision,
+        )
+    }
+
+    /** Current protected-data revision, outside any snapshot. */
+    suspend fun currentDataRevision(): Long = db.backupStateDao().dataRevision() ?: 0L
+
+    private suspend fun snapshotInTransaction(preferences: BackupPortablePreferences): BackupFile {
         val entriesByTemplate = entryDao.getAllOnce().groupBy { it.templateId }
         val notesByEntry = noteDao.getAllOnce().groupBy { it.entryId }
         val calendarsByTemplate = calendarDao.getAllOnce().groupBy { it.templateId }
@@ -128,7 +150,7 @@ class BackupRepository(
             BackupColorPreset(preset.uuid, preset.name, preset.colorsJson)
         }
 
-        BackupFile.full(
+        return BackupFile.full(
             exportedAt = now(),
             sourceAppVersion = sourceAppVersion,
             roomSchemaVersion = AppDatabase.SCHEMA_VERSION,
@@ -139,7 +161,7 @@ class BackupRepository(
                 dailyTasks = dailyTasks,
                 clickerData = clickerData,
                 savedColorPresets = presets,
-                portablePreferences = portablePreferences(),
+                portablePreferences = preferences,
             ),
         )
     }
@@ -791,6 +813,13 @@ class BackupRepository(
 }
 
 /** How a restore applies a backup to the existing data. */
+/** A complete snapshot and the revisions it contains. Revisions stay device-local. */
+data class CapturedBackup(
+    val backup: BackupFile,
+    val dataRevision: Long,
+    val preferencesRevision: Long,
+)
+
 enum class RestoreMode {
     /** Wipe everything first, then load only the backup. */
     REPLACE,

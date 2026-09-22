@@ -62,11 +62,15 @@ object BackupPhase0Inventory {
         "daily_list_celebration_icon",
         "daily_list_protect_favorited",
         "daily_list_retention",
+        "automatic_backup_cadence",
+        "automatic_backup_custom_days",
+        "automatic_backup_retention",
     )
 
-    /** Approved future portable preference categories whose concrete keys do not exist yet. */
-    val approvedFuturePortablePreferenceTokens: Set<String> = setOf(
+    /** Portable preferences added by backup format version 4; version-3 files never carry them. */
+    val automaticBackupPortablePreferenceKeys: Set<String> = setOf(
         "automatic_backup_cadence",
+        "automatic_backup_custom_days",
         "automatic_backup_retention",
     )
 
@@ -103,6 +107,14 @@ object BackupPhase0Inventory {
         "sqlite_sequence",
     )
 
+    /**
+     * Operational tables that are intentionally outside the portable payload.
+     * backup_state holds the device-local protected-data revision.
+     */
+    val operationalTables: Set<String> = setOf(
+        BackupRevisionTracking.TABLE,
+    )
+
     val protectedTableNames: Set<String> = userDataTables.map { it.tableName }.toSet()
 }
 
@@ -110,7 +122,8 @@ object BackupCoverageGuard {
     private const val GUIDE = "docs/BACKUP_SYSTEM_EXTENSION_GUIDE.md"
 
     fun unregisteredTables(actualTables: Set<String>): Set<String> =
-        actualTables - BackupPhase0Inventory.protectedTableNames - BackupPhase0Inventory.roomAndSqliteTables
+        actualTables - BackupPhase0Inventory.protectedTableNames - BackupPhase0Inventory.roomAndSqliteTables -
+            BackupPhase0Inventory.operationalTables
 
     fun assertCovered(database: SupportSQLiteDatabase) {
         val actualTables = buildSet {

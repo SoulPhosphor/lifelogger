@@ -15,7 +15,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34])
 class BackupPhase2Test {
 
-    private val preferences = BackupPortablePreferences(
+    private val preferences = BackupPortablePreferences.defaults().copy(
         autoCapitalizeLabels = false,
         lastHomeView = HomeView.CLICKER.key,
         navStyle = NavStyle.DROPDOWN.key,
@@ -49,7 +49,7 @@ class BackupPhase2Test {
             assertEquals(1, decoded.counts.clickerLogs)
             assertEquals(2, decoded.counts.clickerCards)
             assertEquals(2, decoded.counts.savedColorPresets)
-            assertEquals(26, decoded.counts.portablePreferences)
+            assertEquals(29, decoded.counts.portablePreferences)
 
             assertTrue(decoded.checklists.single { it.name == "Travel Draft" }.draft)
             assertEquals("55555555-5555-4555-8555-555555555555", decoded.payload.ideaLogs!!.single().uuid)
@@ -154,7 +154,7 @@ class BackupPhase2Test {
     @Test
     fun wrongFormatFutureVersionAndTruncatedJsonAreRejected() {
         val wrongFormat = """{"format":"another-app","version":3}"""
-        val future = """{"format":"datadragon-backup","version":4}"""
+        val future = """{"format":"datadragon-backup","version":5}"""
         val truncated = """{"format":"datadragon-backup","version":3,"payload":"""
 
         assertTrue(runCatching { BackupCodec.decode(wrongFormat) }.exceptionOrNull()!!.message!!.contains("not a Data Dragon"))

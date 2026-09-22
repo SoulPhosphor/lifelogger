@@ -31,7 +31,7 @@ class BackupPhase0InventoryTest {
     fun version18FixturePopulatesEveryCurrentUserDataTable() {
         val db = BackupFixtureTestSupport.newVersion18Database()
         try {
-            assertEquals(19, db.openHelper.readableDatabase.version)
+            assertEquals(AppDatabase.SCHEMA_VERSION, db.openHelper.readableDatabase.version)
             val counts = BackupPhase0Inventory.userDataTables.associate { entry ->
                 entry.tableName to db.openHelper.readableDatabase.query(
                     "SELECT COUNT(*) FROM ${entry.tableName}"
@@ -56,6 +56,7 @@ class BackupPhase0InventoryTest {
         try {
             val actualUserTables = BackupFixtureTestSupport.tableNames(db.openHelper.readableDatabase)
                 .filterNot { it in BackupPhase0Inventory.roomAndSqliteTables }
+                .filterNot { it in BackupPhase0Inventory.operationalTables }
                 .toSet()
             assertEquals(BackupPhase0Inventory.protectedTableNames, actualUserTables)
         } finally {
@@ -76,7 +77,7 @@ class BackupPhase0InventoryTest {
     @Test
     fun portablePreferencesAreAnExplicitAllowlist() {
         val keys = BackupPhase0Inventory.portablePreferenceKeys
-        assertEquals(26, keys.size)
+        assertEquals(29, keys.size)
         assertTrue(keys.contains("nav_style"))
         assertTrue(keys.contains("daily_list_retention"))
         assertTrue(keys.contains("mode_enabled_clicker"))
@@ -84,15 +85,15 @@ class BackupPhase0InventoryTest {
     }
 
     @Test
-    fun approvedFuturePortablePreferenceCategoriesAreInventoriedWithoutImplementingThem() {
+    fun automaticBackupCadenceAndRetentionArePortablePreferences() {
         assertEquals(
-            setOf("automatic_backup_cadence", "automatic_backup_retention"),
-            BackupPhase0Inventory.approvedFuturePortablePreferenceTokens,
+            setOf("automatic_backup_cadence", "automatic_backup_custom_days", "automatic_backup_retention"),
+            BackupPhase0Inventory.automaticBackupPortablePreferenceKeys,
         )
         assertTrue(
-            BackupPhase0Inventory.approvedFuturePortablePreferenceTokens.none {
-                it in BackupPhase0Inventory.portablePreferenceKeys
-            },
+            BackupPhase0Inventory.portablePreferenceKeys.containsAll(
+                BackupPhase0Inventory.automaticBackupPortablePreferenceKeys,
+            ),
         )
     }
 

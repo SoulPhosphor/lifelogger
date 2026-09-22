@@ -68,7 +68,7 @@ class BackupPhase4Test {
     @Test
     fun semanticValidationFailureStopsBeforeDestinationWrite() {
         val encoded = completeBackup(
-            BackupPortablePreferences(lastHomeView = "invalid-home-view"),
+            BackupPortablePreferences.defaults().copy(lastHomeView = "invalid-home-view"),
         )
         val destination = MemoryDestination()
 
@@ -89,7 +89,7 @@ class BackupPhase4Test {
             assertEquals(2, saved.counts.dailyTasks)
             assertEquals(1, saved.counts.clickerLogs)
             assertEquals(2, saved.counts.savedColorPresets)
-            assertEquals(26, saved.counts.portablePreferences)
+            assertEquals(29, saved.counts.portablePreferences)
             assertFalse(saved.payload.portablePreferences == null)
         } finally {
             db.close()
@@ -118,7 +118,7 @@ class BackupPhase4Test {
     }
 
     private fun completeBackup(
-        preferences: BackupPortablePreferences = BackupPortablePreferences(),
+        preferences: BackupPortablePreferences = BackupPortablePreferences.defaults(),
     ): String = BackupCodec.encode(
         BackupFile.full(
             exportedAt = "2026-09-22T00:00:00Z",

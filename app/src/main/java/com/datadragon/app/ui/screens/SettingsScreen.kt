@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Checklist
@@ -28,6 +29,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -48,10 +50,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.datadragon.app.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.datadragon.app.data.AutoBackupCadence
+import com.datadragon.app.data.AutoBackupError
+import com.datadragon.app.data.AutoBackupFolderSelection
+import com.datadragon.app.data.AutoBackupLocalState
+import com.datadragon.app.data.AutoBackupPolicy
 import com.datadragon.app.data.CompleteIcon
 import com.datadragon.app.data.HomeView
 import com.datadragon.app.data.NavStyle
@@ -70,7 +78,11 @@ import com.datadragon.app.ui.theme.AppTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,6 +101,11 @@ fun SettingsScreen(
     val completeIcon by settingsViewModel.completeIcon.collectAsStateWithLifecycle()
     val crossOutWhenCompleted by settingsViewModel.crossOutWhenCompleted.collectAsStateWithLifecycle()
     val moveCompletedToBottom by settingsViewModel.moveCompletedToBottom.collectAsStateWithLifecycle()
+    val autoBackupState by settingsViewModel.autoBackupState.collectAsStateWithLifecycle()
+    val autoBackupCadence by settingsViewModel.autoBackupCadence.collectAsStateWithLifecycle()
+    val autoBackupCustomDaysText by settingsViewModel.autoBackupCustomDaysText.collectAsStateWithLifecycle()
+    val autoBackupRetention by settingsViewModel.autoBackupRetention.collectAsStateWithLifecycle()
+    val folderSelectionError by settingsViewModel.folderSelectionError.collectAsStateWithLifecycle()
     // Not saveable: a chosen backup file's full contents can be large enough to
     // overflow the instance-state Bundle (TransactionTooLargeException), so a
     // process death simply asks the user to re-choose the file rather than risk
@@ -107,6 +124,15 @@ fun SettingsScreen(
 
     LaunchedEffect(Unit) {
         hasUndoSnapshot = viewModel.hasUndoSnapshot()
+        // A background run may have changed the status since this screen last looked.
+        settingsViewModel.refreshAutoBackupState()
+    }
+
+    // Android's folder picker for the automatic backup destination.
+    val chooseBackupFolder = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { uri ->
+        if (uri != null) settingsViewModel.selectBackupFolder(uri.toString())
     }
 
     val openDocument = rememberLauncherForActivityResult(
@@ -343,6 +369,21 @@ fun SettingsScreen(
             }) {
                 Text("Back Up Now…")
             }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            AutomaticBackupSection(
+                state = autoBackupState,
+                cadence = autoBackupCadence,
+                customDaysText = autoBackupCustomDaysText,
+                retention = autoBackupRetention,
+                folderSelectionError = folderSelectionError,
+                onChooseFolder = { chooseBackupFolder.launch(null) },
+                onEnabledChange = settingsViewModel::setAutoBackupEnabled,
+                onCadenceChange = settingsViewModel::setAutoBackupCadence,
+                onCustomDaysChange = settingsViewModel::setAutoBackupCustomDaysText,
+                onRetentionChange = settingsViewModel::setAutoBackupRetention,
+            )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
@@ -613,11 +654,12 @@ private fun SettingToggleRow(
     onCheckedChange: (Boolean) -> Unit,
     title: String,
     subtitle: String? = null,
+    enabled: Boolean = true,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) }
+            .clickable(enabled = enabled) { onCheckedChange(!checked) }
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -632,7 +674,7 @@ private fun SettingToggleRow(
             }
         }
         Spacer(Modifier.width(12.dp))
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
     }
 }
 
@@ -850,3 +892,116 @@ private fun CompleteIconRow(
         optionLabel = { it.label() },
     )
 }
+
+/**
+ * Automatic Backup: only the controls and status needed to use it, in the
+ * owner-approved order. Folder checks and verification stay internal.
+ */
+@Composable
+private fun AutomaticBackupSection(
+    state: AutoBackupLocalState,
+    cadence: AutoBackupCadence,
+    customDaysText: String,
+    retention: Int,
+    folderSelectionError: AutoBackupFolderSelection?,
+    onChooseFolder: () -> Unit,
+    onEnabledChange: (Boolean) -> Unit,
+    onCadenceChange: (AutoBackupCadence) -> Unit,
+    onCustomDaysChange: (String) -> Unit,
+    onRetentionChange: (Int) -> Unit,
+) {
+    val hasFolder = state.folderUri != null
+    SectionHeader("Automatic Backup")
+    Text("Backup Folder", style = AppTheme.textStyles.settingTitle)
+    Text(
+        state.folderLabel ?: "No folder selected.",
+        style = AppTheme.textStyles.settingDescription,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    AppButton(onClick = onChooseFolder) {
+        Text(if (hasFolder) "Change Backup Folder" else "Choose Backup Folder")
+    }
+    SettingToggleRow(
+        checked = state.enabled,
+        onCheckedChange = onEnabledChange,
+        title = "Back Up Automatically",
+        subtitle = if (hasFolder) null else "Choose a backup folder first.",
+        enabled = hasFolder,
+    )
+    Text("How Often", style = AppTheme.textStyles.settingTitle)
+    AutoBackupCadence.entries.forEach { option ->
+        NavStyleRadioRow(
+            label = option.label(),
+            selected = cadence == option,
+            onSelect = { onCadenceChange(option) },
+        )
+    }
+    if (cadence == AutoBackupCadence.CUSTOM) {
+        val invalid = AutoBackupPolicy.parseCustomDays(customDaysText) == null
+        val invalidMessage: (@Composable () -> Unit)? =
+            if (invalid) { { Text("Enter a number from 1 to 365.") } } else null
+        OutlinedTextField(
+            value = customDaysText,
+            onValueChange = onCustomDaysChange,
+            singleLine = true,
+            label = { Text("Number of Days") },
+            isError = invalid,
+            supportingText = invalidMessage,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    Text("Backups to Keep", style = AppTheme.textStyles.settingTitle)
+    AutoBackupPolicy.RETENTION_CHOICES.forEach { option ->
+        NavStyleRadioRow(
+            label = option.toString(),
+            selected = retention == option,
+            onSelect = { onRetentionChange(option) },
+        )
+    }
+    Text(
+        state.lastSuccessAt?.let { "Last backup: ${formatBackupTime(it)}" } ?: "No automatic backups yet.",
+        style = AppTheme.textStyles.settingDescription,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    folderSelectionError?.let { error ->
+        Text(
+            when (error) {
+                AutoBackupFolderSelection.PERMISSION_DENIED -> "Data Dragon doesn't have permission to use this folder."
+                AutoBackupFolderSelection.CANNOT_SAVE -> "Data Dragon can't save backups to this folder."
+                AutoBackupFolderSelection.SELECTED -> ""
+            },
+            style = AppTheme.textStyles.settingDescription,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+    state.error?.let { error ->
+        Text(
+            error.message(),
+            style = AppTheme.textStyles.settingDescription,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+}
+
+private fun AutoBackupCadence.label(): String = when (this) {
+    AutoBackupCadence.DAILY -> "Daily"
+    AutoBackupCadence.WEEKLY -> "Weekly"
+    AutoBackupCadence.CUSTOM -> "Custom"
+}
+
+private fun AutoBackupError.message(): String = when (this) {
+    AutoBackupError.PERMISSION_LOST ->
+        "Backup failed because Data Dragon no longer has access to this folder. Tap change backup folder and select it again."
+    AutoBackupError.FOLDER_MISSING ->
+        "Backup failed because this folder can't be found. It may have been moved, deleted, or disconnected. Tap change backup folder to choose another."
+    AutoBackupError.WRITE_FAILED -> "Backup couldn't be saved to this folder. Retrying."
+    AutoBackupError.VERIFY_FAILED -> "Backup couldn't be verified. Retrying."
+}
+
+/** Times read `Sep 22, 2026 at 2:32 PM` (docs/STYLE.md §12). */
+private val BACKUP_TIME_FORMAT: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("MMM d, yyyy 'at' h:mm a", Locale.getDefault())
+
+private fun formatBackupTime(epochMillis: Long): String =
+    Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()).format(BACKUP_TIME_FORMAT)

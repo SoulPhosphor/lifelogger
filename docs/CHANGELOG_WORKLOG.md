@@ -1067,3 +1067,21 @@ Completed the remaining Daily List behavior gaps without changing ordinary Lists
 **Next steps**
 
 - Run the GitHub Actions unit tests and release APK build on the Phase 4 branch.
+
+---
+
+## 2026-09-22 — Phase 5: Change-aware automatic backup
+
+- Added the operational `backup_state` row (database v19 → v20, additive migration) and SQLite triggers that increase the protected-data revision in the same transaction as every INSERT, UPDATE, and DELETE on each registered protected table. The triggers are generated from the backup registry, and an invariant test fails when the registry and the installed triggers drift apart.
+- Added a persisted portable-preference revision that increases in the same commit as any portable preference change. Unchanged writes and device-local workflow state do not count.
+- Added the portable automatic-backup cadence (Daily, Weekly, Custom 1–365 days; default Daily, Custom 3) and retention (3, 5, or 7; default 3). Backup format version 4 carries them; restoring a version-3 file leaves the current values unchanged.
+- Automatic backup uses the same complete snapshot, codec, validator, and verified writer as manual backup. A backup is created only when enabled, the folder is usable, the interval is due, and protected data or portable preferences changed since the last verified automatic backup. Only the revisions a snapshot captured become protected.
+- Folder selection acquires the new persisted permission, verifies the folder internally, saves the destination only after that check, and releases the old permission only afterwards. A new destination is due immediately.
+- One process-wide runner serializes WorkManager and foreground attempts. WorkManager uses one unique one-time request; the foreground check runs overdue dirty backups and repairs scheduling, and leaving the app schedules any pending protection.
+- Automatic files use `datadragon_autobackup_YYYY-MM-DD.json`, adding the time only when that date already has an automatic backup. Rotation counts and deletes only exact automatic-backup names, and only after a new backup is verified. Failed attempts delete their partial file, keep earlier backups, record the error, and retry after 15 minutes.
+- Folder, permission, enabled state, success history, errors, revisions, and scheduling stay in device-local storage outside the portable backup.
+- Added the Automatic Backup section in Settings and the one-time folder-access failure dialog using the owner-approved strings.
+
+**Known issues**
+
+- Local unit tests and APK builds require Java/Android tooling unavailable in this sandbox; GitHub Actions provides the authoritative result.
