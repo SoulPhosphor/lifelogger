@@ -1050,3 +1050,20 @@ Completed the remaining Daily List behavior gaps without changing ordinary Lists
 - Moved Daily List preferences to a dedicated full-screen settings route and corrected the required setting order.
 - Corrected startup behavior so automatic reopening opens today only when a saved card exists; otherwise the remembered Daily List main view remains visible.
 - Kept Daily List isolated from backup/export and ordinary List behavior.
+
+---
+
+## 2026-09-22 — Phase 4: Verified manual backup
+
+- Routed manual backup through the complete current snapshot and codec.
+- Prepared and validated the full portable payload before opening the destination picker.
+- Reopened the saved destination after the stream closed and verified format, version, checksum, manifest, counts, and payload equivalence before reporting success.
+- Added failure coverage for corrupted, incomplete, unreadable, and invalid saved output while leaving automatic-backup state untouched.
+
+**Known issues**
+
+- Local unit tests and APK builds require Java/Android tooling unavailable in this sandbox; GitHub Actions must provide the authoritative test and release-build result.
+
+**Next steps**
+
+- Run the GitHub Actions unit tests and release APK build on the Phase 4 branch.

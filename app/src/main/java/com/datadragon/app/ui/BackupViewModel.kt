@@ -1,9 +1,12 @@
 package com.datadragon.app.ui
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import com.datadragon.app.data.AppDatabase
 import com.datadragon.app.data.BackupCodec
+import com.datadragon.app.data.BackupDestination
+import com.datadragon.app.data.BackupFileWriter
 import com.datadragon.app.data.BackupRepository
 import com.datadragon.app.data.RestoreMode
 import com.datadragon.app.data.SettingsRepository
@@ -25,8 +28,24 @@ class BackupViewModel(app: Application) : AndroidViewModel(app) {
     )
     private val undoStore = UndoSnapshotStore(app)
 
-    /** The full-database backup as pretty-printed JSON. */
-    suspend fun buildBackupJson(): String = BackupCodec.encode(repository.buildFull())
+    /** The full-database backup as validated, pretty-printed JSON. */
+    suspend fun buildBackupJson(): String {
+        val encoded = BackupCodec.encode(repository.buildFull())
+        BackupFileWriter().validateFullBackup(encoded)
+        return encoded
+    }
+
+    /** Build and validate the complete payload before the destination picker opens. */
+    suspend fun prepareManualBackupJson(): String = buildBackupJson()
+
+    /** Write, close, reopen, read, and validate the selected destination. */
+    fun saveManualBackup(uri: Uri, encoded: String): Result<Unit> = runCatching {
+        val destination = object : BackupDestination {
+            override fun openOutputStream() = getApplication<Application>().contentResolver.openOutputStream(uri)
+            override fun openInputStream() = getApplication<Application>().contentResolver.openInputStream(uri)
+        }
+        BackupFileWriter().writeAndVerify(destination, encoded)
+    }.map { Unit }
 
     /**
      * Parse [text] and apply it with [mode]. The state right before the import
