@@ -392,9 +392,9 @@ fun SettingsScreen(
             // than the default row gap (docs/STYLE.md).
             Spacer(Modifier.height(AppTheme.spacing.distinctControls - AppTheme.spacing.related))
             // Undo lives at the end of the whole-database controls, so it always
-            // sits with the large changes it can put back, and it puts back the
-            // same kinds of data chosen above. It does not apply to single-item
-            // restores below.
+            // sits with the large changes it can put back. Its category boundary
+            // is captured from the import it reverses; the current chooser does
+            // not change that boundary. It does not apply to single-item restores.
             AppButton(
                 onClick = { pendingUndo = true },
                 enabled = hasUndoSnapshot,
@@ -495,16 +495,7 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { pendingUndo = false },
             text = {
-                Text(
-                    when (restoreType) {
-                        RestoreType.EVERYTHING ->
-                            "Restore previous state prior to import? This can't be undone."
-                        RestoreType.LIST ->
-                            "Restore previous list state prior to import? This can't be undone."
-                        RestoreType.FORM ->
-                            "Restore previous form state prior to import? This can't be undone."
-                    }
-                )
+                Text("Restore the previous state from before the last import? This can't be undone.")
             },
             confirmButton = {
                 TextButton(onClick = {

@@ -473,8 +473,9 @@ class BackupRepository(
             val byDate = dailyListDao.getByDate(incoming.date)
             val byUuid = dailyListDao.getByUuid(incoming.uuid)
             if (byDate == null && byUuid == null) {
-                insertDailyTask(incoming)
+                val targetId = insertDailyTaskCard(incoming)
                 result = result.copy(added = result.added + 1)
+                result += mergeDailyItems(targetId, incoming, choices)
                 return@forEach
             }
             if (byDate == null && byUuid != null) {
@@ -663,12 +664,10 @@ class BackupRepository(
                     add(RestoreConflict(dailyDateConflictId(incoming), BackupCategory.DAILY_TASKS, incoming.date, byDate?.title.orEmpty(), incoming.title, RestoreConflictKind.DAILY_DATE_CARD))
                 }
                 val target = byDate ?: byUuid
-                if (target != null) {
-                    incoming.items.forEach { item ->
-                        val existing = dailyListDao.getItemByUuid(item.uuid)
-                        if (existing != null && (existing.dailyListId != target.id || !sameDailyItem(existing, item))) {
-                            add(RestoreConflict(dailyItemConflictId(incoming.date, item.uuid), BackupCategory.DAILY_TASKS, item.text, existing.text, item.text, RestoreConflictKind.DAILY_ITEM))
-                        }
+                incoming.items.forEach { item ->
+                    val existing = dailyListDao.getItemByUuid(item.uuid)
+                    if (existing != null && (target == null || existing.dailyListId != target.id || !sameDailyItem(existing, item))) {
+                        add(RestoreConflict(dailyItemConflictId(incoming.date, item.uuid), BackupCategory.DAILY_TASKS, item.text, existing.text, item.text, RestoreConflictKind.DAILY_ITEM))
                     }
                 }
             }
@@ -736,9 +735,14 @@ class BackupRepository(
     }
 
     private suspend fun insertDailyTask(task: BackupDailyTask) {
+        val id = insertDailyTaskCard(task)
+        task.items.forEach { dailyListDao.insertItem(it.toEntity(id)) }
+    }
+
+    private suspend fun insertDailyTaskCard(task: BackupDailyTask): Long {
         val id = dailyListDao.insertDailyList(DailyList(uuid = task.uuid, date = LocalDate.parse(task.date), title = task.title, favorited = task.favorited, genuinelyCompleted = task.genuinelyCompleted, completionBlockedByCleanup = task.completionBlockedByCleanup, maintenanceRunOn = task.maintenanceRunOn?.let(LocalDate::parse), renewalRunOn = task.renewalRunOn?.let(LocalDate::parse), createdAt = task.createdAt))
         check(id != -1L) { "Daily Task date already exists." }
-        task.items.forEach { dailyListDao.insertItem(it.toEntity(id)) }
+        return id
     }
 
     private suspend fun insertClickerLog(log: BackupClickerLog) {

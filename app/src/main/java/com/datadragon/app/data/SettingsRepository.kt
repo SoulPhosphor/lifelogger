@@ -251,7 +251,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_CROSS_OUT = "list_cross_out_completed"
         private const val KEY_MOVE_BOTTOM = "list_move_completed_bottom"
         private const val KEY_RESTORE_CONFLICT_POLICY = "restore_conflict_policy"
-    private const val KEY_DL_HEADING = "daily_list_heading"
+        private const val KEY_DL_HEADING = "daily_list_heading"
     private const val KEY_DL_AUTO_RENEW = "daily_list_auto_renew"
     private const val KEY_DL_SHOW_COMPLETED = "daily_list_show_completed"
     private const val KEY_DL_SHOW_CURRENT_UNFINISHED = "daily_list_show_current_unfinished"

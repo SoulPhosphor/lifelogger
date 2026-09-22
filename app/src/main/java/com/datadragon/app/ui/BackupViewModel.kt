@@ -44,8 +44,8 @@ class BackupViewModel(app: Application) : AndroidViewModel(app) {
 
     /**
      * Parse [text] and apply it with [mode]. The state right before the import
-     * is captured for Undo Last Import — but only once the import itself
-     * succeeds, so a failed restore leaves the existing undo snapshot in place.
+     * is secured for Undo Last Import before the database transaction starts.
+     * If restore fails, that valid pre-import snapshot remains available.
      */
     suspend fun restore(
         text: String,
@@ -139,7 +139,9 @@ class BackupViewModel(app: Application) : AndroidViewModel(app) {
                 )
                 else -> {
                     val preflight = repository.preflight(backup, RestoreMode.MERGE)
-                    val choices = preflight.conflicts.associate { it.id to RestoreConflictChoice.KEEP_CURRENT }
+                    // Individual exports retain their established update behavior:
+                    // the imported form/list replaces the grouping with its UUID.
+                    val choices = preflight.conflicts.associate { it.id to RestoreConflictChoice.USE_BACKUP }
                     RestoreResult.Success(repository.restore(backup, RestoreMode.MERGE, conflictChoices = choices))
                 }
             }
@@ -157,8 +159,13 @@ class BackupViewModel(app: Application) : AndroidViewModel(app) {
      */
     suspend fun undoImport(): String {
         val snapshot = undoStore.load() ?: return "Nothing to restore."
-        repository.undo(snapshot)
-        return "Previous state restored."
+        return try {
+            repository.undo(snapshot)
+            "Previous state restored."
+        } catch (error: Exception) {
+            "Undo failed. Database changes were rolled back: " +
+                (error.message ?: "unknown database error")
+        }
     }
 
     private fun selectedCategories(forms: Boolean, lists: Boolean): Set<BackupCategory> = when {

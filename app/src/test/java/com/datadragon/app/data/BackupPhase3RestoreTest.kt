@@ -170,6 +170,77 @@ class BackupPhase3RestoreTest {
     }
 
     @Test
+    fun dailyNewDateStillPreflightsAndMovesAConflictingItemUuidOnlyWhenChosen() = runBlocking {
+        val dao = db.dailyListDao()
+        val oldCardId = dao.insertDailyList(DailyList(uuid = "old-card", date = LocalDate.parse("2026-09-21"), createdAt = 1))
+        dao.insertItem(DailyListItem(dailyListId = oldCardId, uuid = "shared-item", text = "Current", position = 0))
+        val incoming = backup(BackupPayload(dailyTasks = listOf(
+            BackupDailyTask(
+                uuid = "new-card",
+                date = "2026-09-22",
+                title = "New date",
+                favorited = false,
+                genuinelyCompleted = false,
+                completionBlockedByCleanup = false,
+                maintenanceRunOn = null,
+                renewalRunOn = null,
+                createdAt = 2,
+                items = listOf(BackupDailyTaskItem("shared-item", "Backup", false, 0, 0, null)),
+            ),
+        )))
+        val repository = BackupRepository(db)
+        val preflight = repository.preflight(incoming, RestoreMode.MERGE)
+        assertEquals(listOf(RestoreConflictKind.DAILY_ITEM), preflight.conflicts.map { it.kind })
+
+        repository.restore(
+            incoming,
+            RestoreMode.MERGE,
+            conflictChoices = preflight.conflicts.associate { it.id to RestoreConflictChoice.USE_BACKUP },
+        )
+
+        val newCard = dao.getByDate("2026-09-22")!!
+        assertEquals("new-card", newCard.uuid)
+        assertTrue(dao.getItemsOnce(oldCardId).isEmpty())
+        assertEquals("shared-item", dao.getItemsOnce(newCard.id).single().uuid)
+        assertEquals("Backup", dao.getItemsOnce(newCard.id).single().text)
+    }
+
+    @Test
+    fun dailyDateWinsWhenIncomingCardUuidAlreadyBelongsToAnotherDate() = runBlocking {
+        val dao = db.dailyListDao()
+        val dateCardId = dao.insertDailyList(DailyList(uuid = "date-card", date = LocalDate.parse("2026-09-22"), title = "Current date", createdAt = 1))
+        val uuidCardId = dao.insertDailyList(DailyList(uuid = "incoming-card", date = LocalDate.parse("2026-09-21"), title = "Other date", createdAt = 1))
+        val incoming = backup(BackupPayload(dailyTasks = listOf(
+            BackupDailyTask(
+                uuid = "incoming-card",
+                date = "2026-09-22",
+                title = "Backup title",
+                favorited = false,
+                genuinelyCompleted = false,
+                completionBlockedByCleanup = false,
+                maintenanceRunOn = null,
+                renewalRunOn = null,
+                createdAt = 2,
+                items = listOf(BackupDailyTaskItem("backup-item", "Backup task", false, 0, 0, null)),
+            ),
+        )))
+        val repository = BackupRepository(db)
+        val preflight = repository.preflight(incoming, RestoreMode.MERGE)
+        assertEquals(listOf(RestoreConflictKind.DAILY_DATE_CARD), preflight.conflicts.map { it.kind })
+
+        repository.restore(
+            incoming,
+            RestoreMode.MERGE,
+            conflictChoices = preflight.conflicts.associate { it.id to RestoreConflictChoice.USE_BACKUP },
+        )
+
+        assertEquals("date-card", dao.getByDate("2026-09-22")!!.uuid)
+        assertEquals("incoming-card", dao.getByDate("2026-09-21")!!.uuid)
+        assertEquals("backup-item", dao.getItemsOnce(dateCardId).single().uuid)
+        assertTrue(dao.getItemsOnce(uuidCardId).isEmpty())
+    }
+
+    @Test
     fun restoreFailureRollsBackEveryDatabaseCategoryAndPreservesCurrentPreferences() = runBlocking {
         var preferences = BackupPortablePreferences(autoCapitalizeLabels = true)
         db.logTemplateDao().insert(LogTemplate(uuid = "before", name = "Before", createdAt = 1, schemaJson = "[]"))
