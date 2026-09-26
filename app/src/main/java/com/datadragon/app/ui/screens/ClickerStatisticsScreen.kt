@@ -70,7 +70,7 @@ private fun statName(stat: String): String = when (stat) {
     ClickerStats.LOWEST_VALUE -> "Lowest Value"
     ClickerStats.AVERAGE -> "Average"
     ClickerStats.TOTAL -> "Total"
-    ClickerStats.DEFAULT_VALUE_CHANGED -> "Default value changed in X of X logs"
+    ClickerStats.DEFAULT_VALUE_CHANGED -> "Default value changed"
     else -> stat
 }
 
@@ -86,6 +86,10 @@ private fun rangeChips(config: ClickerStatisticsConfig): List<RangeChip> = build
         add(RangeChip("custom", "Last $custom Days", ClickerStatisticsRange.LastDays(custom)))
     }
 }
+
+/** "Default value changed in X of X logs", with X filled in from [stats]. */
+private fun defaultChangedLine(stats: ClickerTrackerStatistics?): String =
+    "Default value changed in ${stats?.defaultChangedCount ?: 0} of ${stats?.logCount ?: 0} logs"
 
 private fun formatAverage(value: Double): String =
     BigDecimal(value).setScale(1, RoundingMode.HALF_UP).toPlainString()
@@ -175,7 +179,7 @@ private fun TrackerStatistics(stats: ClickerTrackerStatistics, config: ClickerSt
         ClickerStats.all.filter { config.isEnabled(stats.field.id, it) }.forEach { stat ->
             when (stat) {
                 ClickerStats.DEFAULT_VALUE_CHANGED -> Text(
-                    "Default value changed in ${stats.defaultChangedCount} of ${stats.logCount} logs",
+                    defaultChangedLine(stats),
                     style = AppTheme.textStyles.settingTitle,
                 )
                 else -> {
@@ -214,6 +218,12 @@ fun ClickerStatisticsDesignerScreen(
 
     val trackers = ClickerStatisticsCalculator.numericFields(fields)
     val dateFields = ClickerStatisticsCalculator.dateFields(fields)
+    val cards by viewModel.cards.collectAsStateWithLifecycle()
+    // The designer has no range of its own, so its "X of X" shows All Time, the
+    // Statistics page's default range.
+    val allTime = ClickerStatisticsCalculator
+        .calculate(config, fields, cards, ClickerStatisticsRange.AllTime, LocalDate.now())
+        .associateBy { it.field.id }
 
     Scaffold(
         topBar = {
@@ -297,7 +307,11 @@ fun ClickerStatisticsDesignerScreen(
                     )
                     ClickerStats.all.forEach { stat ->
                         CheckRow(
-                            label = statName(stat),
+                            label = if (stat == ClickerStats.DEFAULT_VALUE_CHANGED) {
+                                defaultChangedLine(allTime[tracker.id])
+                            } else {
+                                statName(stat)
+                            },
                             checked = stat in on,
                             modifier = Modifier.padding(start = 32.dp),
                         ) { checked -> viewModel.update { it.withStat(tracker.id, stat, checked) } }
