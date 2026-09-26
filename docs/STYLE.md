@@ -38,6 +38,14 @@ These are the ones that keep getting broken. They are absolute.
    own field label. Dropdown labels may be above or beside the dropdown
    according to the screen's design, but never inside the box or breaking its
    border.
+8. **Nothing goes inside a single-line or multi-line text box unless the owner
+   specified it.** No label and no sample text. The box is empty until the
+   user types in it; its label sits above it (rule 7). The one exception is
+   rule 9.
+9. **A field with a default value shows that default inside the box, slightly
+   grayed out, while the user hasn't entered anything.** It is visible before
+   the box is tapped, not only once the box is active, so the user can see
+   what the value will be if they leave it blank.
 
 ---
 
@@ -273,3 +281,19 @@ bare `8.dp` between rows.
   there is no comma before the time. (Stored/machine timestamps stay ISO-8601
   per the Formatting Specification; this rule is only for text shown to the
   user.)
+
+## 13. Empty screens
+
+When a screen has no data yet, it shows a two-line message in place of the
+list, worded exactly like this (the Daily Task example):
+
+- **Title:** `No daily tasks yet.` — "No", the lowercase name of the data
+  type, "yet.", as a normal sentence. Material's `titleMedium`.
+- **Body:** `Click the plus in the top right to begin.` — only when there is a
+  "+" to click to start. Material's `bodyMedium`.
+
+The message is **centered horizontally and vertically** inside the empty
+space, and each line's text is centered.
+
+The reference that does this correctly is the Ideas Home screen with no Idea
+Logs ("No idea logs yet."), drawn by `EmptyMessage` in `HomeScreen.kt`.

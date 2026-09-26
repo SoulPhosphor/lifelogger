@@ -5,9 +5,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material3.AlertDialog
@@ -57,6 +60,13 @@ private val DATE_STORE_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("
 private val DATE_DISPLAY_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
 private val TIME_DISPLAY_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("h:mm a")
 
+/**
+ * Minimum height of a Multi-Line Text box and the Follow-Up Notes box: the same
+ * as a form entry's Notes box. Like that box, there is no cap on how many lines
+ * can be typed — the box grows to fit.
+ */
+internal val CLICKER_TEXT_BOX_MIN_HEIGHT = 120.dp
+
 private fun numberInput(input: String, maxDigits: Int): String {
     val negative = input.startsWith("-")
     val digits = input.filter { it.isDigit() }.take(maxDigits)
@@ -75,11 +85,13 @@ fun ClickerCardEditScreen(
     var displayDate by remember { mutableStateOf<String?>(null) }
     var displayTime by remember { mutableStateOf<String?>(null) }
     var original by remember { mutableStateOf<ClickerCard?>(null) }
+    var allowFollowUp by remember { mutableStateOf(false) }
 
     LaunchedEffect(cardId) {
         val card = viewModel.loadCard(cardId)
         if (card != null) {
             original = card
+            allowFollowUp = viewModel.loadLog(card.clickerLogId)?.allowFollowUp ?: false
             fields.clear()
             fields.addAll(viewModel.loadFields(card.clickerLogId))
             values.clear()
@@ -89,17 +101,29 @@ fun ClickerCardEditScreen(
         }
     }
 
+    // Leaving with unsaved edits asks first, the same as editing a form entry.
+    // Cleared values are dropped from the map, so a field emptied back out
+    // compares equal to one that was never filled in.
+    val current = original
+    val dirty = current != null && (
+        displayDate != current.displayDate ||
+            displayTime != current.displayTime ||
+            values.filterValues { it.isNotEmpty() } != ClickerValues.decode(current.valuesJson).filterValues { it.isNotEmpty() }
+        )
+    var showDiscard by remember { mutableStateOf(false) }
+    fun attemptBack() { if (dirty) showDiscard = true else onBack() }
+    BackHandler { attemptBack() }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Edit Card") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = { attemptBack() }) {
                         Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
                     }
                 },
                 actions = {
-                    val current = original
                     TextButton(
                         enabled = current != null,
                         onClick = {
@@ -108,7 +132,7 @@ fun ClickerCardEditScreen(
                                     card = current.copy(
                                         displayDate = displayDate,
                                         displayTime = displayTime,
-                                        valuesJson = ClickerValues.encode(values.toMap()),
+                                        valuesJson = ClickerValues.encode(values.filterValues { it.isNotEmpty() }),
                                     ),
                                     onSaved = onBack,
                                 )
@@ -123,6 +147,7 @@ fun ClickerCardEditScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
@@ -139,15 +164,16 @@ fun ClickerCardEditScreen(
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             }
 
+            // Editable text boxes carry their label above the box, never inside it
+            // (docs/STYLE.md §1 rule 7), the same as a form entry.
             fields.forEach { field ->
                 when (field.type) {
-                    ClickerFieldType.CLICK_TRACKER, ClickerFieldType.WRITE_IN_NUMBER -> {
+                    ClickerFieldType.CLICK_TRACKER, ClickerFieldType.WRITE_IN_NUMBER -> Labeled(field.label) {
                         val maxDigits = field.maxDigits ?: 6
                         OutlinedTextField(
                             value = ClickerValues.text(values, field.id),
                             onValueChange = { values[field.id] = numberInput(it, maxDigits) },
                             singleLine = true,
-                            label = { Text(field.label) },
                             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth(),
                         )
@@ -158,24 +184,43 @@ fun ClickerCardEditScreen(
                         TimeEditRow(label = field.label, iso = values[field.id], onSet = { values[field.id] = it })
                     ClickerFieldType.DATE_TIME ->
                         DateTimeEditRow(label = field.label, value = values[field.id], onSet = { values[field.id] = it })
-                    ClickerFieldType.TEXT ->
+                    ClickerFieldType.TEXT -> Labeled(field.label) {
                         OutlinedTextField(
                             value = ClickerValues.text(values, field.id),
                             onValueChange = { values[field.id] = it },
                             singleLine = true,
-                            label = { Text(field.label) },
                             modifier = Modifier.fillMaxWidth(),
                         )
-                    ClickerFieldType.MULTITEXT ->
+                    }
+                    ClickerFieldType.MULTITEXT -> Labeled(field.label) {
                         OutlinedTextField(
                             value = ClickerValues.text(values, field.id),
                             onValueChange = { values[field.id] = it },
-                            label = { Text(field.label) },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth().heightIn(min = CLICKER_TEXT_BOX_MIN_HEIGHT),
                         )
+                    }
+                }
+            }
+
+            // Follow-Up Notes sit at the bottom, in the same box as a form entry's Notes.
+            if (allowFollowUp) {
+                HorizontalDivider()
+                Labeled("Follow-Up Notes") {
+                    OutlinedTextField(
+                        value = ClickerValues.text(values, ClickerValues.FOLLOW_UP_KEY),
+                        onValueChange = { values[ClickerValues.FOLLOW_UP_KEY] = it },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = CLICKER_TEXT_BOX_MIN_HEIGHT),
+                    )
                 }
             }
         }
+    }
+
+    if (showDiscard) {
+        DiscardChangesDialog(
+            onConfirm = { showDiscard = false; onBack() },
+            onDismiss = { showDiscard = false },
+        )
     }
 }
 

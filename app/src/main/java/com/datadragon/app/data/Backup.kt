@@ -1,6 +1,8 @@
 package com.datadragon.app.data
 
 import java.security.MessageDigest
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
@@ -123,7 +125,9 @@ data class BackupCounts(
             clickerLogs = payload.clickerData?.size ?: 0,
             clickerCards = payload.clickerData?.sumOf { it.cards.size } ?: 0,
             savedColorPresets = payload.savedColorPresets?.size ?: 0,
-            portablePreferences = if (payload.portablePreferences == null) 0 else 26,
+            // The 26 fixed preferences, plus one per Clicker grouping's Follow-Up
+            // Notes show/hide choice (none in backups made before that existed).
+            portablePreferences = payload.portablePreferences?.let { 26 + (it.clickerFollowUpShown?.size ?: 0) } ?: 0,
         )
     }
 }
@@ -263,7 +267,11 @@ data class BackupClickerCard(
 @Serializable
 data class BackupColorPreset(val uuid: String, val name: String, val colorsJson: String)
 
-/** Explicit allowlist of the 26 portable preferences that currently exist. */
+/**
+ * Explicit allowlist of the 26 portable preferences that currently exist, plus
+ * the per-grouping Clicker Follow-Up Notes show/hide choices.
+ */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class BackupPortablePreferences(
     val autoCapitalizeLabels: Boolean = true,
@@ -292,6 +300,17 @@ data class BackupPortablePreferences(
     val dailyListCelebrationIcon: String = CelebrationIcon.CHECK_CIRCLE.key,
     val dailyListProtectFavorited: Boolean = true,
     val dailyListRetention: String = "",
+    /**
+     * Per Clicker grouping, whether its Main screen shows the Follow-Up Notes box
+     * on the cards (the top-bar Edit Note / Article Shortcut button), keyed by
+     * the grouping's permanent UUID. Null in backups made before this existed,
+     * which leaves the device's current choices untouched on restore.
+     *
+     * Never written while null, so a backup made before this field existed
+     * re-encodes byte-for-byte and its checksum still matches.
+     */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val clickerFollowUpShown: Map<String, Boolean>? = null,
 )
 
 data class UndoSnapshot(
@@ -479,6 +498,9 @@ object BackupCodec {
             log.copy(cards = log.cards.sortedWith(compareBy({ it.createdAt }, { it.uuid })))
         }?.sortedWith(compareBy({ it.uuid }, { it.createdAt }, { it.title })),
         savedColorPresets = payload.savedColorPresets?.sortedWith(compareBy({ it.uuid }, { it.name })),
+        portablePreferences = payload.portablePreferences?.let { prefs ->
+            prefs.copy(clickerFollowUpShown = prefs.clickerFollowUpShown?.toSortedMap())
+        },
     )
 
     private fun canonicalForms(forms: List<BackupLog>): List<BackupLog> = forms.map { form ->

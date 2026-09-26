@@ -192,13 +192,14 @@ fun ClickerSetupScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
         ) {
-            OutlinedTextField(
-                value = title,
-                onValueChange = { title = it },
-                singleLine = true,
-                label = { Text("Clicker Data Log Title") },
-                modifier = Modifier.fillMaxWidth(),
-            )
+            Labeled("Clicker Data Log Title") {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
 
             ToggleRow(
                 title = "Display only clicker and date/time related fields?",
@@ -326,56 +327,61 @@ private fun ClickerFieldEditor(
             }
         }
 
-        OutlinedTextField(
-            value = field.label,
-            onValueChange = { field.label = it },
-            singleLine = true,
-            label = { Text("Label") },
-            modifier = Modifier.fillMaxWidth(),
-        )
+        Labeled("Label") {
+            OutlinedTextField(
+                value = field.label,
+                onValueChange = { field.label = it },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
 
         when (field.type) {
             ClickerFieldType.CLICK_TRACKER -> {
-                OutlinedTextField(
-                    value = field.buttonLabel,
-                    onValueChange = { field.buttonLabel = it },
-                    singleLine = true,
-                    label = { Text("Button Label") },
-                    placeholder = { Text("Add") },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                OutlinedTextField(
-                    value = field.startingNumber,
-                    onValueChange = { field.startingNumber = digitsOnly(it, STARTING_NUMBER_DIGITS) },
-                    singleLine = true,
-                    label = { Text("Starting Number") },
-                    placeholder = { Text("0") },
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                Labeled("Button Label") {
+                    OutlinedTextField(
+                        value = field.buttonLabel,
+                        onValueChange = { field.buttonLabel = it },
+                        singleLine = true,
+                        placeholder = { Text("Add") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                Labeled("Starting Number") {
+                    OutlinedTextField(
+                        value = field.startingNumber,
+                        onValueChange = { field.startingNumber = digitsOnly(it, STARTING_NUMBER_DIGITS) },
+                        singleLine = true,
+                        placeholder = { Text("0") },
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
                 DirectionRow(
                     selected = field.incrementDirection,
                     onSelected = { field.incrementDirection = it },
                 )
-                OutlinedTextField(
-                    value = field.incrementAmount,
-                    onValueChange = { field.incrementAmount = digitsOnly(it, INCREMENT_DIGITS) },
-                    singleLine = true,
-                    label = { Text("In Increments Of") },
-                    placeholder = { Text("1") },
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                Labeled("In Increments Of") {
+                    OutlinedTextField(
+                        value = field.incrementAmount,
+                        onValueChange = { field.incrementAmount = digitsOnly(it, INCREMENT_DIGITS) },
+                        singleLine = true,
+                        placeholder = { Text("1") },
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
             ClickerFieldType.WRITE_IN_NUMBER -> {
-                OutlinedTextField(
-                    value = field.maxDigits,
-                    onValueChange = { field.maxDigits = digitsOnly(it, MAX_DIGITS_DIGITS) },
-                    singleLine = true,
-                    label = { Text("Maximum Amount of Numbers") },
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                Labeled("Maximum Amount of Numbers") {
+                    OutlinedTextField(
+                        value = field.maxDigits,
+                        onValueChange = { field.maxDigits = digitsOnly(it, MAX_DIGITS_DIGITS) },
+                        singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
                 ToggleRow(
                     title = "Have Button to Automatically Increment Write-In Value?",
                     subtitle = "Adds a card button that steps the value up or down by a set amount.",
@@ -387,23 +393,25 @@ private fun ClickerFieldEditor(
                         selected = field.incrementDirection,
                         onSelected = { field.incrementDirection = it },
                     )
-                    OutlinedTextField(
-                        value = field.incrementAmount,
-                        onValueChange = { field.incrementAmount = digitsOnly(it, INCREMENT_DIGITS) },
-                        singleLine = true,
-                        label = { Text("In Increments Of") },
-                        placeholder = { Text("1") },
-                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    OutlinedTextField(
-                        value = field.buttonLabel,
-                        onValueChange = { field.buttonLabel = it },
-                        singleLine = true,
-                        label = { Text("Button Label") },
-                        placeholder = { Text("Okay") },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    Labeled("In Increments Of") {
+                        OutlinedTextField(
+                            value = field.incrementAmount,
+                            onValueChange = { field.incrementAmount = digitsOnly(it, INCREMENT_DIGITS) },
+                            singleLine = true,
+                            placeholder = { Text("1") },
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    Labeled("Button Label") {
+                        OutlinedTextField(
+                            value = field.buttonLabel,
+                            onValueChange = { field.buttonLabel = it },
+                            singleLine = true,
+                            placeholder = { Text("Okay") },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                 }
             }
             else -> {

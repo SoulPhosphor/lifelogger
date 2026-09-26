@@ -30,6 +30,18 @@ class SettingsRepository(context: Context) {
         get() = HomeView.fromKey(prefs.getString(KEY_LAST_VIEW, null))
         set(value) { prefs.edit().putString(KEY_LAST_VIEW, value.key).apply() }
 
+    /**
+     * Whether a Clicker grouping's Main screen is showing the Follow-Up Notes box
+     * on its cards (the top-bar Edit Note / Article Shortcut button), so it stays
+     * the way it was left. Keyed by the grouping's permanent UUID.
+     */
+    fun isClickerFollowUpShown(logUuid: String): Boolean =
+        prefs.getBoolean("$KEY_CLICKER_FOLLOW_UP_SHOWN_PREFIX$logUuid", false)
+
+    fun setClickerFollowUpShown(logUuid: String, shown: Boolean) {
+        prefs.edit().putBoolean("$KEY_CLICKER_FOLLOW_UP_SHOWN_PREFIX$logUuid", shown).apply()
+    }
+
     // --- Navigation menu preferences (all global) ----------------------------
 
     /** How the Home bar presents the data modes: a row of icons, or a dropdown. */
@@ -204,6 +216,13 @@ class SettingsRepository(context: Context) {
         dailyListCelebrationIcon = dailyListCelebrationIcon.key,
         dailyListProtectFavorited = dailyListProtectFavorited,
         dailyListRetention = dailyListRetentionRaw,
+        clickerFollowUpShown = prefs.all
+            .filterKeys { it.startsWith(KEY_CLICKER_FOLLOW_UP_SHOWN_PREFIX) }
+            .mapNotNull { (key, value) ->
+                (value as? Boolean)?.let { key.removePrefix(KEY_CLICKER_FOLLOW_UP_SHOWN_PREFIX) to it }
+            }
+            .sortedBy { it.first }
+            .toMap(),
     )
 
     /** Apply the complete portable allowlist synchronously so restore can detect write failure. */
@@ -235,6 +254,16 @@ class SettingsRepository(context: Context) {
             .putString(KEY_DL_CELEBRATION_ICON, preferences.dailyListCelebrationIcon)
             .putBoolean(KEY_DL_PROTECT_FAVORITED, preferences.dailyListProtectFavorited)
             .putString(KEY_DL_RETENTION, preferences.dailyListRetention)
+            .also { editor ->
+                // A backup that carries the Clicker Follow-Up Notes choices replaces
+                // them all; an older backup without them leaves the current ones.
+                preferences.clickerFollowUpShown?.let { shown ->
+                    prefs.all.keys
+                        .filter { it.startsWith(KEY_CLICKER_FOLLOW_UP_SHOWN_PREFIX) }
+                        .forEach { editor.remove(it) }
+                    shown.forEach { (uuid, value) -> editor.putBoolean("$KEY_CLICKER_FOLLOW_UP_SHOWN_PREFIX$uuid", value) }
+                }
+            }
             .commit()
         check(committed) { "Portable preferences could not be saved." }
     }
@@ -244,6 +273,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_LABELS = "auto_capitalize_labels"
         private const val KEY_OPTIONS = "auto_capitalize_options"
         private const val KEY_LAST_VIEW = "last_home_view"
+        private const val KEY_CLICKER_FOLLOW_UP_SHOWN_PREFIX = "clicker_follow_up_shown_"
         private const val KEY_NAV_STYLE = "nav_style"
         private const val KEY_NAV_USE_LABEL = "nav_use_mode_label"
         private const val KEY_MODE_ENABLED_PREFIX = "mode_enabled_"

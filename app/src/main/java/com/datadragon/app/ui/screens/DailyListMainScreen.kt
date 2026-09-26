@@ -79,7 +79,9 @@ fun DailyListBody(
     var sortMenuOpen by remember { mutableStateOf(false) }
 
     if (cards.isEmpty()) {
-        Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        // Fill the whole empty area so the message sits centered both ways
+        // (docs/STYLE.md §13).
+        Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp),

@@ -47,9 +47,9 @@ data class ClickerField(
  * The set of field types a Clicker Data Log can hold. The serialized [token] is
  * the stable string stored in JSON.
  *
- * The number trackers are editable on the card face for quick changes; the
- * date/time and text types are display-only on the face and are changed only
- * from a card's edit menu.
+ * The number trackers and the text types are editable on the card face; the
+ * date/time types are display-only on the face and are changed only from a
+ * card's edit menu.
  */
 @Serializable
 enum class ClickerFieldType(val token: String) {
@@ -81,11 +81,11 @@ enum class ClickerIncrementDirection(val token: String) {
 
 /**
  * True for the types that can only be changed from a card's edit menu, never on
- * the card face. The number trackers are the only face-editable types.
+ * the card face. The number trackers and the text types are face-editable.
  */
 val ClickerFieldType.editOnlyFromCardMenu: Boolean
     get() = when (this) {
-        ClickerFieldType.CLICK_TRACKER, ClickerFieldType.WRITE_IN_NUMBER -> false
-        ClickerFieldType.DATE, ClickerFieldType.TIME, ClickerFieldType.DATE_TIME,
-        ClickerFieldType.TEXT, ClickerFieldType.MULTITEXT -> true
+        ClickerFieldType.CLICK_TRACKER, ClickerFieldType.WRITE_IN_NUMBER,
+        ClickerFieldType.TEXT, ClickerFieldType.MULTITEXT -> false
+        ClickerFieldType.DATE, ClickerFieldType.TIME, ClickerFieldType.DATE_TIME -> true
     }
