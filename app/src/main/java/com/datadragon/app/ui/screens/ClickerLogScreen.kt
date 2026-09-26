@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
@@ -111,6 +112,21 @@ fun ClickerLogScreen(
     var cogMenuOpen by remember { mutableStateOf(false) }
     var confirmDeleteLog by remember { mutableStateOf(false) }
 
+    // Cards are listed newest first, so a card added with the top-bar "+" lands
+    // above whatever is on screen. When a tall card fills the screen the list
+    // would otherwise stay put and the new card would be out of sight, so each
+    // add scrolls back up until the new card's top is at the top of the screen.
+    val listState = rememberLazyListState()
+    // Counts taps whose card hasn't appeared yet, so several quick taps each scroll.
+    var pendingAddScrolls by remember { mutableStateOf(0) }
+    val topCardId = cards.firstOrNull()?.id
+    LaunchedEffect(topCardId) {
+        if (pendingAddScrolls > 0 && topCardId != null) {
+            pendingAddScrolls -= 1
+            listState.animateScrollToItem(0)
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -142,7 +158,7 @@ fun ClickerLogScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.addCard() }) {
+                    IconButton(onClick = { pendingAddScrolls += 1; viewModel.addCard() }) {
                         Icon(Icons.Filled.Add, contentDescription = "New card")
                     }
                 },
@@ -167,6 +183,7 @@ fun ClickerLogScreen(
             }
         } else {
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize().padding(padding),
                 contentPadding = PaddingValues(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
