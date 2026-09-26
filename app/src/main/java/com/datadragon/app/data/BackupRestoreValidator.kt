@@ -88,6 +88,7 @@ object BackupRestoreValidator {
         logs.forEach { log ->
             validateClickerFields(log.fieldsJson)
             log.cards.forEach { requireJsonObject(it.valuesJson, "Clicker card values") }
+            log.statisticsJson?.takeIf { it.isNotBlank() }?.let { requireJsonObject(it, "Clicker statistics settings") }
         }
     }
 

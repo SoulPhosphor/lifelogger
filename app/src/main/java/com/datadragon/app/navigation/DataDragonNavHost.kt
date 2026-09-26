@@ -13,6 +13,8 @@ import com.datadragon.app.ui.screens.ChecklistScreen
 import com.datadragon.app.ui.screens.ClickerCardEditScreen
 import com.datadragon.app.ui.screens.ClickerLogScreen
 import com.datadragon.app.ui.screens.ClickerSetupScreen
+import com.datadragon.app.ui.screens.ClickerStatisticsDesignerScreen
+import com.datadragon.app.ui.screens.ClickerStatisticsScreen
 import com.datadragon.app.ui.screens.CreateIdeaLogScreen
 import com.datadragon.app.ui.screens.CreateLogScreen
 import com.datadragon.app.ui.screens.DailyListEditorScreen
@@ -258,7 +260,32 @@ fun DataDragonNavHost(
                     onBack = { navController.popBackStack() },
                     onEditLog = { navController.navigate(Routes.editClickerLog(it)) },
                     onEditCard = { navController.navigate(Routes.clickerCardEdit(it)) },
+                    onOpenStatistics = { navController.navigate(Routes.clickerStatistics(it)) },
                 )
+            }
+        }
+
+        composable(
+            route = Routes.CLICKER_STATISTICS,
+            arguments = listOf(navArgument(Routes.CLICKER_LOG_ARG) { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val id = backStackEntry.arguments?.getString(Routes.CLICKER_LOG_ARG)?.toLongOrNull()
+            if (id != null) {
+                ClickerStatisticsScreen(
+                    logId = id,
+                    onBack = { navController.popBackStack() },
+                    onOpenDesigner = { navController.navigate(Routes.clickerStatisticsDesigner(it)) },
+                )
+            }
+        }
+
+        composable(
+            route = Routes.CLICKER_STATISTICS_DESIGNER,
+            arguments = listOf(navArgument(Routes.CLICKER_LOG_ARG) { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val id = backStackEntry.arguments?.getString(Routes.CLICKER_LOG_ARG)?.toLongOrNull()
+            if (id != null) {
+                ClickerStatisticsDesignerScreen(logId = id, onBack = { navController.popBackStack() })
             }
         }
 

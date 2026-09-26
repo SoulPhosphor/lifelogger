@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.SettingsApplications
@@ -106,6 +107,7 @@ fun ClickerLogScreen(
     onBack: () -> Unit,
     onEditLog: (Long) -> Unit,
     onEditCard: (Long) -> Unit,
+    onOpenStatistics: (Long) -> Unit,
     viewModel: ClickerLogViewModel = viewModel(),
 ) {
     LaunchedEffect(logId) { viewModel.start(logId) }
@@ -163,6 +165,11 @@ fun ClickerLogScreen(
                     }
                 },
                 actions = {
+                    // Opens the Statistics page. Directly left of the Follow-Up
+                    // Notes button when that shows, otherwise directly left of "+".
+                    IconButton(onClick = { onOpenStatistics(logId) }) {
+                        Icon(Icons.Filled.BarChart, contentDescription = "Statistics")
+                    }
                     // Directly left of the "+": shows (Edit Note) or hides (Article
                     // Shortcut) the Follow-Up Notes box on every card. Hiding never
                     // touches the notes' saved text.

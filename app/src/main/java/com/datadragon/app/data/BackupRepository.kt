@@ -112,6 +112,7 @@ class BackupRepository(
                 autoDateStamp = log.autoDateStamp,
                 autoTimeStamp = log.autoTimeStamp,
                 allowFollowUp = log.allowFollowUp,
+                statisticsJson = log.statisticsJson.ifBlank { null },
                 cards = clickerCards[log.id].orEmpty().map { card ->
                     BackupClickerCard(
                         uuid = card.uuid,
@@ -707,6 +708,7 @@ class BackupRepository(
         log.uuid, log.title, log.createdAt, log.lastAccessedAt, log.lastModifiedAt, log.fieldsJson,
         log.displayOnlyClickerDateTime, log.autoDateStamp, log.autoTimeStamp, log.allowFollowUp,
         clickerDao.getCardsForLog(log.id).map { BackupClickerCard(it.uuid, it.createdAt, it.displayDate, it.displayTime, it.valuesJson) }.sortedWith(compareBy({ it.createdAt }, { it.uuid })),
+        log.statisticsJson.ifBlank { null },
     )
 
     private suspend fun insertForm(log: BackupLog) {
@@ -747,7 +749,7 @@ class BackupRepository(
     }
 
     private suspend fun insertClickerLog(log: BackupClickerLog) {
-        val id = clickerDao.insertLog(ClickerLog(uuid = log.uuid, title = log.title, createdAt = log.createdAt, lastAccessedAt = log.lastAccessedAt, lastModifiedAt = log.lastModifiedAt, fieldsJson = log.fieldsJson, displayOnlyClickerDateTime = log.displayOnlyClickerDateTime, autoDateStamp = log.autoDateStamp, autoTimeStamp = log.autoTimeStamp, allowFollowUp = log.allowFollowUp))
+        val id = clickerDao.insertLog(ClickerLog(uuid = log.uuid, title = log.title, createdAt = log.createdAt, lastAccessedAt = log.lastAccessedAt, lastModifiedAt = log.lastModifiedAt, fieldsJson = log.fieldsJson, displayOnlyClickerDateTime = log.displayOnlyClickerDateTime, autoDateStamp = log.autoDateStamp, autoTimeStamp = log.autoTimeStamp, allowFollowUp = log.allowFollowUp, statisticsJson = log.statisticsJson.orEmpty()))
         log.cards.forEach { clickerDao.insertCard(ClickerCard(clickerLogId = id, uuid = it.uuid, createdAt = it.createdAt, displayDate = it.displayDate, displayTime = it.displayTime, valuesJson = it.valuesJson)) }
     }
 

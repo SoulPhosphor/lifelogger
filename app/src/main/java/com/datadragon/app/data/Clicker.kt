@@ -1,5 +1,6 @@
 package com.datadragon.app.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -33,6 +34,9 @@ import androidx.room.PrimaryKey
  *   at the top of each card. The real creation instant is always kept in
  *   [ClickerCard.createdAt] regardless, so cards can be ordered either way.
  * - [allowFollowUp]: cards may carry follow-up notes, added from the edit menu.
+ *
+ * [statisticsJson] holds the Statistics Designer choices (a
+ * [ClickerStatisticsConfig]); blank means every default.
  */
 @Entity(
     tableName = "clicker_logs",
@@ -50,6 +54,8 @@ data class ClickerLog(
     val autoDateStamp: Boolean = true,
     val autoTimeStamp: Boolean = false,
     val allowFollowUp: Boolean = false,
+    @ColumnInfo(defaultValue = "")
+    val statisticsJson: String = "",
 )
 
 /**

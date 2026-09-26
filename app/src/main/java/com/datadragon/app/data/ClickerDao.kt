@@ -61,6 +61,13 @@ interface ClickerDao {
     suspend fun touchLog(id: Long, time: Long)
 
     /**
+     * Save the Statistics Designer choices. Not a card change, so neither the
+     * recently-used order nor "Last Saved" moves.
+     */
+    @Query("UPDATE clicker_logs SET statisticsJson = :statisticsJson WHERE id = :id")
+    suspend fun setStatistics(id: Long, statisticsJson: String)
+
+    /**
      * Record a card-content change: bump both the recently-used order and the
      * "Last Saved" time. Called on every card add / step / value edit / delete,
      * never on a plain open or a grouping-title rename.
