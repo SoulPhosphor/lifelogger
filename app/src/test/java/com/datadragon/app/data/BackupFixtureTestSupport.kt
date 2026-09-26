@@ -25,7 +25,7 @@ object BackupFixtureTestSupport {
 
         val configuration = SupportSQLiteOpenHelper.Configuration.builder(context)
             .name(name)
-            .callback(object : SupportSQLiteOpenHelper.Callback(19) {
+            .callback(object : SupportSQLiteOpenHelper.Callback(AppDatabase.SCHEMA_VERSION) {
                 override fun onCreate(db: SupportSQLiteDatabase) = Unit
                 override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
             })
