@@ -39,9 +39,13 @@ These are the ones that keep getting broken. They are absolute.
    according to the screen's design, but never inside the box or breaking its
    border.
 8. **Nothing goes inside a single-line or multi-line text box unless the owner
-   specified it.** No label, no placeholder, no sample or default value shown
-   as gray text. The box is empty until the user types in it; its label sits
-   above it (rule 7).
+   specified it.** No label and no sample text. The box is empty until the
+   user types in it; its label sits above it (rule 7). The one exception is
+   rule 9.
+9. **A field with a default value shows that default inside the box, slightly
+   grayed out, while the user hasn't entered anything.** It is visible before
+   the box is tapped, not only once the box is active, so the user can see
+   what the value will be if they leave it blank.
 
 ---
 

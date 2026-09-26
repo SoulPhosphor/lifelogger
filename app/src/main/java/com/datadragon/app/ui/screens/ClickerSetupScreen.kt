@@ -343,6 +343,7 @@ private fun ClickerFieldEditor(
                         value = field.buttonLabel,
                         onValueChange = { field.buttonLabel = it },
                         singleLine = true,
+                        placeholder = { Text("Add") },
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -351,6 +352,7 @@ private fun ClickerFieldEditor(
                         value = field.startingNumber,
                         onValueChange = { field.startingNumber = digitsOnly(it, STARTING_NUMBER_DIGITS) },
                         singleLine = true,
+                        placeholder = { Text("0") },
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -364,6 +366,7 @@ private fun ClickerFieldEditor(
                         value = field.incrementAmount,
                         onValueChange = { field.incrementAmount = digitsOnly(it, INCREMENT_DIGITS) },
                         singleLine = true,
+                        placeholder = { Text("1") },
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -395,6 +398,7 @@ private fun ClickerFieldEditor(
                             value = field.incrementAmount,
                             onValueChange = { field.incrementAmount = digitsOnly(it, INCREMENT_DIGITS) },
                             singleLine = true,
+                            placeholder = { Text("1") },
                             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth(),
                         )
@@ -404,6 +408,7 @@ private fun ClickerFieldEditor(
                             value = field.buttonLabel,
                             onValueChange = { field.buttonLabel = it },
                             singleLine = true,
+                            placeholder = { Text("Okay") },
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
