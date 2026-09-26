@@ -294,3 +294,6 @@ list, worded exactly like this (the Daily Task example):
 
 The message is **centered horizontally and vertically** inside the empty
 space, and each line's text is centered.
+
+The reference that does this correctly is the Ideas Home screen with no Idea
+Logs ("No idea logs yet."), drawn by `EmptyMessage` in `HomeScreen.kt`.
