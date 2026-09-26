@@ -30,6 +30,18 @@ class SettingsRepository(context: Context) {
         get() = HomeView.fromKey(prefs.getString(KEY_LAST_VIEW, null))
         set(value) { prefs.edit().putString(KEY_LAST_VIEW, value.key).apply() }
 
+    /**
+     * Whether a Clicker grouping's Main screen is showing the Follow-Up Notes box
+     * on its cards (the top-bar Edit Note / Article Shortcut button), so it stays
+     * the way it was left. Keyed by the grouping's permanent UUID.
+     */
+    fun isClickerFollowUpShown(logUuid: String): Boolean =
+        prefs.getBoolean("$KEY_CLICKER_FOLLOW_UP_SHOWN_PREFIX$logUuid", false)
+
+    fun setClickerFollowUpShown(logUuid: String, shown: Boolean) {
+        prefs.edit().putBoolean("$KEY_CLICKER_FOLLOW_UP_SHOWN_PREFIX$logUuid", shown).apply()
+    }
+
     // --- Navigation menu preferences (all global) ----------------------------
 
     /** How the Home bar presents the data modes: a row of icons, or a dropdown. */
@@ -244,6 +256,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_LABELS = "auto_capitalize_labels"
         private const val KEY_OPTIONS = "auto_capitalize_options"
         private const val KEY_LAST_VIEW = "last_home_view"
+        private const val KEY_CLICKER_FOLLOW_UP_SHOWN_PREFIX = "clicker_follow_up_shown_"
         private const val KEY_NAV_STYLE = "nav_style"
         private const val KEY_NAV_USE_LABEL = "nav_use_mode_label"
         private const val KEY_MODE_ENABLED_PREFIX = "mode_enabled_"

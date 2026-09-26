@@ -10,6 +10,7 @@ import com.datadragon.app.data.ClickerFieldType
 import com.datadragon.app.data.ClickerIncrementDirection
 import com.datadragon.app.data.ClickerLog
 import com.datadragon.app.data.ClickerValues
+import com.datadragon.app.data.SettingsRepository
 import com.datadragon.app.data.StableUuid
 import java.time.LocalDate
 import java.time.LocalTime
@@ -18,6 +19,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -40,6 +42,7 @@ private val CLICKER_TIME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern
 class ClickerLogViewModel(app: Application) : AndroidViewModel(app) {
 
     private val dao = AppDatabase.getInstance(app).clickerDao()
+    private val settings = SettingsRepository(app)
     private val json = Json { ignoreUnknownKeys = true }
     private val logId = MutableStateFlow<Long?>(null)
 
@@ -57,6 +60,26 @@ class ClickerLogViewModel(app: Application) : AndroidViewModel(app) {
     val cards: StateFlow<List<ClickerCard>> =
         logId.flatMapLatest { id -> if (id == null) flowOf(emptyList()) else dao.observeCards(id) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    // Bumped on each toggle so [followUpShown] re-reads the stored state.
+    private val followUpToggles = MutableStateFlow(0)
+
+    /**
+     * Whether the cards on this Main screen show their Follow-Up Notes box. Only
+     * when the grouping allows Follow-Up Notes; otherwise the stored state is
+     * kept but ignored. Stays the way it was left, per grouping.
+     */
+    val followUpShown: StateFlow<Boolean> =
+        combine(log, followUpToggles) { l, _ ->
+            l != null && l.allowFollowUp && settings.isClickerFollowUpShown(l.uuid)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /** The top-bar Edit Note / Article Shortcut button: show or hide Follow-Up Notes on the cards. */
+    fun toggleFollowUpShown() {
+        val l = log.value ?: return
+        settings.setClickerFollowUpShown(l.uuid, !settings.isClickerFollowUpShown(l.uuid))
+        followUpToggles.value += 1
+    }
 
     /** Point the screen at a log and mark it used (so it rises in the home order). */
     fun start(id: Long) {

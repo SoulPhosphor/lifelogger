@@ -39,10 +39,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.datadragon.app.R
 import com.datadragon.app.data.ClickerCard
 import com.datadragon.app.data.ClickerField
 import com.datadragon.app.data.ClickerFieldType
@@ -109,6 +111,7 @@ fun ClickerLogScreen(
     val log by viewModel.log.collectAsStateWithLifecycle()
     val fields by viewModel.fields.collectAsStateWithLifecycle()
     val cards by viewModel.cards.collectAsStateWithLifecycle()
+    val followUpShown by viewModel.followUpShown.collectAsStateWithLifecycle()
 
     var cogMenuOpen by remember { mutableStateOf(false) }
     var confirmDeleteLog by remember { mutableStateOf(false) }
@@ -159,6 +162,17 @@ fun ClickerLogScreen(
                     }
                 },
                 actions = {
+                    // Directly left of the "+": shows (Edit Note) or hides (Article
+                    // Shortcut) the Follow-Up Notes box on every card. Hiding never
+                    // touches the notes' saved text.
+                    if (log?.allowFollowUp == true) {
+                        IconButton(onClick = { viewModel.toggleFollowUpShown() }) {
+                            Icon(
+                                painterResource(if (followUpShown) R.drawable.ic_article_shortcut else R.drawable.ic_edit_note),
+                                contentDescription = if (followUpShown) "Hide Follow-Up Notes" else "Show Follow-Up Notes",
+                            )
+                        }
+                    }
                     IconButton(onClick = { pendingAddScrolls += 1; viewModel.addCard() }) {
                         Icon(Icons.Filled.Add, contentDescription = "New card")
                     }
@@ -194,6 +208,8 @@ fun ClickerLogScreen(
                         card = card,
                         fields = fields,
                         displayOnlyClickerDateTime = log?.displayOnlyClickerDateTime ?: false,
+                        showFollowUp = followUpShown,
+                        onSetFollowUp = { raw -> viewModel.setValue(card, ClickerValues.FOLLOW_UP_KEY, raw) },
                         onStep = { field -> viewModel.step(card, field) },
                         onSetValue = { field, raw -> viewModel.setValue(card, field.id, raw) },
                         onEditCard = { onEditCard(card.id) },
@@ -226,6 +242,8 @@ private fun ClickerCardView(
     card: ClickerCard,
     fields: List<ClickerField>,
     displayOnlyClickerDateTime: Boolean,
+    showFollowUp: Boolean,
+    onSetFollowUp: (String) -> Unit,
     onStep: (ClickerField) -> Unit,
     onSetValue: (ClickerField, String) -> Unit,
     onEditCard: () -> Unit,
@@ -271,11 +289,24 @@ private fun ClickerCardView(
                     )
                 }
             }
+
+            // Follow-Up Notes at the bottom of the card, only while the top-bar
+            // button has them showing. Saved as typed, like the text fields.
+            if (showFollowUp) {
+                var followUp by remember { mutableStateOf(ClickerValues.text(values, ClickerValues.FOLLOW_UP_KEY)) }
+                Labeled("Follow-Up Notes") {
+                    OutlinedTextField(
+                        value = followUp,
+                        onValueChange = { followUp = it; onSetFollowUp(it) },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = CLICKER_TEXT_BOX_MIN_HEIGHT),
+                    )
+                }
+            }
         }
     }
 }
 
-/** One field on a card face; number trackers are interactive, the rest read-only. */
+/** One field on a card face; number trackers and text fields are editable, date/time read-only. */
 @Composable
 private fun ClickerFieldFace(
     field: ClickerField,
@@ -296,28 +327,30 @@ private fun ClickerFieldFace(
         ClickerFieldType.WRITE_IN_NUMBER -> {
             val maxDigits = field.maxDigits ?: WRITE_IN_DEFAULT_DIGITS
             var text by remember(field.id) { mutableStateOf(ClickerValues.text(values, field.id)) }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("${field.label}:", modifier = Modifier.weight(1f))
-                OutlinedTextField(
-                    value = text,
-                    onValueChange = { text = numberInput(it, maxDigits); onSetValue(text) },
-                    singleLine = true,
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.width(120.dp),
-                )
-                if (field.autoIncrement) {
-                    Spacer(Modifier.width(8.dp))
-                    AppButton(onClick = {
-                        val current = text.toIntOrNull() ?: 0
-                        val delta = if (field.incrementDirection == com.datadragon.app.data.ClickerIncrementDirection.ADD) {
-                            field.incrementAmount
-                        } else {
-                            -field.incrementAmount
+            // The label sits above the box, never beside or inside it (docs/STYLE.md §1 rule 7).
+            Labeled(field.label) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = text,
+                        onValueChange = { text = numberInput(it, maxDigits); onSetValue(text) },
+                        singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.width(120.dp),
+                    )
+                    if (field.autoIncrement) {
+                        Spacer(Modifier.width(8.dp))
+                        AppButton(onClick = {
+                            val current = text.toIntOrNull() ?: 0
+                            val delta = if (field.incrementDirection == com.datadragon.app.data.ClickerIncrementDirection.ADD) {
+                                field.incrementAmount
+                            } else {
+                                -field.incrementAmount
+                            }
+                            text = (current + delta).toString()
+                            onSetValue(text)
+                        }) {
+                            Text(field.buttonLabel.ifBlank { "Okay" })
                         }
-                        text = (current + delta).toString()
-                        onSetValue(text)
-                    }) {
-                        Text(field.buttonLabel.ifBlank { "Okay" })
                     }
                 }
             }

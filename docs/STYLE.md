@@ -38,6 +38,10 @@ These are the ones that keep getting broken. They are absolute.
    own field label. Dropdown labels may be above or beside the dropdown
    according to the screen's design, but never inside the box or breaking its
    border.
+8. **Nothing goes inside a single-line or multi-line text box unless the owner
+   specified it.** No label, no placeholder, no sample or default value shown
+   as gray text. The box is empty until the user types in it; its label sits
+   above it (rule 7).
 
 ---
 
