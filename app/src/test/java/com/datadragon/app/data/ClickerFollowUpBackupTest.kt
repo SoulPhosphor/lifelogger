@@ -110,4 +110,32 @@ class ClickerFollowUpBackupTest {
         assertTrue(settings.isClickerFollowUpShown("grouping-a"))
         assertTrue(settings.isClickerFollowUpShown("grouping-c"))
     }
+
+    @Test
+    fun backupsWithoutTheChoicesKeepTheirOriginalEncodingAndChecksum() {
+        // A backup made before the choices existed has no such key. Encoding one
+        // without it must not add the key, or older backups' checksums would fail.
+        val encoded = BackupCodec.encode(preferencesBackup(BackupPortablePreferences()))
+        assertFalse(encoded.contains("clickerFollowUpShown"))
+        val decoded = BackupCodec.decode(encoded)
+        assertEquals(null, decoded.payload.portablePreferences!!.clickerFollowUpShown)
+        assertEquals(26, decoded.counts.portablePreferences)
+    }
+
+    @Test
+    fun backupCountsIncludeEachGroupingChoice() {
+        val prefs = BackupPortablePreferences(clickerFollowUpShown = mapOf("b" to false, "a" to true))
+        val decoded = BackupCodec.decode(BackupCodec.encode(preferencesBackup(prefs)))
+        assertEquals(28, decoded.counts.portablePreferences)
+        assertEquals(mapOf("a" to true, "b" to false), decoded.payload.portablePreferences!!.clickerFollowUpShown)
+    }
+
+    private fun preferencesBackup(preferences: BackupPortablePreferences): BackupFile = BackupFile(
+        backupId = "follow-up-test",
+        exportedAt = "2026-09-26T00:00:00Z",
+        sourceAppVersion = "test",
+        roomSchemaVersion = AppDatabase.SCHEMA_VERSION,
+        includedCategories = listOf(BackupCategory.PORTABLE_PREFERENCES),
+        payload = BackupPayload(portablePreferences = preferences),
+    )
 }

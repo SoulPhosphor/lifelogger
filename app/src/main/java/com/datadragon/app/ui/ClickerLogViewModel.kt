@@ -15,7 +15,10 @@ import com.datadragon.app.data.StableUuid
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -46,8 +49,6 @@ class ClickerLogViewModel(app: Application) : AndroidViewModel(app) {
     private val json = Json { ignoreUnknownKeys = true }
     private val logId = MutableStateFlow<Long?>(null)
 
-    // Serializes card value writes so concurrent taps/edits never lose an update.
-    private val writeMutex = Mutex()
 
     val log: StateFlow<ClickerLog?> =
         logId.flatMapLatest { id -> if (id == null) flowOf(null) else dao.observeLog(id) }
@@ -137,10 +138,12 @@ class ClickerLogViewModel(app: Application) : AndroidViewModel(app) {
 
     /**
      * Serialize a read-modify-write against the card's latest stored values, so
-     * rapid taps and concurrent field edits never overwrite one another.
+     * rapid taps and concurrent field edits never overwrite one another. Runs in
+     * a process-lifetime scope so the last keystrokes typed on a card face are
+     * still saved when the user leaves the screen right away.
      */
     private fun mutate(cardId: Long, change: (MutableMap<String, String>) -> Unit) {
-        viewModelScope.launch {
+        writeScope.launch {
             writeMutex.withLock {
                 val fresh = dao.getCard(cardId) ?: return@withLock
                 val values = ClickerValues.decode(fresh.valuesJson).toMutableMap()
@@ -164,5 +167,15 @@ class ClickerLogViewModel(app: Application) : AndroidViewModel(app) {
             dao.getLog(id)?.let { dao.deleteLogWithCards(it) }
             onDeleted()
         }
+    }
+
+    companion object {
+        // Process-lifetime scope so card writes queued on the way out still finish
+        // after the ViewModel (and its viewModelScope) is cleared.
+        private val writeScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+        // Shared by every instance so a reopened screen's writes queue behind any
+        // still finishing from the last one.
+        private val writeMutex = Mutex()
     }
 }
