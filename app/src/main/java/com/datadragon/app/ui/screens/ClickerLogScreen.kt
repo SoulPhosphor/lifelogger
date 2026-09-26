@@ -334,7 +334,7 @@ private fun ClickerFieldFace(
                     onValueChange = { text = it; onSetValue(it) },
                     singleLine = !multiLine,
                     modifier = if (multiLine) {
-                        Modifier.fillMaxWidth().heightIn(min = CLICKER_MULTITEXT_MIN_HEIGHT)
+                        Modifier.fillMaxWidth().heightIn(min = CLICKER_TEXT_BOX_MIN_HEIGHT)
                     } else {
                         Modifier.fillMaxWidth()
                     },

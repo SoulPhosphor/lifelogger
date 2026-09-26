@@ -60,11 +60,12 @@ private val DATE_STORE_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("
 private val DATE_DISPLAY_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
 private val TIME_DISPLAY_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("h:mm a")
 
-/** A Multi-Line Text box's minimum height: four lines, a form's Multi-Line default. */
-internal val CLICKER_MULTITEXT_MIN_HEIGHT = (4 * 24).dp
-
-/** The Follow-Up Notes box's minimum height: the same as a form entry's Notes box. */
-internal val CLICKER_FOLLOW_UP_MIN_HEIGHT = 120.dp
+/**
+ * Minimum height of a Multi-Line Text box and the Follow-Up Notes box: the same
+ * as a form entry's Notes box. Like that box, there is no cap on how many lines
+ * can be typed — the box grows to fit.
+ */
+internal val CLICKER_TEXT_BOX_MIN_HEIGHT = 120.dp
 
 private fun numberInput(input: String, maxDigits: Int): String {
     val negative = input.startsWith("-")
@@ -195,7 +196,7 @@ fun ClickerCardEditScreen(
                         OutlinedTextField(
                             value = ClickerValues.text(values, field.id),
                             onValueChange = { values[field.id] = it },
-                            modifier = Modifier.fillMaxWidth().heightIn(min = CLICKER_MULTITEXT_MIN_HEIGHT),
+                            modifier = Modifier.fillMaxWidth().heightIn(min = CLICKER_TEXT_BOX_MIN_HEIGHT),
                         )
                     }
                 }
@@ -208,7 +209,7 @@ fun ClickerCardEditScreen(
                     OutlinedTextField(
                         value = ClickerValues.text(values, ClickerValues.FOLLOW_UP_KEY),
                         onValueChange = { values[ClickerValues.FOLLOW_UP_KEY] = it },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = CLICKER_FOLLOW_UP_MIN_HEIGHT),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = CLICKER_TEXT_BOX_MIN_HEIGHT),
                     )
                 }
             }
