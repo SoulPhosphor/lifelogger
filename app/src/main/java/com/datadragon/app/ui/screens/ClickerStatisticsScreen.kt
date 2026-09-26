@@ -16,8 +16,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material.icons.filled.SettingsApplications
 import androidx.compose.material3.Checkbox
@@ -72,7 +70,7 @@ private fun statName(stat: String): String = when (stat) {
     ClickerStats.LOWEST_VALUE -> "Lowest Value"
     ClickerStats.AVERAGE -> "Average"
     ClickerStats.TOTAL -> "Total"
-    ClickerStats.DEFAULT_VALUE_CHANGED -> "Default Value Changed"
+    ClickerStats.DEFAULT_VALUE_CHANGED -> "Default value changed in X of X logs"
     else -> stat
 }
 
@@ -216,7 +214,6 @@ fun ClickerStatisticsDesignerScreen(
 
     val trackers = ClickerStatisticsCalculator.numericFields(fields)
     val dateFields = ClickerStatisticsCalculator.dateFields(fields)
-    var expanded by rememberSaveable { mutableStateOf(listOf<String>()) }
 
     Scaffold(
         topBar = {
@@ -290,7 +287,6 @@ fun ClickerStatisticsDesignerScreen(
                 )
                 trackers.forEach { tracker ->
                     val on = ClickerStats.all.filter { config.isEnabled(tracker.id, it) }
-                    val isExpanded = tracker.id in expanded
                     TriStateRow(
                         label = tracker.label,
                         state = toggleState(on.size == ClickerStats.all.size, on.isEmpty()),
@@ -298,19 +294,13 @@ fun ClickerStatisticsDesignerScreen(
                             val turnOn = on.size != ClickerStats.all.size
                             viewModel.update { it.withStats(listOf(tracker), on = turnOn) }
                         },
-                        expanded = isExpanded,
-                        onExpand = {
-                            expanded = if (isExpanded) expanded - tracker.id else expanded + tracker.id
-                        },
                     )
-                    if (isExpanded) {
-                        ClickerStats.all.forEach { stat ->
-                            CheckRow(
-                                label = statName(stat),
-                                checked = stat in on,
-                                modifier = Modifier.padding(start = 32.dp),
-                            ) { checked -> viewModel.update { it.withStat(tracker.id, stat, checked) } }
-                        }
+                    ClickerStats.all.forEach { stat ->
+                        CheckRow(
+                            label = statName(stat),
+                            checked = stat in on,
+                            modifier = Modifier.padding(start = 32.dp),
+                        ) { checked -> viewModel.update { it.withStat(tracker.id, stat, checked) } }
                     }
                 }
             }
@@ -358,34 +348,24 @@ private fun CheckRow(
 }
 
 /**
- * A three-state checkbox with its label (Select All, or one tracker). A
- * tracker's row also expands to show its statistics: the checkbox turns them
- * all on or off, and the rest of the row opens or closes the list.
+ * A three-state checkbox with its label (Select All, or one tracker, whose
+ * statistics are always listed under it). Tapping anywhere on the row turns
+ * them all on, or all off when every one is already on.
  */
 @Composable
 private fun TriStateRow(
     label: String,
     state: ToggleableState,
     onClick: () -> Unit,
-    expanded: Boolean? = null,
-    onExpand: (() -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { if (onExpand != null) onExpand() else onClick() },
+            .clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TriStateCheckbox(state = state, onClick = onClick)
         Text(label, style = AppTheme.textStyles.settingTitle, modifier = Modifier.weight(1f))
-        if (expanded != null && onExpand != null) {
-            IconButton(onClick = onExpand) {
-                Icon(
-                    if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                    contentDescription = if (expanded) "Collapse" else "Expand",
-                )
-            }
-        }
     }
 }
 
