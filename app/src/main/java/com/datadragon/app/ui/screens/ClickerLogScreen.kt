@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -319,6 +320,25 @@ private fun ClickerFieldFace(
                         Text(field.buttonLabel.ifBlank { "Okay" })
                     }
                 }
+            }
+        }
+        ClickerFieldType.TEXT, ClickerFieldType.MULTITEXT -> {
+            // Edited right on the card face and saved as typed; the label sits
+            // above the box, never inside it (docs/STYLE.md §1 rule 7). A
+            // Multi-Line Text box grows to show its whole text.
+            val multiLine = field.type == ClickerFieldType.MULTITEXT
+            var text by remember(field.id) { mutableStateOf(ClickerValues.text(values, field.id)) }
+            Labeled(field.label) {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it; onSetValue(it) },
+                    singleLine = !multiLine,
+                    modifier = if (multiLine) {
+                        Modifier.fillMaxWidth().heightIn(min = CLICKER_MULTITEXT_MIN_HEIGHT)
+                    } else {
+                        Modifier.fillMaxWidth()
+                    },
+                )
             }
         }
         else -> {

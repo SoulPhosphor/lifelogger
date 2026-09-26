@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.datadragon.app.data.AppDatabase
 import com.datadragon.app.data.ClickerCard
 import com.datadragon.app.data.ClickerField
+import com.datadragon.app.data.ClickerLog
 import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
@@ -17,6 +18,8 @@ class ClickerCardEditViewModel(app: Application) : AndroidViewModel(app) {
     private val json = Json { ignoreUnknownKeys = true }
 
     suspend fun loadCard(cardId: Long): ClickerCard? = dao.getCard(cardId)
+
+    suspend fun loadLog(logId: Long): ClickerLog? = dao.getLog(logId)
 
     suspend fun loadFields(logId: Long): List<ClickerField> =
         dao.getLog(logId)?.let { decodeFields(it.fieldsJson) } ?: emptyList()

@@ -12,6 +12,14 @@ import kotlinx.serialization.json.Json
  */
 object ClickerValues {
 
+    /**
+     * The card's Follow-Up Notes text lives under this reserved key, alongside
+     * the field values — the same approach as a form entry's Notes box
+     * ([EntryValues.NOTES_KEY]). Field ids are UUIDs, so they never collide with
+     * it, and backup/restore carry it inside `valuesJson` unchanged.
+     */
+    const val FOLLOW_UP_KEY = "__follow_up__"
+
     private val json = Json { ignoreUnknownKeys = true }
 
     fun decode(valuesJson: String): Map<String, String> =
