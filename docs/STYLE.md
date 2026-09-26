@@ -281,3 +281,16 @@ bare `8.dp` between rows.
   there is no comma before the time. (Stored/machine timestamps stay ISO-8601
   per the Formatting Specification; this rule is only for text shown to the
   user.)
+
+## 13. Empty screens
+
+When a screen has no data yet, it shows a two-line message in place of the
+list, worded exactly like this (the Daily Task example):
+
+- **Title:** `No daily tasks yet.` — "No", the lowercase name of the data
+  type, "yet.", as a normal sentence. Material's `titleMedium`.
+- **Body:** `Click the plus in the top right to begin.` — only when there is a
+  "+" to click to start. Material's `bodyMedium`.
+
+The message is **centered horizontally and vertically** inside the empty
+space, and each line's text is centered.
