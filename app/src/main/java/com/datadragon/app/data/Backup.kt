@@ -263,7 +263,10 @@ data class BackupClickerCard(
 @Serializable
 data class BackupColorPreset(val uuid: String, val name: String, val colorsJson: String)
 
-/** Explicit allowlist of the 26 portable preferences that currently exist. */
+/**
+ * Explicit allowlist of the 26 portable preferences that currently exist, plus
+ * the per-grouping Clicker Follow-Up Notes show/hide choices.
+ */
 @Serializable
 data class BackupPortablePreferences(
     val autoCapitalizeLabels: Boolean = true,
@@ -292,6 +295,13 @@ data class BackupPortablePreferences(
     val dailyListCelebrationIcon: String = CelebrationIcon.CHECK_CIRCLE.key,
     val dailyListProtectFavorited: Boolean = true,
     val dailyListRetention: String = "",
+    /**
+     * Per Clicker grouping, whether its Main screen shows the Follow-Up Notes box
+     * on the cards (the top-bar Edit Note / Article Shortcut button), keyed by
+     * the grouping's permanent UUID. Null in backups made before this existed,
+     * which leaves the device's current choices untouched on restore.
+     */
+    val clickerFollowUpShown: Map<String, Boolean>? = null,
 )
 
 data class UndoSnapshot(

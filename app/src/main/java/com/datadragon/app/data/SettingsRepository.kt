@@ -216,6 +216,13 @@ class SettingsRepository(context: Context) {
         dailyListCelebrationIcon = dailyListCelebrationIcon.key,
         dailyListProtectFavorited = dailyListProtectFavorited,
         dailyListRetention = dailyListRetentionRaw,
+        clickerFollowUpShown = prefs.all
+            .filterKeys { it.startsWith(KEY_CLICKER_FOLLOW_UP_SHOWN_PREFIX) }
+            .mapNotNull { (key, value) ->
+                (value as? Boolean)?.let { key.removePrefix(KEY_CLICKER_FOLLOW_UP_SHOWN_PREFIX) to it }
+            }
+            .sortedBy { it.first }
+            .toMap(),
     )
 
     /** Apply the complete portable allowlist synchronously so restore can detect write failure. */
@@ -247,6 +254,16 @@ class SettingsRepository(context: Context) {
             .putString(KEY_DL_CELEBRATION_ICON, preferences.dailyListCelebrationIcon)
             .putBoolean(KEY_DL_PROTECT_FAVORITED, preferences.dailyListProtectFavorited)
             .putString(KEY_DL_RETENTION, preferences.dailyListRetention)
+            .also { editor ->
+                // A backup that carries the Clicker Follow-Up Notes choices replaces
+                // them all; an older backup without them leaves the current ones.
+                preferences.clickerFollowUpShown?.let { shown ->
+                    prefs.all.keys
+                        .filter { it.startsWith(KEY_CLICKER_FOLLOW_UP_SHOWN_PREFIX) }
+                        .forEach { editor.remove(it) }
+                    shown.forEach { (uuid, value) -> editor.putBoolean("$KEY_CLICKER_FOLLOW_UP_SHOWN_PREFIX$uuid", value) }
+                }
+            }
             .commit()
         check(committed) { "Portable preferences could not be saved." }
     }

@@ -62,6 +62,8 @@ object BackupPhase0Inventory {
         "daily_list_celebration_icon",
         "daily_list_protect_favorited",
         "daily_list_retention",
+        // One key per Clicker grouping: this prefix followed by the grouping's UUID.
+        "clicker_follow_up_shown_",
     )
 
     /** Approved future portable preference categories whose concrete keys do not exist yet. */
