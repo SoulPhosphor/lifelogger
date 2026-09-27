@@ -60,12 +60,12 @@ object LogExport {
     ): ExportContent {
         val notes = if (includeFollowUps) notesByEntry.values.flatten() else emptyList()
         val json = BackupCodec.encodeSingleLog(template, entries, BackupRepository.now(), notes)
-        return ExportContent("${ExportNaming.base(template.name)}.json", json.toByteArray())
+        return ExportContent(ExportNaming.fileName(template.name, "json"), json.toByteArray())
     }
 
     fun csv(template: LogTemplate, fields: List<FieldDef>, entries: List<LogEntry>): ExportContent =
         ExportContent(
-            "${ExportNaming.base(template.name)}.csv",
+            ExportNaming.fileName(template.name, "csv"),
             CsvBuilder.build(fields, entries).toByteArray(),
         )
 
@@ -77,7 +77,7 @@ object LogExport {
         includeFollowUps: Boolean = false,
     ): ExportContent =
         ExportContent(
-            "${ExportNaming.base(template.name)}_report.pdf",
+            ExportNaming.fileName(template.name, "pdf"),
             PdfReport.writeToBytes(template, fields, entries, notesByEntry, includeFollowUps),
         )
 }

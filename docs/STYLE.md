@@ -194,14 +194,15 @@ and not new phrasing for the formats it shares.
   | `.txt` | Text Document (.txt) | Simple plain text file | Everything |
   | `.md` | Markdown (.md) | Formatted text document | Everything |
   | `.pdf` | PDF Document (.pdf) | Printable document format | Everything |
-  | `.csv` | Spreadsheet (.csv) | Table of entries for a spreadsheet app | Forms |
+  | `.csv` | Spreadsheet (.csv) | Table of entries for a spreadsheet app | Forms, Data |
   | `.json` | Application Data (.json) | Use this file to import or restore this `<thing>` later | Everything |
 
 - **Rows appear in that order**, always. `.json` is always last.
 - **A row is left out only when that thing genuinely cannot produce that file.**
-  Lists have no rows of entries, so they offer no `.csv`; forms do, so forms
-  offer it. "Not one of the usual formats" is **not** a reason to drop a row —
-  if a thing can be exported as it, the row is there.
+  Lists have no rows of entries, so they offer no `.csv`; forms and Data
+  (Clicker) groupings do, so they offer it. "Not one of the usual formats" is
+  **not** a reason to drop a row — if a thing can be exported as it, the row is
+  there.
 - **Never reword a format to make it fit.** A format's title and subtitle are
   fixed above, whatever is being exported.
 - **No paragraph at the bottom.** The subtitles are the whole explanation.

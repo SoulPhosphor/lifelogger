@@ -93,7 +93,7 @@ object PdfReport {
         return out.toByteArray()
     }
 
-    private fun paint(size: Float, bold: Boolean = false) = Paint().apply {
+    internal fun paint(size: Float, bold: Boolean = false) = Paint().apply {
         isAntiAlias = true
         textSize = size
         color = 0xFF000000.toInt()
@@ -101,7 +101,7 @@ object PdfReport {
     }
 
     /** Cursor that lays text out top-to-bottom, paginating when a page fills. */
-    private class PageWriter(private val doc: PdfDocument) {
+    internal class PageWriter(private val doc: PdfDocument) {
         private val maxWidth = PAGE_WIDTH - 2 * MARGIN
         private val bottom = PAGE_HEIGHT - MARGIN
         private var pageNumber = 1

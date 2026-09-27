@@ -16,8 +16,10 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -27,6 +29,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -143,7 +146,7 @@ class ClickerLogViewModel(app: Application) : AndroidViewModel(app) {
      * still saved when the user leaves the screen right away.
      */
     private fun mutate(cardId: Long, change: (MutableMap<String, String>) -> Unit) {
-        writeScope.launch {
+        val job = writeScope.launch(start = CoroutineStart.LAZY) {
             writeMutex.withLock {
                 val fresh = dao.getCard(cardId) ?: return@withLock
                 val values = ClickerValues.decode(fresh.valuesJson).toMutableMap()
@@ -152,6 +155,21 @@ class ClickerLogViewModel(app: Application) : AndroidViewModel(app) {
                 dao.touchModified(fresh.clickerLogId, System.currentTimeMillis())
             }
         }
+        synchronized(pendingWrites) { pendingWrites.add(job) }
+        job.invokeOnCompletion { synchronized(pendingWrites) { pendingWrites.remove(job) } }
+        job.start()
+    }
+
+    /**
+     * The grouping and its cards as stored once every queued card write has
+     * finished, so an export includes the last keystrokes typed on a card face.
+     */
+    suspend fun exportSnapshot(): Pair<ClickerLog, List<ClickerCard>>? {
+        val waiting = synchronized(pendingWrites) { pendingWrites.toList() }
+        waiting.joinAll()
+        val id = logId.value ?: return null
+        val current = dao.getLog(id) ?: return null
+        return current to dao.getCardsForLog(id)
     }
 
     fun deleteCard(card: ClickerCard) {
@@ -177,5 +195,8 @@ class ClickerLogViewModel(app: Application) : AndroidViewModel(app) {
         // Shared by every instance so a reopened screen's writes queue behind any
         // still finishing from the last one.
         private val writeMutex = Mutex()
+
+        // Card writes still queued or running, so an export can wait for them.
+        private val pendingWrites = mutableSetOf<Job>()
     }
 }

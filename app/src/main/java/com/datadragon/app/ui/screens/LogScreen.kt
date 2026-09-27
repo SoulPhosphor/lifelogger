@@ -160,7 +160,7 @@ fun LogScreen(
                 },
                 navigationIcon = {
                     // Left cluster: back, then a gear menu holding the log-level
-                    // actions (export, edit form, follow-up notes, unlock, delete).
+                    // actions (edit form, export, follow-up notes, unlock, delete).
                     Row {
                         IconButton(onClick = { attemptBack() }) {
                             Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
@@ -178,17 +178,17 @@ fun LogScreen(
                                 onDismissRequest = { gearMenuOpen = false },
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Export") },
-                                    onClick = {
-                                        gearMenuOpen = false
-                                        showFormatChooser = true
-                                    },
-                                )
-                                DropdownMenuItem(
                                     text = { Text("Edit Form") },
                                     onClick = {
                                         gearMenuOpen = false
                                         viewModel.leaveAfterTitleFlush(onEditForm)
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Export") },
+                                    onClick = {
+                                        gearMenuOpen = false
+                                        showFormatChooser = true
                                     },
                                 )
                                 // Toggle follow-up notes on/off (a check marks "on").

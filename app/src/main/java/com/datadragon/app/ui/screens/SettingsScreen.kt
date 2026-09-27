@@ -124,7 +124,7 @@ fun SettingsScreen(
         }
     }
 
-    // Restore Individual Item: one exported list or form, merged straight in.
+    // Restore Individual Item: one exported list, form, or Clicker Data grouping, merged straight in.
     // The type is read from the file, so there is nothing for the user to pick
     // and no confirmation to give — nothing is replaced or deleted.
     val openSingleItem = rememberLauncherForActivityResult(
@@ -141,7 +141,7 @@ fun SettingsScreen(
                     "Couldn't read that file."
                 } else {
                     when (val result = viewModel.restoreSingleItem(text)) {
-                        is RestoreResult.Success -> singleItemSummary(result.logs, result.lists)
+                        is RestoreResult.Success -> singleItemSummary(result.logs, result.lists, result.clickerData)
                         is RestoreResult.NeedsConflictResolution ->
                             "This individual item conflicts with current data."
                         is RestoreResult.Failure -> result.message
@@ -413,7 +413,7 @@ fun SettingsScreen(
                 Text(if (hasUndoSnapshot) "Restore" else "Nothing to Restore")
             }
 
-            // Single-item restore: one exported list or form. No type to pick —
+            // Single-item restore: one exported list, form, or Clicker Data grouping. No type to pick —
             // the file says which it is.
             SubsectionHeader("Restore Individual Item")
             Text(
@@ -530,9 +530,10 @@ private val BACKUP_MIME_TYPES =
     arrayOf("application/json", "application/octet-stream", "text/plain")
 
 /** The status line shown after restoring one exported list or form. */
-private fun singleItemSummary(logs: Int, lists: Int): String = when {
+private fun singleItemSummary(logs: Int, lists: Int, clickerData: Int): String = when {
     lists > 0 -> "Restored 1 list."
     logs > 0 -> "Restored 1 form."
+    clickerData > 0 -> "Restored data."
     else -> "Nothing to restore."
 }
 

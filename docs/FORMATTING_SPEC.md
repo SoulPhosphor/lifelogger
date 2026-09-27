@@ -118,7 +118,10 @@ Timestamps stay in ISO-8601 exactly as stored. JSON files are for backup and dat
 - Lowercase the log name.
 - Replace spaces with underscores.
 - Strip punctuation other than underscores.
-- Example: `My Log` → `my_log_report.md`, `my_log.csv`
+- Add the format's extension to that name, with no suffix. Reports are not
+  marked `_report`.
+- Example: `My Log` → `my_log.txt`, `my_log.md`, `my_log.pdf`, `my_log.csv`,
+  `my_log.json`
 
 Files are saved through the Android system "Save to…" document picker
 (`ACTION_CREATE_DOCUMENT`): the user chooses the destination folder (Drive,

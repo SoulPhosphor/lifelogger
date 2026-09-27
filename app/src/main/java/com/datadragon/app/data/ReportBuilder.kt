@@ -45,7 +45,7 @@ object ReportBuilder {
         val ext = if (markdown) "md" else "txt"
         val mime = if (markdown) "text/markdown" else "text/plain"
         return Report(
-            fileName = "${ExportNaming.base(template.name)}_report.$ext",
+            fileName = ExportNaming.fileName(template.name, ext),
             mimeType = mime,
             text = sb.toString(),
         )
