@@ -148,10 +148,11 @@ class BackupViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * Restore one exported list or form.
+     * Restore one exported list, form, or Clicker Data grouping.
      *
-     * The file is a single-item export — the .json a list or a form writes from
-     * its own Export — which is a backup file holding exactly one item. The type
+     * The file is a single-item export — the .json a list, a form, or a Clicker
+     * Data grouping writes from its own Export — which is a backup file holding
+     * exactly one item. The type
      * is therefore **read from the file**, not chosen by the user, and the item
      * goes back to wherever its kind belongs.
      *
@@ -159,34 +160,7 @@ class BackupViewModel(app: Application) : AndroidViewModel(app) {
      * else alone) and takes no undo snapshot: undo is reserved for the
      * whole-database restores above it.
      */
-    suspend fun restoreSingleItem(text: String): RestoreResult =
-        try {
-            val backup = BackupCodec.decode(text)
-            val items = backup.logs.size + backup.checklists.size
-            when {
-                items == 0 -> RestoreResult.Failure("That file doesn't hold a list or a form.")
-                items > 1 -> RestoreResult.Failure(
-                    "That file holds more than one item. Use Restore from Database for a full backup.",
-                )
-                else -> {
-                    val category = if (backup.logs.size == 1) BackupCategory.FORMS else BackupCategory.LISTS
-                    if (backup.includedCategories.toSet() != setOf(category)) {
-                        RestoreResult.Failure(
-                            "That file contains database backup categories. Use Restore from Database.",
-                        )
-                    } else {
-                        val selected = setOf(category)
-                        val preflight = repository.preflight(backup, RestoreMode.MERGE, selected)
-                        // Individual exports retain their established update behavior:
-                        // the imported form/list replaces the grouping with its UUID.
-                        val choices = preflight.conflicts.associate { it.id to RestoreConflictChoice.USE_BACKUP }
-                        RestoreResult.Success(repository.restore(backup, RestoreMode.MERGE, selected, choices))
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            RestoreResult.Failure(e.message ?: "This file isn't a valid backup.")
-        }
+    suspend fun restoreSingleItem(text: String): RestoreResult = restoreIndividualItem(text, repository)
 
     /** True once an import has happened, so there's a snapshot to restore from. */
     suspend fun hasUndoSnapshot(): Boolean = undoStore.load() != null
@@ -226,7 +200,47 @@ sealed interface RestoreResult {
     data class Success(val counts: RestoreCounts) : RestoreResult {
         val logs: Int get() = counts.logs
         val lists: Int get() = counts.lists
+        val clickerData: Int get() = counts.clickerData
     }
     data class NeedsConflictResolution(val conflicts: List<RestoreConflict>) : RestoreResult
     data class Failure(val message: String) : RestoreResult
 }
+
+/**
+ * Restore Individual Item on [repository]: one exported list, form, or Clicker
+ * Data grouping. The file's single declared category says which. It always
+ * merges, the imported item replacing the grouping with its UUID, so every
+ * UUID in the file is kept.
+ */
+internal suspend fun restoreIndividualItem(text: String, repository: BackupRepository): RestoreResult =
+    try {
+        val backup = BackupCodec.decode(text)
+        val items = backup.logs.size + backup.checklists.size + backup.clickerLogs.size
+        when {
+            items == 0 -> RestoreResult.Failure("That file doesn't hold a list, a form, or clicker data.")
+            items > 1 -> RestoreResult.Failure(
+                "That file holds more than one item. Use Restore from Database for a full backup.",
+            )
+            else -> {
+                val category = when {
+                    backup.logs.size == 1 -> BackupCategory.FORMS
+                    backup.checklists.size == 1 -> BackupCategory.LISTS
+                    else -> BackupCategory.CLICKER_DATA
+                }
+                if (backup.includedCategories.toSet() != setOf(category)) {
+                    RestoreResult.Failure(
+                        "That file contains database backup categories. Use Restore from Database.",
+                    )
+                } else {
+                    val selected = setOf(category)
+                    val preflight = repository.preflight(backup, RestoreMode.MERGE, selected)
+                    // Individual exports retain their established update behavior:
+                    // the imported item replaces the grouping with its UUID.
+                    val choices = preflight.conflicts.associate { it.id to RestoreConflictChoice.USE_BACKUP }
+                    RestoreResult.Success(repository.restore(backup, RestoreMode.MERGE, selected, choices))
+                }
+            }
+        }
+    } catch (e: Exception) {
+        RestoreResult.Failure(e.message ?: "This file isn't a valid backup.")
+    }

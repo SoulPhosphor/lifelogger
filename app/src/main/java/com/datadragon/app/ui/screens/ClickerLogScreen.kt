@@ -1,5 +1,8 @@
 package com.datadragon.app.ui.screens
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +24,7 @@ import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.SettingsApplications
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,6 +43,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -51,11 +56,15 @@ import com.datadragon.app.data.ClickerField
 import com.datadragon.app.data.ClickerFieldType
 import com.datadragon.app.data.ClickerValues
 import com.datadragon.app.data.editOnlyFromCardMenu
+import com.datadragon.app.export.ClickerExport
+import com.datadragon.app.export.ExportContent
 import com.datadragon.app.ui.ClickerLogViewModel
 import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.ui.components.AppDialog
 import com.datadragon.app.ui.components.DialogDestructiveButton
 import com.datadragon.app.ui.components.DialogDismissButton
+import com.datadragon.app.ui.components.ExportFormatDialog
+import com.datadragon.app.ui.components.ExportFormatOption
 import com.datadragon.app.ui.theme.AppTheme
 import java.time.LocalDate
 import java.time.LocalTime
@@ -116,6 +125,38 @@ fun ClickerLogScreen(
 
     var cogMenuOpen by remember { mutableStateOf(false) }
     var confirmDeleteLog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    // Export, the same flow as Forms: the shared format dialog, then the system
+    // "Save to…" sheet. The checkbox chooses whether Follow-Up Notes go along.
+    var showFormatChooser by remember { mutableStateOf(false) }
+    var includeFollowUps by remember { mutableStateOf(true) }
+    val hasFollowUps = cards.any {
+        !ClickerValues.decode(it.valuesJson)[ClickerValues.FOLLOW_UP_KEY].isNullOrBlank()
+    }
+    var pendingExport by remember { mutableStateOf<ExportContent?>(null) }
+    val saveDocument = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("*/*"),
+    ) { uri ->
+        val export = pendingExport
+        pendingExport = null
+        if (uri != null && export != null) {
+            val ok = runCatching {
+                context.contentResolver.openOutputStream(uri)?.use { it.write(export.bytes) }
+                    ?: error("No output stream")
+            }.isSuccess
+            Toast.makeText(
+                context,
+                if (ok) "Saved ${export.suggestedName}" else "Couldn't save file",
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+    }
+    val startSave: (ExportContent) -> Unit = { content ->
+        pendingExport = content
+        showFormatChooser = false
+        saveDocument.launch(content.suggestedName)
+    }
 
     // Cards are listed newest first, so a card added with the top-bar "+" lands
     // above whatever is on screen. When a tall card fills the screen the list
@@ -153,6 +194,10 @@ fun ClickerLogScreen(
                                 DropdownMenuItem(
                                     text = { Text("Edit") },
                                     onClick = { cogMenuOpen = false; onEditLog(logId) },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Export") },
+                                    onClick = { cogMenuOpen = false; showFormatChooser = true },
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Delete") },
@@ -220,6 +265,60 @@ fun ClickerLogScreen(
                 }
             }
         }
+    }
+
+    if (showFormatChooser) {
+        val current = log
+        // Follow-Up Notes go along only when some card has them and the box is checked.
+        val withFollowUps = hasFollowUps && includeFollowUps
+        ExportFormatDialog(
+            thing = "Data",
+            onDismiss = { showFormatChooser = false },
+            header = {
+                // Only meaningful when a card actually has Follow-Up Notes.
+                if (hasFollowUps) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
+                            checked = includeFollowUps,
+                            onCheckedChange = { includeFollowUps = it },
+                        )
+                        Text("Include Follow-Up Notes")
+                    }
+                }
+            },
+            options = listOf(
+                ExportFormatOption(
+                    "Text Document (.txt)",
+                    "Simple plain text file",
+                ) {
+                    if (current != null) startSave(ClickerExport.text(current, fields, cards, withFollowUps))
+                },
+                ExportFormatOption(
+                    "Markdown (.md)",
+                    "Formatted text document",
+                ) {
+                    if (current != null) startSave(ClickerExport.markdown(current, fields, cards, withFollowUps))
+                },
+                ExportFormatOption(
+                    "PDF Document (.pdf)",
+                    "Printable document format",
+                ) {
+                    if (current != null) startSave(ClickerExport.pdf(current, fields, cards, withFollowUps))
+                },
+                ExportFormatOption(
+                    "Spreadsheet (.csv)",
+                    "Table of entries for a spreadsheet app",
+                ) {
+                    if (current != null) startSave(ClickerExport.csv(current, fields, cards, withFollowUps))
+                },
+                ExportFormatOption(
+                    "Application Data (.json)",
+                    "Use this file to import or restore this data later",
+                ) {
+                    if (current != null) startSave(ClickerExport.json(current, cards, withFollowUps))
+                },
+            ),
+        )
     }
 
     if (confirmDeleteLog) {

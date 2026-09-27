@@ -19,7 +19,7 @@ package com.datadragon.app.data
  */
 object CsvBuilder {
 
-    private const val EOL = "\r\n"
+    internal const val EOL = "\r\n"
 
     fun build(fields: List<FieldDef>, entries: List<LogEntry>): String {
         val sb = StringBuilder()
@@ -59,7 +59,7 @@ object CsvBuilder {
             else -> EntryValues.rawValue(values, field.label) ?: ""
         }
 
-    private fun escape(value: String): String =
+    internal fun escape(value: String): String =
         if (value.any { it == ',' || it == '"' || it == '\n' || it == '\r' }) {
             "\"" + value.replace("\"", "\"\"") + "\""
         } else {

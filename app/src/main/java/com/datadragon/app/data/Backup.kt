@@ -43,6 +43,7 @@ data class BackupFile(
 ) {
     val logs: List<BackupLog> get() = payload.forms.orEmpty()
     val checklists: List<BackupChecklist> get() = payload.lists.orEmpty()
+    val clickerLogs: List<BackupClickerLog> get() = payload.clickerData.orEmpty()
 
     companion object {
         const val FORMAT = "datadragon-backup"
@@ -675,6 +676,53 @@ object BackupCodec {
             BackupPayload(lists = listOf(checklistOf(checklist, items))),
         ),
     )
+
+    /**
+     * The single-item export of one Clicker Data grouping: the same shape as that
+     * grouping inside a full backup, UUIDs and internal timestamps included, so
+     * Restore Individual Item can read it back. With [includeFollowUps] off, each
+     * card's Follow-Up Notes text is left out of its values.
+     */
+    fun encodeSingleClicker(
+        log: ClickerLog,
+        cards: List<ClickerCard>,
+        exportedAt: String,
+        includeFollowUps: Boolean = true,
+    ): String = encode(
+        BackupFile.single(
+            exportedAt,
+            BackupCategory.CLICKER_DATA,
+            BackupPayload(clickerData = listOf(clickerOf(log, cards, includeFollowUps))),
+        ),
+    )
+
+    fun clickerOf(log: ClickerLog, cards: List<ClickerCard>, includeFollowUps: Boolean = true): BackupClickerLog =
+        BackupClickerLog(
+            uuid = log.uuid,
+            title = log.title,
+            createdAt = log.createdAt,
+            lastAccessedAt = log.lastAccessedAt,
+            lastModifiedAt = log.lastModifiedAt,
+            fieldsJson = log.fieldsJson,
+            displayOnlyClickerDateTime = log.displayOnlyClickerDateTime,
+            autoDateStamp = log.autoDateStamp,
+            autoTimeStamp = log.autoTimeStamp,
+            allowFollowUp = log.allowFollowUp,
+            cards = cards.map { card ->
+                val valuesJson = if (includeFollowUps) {
+                    card.valuesJson
+                } else {
+                    ClickerValues.encode(ClickerValues.decode(card.valuesJson) - ClickerValues.FOLLOW_UP_KEY)
+                }
+                BackupClickerCard(
+                    uuid = card.uuid,
+                    createdAt = card.createdAt,
+                    displayDate = card.displayDate,
+                    displayTime = card.displayTime,
+                    valuesJson = valuesJson,
+                )
+            },
+        )
 
     private fun restoredOrLegacyUuid(uuid: String): String =
         if (uuid.isBlank()) StableUuid.createNew() else StableUuid.restoreExisting(uuid)

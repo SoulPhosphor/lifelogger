@@ -43,6 +43,7 @@ data class RestoreCounts(
 ) {
     val logs: Int get() = categories[BackupCategory.FORMS]?.let { it.added + it.replaced } ?: 0
     val lists: Int get() = categories[BackupCategory.LISTS]?.let { it.added + it.replaced } ?: 0
+    val clickerData: Int get() = categories[BackupCategory.CLICKER_DATA]?.let { it.added + it.replaced } ?: 0
     val added: Int get() = categories.values.sumOf { it.added }
     val replaced: Int get() = categories.values.sumOf { it.replaced }
     val skipped: Int get() = categories.values.sumOf { it.skipped }
