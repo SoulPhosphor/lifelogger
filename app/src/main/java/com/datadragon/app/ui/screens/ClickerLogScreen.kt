@@ -40,6 +40,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,6 +54,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.R
 import com.datadragon.app.data.ClickerCard
 import com.datadragon.app.data.ClickerField
+import com.datadragon.app.data.ClickerLog
 import com.datadragon.app.data.ClickerFieldType
 import com.datadragon.app.data.ClickerValues
 import com.datadragon.app.data.editOnlyFromCardMenu
@@ -69,6 +71,7 @@ import com.datadragon.app.ui.theme.AppTheme
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.launch
 
 private val STAMP_DATE_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
 private val STAMP_TIME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("h:mm a")
@@ -126,6 +129,7 @@ fun ClickerLogScreen(
     var cogMenuOpen by remember { mutableStateOf(false) }
     var confirmDeleteLog by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     // Export, the same flow as Forms: the shared format dialog, then the system
     // "Save to…" sheet. The checkbox chooses whether Follow-Up Notes go along.
@@ -268,9 +272,20 @@ fun ClickerLogScreen(
     }
 
     if (showFormatChooser) {
-        val current = log
-        // Follow-Up Notes go along only when some card has them and the box is checked.
-        val withFollowUps = hasFollowUps && includeFollowUps
+        // Every format waits for queued card writes and builds from a fresh read,
+        // so text typed on a card just before exporting is in the file. Follow-Up
+        // Notes go along when the box is checked and some card has them.
+        val exportWith: (
+            (ClickerLog, List<ClickerCard>, Boolean) -> ExportContent
+        ) -> Unit = { build ->
+            scope.launch {
+                val (current, freshCards) = viewModel.exportSnapshot() ?: return@launch
+                val freshHasFollowUps = freshCards.any {
+                    !ClickerValues.decode(it.valuesJson)[ClickerValues.FOLLOW_UP_KEY].isNullOrBlank()
+                }
+                startSave(build(current, freshCards, freshHasFollowUps && includeFollowUps))
+            }
+        }
         ExportFormatDialog(
             thing = "Data",
             onDismiss = { showFormatChooser = false },
@@ -291,31 +306,31 @@ fun ClickerLogScreen(
                     "Text Document (.txt)",
                     "Simple plain text file",
                 ) {
-                    if (current != null) startSave(ClickerExport.text(current, fields, cards, withFollowUps))
+                    exportWith { l, c, n -> ClickerExport.text(l, fields, c, n) }
                 },
                 ExportFormatOption(
                     "Markdown (.md)",
                     "Formatted text document",
                 ) {
-                    if (current != null) startSave(ClickerExport.markdown(current, fields, cards, withFollowUps))
+                    exportWith { l, c, n -> ClickerExport.markdown(l, fields, c, n) }
                 },
                 ExportFormatOption(
                     "PDF Document (.pdf)",
                     "Printable document format",
                 ) {
-                    if (current != null) startSave(ClickerExport.pdf(current, fields, cards, withFollowUps))
+                    exportWith { l, c, n -> ClickerExport.pdf(l, fields, c, n) }
                 },
                 ExportFormatOption(
                     "Spreadsheet (.csv)",
                     "Table of entries for a spreadsheet app",
                 ) {
-                    if (current != null) startSave(ClickerExport.csv(current, fields, cards, withFollowUps))
+                    exportWith { l, c, n -> ClickerExport.csv(l, fields, c, n) }
                 },
                 ExportFormatOption(
                     "Application Data (.json)",
                     "Use this file to import or restore this data later",
                 ) {
-                    if (current != null) startSave(ClickerExport.json(current, cards, withFollowUps))
+                    exportWith { l, c, n -> ClickerExport.json(l, c, n) }
                 },
             ),
         )
