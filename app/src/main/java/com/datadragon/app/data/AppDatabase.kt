@@ -34,7 +34,7 @@ class DailyListConverters {
         DailyList::class, DailyListItem::class,
         ClickerLog::class, ClickerCard::class,
     ],
-    version = 19,
+    version = 20,
     exportSchema = false,
 )
 @TypeConverters(DailyListConverters::class)
@@ -61,7 +61,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun clickerDao(): ClickerDao
 
     companion object {
-        const val SCHEMA_VERSION = 19
+        const val SCHEMA_VERSION = 20
 
         @Volatile
         private var instance: AppDatabase? = null
@@ -485,6 +485,27 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v20 added `statisticsJson` to `clicker_logs` — the grouping's
+         * Statistics Designer choices. Purely additive; blank means every
+         * default. Skips the column when it already exists, so a database whose
+         * tables were created at the current shape upgrades cleanly.
+         */
+        internal val MIGRATION_19_20 = object : Migration(19, 20) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                val hasColumn = db.query("PRAGMA table_info(`clicker_logs`)").use { cursor ->
+                    val nameIndex = cursor.getColumnIndex("name")
+                    generateSequence { if (cursor.moveToNext()) cursor.getString(nameIndex) else null }
+                        .any { it == "statisticsJson" }
+                }
+                if (!hasColumn) {
+                    db.execSQL(
+                        "ALTER TABLE clicker_logs ADD COLUMN statisticsJson TEXT NOT NULL DEFAULT ''"
+                    )
+                }
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -497,6 +518,7 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11,
                         MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15,
                         MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19,
+                        MIGRATION_19_20,
                     )
                     .addCallback(UUID_IDENTITY_CALLBACK)
                     .build()

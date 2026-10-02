@@ -59,7 +59,7 @@ It includes:
 - all configuration stored inside JSON columns;
 - calendar configurations and saved color presets;
 - Daily Task maintenance, renewal, completion, favorite, source, and ordering state;
-- Clicker grouping and card UUIDs, fields, values, timestamps, and display settings, including each card's Follow-Up Notes text (stored in the card's values under the reserved `__follow_up__` key) and the grouping's Follow-Up Notes setting;
+- Clicker grouping and card UUIDs, fields, values, timestamps, and display settings, including each card's Follow-Up Notes text (stored in the card's values under the reserved `__follow_up__` key) the grouping's Follow-Up Notes setting, and the grouping's Statistics Designer choices (`statisticsJson`; omitted while every choice is its default, which is also how older backups restore);
 - portable user preferences, including navigation preferences, mode visibility, list behavior, Daily Task preferences, each Clicker grouping's Follow-Up Notes show/hide choice (keyed by grouping UUID; a backup without it leaves the current choices untouched), automatic-backup cadence, and automatic-backup retention.
 
 It excludes:

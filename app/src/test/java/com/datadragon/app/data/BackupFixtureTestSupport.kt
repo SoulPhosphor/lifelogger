@@ -25,7 +25,7 @@ object BackupFixtureTestSupport {
 
         val configuration = SupportSQLiteOpenHelper.Configuration.builder(context)
             .name(name)
-            .callback(object : SupportSQLiteOpenHelper.Callback(19) {
+            .callback(object : SupportSQLiteOpenHelper.Callback(AppDatabase.SCHEMA_VERSION) {
                 override fun onCreate(db: SupportSQLiteDatabase) = Unit
                 override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
             })
@@ -74,7 +74,7 @@ object BackupFixtureTestSupport {
 
         return Room.databaseBuilder(context, AppDatabase::class.java, name)
             .allowMainThreadQueries()
-            .addMigrations(AppDatabase.MIGRATION_18_19)
+            .addMigrations(AppDatabase.MIGRATION_18_19, AppDatabase.MIGRATION_19_20)
             .addCallback(AppDatabase.UUID_IDENTITY_CALLBACK)
             .build()
             .also { it.openHelper.writableDatabase }

@@ -45,6 +45,8 @@ object Routes {
     const val CLICKER_LOG = "clickerLog/{$CLICKER_LOG_ARG}"
     const val EDIT_CLICKER_LOG = "clickerLog/{$CLICKER_LOG_ARG}/edit"
     const val CLICKER_CARD_EDIT = "clickerCard/{$CLICKER_CARD_ARG}/edit"
+    const val CLICKER_STATISTICS = "clickerLog/{$CLICKER_LOG_ARG}/statistics"
+    const val CLICKER_STATISTICS_DESIGNER = "clickerLog/{$CLICKER_LOG_ARG}/statistics/designer"
 
     // Daily List. The editor opens for an exact ISO date (an existing card or
     // a fresh unsaved editor for that date — nothing is created by opening).
@@ -74,6 +76,8 @@ object Routes {
     fun clickerLog(clickerLogId: Long) = "clickerLog/$clickerLogId"
     fun editClickerLog(clickerLogId: Long) = "clickerLog/$clickerLogId/edit"
     fun clickerCardEdit(clickerCardId: Long) = "clickerCard/$clickerCardId/edit"
+    fun clickerStatistics(clickerLogId: Long) = "clickerLog/$clickerLogId/statistics"
+    fun clickerStatisticsDesigner(clickerLogId: Long) = "clickerLog/$clickerLogId/statistics/designer"
 
     fun dailyListEditor(date: String) = "dailyList/$date"
 

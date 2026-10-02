@@ -254,6 +254,16 @@ data class BackupClickerLog(
     val autoTimeStamp: Boolean,
     val allowFollowUp: Boolean,
     val cards: List<BackupClickerCard>,
+    /**
+     * The grouping's Statistics Designer choices ([ClickerLog.statisticsJson]).
+     * Null when every choice is still its default, and in backups made before
+     * this existed — both restore as the defaults.
+     *
+     * Never written while null, so a backup made before this field existed
+     * re-encodes byte-for-byte and its checksum still matches.
+     */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val statisticsJson: String? = null,
 )
 
 @Serializable
