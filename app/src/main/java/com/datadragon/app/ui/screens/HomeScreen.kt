@@ -83,6 +83,8 @@ import androidx.compose.ui.res.painterResource
 @Composable
 fun HomeScreen(
     onOpenSettings: () -> Unit,
+    onOpenBackupRestore: () -> Unit,
+    onOpenAbout: () -> Unit,
     onCreateForm: () -> Unit,
     onOpenLog: (Long) -> Unit,
     onAddEntry: (Long) -> Unit,
@@ -164,15 +166,11 @@ fun HomeScreen(
                         }
                     },
                     navigationIcon = {
-                        // Settings holds backup/restore and the global list options;
-                        // the top-right "+" creates a form or list per the current view.
-                        IconButton(onClick = onOpenSettings) {
-                            Icon(
-                                Icons.Filled.SettingsApplications,
-                                contentDescription = "Settings",
-                                modifier = Modifier.size(AppTheme.sizes.settingsCog),
-                            )
-                        }
+                        AppMenuButton(
+                            onOpenSettings = onOpenSettings,
+                            onOpenBackupRestore = onOpenBackupRestore,
+                            onOpenAbout = onOpenAbout,
+                        )
                     },
                     actions = {
                         // The trailing "+" creates a new item in whichever mode is
@@ -329,6 +327,52 @@ fun HomeScreen(
                 }
             },
         )
+    }
+}
+
+/** The app-level menu opened from the cog on every non-Daily-Tasks Home screen. */
+@Composable
+private fun AppMenuButton(
+    onOpenSettings: () -> Unit,
+    onOpenBackupRestore: () -> Unit,
+    onOpenAbout: () -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Box {
+        IconButton(onClick = { expanded = true }) {
+            Icon(
+                Icons.Filled.SettingsApplications,
+                contentDescription = "Open App Menu",
+                modifier = Modifier.size(AppTheme.sizes.settingsCog),
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            DropdownMenuItem(
+                text = { Text("Settings") },
+                onClick = {
+                    expanded = false
+                    onOpenSettings()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("Backup & Restore") },
+                onClick = {
+                    expanded = false
+                    onOpenBackupRestore()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("About") },
+                onClick = {
+                    expanded = false
+                    onOpenAbout()
+                },
+            )
+        }
     }
 }
 
