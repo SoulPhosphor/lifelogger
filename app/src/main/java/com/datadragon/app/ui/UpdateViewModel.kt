@@ -71,6 +71,12 @@ class UpdateViewModel(app: Application) : AndroidViewModel(app) {
 
             _state.value = UpdateUiState(status = "Installing Updates...", working = true)
             runCatching { openInstaller(apk, update.buildNumber) }
+                .onSuccess {
+                    // Android's package installer does not reliably report whether the
+                    // user installed or cancelled. Re-enable the button immediately so
+                    // returning from the installer can never strand this screen.
+                    _state.value = UpdateUiState(status = "Installing Updates...")
+                }
                 .onFailure {
                     _state.value = UpdateUiState(status = "Unable to Start Installation")
                 }
