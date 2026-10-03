@@ -25,7 +25,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.EntryValues
@@ -34,6 +33,7 @@ import com.datadragon.app.ui.IdeaDetailViewModel
 import com.datadragon.app.ui.components.AppDialog
 import com.datadragon.app.ui.components.DialogDestructiveButton
 import com.datadragon.app.ui.components.DialogDismissButton
+import com.datadragon.app.ui.theme.AppTheme
 
 /**
  * The full, read-only view of one idea, opened by tapping its card.
@@ -104,8 +104,8 @@ fun IdeaDetailScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+                .padding(AppTheme.spacing.screenInset),
+            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.compact),
         ) {
             if (current != null && values != null) {
                 if (log?.automaticTimestamping == true) {
@@ -121,7 +121,7 @@ fun IdeaDetailScreen(
                     Text(
                         "This idea has no filled-in fields.",
                         style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(top = 8.dp),
+                        modifier = Modifier.padding(top = AppTheme.spacing.related),
                     )
                 }
                 shown.forEach { field ->
@@ -130,7 +130,7 @@ fun IdeaDetailScreen(
                         values = values,
                         log = log,
                         mode = IdeaDisplayMode.DETAIL,
-                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = AppTheme.spacing.related),
                     )
                 }
             }

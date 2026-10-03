@@ -127,6 +127,13 @@ Write like a professional technical writer, not like someone thinking out loud.
 - **Apologize once, plainly, when I've caught a real mistake — then move on.**
   Not a paragraph of self-criticism. "That was wrong, fixed." is enough.
 
+## Appearance
+
+Read `docs/STYLE.md` before changing UI styling. Theme values live in
+`ui/theme/`; run `python3 scripts/check_theme_tokens.py` after UI changes.
+`docs/STYLE_AUDIT.md` records existing differences and accessibility findings.
+Do not normalize those differences without an owner decision.
+
 ## Text house style
 
 - **Labels and button text are Title Case.** Treat any UI label or button

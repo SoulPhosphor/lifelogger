@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#1B5E20</color>
+    <!-- Neutral intrinsic tint; Compose Icon supplies the active theme tint. -->
+    <color name="icon_asset_default">#FF000000</color>
 </resources>

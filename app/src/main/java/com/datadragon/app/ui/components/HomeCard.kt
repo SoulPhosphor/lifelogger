@@ -12,7 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
+import com.datadragon.app.ui.theme.AppTheme
 
 /**
  * The one home-screen list card, shared by every data mode's home list (Forms,
@@ -47,10 +47,10 @@ fun HomeCard(
                 // A trailing button carries its own touch padding, so the card's
                 // own end padding tightens when one is present.
                 .padding(
-                    start = 16.dp,
-                    top = 12.dp,
-                    bottom = 12.dp,
-                    end = if (trailing != null) 4.dp else 16.dp,
+                    start = AppTheme.spacing.screenInset,
+                    top = AppTheme.spacing.rowInset,
+                    bottom = AppTheme.spacing.rowInset,
+                    end = if (trailing != null) AppTheme.spacing.compact else AppTheme.spacing.screenInset,
                 ),
             verticalAlignment = Alignment.CenterVertically,
         ) {

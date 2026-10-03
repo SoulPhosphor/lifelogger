@@ -52,10 +52,13 @@ fun DataDragonTheme(
         LocalAppShapes provides DefaultAppShapes,
         LocalAppSpacing provides DefaultAppSpacing,
         LocalAppSizes provides DefaultAppSizes,
+        LocalAppColors provides appColorsFor(colorScheme),
+        LocalAppOpacity provides DefaultAppOpacity,
     ) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = AppTypography,
+            shapes = AppMaterialShapes,
             content = content,
         )
     }
@@ -66,6 +69,16 @@ fun DataDragonTheme(
  * style with `AppTheme.textStyles.sectionHeader`.
  */
 object AppTheme {
+    val colors: AppColors
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalAppColors.current
+
+    val opacity: AppOpacity
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalAppOpacity.current
+
     val textStyles: AppTextStyles
         @Composable
         @ReadOnlyComposable

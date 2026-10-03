@@ -22,6 +22,9 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Check theme tokens
+        run: python3 scripts/check_theme_tokens.py
+
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest --stacktrace
 

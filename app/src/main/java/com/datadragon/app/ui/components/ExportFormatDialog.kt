@@ -12,7 +12,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import com.datadragon.app.ui.theme.AppTheme
 
 /**
@@ -46,7 +45,7 @@ fun ExportFormatDialog(
         onDismissRequest = onDismiss,
         title = { Text("Export $thing") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.compact)) {
                 Text(
                     "Choose an export format",
                     style = AppTheme.textStyles.dialogOptionSubtitle,
@@ -60,7 +59,7 @@ fun ExportFormatDialog(
                         color = MaterialTheme.colorScheme.surfaceContainerLow,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                        Column(modifier = Modifier.padding(horizontal = AppTheme.spacing.screenInset, vertical = AppTheme.spacing.optionVerticalInset)) {
                             Text(
                                 option.title,
                                 style = AppTheme.textStyles.dialogOptionTitle,

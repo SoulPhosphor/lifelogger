@@ -49,7 +49,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.R
@@ -244,7 +243,7 @@ fun ClickerLogScreen(
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
                 ) {
                     Text("No cards yet.", style = MaterialTheme.typography.titleMedium)
                     Text(
@@ -258,8 +257,8 @@ fun ClickerLogScreen(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(AppTheme.spacing.rowInset),
+                verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset),
             ) {
                 items(cards, key = { it.id }) { card ->
                     ClickerCardView(
@@ -375,7 +374,7 @@ private fun ClickerCardView(
     val values = remember(card.valuesJson) { ClickerValues.decode(card.valuesJson) }
     var menuOpen by remember { mutableStateOf(false) }
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(AppTheme.spacing.rowInset), verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = stampText(card.displayDate, card.displayTime) ?: "",
@@ -421,7 +420,7 @@ private fun ClickerCardView(
                     OutlinedTextField(
                         value = followUp,
                         onValueChange = { followUp = it; onSetFollowUp(it) },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = CLICKER_TEXT_BOX_MIN_HEIGHT),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = AppTheme.sizes.notesMinHeight),
                     )
                 }
             }
@@ -458,10 +457,10 @@ private fun ClickerFieldFace(
                         onValueChange = { text = numberInput(it, maxDigits); onSetValue(text) },
                         singleLine = true,
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.width(120.dp),
+                        modifier = Modifier.width(AppTheme.sizes.clickerNumberWidth),
                     )
                     if (field.autoIncrement) {
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(AppTheme.spacing.related))
                         AppButton(onClick = {
                             val current = text.toIntOrNull() ?: 0
                             val delta = if (field.incrementDirection == com.datadragon.app.data.ClickerIncrementDirection.ADD) {
@@ -490,7 +489,7 @@ private fun ClickerFieldFace(
                     onValueChange = { text = it; onSetValue(it) },
                     singleLine = !multiLine,
                     modifier = if (multiLine) {
-                        Modifier.fillMaxWidth().heightIn(min = CLICKER_TEXT_BOX_MIN_HEIGHT)
+                        Modifier.fillMaxWidth().heightIn(min = AppTheme.sizes.notesMinHeight)
                     } else {
                         Modifier.fillMaxWidth()
                     },

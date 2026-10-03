@@ -38,7 +38,6 @@ import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.EntryValues
@@ -54,6 +53,7 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.launch
+import com.datadragon.app.ui.theme.AppTheme
 
 /**
  * Saves the in-progress form as a JSON string in the instance-state Bundle, so
@@ -245,8 +245,8 @@ fun NewEntryScreen(
                 // text field's own bring-into-view then scrolls it into sight.
                 .imePadding()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(AppTheme.spacing.screenInset),
+            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.screenInset),
         ) {
             Text(
                 text = if (isEditing) {
@@ -276,7 +276,7 @@ fun NewEntryScreen(
             OutlinedTextField(
                 value = notes,
                 onValueChange = { notes = it },
-                modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = AppTheme.sizes.notesMinHeight),
             )
         }
     }

@@ -52,11 +52,11 @@ object ClickerExport {
 
     /** Renders the report with the Forms PDF's page layout, paints, and spacing. */
     private fun pdfBytes(report: ClickerReport.Report): ByteArray {
-        val titlePaint = PdfReport.paint(20f, bold = true)
-        val metaPaint = PdfReport.paint(11f).apply { color = 0xFF555555.toInt() }
-        val headingPaint = PdfReport.paint(14f, bold = true)
-        val labelPaint = PdfReport.paint(12f, bold = true)
-        val bodyPaint = PdfReport.paint(12f)
+        val titlePaint = PdfReport.paint(PrintStyle.titleSize, bold = true)
+        val metaPaint = PdfReport.paint(PrintStyle.metadataSize).apply { color = PrintStyle.metadataColor }
+        val headingPaint = PdfReport.paint(PrintStyle.headingSize, bold = true)
+        val labelPaint = PdfReport.paint(PrintStyle.bodySize, bold = true)
+        val bodyPaint = PdfReport.paint(PrintStyle.bodySize)
 
         val doc = PdfDocument()
         val writer = PdfReport.PageWriter(doc)
@@ -66,11 +66,11 @@ object ClickerExport {
         writer.text(metaPaint, "Total cards: ${report.totalCards}")
 
         report.cards.forEach { card ->
-            writer.gap(8f)
+            writer.gap(PrintStyle.sectionGap)
             writer.rule()
-            writer.gap(8f)
+            writer.gap(PrintStyle.sectionGap)
             writer.text(headingPaint, card.heading)
-            writer.gap(4f)
+            writer.gap(PrintStyle.relatedGap)
             card.lines.forEach { line ->
                 if (line.block) {
                     writer.text(labelPaint, "${line.label}:")
@@ -80,7 +80,7 @@ object ClickerExport {
                 }
             }
             card.followUp?.let { note ->
-                writer.gap(4f)
+                writer.gap(PrintStyle.relatedGap)
                 writer.text(labelPaint, "Follow-Up Notes:")
                 writer.text(bodyPaint, note)
             }

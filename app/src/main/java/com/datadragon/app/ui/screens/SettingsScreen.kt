@@ -48,7 +48,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.dp
 import com.datadragon.app.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -224,8 +223,8 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(AppTheme.spacing.screenInset),
+            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
         ) {
             if (section == SettingsSection.SETTINGS) {
             // How the Home bar presents the data modes: a row of icons, or a
@@ -247,7 +246,7 @@ fun SettingsScreen(
                 title = "Use mode label instead of single icon in drop-down mode.",
             )
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = AppTheme.spacing.related))
 
             // Which data modes appear in the navigation. Unchecking one only hides
             // it from the bar — the mode's data is untouched and returns when shown.
@@ -288,7 +287,7 @@ fun SettingsScreen(
                 onCheckedChange = { settingsViewModel.setModeEnabled(HomeView.CLICKER, it) },
             )
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = AppTheme.spacing.related))
 
             // Text-formatting preferences. Their titles are deliberately kept as
             // sentences (not Title Case) because they're long. The "future items"
@@ -310,7 +309,7 @@ fun SettingsScreen(
                 title = "Auto capitalize major words of drop-down and multiple choice options",
             )
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = AppTheme.spacing.related))
 
             // Global behavior for every list.
             SectionHeader("Lists")
@@ -353,7 +352,7 @@ fun SettingsScreen(
                 Text("Back Up Now…")
             }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = AppTheme.spacing.related))
 
             // Restore lives at the bottom, away from everyday controls. Times are
             // always 12-hour (AM/PM), so there is no time-format choice here.
@@ -633,7 +632,7 @@ private fun SettingToggleRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onCheckedChange(!checked) }
-            .padding(vertical = 8.dp),
+            .padding(vertical = AppTheme.spacing.related),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -646,7 +645,7 @@ private fun SettingToggleRow(
                 )
             }
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(AppTheme.spacing.rowInset))
         Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
@@ -665,11 +664,11 @@ private fun NavStyleRadioRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onSelect)
-            .padding(vertical = 8.dp),
+            .padding(vertical = AppTheme.spacing.related),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         RadioButton(selected = selected, onClick = onSelect)
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(AppTheme.spacing.related))
         Text(label, style = AppTheme.textStyles.settingTitle)
     }
 }
@@ -709,8 +708,8 @@ private fun ConflictReviewScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(AppTheme.spacing.screenInset),
+            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
         ) {
             Text(
                 "Nothing will change until you continue.",
@@ -730,7 +729,7 @@ private fun ConflictReviewScreen(
                 ) { Text("Use Backup for All") }
             }
             conflicts.groupBy { it.category }.forEach { (category, categoryConflicts) ->
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = AppTheme.spacing.related))
                 SubsectionHeader(category.restoreLabel())
                 categoryConflicts.forEach { conflict ->
                     Text(conflict.title, style = AppTheme.textStyles.settingTitle)
@@ -800,18 +799,18 @@ private fun DataModeCheckRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onCheckedChange(!checked) }
-            .padding(vertical = 8.dp),
+            .padding(vertical = AppTheme.spacing.related),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         when {
             iconRes != null -> Icon(
                 painterResource(iconRes),
                 contentDescription = null,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(AppTheme.sizes.icon),
             )
-            icon != null -> Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp))
+            icon != null -> Icon(icon, contentDescription = null, modifier = Modifier.size(AppTheme.sizes.icon))
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(AppTheme.spacing.rowInset))
         Column(modifier = Modifier.weight(1f)) {
             Text(label, style = AppTheme.textStyles.settingTitle)
             Text(
@@ -820,7 +819,7 @@ private fun DataModeCheckRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(AppTheme.spacing.rowInset))
         Checkbox(checked = checked, onCheckedChange = onCheckedChange)
     }
 }

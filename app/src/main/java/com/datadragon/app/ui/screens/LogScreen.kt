@@ -25,7 +25,6 @@ import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.SettingsApplications
 import androidx.compose.foundation.layout.size
-import com.datadragon.app.ui.theme.AppTheme
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.AlertDialog
@@ -54,7 +53,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -75,6 +73,7 @@ import com.datadragon.app.data.LogEntry
 import com.datadragon.app.export.ExportContent
 import com.datadragon.app.export.LogExport
 import com.datadragon.app.ui.LogViewModel
+import com.datadragon.app.ui.theme.AppTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -272,7 +271,7 @@ fun LogScreen(
                     onSelectCategory = viewModel::selectSortCategoryLabel,
                     onSelectNewestFirst = viewModel::selectNewestFirst,
                     onClear = viewModel::clearSort,
-                    modifier = Modifier.padding(horizontal = 12.dp),
+                    modifier = Modifier.padding(horizontal = AppTheme.spacing.rowInset),
                 )
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -285,8 +284,8 @@ fun LogScreen(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(start = AppTheme.spacing.rowInset, end = AppTheme.spacing.rowInset, bottom = AppTheme.spacing.rowInset),
+                verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset),
             ) {
                 // The controls are the first thing in the list, not a fixed header,
                 // so they scroll away with the entries.
@@ -478,7 +477,7 @@ private fun EntryRow(
     Card(modifier = Modifier.fillMaxWidth()) {
         Box(modifier = Modifier.fillMaxWidth()) {
             Column(
-                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 8.dp, end = 4.dp, bottom = 16.dp),
+                modifier = Modifier.fillMaxWidth().padding(start = AppTheme.spacing.screenInset, top = AppTheme.spacing.related, end = AppTheme.spacing.compact, bottom = AppTheme.spacing.screenInset),
             ) {
                 if (hoisted != null) {
                     // The first field takes the top line beside the ⋮ menu, wrapping
@@ -525,7 +524,7 @@ private fun EntryRow(
                     Text(
                         "Follow-Up Notes",
                         style = MaterialTheme.typography.titleSmall,
-                        modifier = Modifier.padding(top = 8.dp),
+                        modifier = Modifier.padding(top = AppTheme.spacing.related),
                     )
                     appendedNotes.forEach { note ->
                         FollowUpNote(note, onClick = { onEditNote(note.id) })
@@ -543,7 +542,7 @@ private fun EntryRow(
                 Row(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(top = 8.dp, end = 4.dp)
+                        .padding(top = AppTheme.spacing.related, end = AppTheme.spacing.compact)
                         .onSizeChanged { size ->
                             actionsWidth = with(density) { size.width.toDp() }
                         },
@@ -624,9 +623,10 @@ private fun EntryActions(
 @Composable
 private fun FollowUpNote(note: EntryNote, onClick: () -> Unit) {
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val labelWeight = AppTheme.textStyles.readoutLabelWeight
     Text(
         text = buildAnnotatedString {
-            withStyle(SpanStyle(color = labelColor, fontWeight = FontWeight.Medium)) {
+            withStyle(SpanStyle(color = labelColor, fontWeight = labelWeight)) {
                 append("${EntryValues.displayEntryTimestamp(note.createdAt)}: ")
             }
             append(note.text)
@@ -635,7 +635,7 @@ private fun FollowUpNote(note: EntryNote, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(top = 4.dp),
+            .padding(top = AppTheme.spacing.compact),
     )
 }
 
@@ -650,7 +650,7 @@ private fun FollowUpNote(note: EntryNote, onClick: () -> Unit) {
 private fun FieldReadout(
     field: FieldDef,
     value: String,
-    modifier: Modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+    modifier: Modifier = Modifier.fillMaxWidth().padding(top = AppTheme.spacing.related),
 ) {
     if (field.type == FieldType.WEBPAGE) {
         Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
@@ -672,16 +672,17 @@ private fun NotesReadout(value: String) {
     LabelledValue(
         label = "Notes",
         value = value,
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = AppTheme.spacing.related),
     )
 }
 
 @Composable
 private fun LabelledValue(label: String, value: String, modifier: Modifier = Modifier) {
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val labelWeight = AppTheme.textStyles.readoutLabelWeight
     Text(
         text = buildAnnotatedString {
-            withStyle(SpanStyle(color = labelColor, fontWeight = FontWeight.Medium)) {
+            withStyle(SpanStyle(color = labelColor, fontWeight = labelWeight)) {
                 append("$label: ")
             }
             append(value)

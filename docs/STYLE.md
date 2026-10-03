@@ -298,3 +298,51 @@ space, and each line's text is centered.
 
 The reference that does this correctly is the Ideas Home screen with no Idea
 Logs ("No idea logs yet."), drawn by `EmptyMessage` in `HomeScreen.kt`.
+
+## 14. Theme implementation and preservation audit (October 2026)
+
+The theme now owns every nonzero screen/component dimension, explicit font
+weight, application color fallback, and custom shape. Existing differences are
+preserved as separate named roles. This refactor does **not** settle differences
+between older screens and the rules above; those are recorded for the owner in
+[STYLE_AUDIT.md](STYLE_AUDIT.md).
+
+| Setting | Central location | Access |
+| --- | --- | --- |
+| Material palette and dynamic light/dark selection | `ui/theme/Theme.kt`, `Color.kt` | `MaterialTheme.colorScheme` |
+| Extra color roles: invalid stored color, action/destructive/dismiss dialog text | `ui/theme/Appearance.kt` | `AppTheme.colors` |
+| Disabled text and border opacity | `ui/theme/Appearance.kt` | `AppTheme.opacity` |
+| Material type scale and semantic text/weight roles | `ui/theme/Type.kt` | `MaterialTheme.typography`, `AppTheme.textStyles` |
+| Material component shapes and existing custom corners | `ui/theme/Shape.kt` | `MaterialTheme.shapes`, `AppTheme.shapes` |
+| Gaps, padding, and indentation | `ui/theme/Spacing.kt` | `AppTheme.spacing` |
+| Icon sizes, field widths/minimum heights, picker geometry, elevation | `ui/theme/Sizes.kt` | `AppTheme.sizes` |
+| PDF fonts, colors, page dimensions, rules and spacing (points) | `export/PrintStyle.kt` | `PrintStyle` |
+| Intrinsic XML vector tint and launcher background | `res/values/colors.xml` | XML resource references |
+
+Fonts continue using the existing Material type scale and system font, with
+`sp` so Android font scaling remains effective. Sizes use `dp`; minimum-height
+text fields can still expand. The inline readout-label role supplies only a
+weight, retaining each caller's existing inherited size and line height.
+
+Android 12+ wallpaper colors remain enabled exactly as before. A future custom
+palette can be selected in `DataDragonTheme`; provide matching foreground and
+background roles together. App-specific colors are derived from that selected
+scheme, so dialog role colors also follow dynamic color. The three dialog action
+roles remain visually identical today but can be recolored independently.
+
+Stored calendar colors, built-in selectable calendar palettes, and hex input
+are user data. They remain their exact values when the app theme changes.
+`contentColorFromHex` resolves stored colors with a themed invalid-value fallback.
+The color picker still parses explicit opaque RGB input. Launcher artwork,
+vector path coordinates, transparent sizing placeholders, zero spacing, layout
+weights, aspect ratios, and measured pixel-to-dp conversions are geometry/content,
+rather than application color or size literals to replace.
+
+PDF output has its own print style so a dark device theme does not make printed
+reports dark. Existing A4 dimensions, fonts, pagination and colors are preserved.
+
+Run `python3 scripts/check_theme_tokens.py` when touching UI styling. CI runs
+this check before the Android unit tests and release build. It rejects new raw
+screen sizes/colors/shapes/fonts while allowing zero geometry and content-color
+parsing. Add a named role to the theme for a genuinely new treatment; preserve
+existing per-role differences unless the owner approves a visible change.

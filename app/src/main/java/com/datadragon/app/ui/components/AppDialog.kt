@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.BasicAlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -15,7 +16,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import com.datadragon.app.ui.theme.AppTheme
 
 /**
@@ -47,12 +47,12 @@ fun AppDialog(
         Surface(
             shape = AppTheme.shapes.control,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            tonalElevation = 6.dp,
+            tonalElevation = AppTheme.sizes.dialogElevation,
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(24.dp),
+                    .padding(AppTheme.spacing.dialogInset),
                 verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
             ) {
                 // Title: centered, the question the dialog is asking.
@@ -104,7 +104,11 @@ fun DialogActionButton(
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
-    TextButton(onClick = onClick, enabled = enabled) { Text(text) }
+    TextButton(
+        onClick = onClick,
+        enabled = enabled,
+        colors = ButtonDefaults.textButtonColors(contentColor = AppTheme.colors.dialogAction),
+    ) { Text(text) }
 }
 
 /**
@@ -121,7 +125,11 @@ fun DialogDestructiveButton(
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
-    TextButton(onClick = onClick, enabled = enabled) { Text(text) }
+    TextButton(
+        onClick = onClick,
+        enabled = enabled,
+        colors = ButtonDefaults.textButtonColors(contentColor = AppTheme.colors.dialogDestructive),
+    ) { Text(text) }
 }
 
 /** The dismiss button in a dialog — backs out without acting ("Cancel"). */
@@ -130,5 +138,8 @@ fun DialogDismissButton(
     text: String,
     onClick: () -> Unit,
 ) {
-    TextButton(onClick = onClick) { Text(text) }
+    TextButton(
+        onClick = onClick,
+        colors = ButtonDefaults.textButtonColors(contentColor = AppTheme.colors.dialogDismiss),
+    ) { Text(text) }
 }

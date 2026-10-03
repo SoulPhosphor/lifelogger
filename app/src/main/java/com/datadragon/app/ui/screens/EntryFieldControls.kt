@@ -42,9 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.ui.components.TagsEditor
 import com.datadragon.app.ui.components.WebpageEntryField
@@ -57,6 +55,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneOffset
+import com.datadragon.app.ui.theme.AppTheme
 
 /**
  * Legacy stored yesno values that predate the Yes / No / Unknown radio design.
@@ -103,9 +102,9 @@ fun EntryFieldControl(
     } ?: Modifier
     val validationModifier = if (showRequiredError) {
         Modifier.border(
-            width = 2.dp,
+            width = AppTheme.shapes.validationBorder,
             color = MaterialTheme.colorScheme.error,
-            shape = RoundedCornerShape(8.dp),
+            shape = AppTheme.shapes.validation,
         )
     } else {
         Modifier
@@ -123,7 +122,7 @@ fun EntryFieldControl(
             }
 
             FieldType.MULTILINE -> Labeled(label) {
-                val minHeight = ((field.lines ?: 4).coerceIn(2, 12) * 24).dp
+                val minHeight = AppTheme.sizes.textLineHeight * (field.lines ?: 4).coerceIn(2, 12)
                 OutlinedTextField(
                     value = textValues[field.label].orEmpty(),
                     onValueChange = { textValues[field.label] = it },
@@ -246,7 +245,7 @@ private fun Modifier.withFocusRequester(requester: FocusRequester?): Modifier =
 
 @Composable
 internal fun Labeled(label: String, content: @Composable () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.compact)) {
         Text(label, style = MaterialTheme.typography.labelLarge)
         content()
     }
@@ -300,14 +299,14 @@ private fun YesNoField(
     }
     Labeled(label) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.screenInset),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             options.forEach { option ->
                 Row(
                     modifier = Modifier
                         .clickable { onTap(option) }
-                        .padding(vertical = 4.dp),
+                        .padding(vertical = AppTheme.spacing.compact),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     RadioButton(
@@ -353,12 +352,12 @@ private fun BloodPressureField(
                 },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.width(96.dp),
+                modifier = Modifier.width(AppTheme.sizes.numberWidth),
             )
             Text(
                 "/",
                 style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(horizontal = 8.dp),
+                modifier = Modifier.padding(horizontal = AppTheme.spacing.related),
             )
             OutlinedTextField(
                 value = diastolic,
@@ -368,7 +367,7 @@ private fun BloodPressureField(
                 },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.width(96.dp),
+                modifier = Modifier.width(AppTheme.sizes.numberWidth),
             )
         }
     }
@@ -396,7 +395,7 @@ private fun ScaleField(
         )
     } else {
         Labeled(label) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.compact)) {
                 numbers.forEach { n ->
                     val value = n.toString()
                     FilterChip(
@@ -466,7 +465,7 @@ private fun MultipleField(
     onToggle: (String) -> Unit,
 ) {
     Labeled(label) {
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.related)) {
             options.forEach { option ->
                 FilterChip(
                     selected = option in selected,
@@ -572,7 +571,7 @@ internal fun DateTimeField(label: String, stored: String?, onChange: (String) ->
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun FlowRowSafe(content: @Composable () -> Unit) {
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { content() }
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.related)) { content() }
 }
 
 @Composable
@@ -582,7 +581,7 @@ private fun PickerButton(
     placeholder: String,
     onClick: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.compact)) {
         if (label != null) Text(label, style = MaterialTheme.typography.labelLarge)
         AppButton(onClick = onClick) {
             Text(text ?: placeholder)
