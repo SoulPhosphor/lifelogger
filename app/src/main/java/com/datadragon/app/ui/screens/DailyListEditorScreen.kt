@@ -1,5 +1,6 @@
 package com.datadragon.app.ui.screens
 
+import com.datadragon.app.ui.theme.AppTheme
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -206,7 +207,7 @@ fun DailyListEditorScreen(
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).imePadding()) {
             // The date, always editable, in the forms' picker style.
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = AppTheme.spacing.screenInset, vertical = AppTheme.spacing.related)) {
                 AppButton(onClick = { showDatePicker = true }) {
                     Text(editorDate?.format(DAILY_LIST_DATE_FORMAT) ?: "Select Date")
                 }
@@ -219,7 +220,7 @@ fun DailyListEditorScreen(
                     onValueChange = viewModel::setEditorTitle,
                     singleLine = true,
                     label = { Text("Title") },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = AppTheme.spacing.screenInset),
                 )
             }
 

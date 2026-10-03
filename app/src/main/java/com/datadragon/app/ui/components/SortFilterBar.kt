@@ -23,9 +23,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
+import com.datadragon.app.ui.theme.AppTheme
 
 /**
  * Swallows every interaction, so a control wired to it never picks up a pressed
@@ -67,7 +67,7 @@ fun SortFilterBar(
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.related, Alignment.CenterHorizontally),
     ) {
         if (categoryLabels.size > 1) {
             Box {

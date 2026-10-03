@@ -57,7 +57,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.ui.components.AppDialog
@@ -76,6 +75,7 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import sh.calvin.reorderable.ReorderableColumn
+import com.datadragon.app.ui.theme.AppTheme
 
 /** Which editor is showing. Build (visual taps) is the default. */
 private enum class BuilderMode { BUILD, PASTE }
@@ -262,8 +262,8 @@ fun CreateLogScreen(
                 // text field's own bring-into-view then scrolls it into sight.
                 .imePadding()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(AppTheme.spacing.screenInset),
+            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset),
         ) {
             Text("Log Name", style = MaterialTheme.typography.labelLarge)
             OutlinedTextField(
@@ -369,7 +369,7 @@ internal fun SettingSwitchRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onCheckedChange(!checked) }
-            .padding(vertical = 8.dp),
+            .padding(vertical = AppTheme.spacing.related),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -382,7 +382,7 @@ internal fun SettingSwitchRow(
                 )
             }
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(AppTheme.spacing.rowInset))
         Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
@@ -397,14 +397,14 @@ internal fun SortDirectionRadios(
     newestFirst: Boolean,
     onNewestFirstChange: (Boolean) -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(start = 12.dp)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(start = AppTheme.spacing.rowInset)) {
         Text("Default Sorting:", style = MaterialTheme.typography.bodyLarge)
         // Both choices share the width so a narrow screen wraps the labels
         // rather than clipping them.
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
         ) {
             Row(
                 modifier = Modifier.weight(1f).clickable { onNewestFirstChange(true) },
@@ -436,7 +436,7 @@ internal fun CheckboxSettingRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onCheckedChange(!checked) }
-            .padding(vertical = 4.dp),
+            .padding(vertical = AppTheme.spacing.compact),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Checkbox(checked = checked, onCheckedChange = null)
@@ -497,7 +497,7 @@ private fun BuildEditor(
             list = fields,
             onSettle = onReorder,
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset),
         ) { index, field, _ ->
             FieldEditorCard(
                 field = field,
@@ -552,8 +552,8 @@ private fun FieldEditorCard(
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(AppTheme.spacing.rowInset),
+            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -569,7 +569,7 @@ private fun FieldEditorCard(
                     imageVector = Icons.Filled.DragIndicator,
                     contentDescription = "Drag to reorder",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = dragHandleModifier.padding(start = 4.dp),
+                    modifier = dragHandleModifier.padding(start = AppTheme.spacing.compact),
                 )
             }
 
@@ -603,7 +603,7 @@ private fun FieldEditorCard(
                 )
                 FieldType.SCALE -> {
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         ScaleBoundField(
@@ -631,7 +631,7 @@ private fun FieldEditorCard(
                         value = field.optionsText,
                         onValueChange = { field.optionsText = it },
                         label = { Text("Options (One per Line)") },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = AppTheme.sizes.editorMinHeight),
                     )
                     if (field.type == FieldType.MULTIPLE) {
                         CheckboxSettingRow(
@@ -776,7 +776,7 @@ private fun PasteEditor(
 
     AnimatedVisibility(visible = showHelp) {
         Card {
-            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(modifier = Modifier.padding(AppTheme.spacing.rowInset), verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related)) {
                 Text(FORM_MARKDOWN_HELP, style = MaterialTheme.typography.bodySmall)
                 HorizontalDivider()
                 Text("Field Types", style = MaterialTheme.typography.labelMedium)
@@ -788,7 +788,7 @@ private fun PasteEditor(
     OutlinedTextField(
         value = text,
         onValueChange = onTextChange,
-        modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = AppTheme.sizes.largeEditorMinHeight),
         placeholder = { Text("Paste or type Form Markdown here…") },
     )
 
@@ -812,7 +812,7 @@ private fun PreviewSection(result: FormMarkdownParser.ParseResult) {
     } else {
         result.fields.forEach { field ->
             Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp)) {
+                Column(modifier = Modifier.padding(AppTheme.spacing.rowInset)) {
                     Text(field.label, style = MaterialTheme.typography.titleSmall)
                     Text(field.summary(), style = MaterialTheme.typography.bodySmall)
                 }

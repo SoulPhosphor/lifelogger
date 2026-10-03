@@ -42,7 +42,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.ClickerField
@@ -151,10 +150,10 @@ fun ClickerStatisticsScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(AppTheme.spacing.screenInset),
             verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
         ) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.related)) {
                 chips.forEach { chip ->
                     FilterChip(
                         selected = chip.key == selected.key,
@@ -245,7 +244,7 @@ fun ClickerStatisticsDesignerScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(AppTheme.spacing.screenInset),
             verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
         ) {
             Text("Date Ranges", style = AppTheme.textStyles.sectionHeader)
@@ -278,7 +277,7 @@ fun ClickerStatisticsDesignerScreen(
                     style = AppTheme.textStyles.settingTitle,
                     modifier = Modifier.weight(1f),
                 )
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(AppTheme.spacing.rowInset))
                 Switch(
                     checked = config.excludeToday,
                     onCheckedChange = { on -> viewModel.update { it.copy(excludeToday = on) } },
@@ -313,7 +312,7 @@ fun ClickerStatisticsDesignerScreen(
                                 statName(stat)
                             },
                             checked = stat in on,
-                            modifier = Modifier.padding(start = 32.dp),
+                            modifier = Modifier.padding(start = AppTheme.spacing.listIndent),
                         ) { checked -> viewModel.update { it.withStat(tracker.id, stat, checked) } }
                     }
                 }
@@ -404,7 +403,7 @@ private fun CustomRangeRow(
             style = AppTheme.textStyles.settingTitle,
             modifier = Modifier.weight(1f, fill = false),
         )
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(AppTheme.spacing.related))
         OutlinedTextField(
             value = days,
             onValueChange = { input ->
@@ -413,9 +412,9 @@ private fun CustomRangeRow(
             },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.width(88.dp),
+            modifier = Modifier.width(AppTheme.sizes.statisticsNumberWidth),
         )
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(AppTheme.spacing.related))
         Text("Days", style = AppTheme.textStyles.settingTitle)
     }
 }

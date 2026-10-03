@@ -36,7 +36,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.ClickerField
 import com.datadragon.app.data.ClickerFieldType
@@ -189,7 +188,7 @@ fun ClickerSetupScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(AppTheme.spacing.screenInset),
             verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
         ) {
             Labeled("Clicker Data Log Title") {
@@ -226,7 +225,7 @@ fun ClickerSetupScreen(
                 onCheckedChange = { allowFollowUp = it },
             )
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = AppTheme.spacing.related))
 
             Text("Fields", style = AppTheme.textStyles.sectionHeader)
             if (fields.isEmpty()) {
@@ -268,7 +267,7 @@ private fun ToggleRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(vertical = AppTheme.spacing.compact),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -279,7 +278,7 @@ private fun ToggleRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(AppTheme.spacing.rowInset))
         Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
@@ -313,7 +312,7 @@ private fun ClickerFieldEditor(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(vertical = AppTheme.spacing.related),
         verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {

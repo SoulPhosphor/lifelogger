@@ -16,11 +16,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.unit.dp
 import com.github.skydoves.colorpicker.compose.BrightnessSlider
 import com.github.skydoves.colorpicker.compose.ColorEnvelope
 import com.github.skydoves.colorpicker.compose.HsvColorPicker
 import com.github.skydoves.colorpicker.compose.rememberColorPickerController
+import com.datadragon.app.ui.theme.AppTheme
 
 /**
  * The color picker for a calendar color swatch: a circular rainbow wheel, a
@@ -37,7 +37,8 @@ fun ColorPickerDialog(
     onDismiss: () -> Unit,
 ) {
     val controller = rememberColorPickerController()
-    val initialColor = remember(initialHex) { parseHexOrNull(initialHex) ?: Color.Gray }
+    val fallbackColor = AppTheme.colors.invalidContentColor
+    val initialColor = remember(initialHex, fallbackColor) { parseHexOrNull(initialHex) ?: fallbackColor }
 
     // The selected color is the source of truth for Okay; the hex field mirrors it.
     var selectedColor by remember { mutableStateOf(initialColor) }
@@ -52,9 +53,9 @@ fun ColorPickerDialog(
             TextButton(onClick = onDismiss) { Text("Cancel") }
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset)) {
                 HsvColorPicker(
-                    modifier = Modifier.fillMaxWidth().height(280.dp),
+                    modifier = Modifier.fillMaxWidth().height(AppTheme.sizes.colorWheelHeight),
                     controller = controller,
                     initialColor = initialColor,
                     onColorChanged = { envelope: ColorEnvelope ->
@@ -66,7 +67,7 @@ fun ColorPickerDialog(
                     },
                 )
                 BrightnessSlider(
-                    modifier = Modifier.fillMaxWidth().height(32.dp),
+                    modifier = Modifier.fillMaxWidth().height(AppTheme.sizes.brightnessHeight),
                     controller = controller,
                 )
                 OutlinedTextField(

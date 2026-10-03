@@ -84,7 +84,7 @@ fun DailyListBody(
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
             ) {
                 Text(
                     text = "No daily tasks yet.",
@@ -100,8 +100,8 @@ fun DailyListBody(
     } else {
         LazyColumn(
             modifier = modifier,
-            contentPadding = PaddingValues(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(AppTheme.spacing.rowInset),
+            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset),
         ) {
             item(key = "dailyListSortBar") {
                 Box {
@@ -179,7 +179,7 @@ private fun DailyListCardRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
+                .padding(start = AppTheme.spacing.screenInset, top = AppTheme.spacing.rowInset, bottom = AppTheme.spacing.rowInset, end = AppTheme.spacing.compact),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
@@ -204,7 +204,7 @@ private fun DailyListCardRow(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 4.dp, start = if (item.indent == 1) 20.dp else 0.dp),
+                            .padding(top = AppTheme.spacing.compact, start = if (item.indent == 1) AppTheme.spacing.taskChildIndent else 0.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(
@@ -218,7 +218,7 @@ private fun DailyListCardRow(
                         )
                         Text(
                             text = item.text,
-                            modifier = Modifier.padding(start = 8.dp),
+                            modifier = Modifier.padding(start = AppTheme.spacing.related),
                             style = MaterialTheme.typography.bodySmall,
                             color = if (item.completed) {
                                 MaterialTheme.colorScheme.onSurfaceVariant
@@ -294,7 +294,7 @@ private fun SortControl(
                 MaterialTheme.colorScheme.outline,
                 AppTheme.shapes.control,
             )
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = AppTheme.spacing.rowInset, vertical = AppTheme.spacing.related),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(

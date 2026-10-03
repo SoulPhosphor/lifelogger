@@ -33,12 +33,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.CelebrationIcon
 import com.datadragon.app.ui.DailyListViewModel
 import java.util.Locale
+import com.datadragon.app.ui.theme.AppTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,8 +73,8 @@ fun DailyListPreferencesScreen(
         },
     ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(AppTheme.spacing.screenInset),
+            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
         ) {
             OutlinedTextField(
                 value = heading,
@@ -105,7 +105,7 @@ fun DailyListPreferencesScreen(
                     value = retentionRaw,
                     onValueChange = viewModel::setRetentionRaw,
                     singleLine = true,
-                    modifier = Modifier.width(72.dp),
+                    modifier = Modifier.width(AppTheme.sizes.shortNumberWidth),
                 )
                 Text(") days.", style = MaterialTheme.typography.bodyMedium)
             }
@@ -116,7 +116,7 @@ fun DailyListPreferencesScreen(
 @Composable
 private fun PreferenceToggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit, label: String) {
     Row(
-        modifier = Modifier.fillMaxWidth().clickable { onCheckedChange(!checked) }.padding(vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().clickable { onCheckedChange(!checked) }.padding(vertical = AppTheme.spacing.related),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
@@ -127,18 +127,18 @@ private fun PreferenceToggle(checked: Boolean, onCheckedChange: (Boolean) -> Uni
 @Composable
 private fun CleanupKeepChoice(selected: Int, onSelected: (Int) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = AppTheme.spacing.compact)) {
         Text(
             "Do not clean up days that are more then these days worth of cards old",
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.weight(1f),
         )
         Row(
-            modifier = Modifier.clickable { expanded = true }.padding(8.dp),
+            modifier = Modifier.clickable { expanded = true }.padding(AppTheme.spacing.related),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(selected.toString())
-            Spacer(Modifier.width(4.dp))
+            Spacer(Modifier.width(AppTheme.spacing.compact))
             Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 listOf(2, 3, 7, 14).forEach { option ->
@@ -155,14 +155,14 @@ private fun CleanupKeepChoice(selected: Int, onSelected: (Int) -> Unit) {
 @Composable
 private fun CelebrationChoice(selected: CelebrationIcon, onSelected: (CelebrationIcon) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = AppTheme.spacing.compact)) {
         Text("Celebration icon:", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
         Row(
-            modifier = Modifier.clickable { expanded = true }.padding(8.dp),
+            modifier = Modifier.clickable { expanded = true }.padding(AppTheme.spacing.related),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(selected.label)
-            Spacer(Modifier.width(4.dp))
+            Spacer(Modifier.width(AppTheme.spacing.compact))
             Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 CelebrationIcon.entries.forEach { option ->

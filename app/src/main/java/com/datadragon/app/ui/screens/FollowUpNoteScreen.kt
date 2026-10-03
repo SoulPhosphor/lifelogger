@@ -30,13 +30,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.ui.FollowUpNoteViewModel
+import com.datadragon.app.ui.theme.AppTheme
 
 /**
  * Add or edit a follow-up note on an entry.
@@ -110,8 +109,8 @@ fun FollowUpNoteScreen(
                 .padding(padding)
                 .imePadding()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(AppTheme.spacing.screenInset),
+            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.screenInset),
         ) {
             entryTimestamp?.let { iso ->
                 Text(
@@ -124,7 +123,7 @@ fun FollowUpNoteScreen(
             OutlinedTextField(
                 value = noteText,
                 onValueChange = { noteText = it },
-                modifier = Modifier.fillMaxWidth().heightIn(min = 144.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = AppTheme.sizes.followUpMinHeight),
             )
 
             HorizontalDivider()
@@ -146,9 +145,10 @@ fun FollowUpNoteScreen(
 @Composable
 private fun ReadonlyField(label: String, value: String) {
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val labelWeight = AppTheme.textStyles.readoutLabelWeight
     Text(
         text = buildAnnotatedString {
-            withStyle(SpanStyle(color = labelColor, fontWeight = FontWeight.Medium)) {
+            withStyle(SpanStyle(color = labelColor, fontWeight = labelWeight)) {
                 append("$label: ")
             }
             append(value)

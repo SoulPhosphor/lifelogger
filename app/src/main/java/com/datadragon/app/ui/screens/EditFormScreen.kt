@@ -54,7 +54,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.R
@@ -74,6 +73,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
+import com.datadragon.app.ui.theme.AppTheme
 
 /**
  * Saves the in-progress field list as JSON in the instance-state Bundle, so an
@@ -322,8 +322,8 @@ fun EditFormScreen(
         LazyColumn(
             state = lazyListState,
             modifier = Modifier.fillMaxSize().padding(padding).imePadding(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(AppTheme.spacing.screenInset),
+            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset),
         ) {
             item(key = "integrate-calendar") {
                 SettingSwitchRow(
@@ -358,7 +358,7 @@ fun EditFormScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(12.dp),
+                            .padding(AppTheme.spacing.rowInset),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
@@ -467,7 +467,7 @@ private fun FieldSummaryCard(
             .fillMaxWidth()
             .clickable(onClick = onOpen),
     ) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(AppTheme.spacing.rowInset), verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
@@ -491,7 +491,7 @@ private fun FieldSummaryCard(
                     imageVector = Icons.Filled.DragIndicator,
                     contentDescription = "Drag to reorder",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = dragHandleModifier.padding(start = 4.dp),
+                    modifier = dragHandleModifier.padding(start = AppTheme.spacing.compact),
                 )
             }
             field.validationHint()?.let { hint ->
@@ -578,8 +578,8 @@ private fun FieldEditorScreen(
                 // text field's own bring-into-view then scrolls it into sight.
                 .imePadding()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(AppTheme.spacing.screenInset),
+            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset),
         ) {
             OutlinedTextField(
                 value = draft.label,
@@ -682,7 +682,7 @@ private fun SettingsControls(field: EditDraft) {
         )
         FieldType.SCALE -> {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 EditScaleBoundField(
@@ -710,7 +710,7 @@ private fun SettingsControls(field: EditDraft) {
                 value = field.optionsText,
                 onValueChange = { field.optionsText = it },
                 label = { Text("Options (One per Line)") },
-                modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = AppTheme.sizes.editorMinHeight),
             )
             if (field.type == FieldType.MULTIPLE) {
                 CheckboxSettingRow(

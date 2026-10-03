@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -50,7 +49,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.CalendarColorRow
@@ -68,6 +66,7 @@ import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.ui.components.AppDropdownRow
 import com.datadragon.app.ui.components.ColorPickerDialog
 import com.datadragon.app.ui.theme.AppTheme
+import com.datadragon.app.ui.theme.contentColorFromHex
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -355,8 +354,8 @@ fun CalendarConfigScreen(
                 .padding(padding)
                 .imePadding()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(AppTheme.spacing.screenInset),
+            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.screenInset),
         ) {
             CalendarTypeDropdown(
                 selected = type,
@@ -384,7 +383,7 @@ fun CalendarConfigScreen(
                     value = description,
                     onValueChange = { description = it },
                     minLines = 5,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = AppTheme.sizes.notesMinHeight),
                 )
             }
 
@@ -787,7 +786,7 @@ private fun conditionDisplayName(token: String): String = when (token) {
 private fun ColorCountSelector(selected: Int?, onSelected: (Int) -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         ColorPresets.counts.forEach { count ->
@@ -810,7 +809,7 @@ private fun ColorRowsHeader() {
             "Color",
             style = MaterialTheme.typography.labelMedium,
             textAlign = TextAlign.Center,
-            modifier = Modifier.width(SWATCH_CELL_WIDTH),
+            modifier = Modifier.width(AppTheme.sizes.swatchColumnWidth),
         )
         Text(
             "Min Value",
@@ -832,14 +831,14 @@ private fun ColorRowsHeader() {
 private fun ColorRowEditor(row: ColorRowState, onSwatchClick: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(modifier = Modifier.width(SWATCH_CELL_WIDTH), contentAlignment = Alignment.Center) {
+        Box(modifier = Modifier.width(AppTheme.sizes.swatchColumnWidth), contentAlignment = Alignment.Center) {
             Box(
                 modifier = Modifier
-                    .size(32.dp)
-                    .clip(RoundedCornerShape(6.dp))
+                    .size(AppTheme.sizes.colorPreview)
+                    .clip(AppTheme.shapes.colorPreview)
                     .background(hexToColor(row.colorHex))
                     .clickable(onClick = onSwatchClick),
             )
@@ -861,7 +860,6 @@ private fun ColorRowEditor(row: ColorRowState, onSwatchClick: () -> Unit) {
     }
 }
 
-private val SWATCH_CELL_WIDTH = 56.dp
 
 /** The exact owner-facing type names shown in "Choose Calendar Type". */
 private fun CalendarType.displayName(): String = when (this) {
@@ -870,8 +868,9 @@ private fun CalendarType.displayName(): String = when (this) {
 }
 
 /** Compose color from a "#RRGGBB" hex string; a bad value falls back to gray. */
+@Composable
 private fun hexToColor(hex: String): Color =
-    runCatching { Color(android.graphics.Color.parseColor(hex)) }.getOrDefault(Color.Gray)
+    contentColorFromHex(hex, AppTheme.colors.invalidContentColor)
 
 /** Compose-observable editing state for one color range row. */
 private class ColorRowState(

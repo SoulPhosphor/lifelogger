@@ -41,7 +41,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.R
 import com.datadragon.app.data.ClickerCard
@@ -65,7 +64,6 @@ private val TIME_DISPLAY_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern
  * as a form entry's Notes box. Like that box, there is no cap on how many lines
  * can be typed — the box grows to fit.
  */
-internal val CLICKER_TEXT_BOX_MIN_HEIGHT = 120.dp
 
 private fun numberInput(input: String, maxDigits: Int): String {
     val negative = input.startsWith("-")
@@ -149,7 +147,7 @@ fun ClickerCardEditScreen(
                 .padding(padding)
                 .imePadding()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(AppTheme.spacing.screenInset),
             verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
         ) {
             // Card stamp override — only the parts the card actually carries.
@@ -161,7 +159,7 @@ fun ClickerCardEditScreen(
                 if (displayTime != null) {
                     TimeEditRow(label = "Time", iso = displayTime, onSet = { displayTime = it })
                 }
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = AppTheme.spacing.related))
             }
 
             // Editable text boxes carry their label above the box, never inside it
@@ -196,7 +194,7 @@ fun ClickerCardEditScreen(
                         OutlinedTextField(
                             value = ClickerValues.text(values, field.id),
                             onValueChange = { values[field.id] = it },
-                            modifier = Modifier.fillMaxWidth().heightIn(min = CLICKER_TEXT_BOX_MIN_HEIGHT),
+                            modifier = Modifier.fillMaxWidth().heightIn(min = AppTheme.sizes.notesMinHeight),
                         )
                     }
                 }
@@ -209,7 +207,7 @@ fun ClickerCardEditScreen(
                     OutlinedTextField(
                         value = ClickerValues.text(values, ClickerValues.FOLLOW_UP_KEY),
                         onValueChange = { values[ClickerValues.FOLLOW_UP_KEY] = it },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = CLICKER_TEXT_BOX_MIN_HEIGHT),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = AppTheme.sizes.notesMinHeight),
                     )
                 }
             }

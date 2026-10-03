@@ -29,14 +29,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.unit.dp
 import com.datadragon.app.ui.theme.AppTheme
 
-// Material 3's own disabled-button alphas (ButtonDefaults): content at 38%,
-// border at 12%. Matched exactly so a disabled AppButton looks like the
-// disabled OutlinedButton it replaced, not more washed out.
-private const val DISABLED_CONTENT_ALPHA = 0.38f
-private const val DISABLED_BORDER_ALPHA = 0.12f
 
 /**
  * The app's button — the only button shape there is.
@@ -56,19 +50,19 @@ fun AppButton(
     val contentColor = if (enabled) {
         MaterialTheme.colorScheme.onSurface
     } else {
-        MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_CONTENT_ALPHA)
+        MaterialTheme.colorScheme.onSurface.copy(alpha = AppTheme.opacity.disabledContent)
     }
     val outlineColor = if (enabled) {
         MaterialTheme.colorScheme.outline
     } else {
-        MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_BORDER_ALPHA)
+        MaterialTheme.colorScheme.onSurface.copy(alpha = AppTheme.opacity.disabledBorder)
     }
     Row(
         modifier = modifier
             .clip(AppTheme.shapes.control)
             .clickable(enabled = enabled, onClick = onClick)
             .border(AppTheme.shapes.controlBorder, outlineColor, AppTheme.shapes.control)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = AppTheme.spacing.rowInset, vertical = AppTheme.spacing.related),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -107,7 +101,7 @@ fun <T> AppDropdown(
                     MaterialTheme.colorScheme.outline,
                     AppTheme.shapes.control,
                 )
-                .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+                .padding(start = AppTheme.spacing.rowInset, end = AppTheme.spacing.compact, top = AppTheme.spacing.related, bottom = AppTheme.spacing.related),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Every label is laid out here, all but the selected one invisible, so
@@ -130,7 +124,7 @@ fun <T> AppDropdown(
                 )
             }
             // The slack that keeps the box a touch wider than its widest label.
-            Spacer(Modifier.width(4.dp))
+            Spacer(Modifier.width(AppTheme.spacing.compact))
             Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -167,7 +161,7 @@ fun <T> AppDropdownRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(vertical = AppTheme.spacing.related),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -175,7 +169,7 @@ fun <T> AppDropdownRow(
             style = AppTheme.textStyles.settingTitle,
             modifier = Modifier.weight(1f),
         )
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(AppTheme.spacing.rowInset))
         AppDropdown(
             options = options,
             selected = selected,
