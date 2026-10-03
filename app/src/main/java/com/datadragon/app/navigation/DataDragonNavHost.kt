@@ -52,7 +52,7 @@ fun DataDragonNavHost(
 
     NavHost(navController = navController, startDestination = Routes.HOME) {
 
-        composable(Routes.HOME) {
+        composable(Routes.HOME) { menuEntry ->
             val homeViewModel: HomeViewModel = viewModel()
 
             // "Automatically show current daily list when app is started." — only
@@ -71,9 +71,9 @@ fun DataDragonNavHost(
             }
 
             HomeScreen(
-                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-                onOpenBackupRestore = { navController.navigate(Routes.BACKUP_RESTORE) },
-                onOpenAbout = { navController.navigate(Routes.ABOUT) },
+                onOpenSettings = { navController.navigateFromResumed(menuEntry, Routes.SETTINGS) },
+                onOpenBackupRestore = { navController.navigateFromResumed(menuEntry, Routes.BACKUP_RESTORE) },
+                onOpenAbout = { navController.navigateFromResumed(menuEntry, Routes.ABOUT) },
                 onCreateForm = { navController.navigate(Routes.CREATE_LOG) },
                 onOpenLog = { logId -> navController.navigate(Routes.log(logId.toString())) },
                 onAddEntry = { logId -> navController.navigate(Routes.newEntry(logId.toString())) },
@@ -100,7 +100,7 @@ fun DataDragonNavHost(
                         Routes.dailyListEditor(card?.date?.toString() ?: LocalDate.now().toString()),
                     )
                 },
-                onOpenDailyTaskPreferences = { navController.navigate(Routes.DAILY_LIST_PREFERENCES) },
+                onOpenDailyTaskPreferences = { navController.navigateFromResumed(menuEntry, Routes.DAILY_LIST_PREFERENCES) },
                 onCreateClicker = { navController.navigate(Routes.CREATE_CLICKER) },
                 onOpenClicker = { clickerLogId -> navController.navigate(Routes.clickerLog(clickerLogId)) },
                 dailyListViewModel = dailyListViewModel,
@@ -112,22 +112,22 @@ fun DataDragonNavHost(
             CreateLogScreen(onBack = { navController.popBackStack() })
         }
 
-        composable(Routes.SETTINGS) {
+        composable(Routes.SETTINGS) { menuEntry ->
             SettingsScreen(
                 section = SettingsSection.SETTINGS,
-                onBack = { navController.popBackStack() },
+                onBack = { navController.popFromResumed(menuEntry) },
             )
         }
 
-        composable(Routes.BACKUP_RESTORE) {
+        composable(Routes.BACKUP_RESTORE) { menuEntry ->
             SettingsScreen(
                 section = SettingsSection.BACKUP_RESTORE,
-                onBack = { navController.popBackStack() },
+                onBack = { navController.popFromResumed(menuEntry) },
             )
         }
 
-        composable(Routes.ABOUT) {
-            AboutScreen(onBack = { navController.popBackStack() })
+        composable(Routes.ABOUT) { menuEntry ->
+            AboutScreen(onBack = { navController.popFromResumed(menuEntry) })
         }
 
         composable(
@@ -239,12 +239,12 @@ fun DataDragonNavHost(
             )
         }
 
-        composable(Routes.DAILY_LIST_PREFERENCES) {
+        composable(Routes.DAILY_LIST_PREFERENCES) { menuEntry ->
             // Same shared model as Home and the editor, so a preference change
             // (Allow Title, Show Completed, celebration, renewal, …) is reflected
             // immediately when returning, not only after a process restart.
             DailyListPreferencesScreen(
-                onBack = { navController.popBackStack() },
+                onBack = { navController.popFromResumed(menuEntry) },
                 viewModel = dailyListViewModel,
             )
         }

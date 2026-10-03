@@ -17,12 +17,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.ui.UpdateViewModel
@@ -39,8 +40,8 @@ fun AboutScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("About") },
+            CenterAlignedTopAppBar(
+                title = { Text("About", textAlign = TextAlign.Center) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
@@ -55,8 +56,13 @@ fun AboutScreen(
                 .padding(padding)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(viewModel.versionLine, style = AppTheme.textStyles.settingTitle)
+            Text(
+                viewModel.versionLine,
+                style = AppTheme.textStyles.settingTitle,
+                textAlign = TextAlign.Center,
+            )
             AppButton(
                 onClick = viewModel::checkForUpdates,
                 enabled = !state.working,
@@ -69,7 +75,11 @@ fun AboutScreen(
                         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                         Spacer(Modifier.width(8.dp))
                     }
-                    Text(status, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        status,
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center,
+                    )
                 }
             }
         }
