@@ -6,6 +6,10 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+val ciBuildNumber = providers.environmentVariable("GITHUB_RUN_NUMBER")
+    .orNull
+    ?.toIntOrNull()
+
 android {
     namespace = "com.datadragon.app"
     compileSdk = 35
@@ -14,7 +18,7 @@ android {
         applicationId = "com.datadragon.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
+        versionCode = ciBuildNumber?.coerceAtLeast(3) ?: 3
         versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

@@ -29,6 +29,8 @@ import com.datadragon.app.ui.screens.LogScreen
 import com.datadragon.app.ui.screens.NewEntryScreen
 import com.datadragon.app.ui.screens.NewIdeaScreen
 import com.datadragon.app.ui.screens.SettingsScreen
+import com.datadragon.app.ui.screens.SettingsSection
+import com.datadragon.app.ui.screens.AboutScreen
 import com.datadragon.app.ui.DailyListViewModel
 import com.datadragon.app.ui.HomeViewModel
 import androidx.compose.runtime.LaunchedEffect
@@ -70,6 +72,8 @@ fun DataDragonNavHost(
 
             HomeScreen(
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                onOpenBackupRestore = { navController.navigate(Routes.BACKUP_RESTORE) },
+                onOpenAbout = { navController.navigate(Routes.ABOUT) },
                 onCreateForm = { navController.navigate(Routes.CREATE_LOG) },
                 onOpenLog = { logId -> navController.navigate(Routes.log(logId.toString())) },
                 onAddEntry = { logId -> navController.navigate(Routes.newEntry(logId.toString())) },
@@ -109,7 +113,21 @@ fun DataDragonNavHost(
         }
 
         composable(Routes.SETTINGS) {
-            SettingsScreen(onBack = { navController.popBackStack() })
+            SettingsScreen(
+                section = SettingsSection.SETTINGS,
+                onBack = { navController.popBackStack() },
+            )
+        }
+
+        composable(Routes.BACKUP_RESTORE) {
+            SettingsScreen(
+                section = SettingsSection.BACKUP_RESTORE,
+                onBack = { navController.popBackStack() },
+            )
+        }
+
+        composable(Routes.ABOUT) {
+            AboutScreen(onBack = { navController.popBackStack() })
         }
 
         composable(

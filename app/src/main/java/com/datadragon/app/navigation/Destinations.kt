@@ -13,6 +13,8 @@ object Routes {
     const val CREATE_IDEA_LOG = "createIdeaLog"
     const val CREATE_CLICKER = "createClicker"
     const val SETTINGS = "settings"
+    const val BACKUP_RESTORE = "backupRestore"
+    const val ABOUT = "about"
 
     // Parameterised routes.
     const val LOG_ARG = "logId"

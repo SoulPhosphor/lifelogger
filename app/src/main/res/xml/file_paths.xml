@@ -4,4 +4,8 @@
     <cache-path
         name="exports"
         path="exports/" />
+    <!-- Downloaded app updates are handed to Android's package installer. -->
+    <cache-path
+        name="updates"
+        path="updates/" />
 </paths>

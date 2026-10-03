@@ -72,10 +72,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
 
+enum class SettingsSection { SETTINGS, BACKUP_RESTORE }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
+    section: SettingsSection = SettingsSection.SETTINGS,
     viewModel: BackupViewModel = viewModel(),
     settingsViewModel: SettingsViewModel = viewModel(),
 ) {
@@ -199,7 +202,14 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
+                title = {
+                    Text(
+                        when (section) {
+                            SettingsSection.SETTINGS -> "Settings"
+                            SettingsSection.BACKUP_RESTORE -> "Backup & Restore"
+                        },
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
@@ -208,8 +218,7 @@ fun SettingsScreen(
             )
         },
     ) { padding ->
-        // Settings is taller than the screen, so the whole page scrolls — the last
-        // section (Restore from Backup) must always be reachable.
+        // Both destinations can be taller than the screen, so their contents scroll.
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -218,6 +227,7 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            if (section == SettingsSection.SETTINGS) {
             // How the Home bar presents the data modes: a row of icons, or a
             // dropdown that shows one mode at a time.
             SectionHeader("Main Navigation Menu")
@@ -319,8 +329,7 @@ fun SettingsScreen(
                 title = "Move Completed Item to Bottom When Marked Complete",
             )
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
+            } else {
             // The hint sits under its heading, above the control it describes —
             // never below the control (docs/STYLE.md).
             SectionHeader("Back Up All Data")
@@ -398,19 +407,23 @@ fun SettingsScreen(
             }) {
                 Text("Choose Backup File…")
             }
-            // Extra room here: this button and the one below are two separate
-            // actions, not one control's label and value, so they get more space
-            // than the default row gap (docs/STYLE.md).
             Spacer(Modifier.height(AppTheme.spacing.distinctControls - AppTheme.spacing.related))
-            // Undo lives at the end of the whole-database controls, so it always
-            // sits with the large changes it can put back. Its category boundary
-            // is captured from the import it reverses; the current chooser does
-            // not change that boundary. It does not apply to single-item restores.
-            AppButton(
-                onClick = { pendingUndo = true },
-                enabled = hasUndoSnapshot,
-            ) {
-                Text(if (hasUndoSnapshot) "Restore" else "Nothing to Restore")
+            SubsectionHeader("Undo Last Database Import")
+            Text(
+                "Returns the app to how it was before the most recent database backup was imported.",
+                style = AppTheme.textStyles.settingDescription,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (hasUndoSnapshot) {
+                AppButton(onClick = { pendingUndo = true }) {
+                    Text("Undo Last Import")
+                }
+            } else {
+                Text(
+                    "No database import is available to undo.",
+                    style = AppTheme.textStyles.settingDescription,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
             // Single-item restore: one exported list, form, or Clicker Data grouping. No type to pick —
@@ -430,6 +443,7 @@ fun SettingsScreen(
 
             status?.let {
                 Text(it, style = MaterialTheme.typography.bodyMedium)
+            }
             }
         }
     }
