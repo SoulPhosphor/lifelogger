@@ -20,9 +20,11 @@ These are the ones that keep getting broken. They are absolute.
 
 1. **No pills. Ever.** Nothing on screen is a capsule, stadium, oval, or
    fully-rounded shape. Not buttons, not chips, not option rows, not filters.
-2. **One button shape.** Every button in the app is `AppButton`. There is no
-   second button style, and Material's `Button` / `OutlinedButton` /
-   `FilledTonalButton` / `ElevatedButton` are never used.
+2. **Outlined buttons.** Screen actions use `AppButton`; existing screen and
+   top-bar treatments remain as recorded in the audit. Pop-up actions use
+   `PopupButton`, with exactly two theme roles: Primary and Destructive.
+   Both roles look identical today. Cancel/dismiss uses Primary; there is no
+   Secondary style. Material's filled/elevated action buttons are never used.
 3. **A button is framed exactly like a drop-down box** — same outline, same
    corner. A button and a drop-down sitting next to each other look like the
    same control.
@@ -108,9 +110,17 @@ Because of this, adding a theme later is a change to `Theme.kt`, `Type.kt`,
 
 ## 4. Buttons
 
-- **`AppButton` is the only button.** It draws a thin outline in the theme's
-  outline color, with the theme's control corner — the same frame a drop-down
-  box uses.
+- **Screen buttons use `AppButton`; pop-up buttons use `PopupButton`.** Both
+  draw a thin theme outline with the theme's control corner. Existing screen
+  buttons are preserved; changing older screen treatments requires an owner decision.
+- **Primary and Destructive are independent pop-up styles.** Change
+  `ui/theme/PopupButtonStyle.kt` to adjust a role's color, border, typography,
+  shape, padding or minimum target centrally. Their current values are identical.
+  Cancel/dismiss uses Primary. Delete, discard, replacement restore and undo
+  import use Destructive. Pickers and export confirmation/dismiss actions use Primary.
+- Pop-up buttons have a minimum 48dp layout target. Text can wrap. `AppDialog`
+  actions wrap in their existing order when space is insufficient; dialog content
+  scrolls when it exceeds the available height.
 - **Never a pill, never a filled capsule, never a raised/elevated button.**
 - **A button never resizes based on state.** A caption that changes with state
   (e.g. "Restore" / "Nothing to Restore") still lives in a button whose frame
@@ -240,14 +250,14 @@ dialogs (§7), and option-list dialogs (§8) keep their own patterns.
 - **The question is the dialog's title**, phrased as a normal sentence:
   "Delete list?". The title is **centered**.
 - **The body/subtext is left-aligned** — never centered.
-- **Buttons sit in a centered row.** The button that performs the action is on
+- **Buttons sit in a centered row that wraps when needed.** The button that performs the action is on
   the **right**; Cancel (or any dismiss) is on the **left**.
 - **One button color — no red.** Every dialog button uses the same color. They
   come from `AppDialog`'s button composables: `DialogActionButton` (the
   affirmative action), `DialogDestructiveButton` (delete/discard), and
   `DialogDismissButton` (Cancel). Destructive is a *separate* composable from
   the action button so a future theme can set it apart in one place — today it
-  looks identical.
+  looks identical. Cancel uses the Primary role, not a separate dismiss style.
 
 ---
 
@@ -310,7 +320,8 @@ between older screens and the rules above; those are recorded for the owner in
 | Setting | Central location | Access |
 | --- | --- | --- |
 | Material palette and dynamic light/dark selection | `ui/theme/Theme.kt`, `Color.kt` | `MaterialTheme.colorScheme` |
-| Extra color roles: invalid stored color, action/destructive/dismiss dialog text | `ui/theme/Appearance.kt` | `AppTheme.colors` |
+| Extra color roles: invalid stored color, primary/destructive pop-up text | `ui/theme/Appearance.kt` | `AppTheme.colors` |
+| Complete Primary/Destructive outlined pop-up styles | `ui/theme/PopupButtonStyle.kt` | `AppTheme.popupButtons` |
 | Disabled text and border opacity | `ui/theme/Appearance.kt` | `AppTheme.opacity` |
 | Material type scale and semantic text/weight roles | `ui/theme/Type.kt` | `MaterialTheme.typography`, `AppTheme.textStyles` |
 | Material component shapes and existing custom corners | `ui/theme/Shape.kt` | `MaterialTheme.shapes`, `AppTheme.shapes` |
@@ -327,8 +338,8 @@ weight, retaining each caller's existing inherited size and line height.
 Android 12+ wallpaper colors remain enabled exactly as before. A future custom
 palette can be selected in `DataDragonTheme`; provide matching foreground and
 background roles together. App-specific colors are derived from that selected
-scheme, so dialog role colors also follow dynamic color. The three dialog action
-roles remain visually identical today but can be recolored independently.
+scheme, so pop-up role colors also follow dynamic color. The two pop-up action
+roles remain visually identical today but can be restyled independently.
 
 Stored calendar colors, built-in selectable calendar palettes, and hex input
 are user data. They remain their exact values when the app theme changes.
@@ -346,3 +357,22 @@ this check before the Android unit tests and release build. It rejects new raw
 screen sizes/colors/shapes/fonts while allowing zero geometry and content-color
 parsing. Add a named role to the theme for a genuinely new treatment; preserve
 existing per-role differences unless the owner approves a visible change.
+
+## 15. Accessibility without changing appearance
+
+- External field labels remain outside their outline. Use
+  `AccessibleOutlinedTextField` and `LocalAccessibleFieldLabel` (provided by
+  `Labeled`) to attach the existing name to the editable node. Floating Material
+  labels already supply their own field name. Expose validation errors in semantics.
+- Measurement-only and decorative content must not create accessibility targets.
+  Clear semantics on the dropdown's invisible measuring captions.
+- Custom actions expose a button role. Selected mode/radio controls expose state.
+  A whole toggle/radio row owns the action; its child indicator has no duplicate
+  callback. Preserve the indicator's existing interactive layout footprint.
+- Mark section headings as headings. Calendar cells expose their full date and
+  existing result text; colors must not be the only accessible result.
+- Reorder handles provide Move Up/Move Down actions and current position in
+  addition to pointer dragging. Reuse existing reorder operations and identities.
+- Device checks remain necessary for TalkBack, Switch Access, keyboard navigation,
+  200% fonts, dynamic colors and actual hit bounds. See STYLE_AUDIT.md for remaining
+  contrast, screen-layout and PDF accessibility work.

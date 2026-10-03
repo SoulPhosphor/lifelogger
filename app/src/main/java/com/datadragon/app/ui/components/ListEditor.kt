@@ -1,5 +1,7 @@
 package com.datadragon.app.ui.components
 
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -128,6 +130,7 @@ fun ListEditorItemRow(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             modifier = Modifier
                 .weight(1f)
+                .semantics { contentDescription = "List Item" }
                 .focusRequester(focusRequester)
                 .onFocusChanged {
                     if (it.isFocused) { onFocused(); wasFocused = true }

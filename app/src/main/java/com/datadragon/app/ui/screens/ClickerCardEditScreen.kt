@@ -21,7 +21,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import com.datadragon.app.ui.components.AccessibleOutlinedTextField as OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -49,6 +49,7 @@ import com.datadragon.app.data.ClickerFieldType
 import com.datadragon.app.data.ClickerValues
 import com.datadragon.app.ui.ClickerCardEditViewModel
 import com.datadragon.app.ui.theme.AppTheme
+import com.datadragon.app.ui.components.PopupButton
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -312,14 +313,14 @@ private fun DatePickerModal(
     DatePickerDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = {
+            PopupButton(onClick = {
                 val picked = state.selectedDateMillis?.let {
                     Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
                 }
                 if (picked != null) onConfirm(picked) else onDismiss()
             }) { Text("Okay") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { PopupButton(onClick = onDismiss) { Text("Cancel") } },
     ) {
         DatePicker(state = state)
     }
@@ -340,9 +341,9 @@ private fun TimePickerModal(
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = { onConfirm(LocalTime.of(state.hour, state.minute)) }) { Text("Okay") }
+            PopupButton(onClick = { onConfirm(LocalTime.of(state.hour, state.minute)) }) { Text("Okay") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { PopupButton(onClick = onDismiss) { Text("Cancel") } },
         text = { TimePicker(state = state) },
     )
 }

@@ -1,5 +1,11 @@
 package com.datadragon.app.ui.screens
 
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -66,6 +72,8 @@ import com.datadragon.app.ui.SettingsViewModel
 import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.ui.components.AppDropdownRow
 import com.datadragon.app.ui.theme.AppTheme
+import com.datadragon.app.ui.theme.PopupButtonRole
+import com.datadragon.app.ui.components.PopupButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -473,7 +481,7 @@ fun SettingsScreen(
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
+                PopupButton(role = if (mode == RestoreMode.REPLACE) PopupButtonRole.DESTRUCTIVE else PopupButtonRole.PRIMARY, onClick = {
                     val json = pendingJson
                     pendingJson = null
                     if (json != null) {
@@ -510,7 +518,7 @@ fun SettingsScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pendingJson = null }) { Text("Cancel") }
+                PopupButton(onClick = { pendingJson = null }) { Text("Cancel") }
             },
         )
     }
@@ -522,7 +530,7 @@ fun SettingsScreen(
                 Text("Restore the previous state from before the last import? This can't be undone.")
             },
             confirmButton = {
-                TextButton(onClick = {
+                PopupButton(role = PopupButtonRole.DESTRUCTIVE, onClick = {
                     pendingUndo = false
                     scope.launch {
                         status = viewModel.undoImport()
@@ -532,7 +540,7 @@ fun SettingsScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pendingUndo = false }) { Text("Cancel") }
+                PopupButton(onClick = { pendingUndo = false }) { Text("Cancel") }
             },
         )
     }
@@ -608,13 +616,13 @@ private fun restoreSummary(mode: RestoreMode, counts: RestoreCounts): String = w
  */
 @Composable
 private fun SectionHeader(text: String) {
-    Text(text, style = AppTheme.textStyles.sectionHeader)
+    Text(text, style = AppTheme.textStyles.sectionHeader, modifier = Modifier.semantics { heading() })
 }
 
 /** A heading for one block inside a section, a step below [SectionHeader]. */
 @Composable
 private fun SubsectionHeader(text: String) {
-    Text(text, style = AppTheme.textStyles.subsectionHeader)
+    Text(text, style = AppTheme.textStyles.subsectionHeader, modifier = Modifier.semantics { heading() })
 }
 
 /**
@@ -631,7 +639,7 @@ private fun SettingToggleRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) }
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
             .padding(vertical = AppTheme.spacing.related),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -646,7 +654,7 @@ private fun SettingToggleRow(
             }
         }
         Spacer(Modifier.width(AppTheme.spacing.rowInset))
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(checked = checked, onCheckedChange = null, modifier = Modifier.sizeIn(minWidth = AppTheme.sizes.minimumTouchTarget, minHeight = AppTheme.sizes.minimumTouchTarget))
     }
 }
 
@@ -663,11 +671,11 @@ private fun NavStyleRadioRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onSelect)
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onSelect)
             .padding(vertical = AppTheme.spacing.related),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RadioButton(selected = selected, onClick = onSelect)
+        RadioButton(selected = selected, onClick = null, modifier = Modifier.sizeIn(minWidth = AppTheme.sizes.minimumTouchTarget, minHeight = AppTheme.sizes.minimumTouchTarget))
         Spacer(Modifier.width(AppTheme.spacing.related))
         Text(label, style = AppTheme.textStyles.settingTitle)
     }
@@ -798,7 +806,7 @@ private fun DataModeCheckRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) }
+            .toggleable(value = checked, role = Role.Checkbox, onValueChange = onCheckedChange)
             .padding(vertical = AppTheme.spacing.related),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -820,7 +828,7 @@ private fun DataModeCheckRow(
             )
         }
         Spacer(Modifier.width(AppTheme.spacing.rowInset))
-        Checkbox(checked = checked, onCheckedChange = onCheckedChange)
+        Checkbox(checked = checked, onCheckedChange = null, modifier = Modifier.sizeIn(minWidth = AppTheme.sizes.minimumTouchTarget, minHeight = AppTheme.sizes.minimumTouchTarget))
     }
 }
 

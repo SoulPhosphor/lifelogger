@@ -20,6 +20,7 @@ data class AppSizes(
      */
     val settingsCog: Dp,
     /** Glyph sizes and existing compact icon hit areas; no accessibility resize in this audit. */
+    val minimumTouchTarget: Dp,
     val icon: Dp,
     val smallIcon: Dp,
     val inlineIcon: Dp,
@@ -50,6 +51,7 @@ data class AppSizes(
 
 val DefaultAppSizes = AppSizes(
     settingsCog = 30.dp,
+    minimumTouchTarget = 48.dp,
     icon = 24.dp,
     smallIcon = 18.dp,
     inlineIcon = 16.dp,

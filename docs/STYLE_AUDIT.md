@@ -6,8 +6,10 @@ Reviewed October 3, 2026, against main commit `37b3fa1`.
 
 Reviewed all Compose UI source files, theme files, Android appearance resources,
 and PDF rendering styles. Centralized scattered styling with the same existing
-values. No screen wording, navigation, data, defaults, or visible layouts were
-intentionally changed. App colors retain dynamic light/dark behavior.
+values. The original theme refactor preserved screen wording, navigation, data, defaults
+and visible layouts. The approved follow-up makes pop-up action buttons outlined,
+with identical Primary/Destructive roles, and adds accessibility metadata/actions.
+Screen button appearances remain unchanged. App colors retain dynamic light/dark behavior.
 
 This is a source-code audit. Android device screenshots, TalkBack behavior,
 keyboard/switch navigation, actual touch bounds, and large-font rendering still
@@ -22,7 +24,7 @@ approving new exceptions.
 
 | Area | Existing difference | Relevant files / components |
 | --- | --- | --- |
-| Buttons | Ordinary actions use outlined `AppButton`; top-bar actions, help links, and some dialog actions use stock `TextButton`. The latter has a different frame/shape and default text treatment. | `AppControls.kt`, `AppDialog.kt`; `CreateLogScreen.kt`, `NewEntryScreen.kt`, `NewIdeaScreen.kt`, `ChecklistScreen.kt`, `CalendarConfigScreen.kt` |
+| Buttons | Ordinary actions use outlined `AppButton`; top-bar actions, help links, use stock `TextButton`. These screen treatments retain their existing frame/shape and default text treatment. Pop-up actions now use the approved outlined Primary/Destructive styles. | `AppControls.kt`, `AppDialog.kt`; `CreateLogScreen.kt`, `NewEntryScreen.kt`, `NewIdeaScreen.kt`, `ChecklistScreen.kt`, `CalendarConfigScreen.kt` |
 | Filters / mode indicators | Statistics uses filled Material `FilterChip` with the shared control corner (so it is already not a pill). Home uses a circular selected-mode indicator, which differs from the guide's no-fully-rounded rule. | `ClickerStatisticsScreen.kt`, `HomeScreen.kt` (`ViewToggle`) |
 | Corners | Framed controls are 10dp; validation frames are 8dp; calendar cells/color previews are 6dp; legend swatches are 3dp. Stock cards/fields/dialogs retain Material shapes. Each custom role now has its own token. | `Shape.kt`, `EntryFieldControls.kt`, `NewIdeaScreen.kt`, calendar screens |
 | Dropdowns | Shared `AppDropdown` has an outlined frame sized to its widest label. Calendar dropdowns use full-width read-only Material fields. Daily Task preference choices are text/arrow rows without the shared frame and can change width with the selected caption. | `AppControls.kt`, `CalendarConfigScreen.kt`, `DailyListPreferencesScreen.kt` |
@@ -32,21 +34,22 @@ approving new exceptions.
 
 ## Accessibility findings
 
-No accessibility behavior or appearance was changed in this preservation task.
-The recommendations below are for a separately approved accessibility pass.
+The owner approved an accessibility pass and outlined pop-up actions. Source fixes
+below preserve screen appearance. A source fix is not a device accessibility
+certification; verification still needs a real Android device.
 
-| Priority | Finding and source evidence | Proposed follow-up |
+| Finding | Status / implementation | Remaining checks or decision |
 | --- | --- | --- |
-| High | `AppDropdown` lays out every possible caption as alpha-zero `Text` to stabilize width. Those invisible captions do not clear their semantics, so they can appear in the accessibility tree alongside the chosen caption. | Hide measuring-only text from accessibility; retain the exact width calculation. Verify TalkBack reads only the selected value. |
-| High | Many outlined fields put a separate `Text` label above the field without a semantic association. Empty fields can expose an edit control without its visible label. This includes entry controls and calendar range minimum/maximum fields. | Attach the visible label to field semantics without moving it into the outline. Verify each blank field is announced by name. |
-| High | Calendar `DayCell` exposes the day number and click/long-click actions, but no full-date/result description or named long-click action. Heat-map/yes-no result meaning is primarily color until a popover is opened. `ColorRangeRow` uses a clickable color swatch without an accessible name/value. | Announce full date, result and available actions. Name color swatches with their color/range. Keep visual design unchanged. |
-| High | Calendar day numbers use inherited text color on arbitrary user-picked backgrounds. The non-dynamic brand schemes override only primary/secondary/error, leaving Material's paired foreground/container defaults. Neither path validates foreground/background contrast. | Measure text contrast in light/dark/dynamic schemes and user palettes; decide how to handle unsuitable user colors and paired brand roles. |
-| Medium | Custom `AppButton`/`AppDropdown` use `clickable` without an explicit button role or minimum layout target. Copy/open icons use 32dp sized `IconButton`s; the calendar color swatch is 32dp. Foundation/Material may expand actual touch bounds, but adjacent bounds can overlap. | Verify real hit bounds and spacing on-device, then provide at least 48dp targets where needed without enlarging glyphs. |
-| Medium | `ViewToggle` names its icon and supplies `Role.Button`, but does not expose selected state. Several settings toggles/radio options make both parent rows and child controls clickable, without unified row toggle/select semantics or radio-group semantics. | Expose selection/state and one labeled logical target per option. Verify reading order and duplicate focus stops. |
-| Medium | List reorder handles expose a "Reorder" label and pointer drag behavior, but no move-up/move-down accessibility actions. Comparable field editors also use drag handles. | Add accessible reorder actions and position announcements; preserve pointer drag behavior. |
-| Medium | Section headers are styled text without heading semantics. Inline validation frames/required markers do not consistently expose error text to accessibility; color alone can signal the validation state. | Mark headings and expose validation errors/state for assistive technology. |
-| Medium | Fixed-width numeric inputs, nonwrapping dropdowns, one-line Home titles, seven-column calendar grids, and centered dialog button rows need large-font/narrow-screen checks. `AppDialog` has no internal scroll container when title/body/actions exceed available height. | Test 200% font size, small screen widths, landscape and keyboard-open dialogs; approve adaptations for any clipping or unreachable controls. |
-| Medium | PDFs use Android canvas text without document tagging/reading-order structure. They wrap and paginate visually but are not demonstrated to be accessible tagged PDFs. | Assess exported PDFs with a screen reader; approve accessible PDF generation if required. |
+| Invisible dropdown captions | Fixed: measurement text clears semantics; width measurement is unchanged. | Automated test checks only the chosen caption exists until the menu opens. |
+| External field labels | Fixed: shared labeled controls associate their existing label with editable fields; explicit labels cover Notes, Follow-Up Note, calendar fields, retention days and statistics days. Floating labels retain their Material association. | Test covers empty field naming and editing. Check TalkBack announcement order on-device. |
+| Calendar descriptions | Fixed: full date plus existing result text on each day, named summary/log actions, named color/range swatches. | Check reading order and results with real stored calendars and TalkBack. |
+| Arbitrary calendar colors / brand contrast | Open: no visible screen color changes were made. User-picked colors can have unsuitable contrast with inherited day-number text. Brand scheme foreground/container pairs need palette review. | Choosing automatic contrasting text or adjusting palettes changes screen appearance and needs an owner decision. |
+| Custom action roles / target size | Fixed button roles on AppButton/AppDropdown; pop-up buttons have 48dp minimum layout targets. | Screen control sizes remain unchanged. Actual expanded hit bounds, adjacent overlap and small copy/open/color controls need device verification before approving screen layout changes. |
+| Selected state / duplicate controls | Fixed Home mode selection and whole-row switch/checkbox/radio semantics in settings, preferences, form/idea editors and clicker settings/statistics. Child indicators delegate actions; their former interactive layout sizes are retained. | Test checks one named switch action and one state update. Verify focus order with TalkBack/Switch Access. |
+| Drag-only reorder | Fixed: Move Up/Move Down actions and position on list and field handles; callbacks reuse existing reorder paths and existing identities. Edit Form already had visible up/down controls; these remain. | Test covers first-item actions, identity preservation and rejected invalid moves. Verify pointer drag and accessible moves on-device. |
+| Headings / validation | Fixed Settings section/subsection and calendar month heading semantics; required/invalid entry frames and invalid web-address fields expose errors. | Test covers specific field errors. Verify error discovery/announcement when submission fails. |
+| Large fonts / constrained dialogs | Fixed AppDialog scrolling and action wrapping; export/color-picker body scrolling; outlined pop-up captions can wrap. | Check 200% fonts, narrow/landscape/keyboard-open dialogs. Fixed numeric widths, Home titles and seven-column calendar layout remain unchanged pending device findings/owner decisions. |
+| Untagged PDF exports | Open: current Android canvas exporter has no tagged structure/reading-order implementation. | Accessible tagged PDF generation needs a separate exporter change; scope decision remains pending. |
 
 Decorative arrows and icons beside already-labeled controls appropriately have
 null content descriptions; those were not treated as missing labels. Most named
@@ -62,5 +65,6 @@ values. Material defaults, user data colors, XML vector geometry, and zero-size
 measurement state remain deliberate exceptions, not unresolved theme literals.
 
 A successful CI build verifies compilation and the existing automated suite.
-The accessibility findings above remain open until device checks and any owner
-approved changes are completed.
+The source fixes above have targeted automated coverage. Contrast, screen hit
+bounds/large-font layout and tagged PDF export remain open. Device checks are
+not available in this execution environment and have not been represented as passed.

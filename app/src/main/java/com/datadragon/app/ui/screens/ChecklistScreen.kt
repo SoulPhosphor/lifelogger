@@ -1,5 +1,7 @@
 package com.datadragon.app.ui.screens
 
+import com.datadragon.app.ui.components.reorderedItems
+import com.datadragon.app.ui.components.accessibleReorder
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -256,9 +258,13 @@ fun ChecklistScreen(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
                 contentPadding = PaddingValues(bottom = keyboardScrollSpace),
             ) {
-                itemsIndexed(items, key = { _, item -> item.id }) { _, item ->
+                itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
                     ReorderableItem(reorderState, key = item.id) { _ ->
-                        val handleModifier = Modifier.draggableHandle()
+                        val handleModifier = Modifier.draggableHandle().accessibleReorder(index, items.size) { offset ->
+                                val moved = reorderedItems(viewModel.items.value.map { it.id }, item.id, offset)
+                                if (moved != null) viewModel.reorder(moved)
+                                moved != null
+                            }
                         ListEditorItemRow(
                             rowKey = item.id,
                             text = item.text,

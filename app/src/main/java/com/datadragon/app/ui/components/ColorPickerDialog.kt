@@ -1,13 +1,14 @@
 package com.datadragon.app.ui.components
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.OutlinedTextField
+import com.datadragon.app.ui.components.AccessibleOutlinedTextField as OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,13 +48,13 @@ fun ColorPickerDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = { onConfirm(toRgbHex(selectedColor)) }) { Text("Okay") }
+            PopupButton(onClick = { onConfirm(toRgbHex(selectedColor)) }) { Text("Okay") }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            PopupButton(onClick = onDismiss) { Text("Cancel") }
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset)) {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset)) {
                 HsvColorPicker(
                     modifier = Modifier.fillMaxWidth().height(AppTheme.sizes.colorWheelHeight),
                     controller = controller,

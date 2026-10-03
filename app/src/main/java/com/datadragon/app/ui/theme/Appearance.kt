@@ -9,15 +9,13 @@ import androidx.compose.ui.graphics.Color
 @Immutable
 data class AppColors(
     val invalidContentColor: Color = Color.Gray,
-    val dialogAction: Color,
-    val dialogDestructive: Color,
-    val dialogDismiss: Color,
+    val popupPrimary: Color,
+    val popupDestructive: Color,
 )
 
 fun appColorsFor(scheme: ColorScheme) = AppColors(
-    dialogAction = scheme.primary,
-    dialogDestructive = scheme.primary,
-    dialogDismiss = scheme.primary,
+    popupPrimary = scheme.onSurface,
+    popupDestructive = scheme.onSurface,
 )
 
 val LocalAppColors = staticCompositionLocalOf { appColorsFor(androidx.compose.material3.lightColorScheme()) }

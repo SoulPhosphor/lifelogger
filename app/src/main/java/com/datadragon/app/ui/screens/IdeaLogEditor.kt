@@ -1,5 +1,6 @@
 package com.datadragon.app.ui.screens
 
+import com.datadragon.app.ui.components.accessibleReorder
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -28,7 +29,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import com.datadragon.app.ui.components.AccessibleOutlinedTextField as OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -384,7 +385,14 @@ fun IdeaLogEditorScaffold(
                         onSortChanged = { setSort(field, it) },
                         onSortDirectionChange = onSortDirectionChange,
                         onDelete = { fields.remove(field) },
-                        dragHandleModifier = Modifier.draggableHandle(),
+                        dragHandleModifier = Modifier.draggableHandle().accessibleReorder(index, fields.size) { offset ->
+                            val current = fields.indexOf(field)
+                            val destination = current + offset
+                            if (current >= 0 && destination in fields.indices) {
+                                fields.add(destination, fields.removeAt(current))
+                                true
+                            } else false
+                        },
                     )
                 }
             }

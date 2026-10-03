@@ -170,3 +170,11 @@ button** (below), which only changes one number on a card already there.
   changed from that edit menu.)
 - **Clicker Data Log** — one clicker grouping: a titled series of cards, each
   carrying the same set of trackers and fields.
+
+### Pop-up action styles (October 2026 owner decision)
+
+Pop-up action buttons are outlined and use `PopupButton`. There are exactly two
+styles in `ui/theme/PopupButtonStyle.kt`: Primary and Destructive. They look
+identical now and can be changed independently later. Cancel/dismiss uses Primary;
+there is no Secondary style. Screen and top-bar button appearances are preserved.
+`AppDialog` exposes these through its existing action/destructive/dismiss helpers.

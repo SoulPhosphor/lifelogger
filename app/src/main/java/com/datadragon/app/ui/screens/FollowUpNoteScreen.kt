@@ -16,7 +16,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import com.datadragon.app.ui.components.AccessibleOutlinedTextField as OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -122,6 +122,7 @@ fun FollowUpNoteScreen(
             Text("Follow-Up Note", style = MaterialTheme.typography.labelLarge)
             OutlinedTextField(
                 value = noteText,
+                accessibleLabel = "Follow-Up Note",
                 onValueChange = { noteText = it },
                 modifier = Modifier.fillMaxWidth().heightIn(min = AppTheme.sizes.followUpMinHeight),
             )

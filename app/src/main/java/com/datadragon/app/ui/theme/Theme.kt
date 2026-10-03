@@ -54,6 +54,7 @@ fun DataDragonTheme(
         LocalAppSizes provides DefaultAppSizes,
         LocalAppColors provides appColorsFor(colorScheme),
         LocalAppOpacity provides DefaultAppOpacity,
+        LocalPopupButtonStyles provides popupButtonStylesFor(appColorsFor(colorScheme), colorScheme.outline),
     ) {
         MaterialTheme(
             colorScheme = colorScheme,
@@ -69,6 +70,11 @@ fun DataDragonTheme(
  * style with `AppTheme.textStyles.sectionHeader`.
  */
 object AppTheme {
+    val popupButtons: PopupButtonStyles
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalPopupButtonStyles.current
+
     val colors: AppColors
         @Composable
         @ReadOnlyComposable

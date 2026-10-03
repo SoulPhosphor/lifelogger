@@ -1,5 +1,10 @@
 package com.datadragon.app.ui.screens
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import com.datadragon.app.ui.theme.AppTheme
 import com.datadragon.app.ui.theme.contentColorFromHex
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -238,7 +243,7 @@ private fun MonthHeader(month: YearMonth, onPrev: () -> Unit, onNext: () -> Unit
             month.format(DateTimeFormatter.ofPattern("MMMM yyyy")),
             style = MaterialTheme.typography.titleMedium,
             textAlign = TextAlign.Center,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).semantics { heading() },
         )
         IconButton(onClick = onNext) {
             Icon(Icons.Filled.KeyboardArrowRight, contentDescription = "Next month")
@@ -320,12 +325,17 @@ private fun RowScope.DayCell(
             .clip(AppTheme.shapes.calendarCell)
             .let { if (color != null) it.background(color) else it }
             .let {
-                if (date != null) it.combinedClickable(onClick = onTap, onLongClick = onLongPress) else it
+                if (date != null) it
+                    .semantics {
+                        contentDescription = (listOf(date.format(DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy"))) + popoverLines).joinToString(". ")
+                    }
+                    .combinedClickable(role = Role.Button, onClickLabel = "Show Summary", onLongClickLabel = "Show Logs", onClick = onTap, onLongClick = onLongPress)
+                else it
             },
         contentAlignment = Alignment.Center,
     ) {
         if (dayNumber != null) {
-            Text(dayNumber.toString(), style = MaterialTheme.typography.bodyMedium)
+            Text(dayNumber.toString(), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.clearAndSetSemantics { })
         }
         DropdownMenu(expanded = popoverOpen, onDismissRequest = onDismissPopover) {
             Column(modifier = Modifier.padding(horizontal = AppTheme.spacing.rowInset, vertical = AppTheme.spacing.related)) {

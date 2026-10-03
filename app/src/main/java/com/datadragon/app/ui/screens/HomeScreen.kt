@@ -1,5 +1,7 @@
 package com.datadragon.app.ui.screens
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -38,7 +40,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -76,6 +77,7 @@ import com.datadragon.app.ui.HomeViewModel
 import com.datadragon.app.ui.components.HomeCard
 import androidx.compose.ui.res.painterResource
 import com.datadragon.app.ui.theme.AppTheme
+import com.datadragon.app.ui.components.PopupButton
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -265,7 +267,7 @@ fun HomeScreen(
         androidx.compose.material3.DatePickerDialog(
             onDismissRequest = { showDailyListDatePicker = false },
             confirmButton = {
-                TextButton(onClick = {
+                PopupButton(onClick = {
                     val picked = datePickerState.selectedDateMillis?.let {
                         java.time.Instant.ofEpochMilli(it)
                             .atZone(java.time.ZoneOffset.UTC)
@@ -284,7 +286,7 @@ fun HomeScreen(
                 }) { Text("Okay") }
             },
             dismissButton = {
-                TextButton(onClick = { showDailyListDatePicker = false }) { Text("Cancel") }
+                PopupButton(onClick = { showDailyListDatePicker = false }) { Text("Cancel") }
             },
         ) {
             androidx.compose.material3.DatePicker(state = datePickerState)
@@ -434,6 +436,7 @@ private fun ViewToggle(
     Box(
         modifier = Modifier
             .size(AppTheme.sizes.modeTarget)
+            .semantics { this.selected = selected }
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,

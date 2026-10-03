@@ -1,5 +1,7 @@
 package com.datadragon.app.ui.components
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,7 +11,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.datadragon.app.ui.theme.AppTheme
@@ -45,7 +46,7 @@ fun ExportFormatDialog(
         onDismissRequest = onDismiss,
         title = { Text("Export $thing") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.compact)) {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.compact)) {
                 Text(
                     "Choose an export format",
                     style = AppTheme.textStyles.dialogOptionSubtitle,
@@ -77,7 +78,7 @@ fun ExportFormatDialog(
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            PopupButton(onClick = onDismiss) { Text("Cancel") }
         },
     )
 }

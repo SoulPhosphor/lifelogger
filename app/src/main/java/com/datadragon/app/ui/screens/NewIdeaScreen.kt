@@ -1,5 +1,7 @@
 package com.datadragon.app.ui.screens
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.error
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.border
@@ -20,7 +22,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import com.datadragon.app.ui.components.AccessibleOutlinedTextField as OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -277,7 +279,9 @@ private fun IdeaFieldControl(
         Modifier
     }
 
-    Column(modifier = targetModifier.then(errorModifier)) {
+    Column(modifier = targetModifier.then(errorModifier).semantics {
+        if (showError) error("${field.label}: Check this field.")
+    }) {
         when (field.type) {
             // "Title" is the one-line text field, under the Ideas name for it.
             FieldType.TEXT -> Labeled(label) {

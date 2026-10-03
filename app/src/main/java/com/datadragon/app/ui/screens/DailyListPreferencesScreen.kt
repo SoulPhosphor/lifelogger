@@ -1,5 +1,11 @@
 package com.datadragon.app.ui.screens
 
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -21,7 +27,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import com.datadragon.app.ui.components.AccessibleOutlinedTextField as OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -103,6 +109,8 @@ fun DailyListPreferencesScreen(
                 Text("Auto delete daily tasks older then (", style = MaterialTheme.typography.bodyMedium)
                 OutlinedTextField(
                     value = retentionRaw,
+                    accessibleLabel = "Auto delete daily tasks older then (days)",
+                    accessibleLabel = "Auto delete daily tasks older then (days)",
                     onValueChange = viewModel::setRetentionRaw,
                     singleLine = true,
                     modifier = Modifier.width(AppTheme.sizes.shortNumberWidth),
@@ -116,11 +124,11 @@ fun DailyListPreferencesScreen(
 @Composable
 private fun PreferenceToggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit, label: String) {
     Row(
-        modifier = Modifier.fillMaxWidth().clickable { onCheckedChange(!checked) }.padding(vertical = AppTheme.spacing.related),
+        modifier = Modifier.fillMaxWidth().toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange).padding(vertical = AppTheme.spacing.related),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(checked = checked, onCheckedChange = null, modifier = Modifier.sizeIn(minWidth = AppTheme.sizes.minimumTouchTarget, minHeight = AppTheme.sizes.minimumTouchTarget))
     }
 }
 

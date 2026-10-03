@@ -1,5 +1,6 @@
 package com.datadragon.app.ui.screens
 
+import com.datadragon.app.ui.components.accessibleReorder
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -34,7 +35,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import com.datadragon.app.ui.components.AccessibleOutlinedTextField as OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -403,7 +404,13 @@ fun EditFormScreen(
 
             itemsIndexed(rows, key = { _, field -> field.uid }) { index, field ->
                 ReorderableItem(reorderState, key = field.uid) { _ ->
-                    val handle = Modifier.draggableHandle()
+                    val handle = Modifier.draggableHandle().accessibleReorder(index, rows.size) { offset ->
+                        val current = rows.indexOf(field)
+                        if (current >= 0 && current + offset in rows.indices) {
+                            move(current, offset)
+                            true
+                        } else false
+                    }
                     FieldSummaryCard(
                         field = field,
                         number = index + 1,

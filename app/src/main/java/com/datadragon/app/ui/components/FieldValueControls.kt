@@ -24,7 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import com.datadragon.app.ui.components.AccessibleOutlinedTextField as OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -171,6 +171,7 @@ fun WebpageEntryField(
             onValueChange = onValueChange,
             singleLine = true,
             isError = isError || invalid,
+            accessibleError = if (invalid) "Enter a webpage address, like example.com." else null,
             placeholder = { Text("example.com") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
             modifier = Modifier

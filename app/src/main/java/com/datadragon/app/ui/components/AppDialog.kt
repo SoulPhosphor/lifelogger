@@ -1,22 +1,25 @@
 package com.datadragon.app.ui.components
 
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.BasicAlertDialog
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import com.datadragon.app.ui.theme.AppTheme
+import com.datadragon.app.ui.theme.PopupButtonRole
 
 /**
  * The one simple dialog every confirm/notice box in the app is built from — a
@@ -33,7 +36,7 @@ import com.datadragon.app.ui.theme.AppTheme
  * Pickers, export dialogs, and option-list dialogs are their own patterns and
  * do not use this.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AppDialog(
     onDismissRequest: () -> Unit,
@@ -52,6 +55,7 @@ fun AppDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
                     .padding(AppTheme.spacing.dialogInset),
                 verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
             ) {
@@ -76,7 +80,7 @@ fun AppDialog(
                 }
                 // Buttons: the row is centered as a group; Cancel (left) then the
                 // action (right) keep that order.
-                Row(
+                FlowRow(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = AppTheme.spacing.related),
@@ -84,7 +88,7 @@ fun AppDialog(
                         AppTheme.spacing.related,
                         Alignment.CenterHorizontally,
                     ),
-                    verticalAlignment = Alignment.CenterVertically,
+                    verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
                 ) {
                     if (dismissButton != null) dismissButton()
                     confirmButton()
@@ -104,10 +108,9 @@ fun DialogActionButton(
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
-    TextButton(
+    PopupButton(
         onClick = onClick,
         enabled = enabled,
-        colors = ButtonDefaults.textButtonColors(contentColor = AppTheme.colors.dialogAction),
     ) { Text(text) }
 }
 
@@ -125,10 +128,10 @@ fun DialogDestructiveButton(
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
-    TextButton(
+    PopupButton(
         onClick = onClick,
         enabled = enabled,
-        colors = ButtonDefaults.textButtonColors(contentColor = AppTheme.colors.dialogDestructive),
+        role = PopupButtonRole.DESTRUCTIVE,
     ) { Text(text) }
 }
 
@@ -138,8 +141,7 @@ fun DialogDismissButton(
     text: String,
     onClick: () -> Unit,
 ) {
-    TextButton(
+    PopupButton(
         onClick = onClick,
-        colors = ButtonDefaults.textButtonColors(contentColor = AppTheme.colors.dialogDismiss),
     ) { Text(text) }
 }

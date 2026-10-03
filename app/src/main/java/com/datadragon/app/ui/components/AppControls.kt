@@ -1,5 +1,10 @@
 package com.datadragon.app.ui.components
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -60,7 +65,7 @@ fun AppButton(
     Row(
         modifier = modifier
             .clip(AppTheme.shapes.control)
-            .clickable(enabled = enabled, onClick = onClick)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .border(AppTheme.shapes.controlBorder, outlineColor, AppTheme.shapes.control)
             .padding(horizontal = AppTheme.spacing.rowInset, vertical = AppTheme.spacing.related),
         horizontalArrangement = Arrangement.Center,
@@ -89,13 +94,18 @@ fun <T> AppDropdown(
     onSelected: (T) -> Unit,
     optionLabel: (T) -> String,
     modifier: Modifier = Modifier,
+    accessibleLabel: String? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = modifier) {
         Row(
             modifier = Modifier
                 .clip(AppTheme.shapes.control)
-                .clickable { expanded = true }
+                .clickable(role = Role.Button) { expanded = true }
+                .semantics {
+                    accessibleLabel?.let { contentDescription = it }
+                    stateDescription = if (expanded) "Expanded" else "Collapsed"
+                }
                 .border(
                     AppTheme.shapes.controlBorder,
                     MaterialTheme.colorScheme.outline,
@@ -113,7 +123,7 @@ fun <T> AppDropdown(
                         style = AppTheme.textStyles.controlLabel,
                         maxLines = 1,
                         softWrap = false,
-                        modifier = Modifier.alpha(0f),
+                        modifier = Modifier.alpha(0f).clearAndSetSemantics { },
                     )
                 }
                 Text(
@@ -175,6 +185,7 @@ fun <T> AppDropdownRow(
             selected = selected,
             onSelected = onSelected,
             optionLabel = optionLabel,
+            accessibleLabel = label,
         )
     }
 }

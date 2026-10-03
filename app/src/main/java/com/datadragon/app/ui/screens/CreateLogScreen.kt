@@ -1,5 +1,11 @@
 package com.datadragon.app.ui.screens
 
+import com.datadragon.app.ui.components.accessibleReorder
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.layout.sizeIn
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
@@ -34,7 +40,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import com.datadragon.app.ui.components.AccessibleOutlinedTextField as OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -368,7 +374,7 @@ internal fun SettingSwitchRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) }
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
             .padding(vertical = AppTheme.spacing.related),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -383,7 +389,7 @@ internal fun SettingSwitchRow(
             }
         }
         Spacer(Modifier.width(AppTheme.spacing.rowInset))
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(checked = checked, onCheckedChange = null, modifier = Modifier.sizeIn(minWidth = AppTheme.sizes.minimumTouchTarget, minHeight = AppTheme.sizes.minimumTouchTarget))
     }
 }
 
@@ -402,22 +408,22 @@ internal fun SortDirectionRadios(
         // Both choices share the width so a narrow screen wraps the labels
         // rather than clipping them.
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().selectableGroup(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
         ) {
             Row(
-                modifier = Modifier.weight(1f).clickable { onNewestFirstChange(true) },
+                modifier = Modifier.weight(1f).selectable(selected = newestFirst, role = Role.RadioButton, onClick = { onNewestFirstChange(true) }),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                RadioButton(selected = newestFirst, onClick = { onNewestFirstChange(true) })
+                RadioButton(selected = newestFirst, onClick = null, modifier = Modifier.sizeIn(minWidth = AppTheme.sizes.minimumTouchTarget, minHeight = AppTheme.sizes.minimumTouchTarget))
                 Text("Newest to Oldest")
             }
             Row(
-                modifier = Modifier.weight(1f).clickable { onNewestFirstChange(false) },
+                modifier = Modifier.weight(1f).selectable(selected = !newestFirst, role = Role.RadioButton, onClick = { onNewestFirstChange(false) }),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                RadioButton(selected = !newestFirst, onClick = { onNewestFirstChange(false) })
+                RadioButton(selected = !newestFirst, onClick = null, modifier = Modifier.sizeIn(minWidth = AppTheme.sizes.minimumTouchTarget, minHeight = AppTheme.sizes.minimumTouchTarget))
                 Text("Oldest to Newest")
             }
         }
@@ -435,7 +441,7 @@ internal fun CheckboxSettingRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) }
+            .toggleable(value = checked, role = Role.Checkbox, onValueChange = onCheckedChange)
             .padding(vertical = AppTheme.spacing.compact),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -506,7 +512,14 @@ private fun BuildEditor(
                 onSortChanged = { setSort(field, it) },
                 onSortDirectionChange = onSortDirectionChange,
                 onDelete = { onDelete(field) },
-                dragHandleModifier = Modifier.draggableHandle(),
+                dragHandleModifier = Modifier.draggableHandle().accessibleReorder(index, fields.size) { offset ->
+                    val current = fields.indexOf(field)
+                    val destination = current + offset
+                    if (current >= 0 && destination in fields.indices) {
+                        onReorder(current, destination)
+                        true
+                    } else false
+                },
             )
         }
     }
