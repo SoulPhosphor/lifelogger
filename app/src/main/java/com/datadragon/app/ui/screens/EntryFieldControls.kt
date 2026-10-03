@@ -325,7 +325,6 @@ private fun YesNoField(
                         selected = option == selected,
                         onClick = null,
                         modifier = Modifier.sizeIn(minWidth = AppTheme.sizes.minimumTouchTarget, minHeight = AppTheme.sizes.minimumTouchTarget),
-                        modifier = Modifier.sizeIn(minWidth = AppTheme.sizes.minimumTouchTarget, minHeight = AppTheme.sizes.minimumTouchTarget),
                     )
                     Text(option)
                 }

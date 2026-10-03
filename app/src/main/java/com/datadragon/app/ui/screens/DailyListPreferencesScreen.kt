@@ -110,7 +110,6 @@ fun DailyListPreferencesScreen(
                 OutlinedTextField(
                     value = retentionRaw,
                     accessibleLabel = "Auto delete daily tasks older then (days)",
-                    accessibleLabel = "Auto delete daily tasks older then (days)",
                     onValueChange = viewModel::setRetentionRaw,
                     singleLine = true,
                     modifier = Modifier.width(AppTheme.sizes.shortNumberWidth),
