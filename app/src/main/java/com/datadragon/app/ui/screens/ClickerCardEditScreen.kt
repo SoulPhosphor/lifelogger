@@ -21,7 +21,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import com.datadragon.app.ui.components.AccessibleOutlinedTextField as OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -41,7 +41,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.R
 import com.datadragon.app.data.ClickerCard
@@ -50,6 +49,7 @@ import com.datadragon.app.data.ClickerFieldType
 import com.datadragon.app.data.ClickerValues
 import com.datadragon.app.ui.ClickerCardEditViewModel
 import com.datadragon.app.ui.theme.AppTheme
+import com.datadragon.app.ui.components.PopupButton
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -65,7 +65,6 @@ private val TIME_DISPLAY_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern
  * as a form entry's Notes box. Like that box, there is no cap on how many lines
  * can be typed — the box grows to fit.
  */
-internal val CLICKER_TEXT_BOX_MIN_HEIGHT = 120.dp
 
 private fun numberInput(input: String, maxDigits: Int): String {
     val negative = input.startsWith("-")
@@ -149,7 +148,7 @@ fun ClickerCardEditScreen(
                 .padding(padding)
                 .imePadding()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(AppTheme.spacing.screenInset),
             verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
         ) {
             // Card stamp override — only the parts the card actually carries.
@@ -161,7 +160,7 @@ fun ClickerCardEditScreen(
                 if (displayTime != null) {
                     TimeEditRow(label = "Time", iso = displayTime, onSet = { displayTime = it })
                 }
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = AppTheme.spacing.related))
             }
 
             // Editable text boxes carry their label above the box, never inside it
@@ -196,7 +195,7 @@ fun ClickerCardEditScreen(
                         OutlinedTextField(
                             value = ClickerValues.text(values, field.id),
                             onValueChange = { values[field.id] = it },
-                            modifier = Modifier.fillMaxWidth().heightIn(min = CLICKER_TEXT_BOX_MIN_HEIGHT),
+                            modifier = Modifier.fillMaxWidth().heightIn(min = AppTheme.sizes.notesMinHeight),
                         )
                     }
                 }
@@ -209,7 +208,7 @@ fun ClickerCardEditScreen(
                     OutlinedTextField(
                         value = ClickerValues.text(values, ClickerValues.FOLLOW_UP_KEY),
                         onValueChange = { values[ClickerValues.FOLLOW_UP_KEY] = it },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = CLICKER_TEXT_BOX_MIN_HEIGHT),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = AppTheme.sizes.notesMinHeight),
                     )
                 }
             }
@@ -314,14 +313,14 @@ private fun DatePickerModal(
     DatePickerDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = {
+            PopupButton(onClick = {
                 val picked = state.selectedDateMillis?.let {
                     Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
                 }
                 if (picked != null) onConfirm(picked) else onDismiss()
             }) { Text("Okay") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { PopupButton(onClick = onDismiss) { Text("Cancel") } },
     ) {
         DatePicker(state = state)
     }
@@ -342,9 +341,9 @@ private fun TimePickerModal(
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = { onConfirm(LocalTime.of(state.hour, state.minute)) }) { Text("Okay") }
+            PopupButton(onClick = { onConfirm(LocalTime.of(state.hour, state.minute)) }) { Text("Okay") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { PopupButton(onClick = onDismiss) { Text("Cancel") } },
         text = { TimePicker(state = state) },
     )
 }

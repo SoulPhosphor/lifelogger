@@ -12,10 +12,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.dp
 import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.IdeaFieldDef
 import com.datadragon.app.data.IdeaLog
@@ -25,6 +23,7 @@ import com.datadragon.app.ui.components.CountsLine
 import com.datadragon.app.ui.components.TagChipRow
 import com.datadragon.app.ui.components.WebpageOpenButton
 import kotlinx.serialization.json.JsonObject
+import com.datadragon.app.ui.theme.AppTheme
 
 /**
  * How much of an idea a surface shows. Cards obey the log's display settings;
@@ -86,13 +85,13 @@ fun IdeaFieldReadout(
     values: JsonObject,
     log: IdeaLog?,
     mode: IdeaDisplayMode,
-    modifier: Modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+    modifier: Modifier = Modifier.fillMaxWidth().padding(top = AppTheme.spacing.related),
 ) {
     when (field.type) {
         FieldType.TAGS -> {
             val tags = IdeaValues.tags(values, field)
             if (tags.isNotEmpty()) {
-                Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.compact)) {
                     IdeaFieldLabel(field.label)
                     TagChipRow(tags)
                 }
@@ -103,7 +102,7 @@ fun IdeaFieldReadout(
             val text = IdeaValues.rawValue(values, field)
             if (text != null) {
                 val limit = multilineLimit(field, log, mode)
-                Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.tight)) {
                     IdeaFieldLabel(field.label)
                     Text(
                         text = text,
@@ -147,7 +146,7 @@ private fun IdeaFieldLabel(label: String) {
     Text(
         text = label,
         style = MaterialTheme.typography.bodyLarge,
-        fontWeight = FontWeight.Medium,
+        fontWeight = AppTheme.textStyles.readoutLabelWeight,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
 }
@@ -156,9 +155,10 @@ private fun IdeaFieldLabel(label: String) {
 @Composable
 private fun InlineLabelledValue(label: String, value: String, modifier: Modifier = Modifier) {
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val labelWeight = AppTheme.textStyles.readoutLabelWeight
     Text(
         text = buildAnnotatedString {
-            withStyle(SpanStyle(color = labelColor, fontWeight = FontWeight.Medium)) {
+            withStyle(SpanStyle(color = labelColor, fontWeight = labelWeight)) {
                 append("$label: ")
             }
             append(value)

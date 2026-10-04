@@ -1,5 +1,6 @@
 package com.datadragon.app.ui.screens
 
+import com.datadragon.app.ui.components.accessibleReorder
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -28,7 +29,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import com.datadragon.app.ui.components.AccessibleOutlinedTextField as OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -46,7 +47,6 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import com.datadragon.app.data.DEFAULT_IDEA_LINES
 import com.datadragon.app.data.IdeaFieldDef
 import com.datadragon.app.data.IdeaFieldKind
@@ -65,6 +65,7 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import sh.calvin.reorderable.ReorderableColumn
+import com.datadragon.app.ui.theme.AppTheme
 
 /** The default fields "Use Default Fields" fills in, in the order they belong. */
 private val DEFAULT_FIELD_KINDS = listOf(
@@ -326,8 +327,8 @@ fun IdeaLogEditorScaffold(
                 // keyboard so a focused field is never hidden behind it.
                 .imePadding()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(AppTheme.spacing.screenInset),
+            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset),
         ) {
             Text("Idea Log Name", style = MaterialTheme.typography.labelLarge)
             OutlinedTextField(
@@ -375,7 +376,7 @@ fun IdeaLogEditorScaffold(
                     list = fields,
                     onSettle = { from, to -> fields.add(to, fields.removeAt(from)) },
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset),
                 ) { index, field, _ ->
                     IdeaFieldCard(
                         field = field,
@@ -384,7 +385,14 @@ fun IdeaLogEditorScaffold(
                         onSortChanged = { setSort(field, it) },
                         onSortDirectionChange = onSortDirectionChange,
                         onDelete = { fields.remove(field) },
-                        dragHandleModifier = Modifier.draggableHandle(),
+                        dragHandleModifier = Modifier.draggableHandle().accessibleReorder(index, fields.size) { offset ->
+                            val current = fields.indexOf(field)
+                            val destination = current + offset
+                            if (current >= 0 && destination in fields.indices) {
+                                fields.add(destination, fields.removeAt(current))
+                                true
+                            } else false
+                        },
                     )
                 }
             }
@@ -442,17 +450,17 @@ private fun LineCountRow(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier.fillMaxWidth().padding(vertical = 8.dp),
+        modifier = modifier.fillMaxWidth().padding(vertical = AppTheme.spacing.related),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(AppTheme.spacing.rowInset))
         OutlinedTextField(
             value = value,
             onValueChange = { input -> onChange(input.filter { it.isDigit() }.take(3)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.width(96.dp),
+            modifier = Modifier.width(AppTheme.sizes.numberWidth),
         )
     }
 }
@@ -470,8 +478,8 @@ private fun IdeaFieldCard(
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(AppTheme.spacing.rowInset),
+            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -487,7 +495,7 @@ private fun IdeaFieldCard(
                     imageVector = Icons.Filled.DragIndicator,
                     contentDescription = "Drag to reorder",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = dragHandleModifier.padding(start = 4.dp),
+                    modifier = dragHandleModifier.padding(start = AppTheme.spacing.compact),
                 )
             }
 
@@ -513,7 +521,7 @@ private fun IdeaFieldCard(
                     value = field.optionsText,
                     onValueChange = { field.optionsText = it },
                     label = { Text("Options (One per Line)") },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = AppTheme.sizes.editorMinHeight),
                 )
                 IdeaFieldKind.TEXT -> MultilineFieldSettings(field)
                 else -> Unit
@@ -593,11 +601,11 @@ private fun MultilineFieldSettings(field: IdeaDraftField) {
     )
     if (field.truncateInEntireCard) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(start = AppTheme.spacing.rowInset),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("Only Show", style = MaterialTheme.typography.bodyLarge)
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(AppTheme.spacing.related))
             OutlinedTextField(
                 value = field.entireCardLines,
                 onValueChange = { input ->
@@ -605,9 +613,9 @@ private fun MultilineFieldSettings(field: IdeaDraftField) {
                 },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.width(96.dp),
+                modifier = Modifier.width(AppTheme.sizes.numberWidth),
             )
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(AppTheme.spacing.related))
             Text("Lines", style = MaterialTheme.typography.bodyLarge)
         }
     }

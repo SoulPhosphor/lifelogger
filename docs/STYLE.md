@@ -20,9 +20,11 @@ These are the ones that keep getting broken. They are absolute.
 
 1. **No pills. Ever.** Nothing on screen is a capsule, stadium, oval, or
    fully-rounded shape. Not buttons, not chips, not option rows, not filters.
-2. **One button shape.** Every button in the app is `AppButton`. There is no
-   second button style, and Material's `Button` / `OutlinedButton` /
-   `FilledTonalButton` / `ElevatedButton` are never used.
+2. **Outlined buttons.** Screen actions use `AppButton`; existing screen and
+   top-bar treatments remain as recorded in the audit. Pop-up actions use
+   `PopupButton`, with exactly two theme roles: Primary and Destructive.
+   Both roles look identical today. Cancel/dismiss uses Primary; there is no
+   Secondary style. Material's filled/elevated action buttons are never used.
 3. **A button is framed exactly like a drop-down box** — same outline, same
    corner. A button and a drop-down sitting next to each other look like the
    same control.
@@ -108,9 +110,31 @@ Because of this, adding a theme later is a change to `Theme.kt`, `Type.kt`,
 
 ## 4. Buttons
 
-- **`AppButton` is the only button.** It draws a thin outline in the theme's
-  outline color, with the theme's control corner — the same frame a drop-down
-  box uses.
+- **Screen buttons use `AppButton`; pop-up buttons use `PopupButton`.** Both
+  draw a thin theme outline with the theme's control corner. Existing screen
+  buttons are preserved; changing older screen treatments requires an owner decision.
+- **Primary and Destructive are independent pop-up styles.** Change
+  `ui/theme/PopupButtonStyle.kt` to adjust a role's color, border, typography,
+  shape or padding centrally. Their current values are identical.
+  Cancel/dismiss uses Primary. Delete, discard, replacement restore and undo
+  import use Destructive. Pickers and export confirmation/dismiss actions use Primary.
+- A pop-up button's visible outline is only its caption plus padding. Its tap
+  area is still at least 48dp × 48dp, added invisibly with
+  `Modifier.minimumInteractiveComponentSize()`. Its caption keeps Material's text-button style (14sp,
+  Medium). Text can wrap. `AppDialog`
+  actions wrap in their existing order when space is insufficient; dialog content
+  scrolls when it exceeds the available height.
+- **Tap area and visible size are separate (Android accessibility rule).**
+  Anything tappable needs at least a 48dp × 48dp tap area. Meet it with
+  `Modifier.minimumInteractiveComponentSize()` (an invisible area around the
+  control, the way Material checkboxes and switches do it). Never make the
+  visible box, outline or text bigger to meet it.
+- **No press flash anywhere.** Pressing, hovering or dragging a control draws
+  no ripple or highlight; `DataDragonTheme` sets this once through
+  `LocalRippleConfiguration`. Only hardware-keyboard focus is highlighted, so
+  keyboard users can see where they are. Do not add `ripple()` or other press
+  indication to a control. Switches do not react to presses either: a switch in
+  a row takes `onCheckedChange = null` and the row is `toggleable`.
 - **Never a pill, never a filled capsule, never a raised/elevated button.**
 - **A button never resizes based on state.** A caption that changes with state
   (e.g. "Restore" / "Nothing to Restore") still lives in a button whose frame
@@ -219,8 +243,8 @@ Used by the export dialogs; the pattern for any "pick one of these" list.
 - **Soft, not blocky:** the theme's control corner, filled with
   `MaterialTheme.colorScheme.surfaceContainerLow` so it blends into the dialog.
   No borders, no outlines, no dividers between rows.
-- **It responds to touch.** `Surface(onClick = …)` keeps the default Material
-  ripple, highlight, and focus behavior.
+- **No press flash.** `Surface(onClick = …)` follows the app-wide rule in §4:
+  touch draws nothing; only hardware-keyboard focus is highlighted.
 - **Two lines per option:** a title (`dialogOptionTitle`) and a one-line
   subtitle saying what the option is (`dialogOptionSubtitle`, in
   `onSurfaceVariant`).
@@ -240,14 +264,14 @@ dialogs (§7), and option-list dialogs (§8) keep their own patterns.
 - **The question is the dialog's title**, phrased as a normal sentence:
   "Delete list?". The title is **centered**.
 - **The body/subtext is left-aligned** — never centered.
-- **Buttons sit in a centered row.** The button that performs the action is on
+- **Buttons sit in a centered row that wraps when needed.** The button that performs the action is on
   the **right**; Cancel (or any dismiss) is on the **left**.
 - **One button color — no red.** Every dialog button uses the same color. They
   come from `AppDialog`'s button composables: `DialogActionButton` (the
   affirmative action), `DialogDestructiveButton` (delete/discard), and
   `DialogDismissButton` (Cancel). Destructive is a *separate* composable from
   the action button so a future theme can set it apart in one place — today it
-  looks identical.
+  looks identical. Cancel uses the Primary role, not a separate dismiss style.
 
 ---
 
@@ -298,3 +322,74 @@ space, and each line's text is centered.
 
 The reference that does this correctly is the Ideas Home screen with no Idea
 Logs ("No idea logs yet."), drawn by `EmptyMessage` in `HomeScreen.kt`.
+
+## 14. Theme implementation and preservation audit (October 2026)
+
+The theme now owns every nonzero screen/component dimension, explicit font
+weight, application color fallback, and custom shape. Existing differences are
+preserved as separate named roles. This refactor does **not** settle differences
+between older screens and the rules above; those are recorded for the owner in
+[STYLE_AUDIT.md](STYLE_AUDIT.md).
+
+| Setting | Central location | Access |
+| --- | --- | --- |
+| Material palette and dynamic light/dark selection | `ui/theme/Theme.kt`, `Color.kt` | `MaterialTheme.colorScheme` |
+| Extra color roles: invalid stored color, primary/destructive pop-up text | `ui/theme/Appearance.kt` | `AppTheme.colors` |
+| Complete Primary/Destructive outlined pop-up styles | `ui/theme/PopupButtonStyle.kt` | `AppTheme.popupButtons` |
+| Disabled text and border opacity | `ui/theme/Appearance.kt` | `AppTheme.opacity` |
+| Material type scale and semantic text/weight roles | `ui/theme/Type.kt` | `MaterialTheme.typography`, `AppTheme.textStyles` |
+| Material component shapes and existing custom corners | `ui/theme/Shape.kt` | `MaterialTheme.shapes`, `AppTheme.shapes` |
+| Gaps, padding, and indentation | `ui/theme/Spacing.kt` | `AppTheme.spacing` |
+| Icon sizes, field widths/minimum heights, picker geometry, elevation | `ui/theme/Sizes.kt` | `AppTheme.sizes` |
+| PDF fonts, colors, page dimensions, rules and spacing (points) | `export/PrintStyle.kt` | `PrintStyle` |
+| Intrinsic XML vector tint and launcher background | `res/values/colors.xml` | XML resource references |
+
+Fonts continue using the existing Material type scale and system font, with
+`sp` so Android font scaling remains effective. Sizes use `dp`; minimum-height
+text fields can still expand. The inline readout-label role supplies only a
+weight, retaining each caller's existing inherited size and line height.
+
+Android 12+ wallpaper colors remain enabled exactly as before. A future custom
+palette can be selected in `DataDragonTheme`; provide matching foreground and
+background roles together. App-specific colors are derived from that selected
+scheme, so pop-up role colors also follow dynamic color. The two pop-up action
+roles remain visually identical today but can be restyled independently.
+
+Stored calendar colors, built-in selectable calendar palettes, and hex input
+are user data. They remain their exact values when the app theme changes.
+`contentColorFromHex` resolves stored colors with a themed invalid-value fallback.
+The color picker still parses explicit opaque RGB input. Launcher artwork,
+vector path coordinates, transparent sizing placeholders, zero spacing, layout
+weights, aspect ratios, and measured pixel-to-dp conversions are geometry/content,
+rather than application color or size literals to replace.
+
+PDF output has its own print style so a dark device theme does not make printed
+reports dark. Existing A4 dimensions, fonts, pagination and colors are preserved.
+
+Run `python3 scripts/check_theme_tokens.py` when touching UI styling. CI runs
+this check before the Android unit tests and release build. It rejects new raw
+screen sizes/colors/shapes/fonts while allowing zero geometry and content-color
+parsing. Add a named role to the theme for a genuinely new treatment; preserve
+existing per-role differences unless the owner approves a visible change.
+
+## 15. Accessibility without changing appearance
+
+- A text field's accessibility name (content description) is set only while
+  the field is empty. On Android a content description replaces the typed text
+  for TalkBack, including character-by-character review while editing.
+- External field labels remain outside their outline. Use
+  `AccessibleOutlinedTextField` and `LocalAccessibleFieldLabel` (provided by
+  `Labeled`) to attach the existing name to the editable node. Floating Material
+  labels already supply their own field name. Expose validation errors in semantics.
+- Measurement-only and decorative content must not create accessibility targets.
+  Clear semantics on the dropdown's invisible measuring captions.
+- Custom actions expose a button role. Selected mode/radio controls expose state.
+  A whole toggle/radio row owns the action; its child indicator has no duplicate
+  callback. Preserve the indicator's existing interactive layout footprint.
+- Mark section headings as headings. Calendar cells expose their full date and
+  existing result text; colors must not be the only accessible result.
+- Reorder handles provide Move Up/Move Down actions and current position in
+  addition to pointer dragging. Reuse existing reorder operations and identities.
+- Device checks remain necessary for TalkBack, Switch Access, keyboard navigation,
+  200% fonts, dynamic colors and actual hit bounds. See STYLE_AUDIT.md for remaining
+  contrast, screen-layout and PDF accessibility work.

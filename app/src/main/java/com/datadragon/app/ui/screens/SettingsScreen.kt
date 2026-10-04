@@ -1,5 +1,11 @@
 package com.datadragon.app.ui.screens
 
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -48,7 +54,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.dp
 import com.datadragon.app.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -67,6 +72,8 @@ import com.datadragon.app.ui.SettingsViewModel
 import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.ui.components.AppDropdownRow
 import com.datadragon.app.ui.theme.AppTheme
+import com.datadragon.app.ui.theme.PopupButtonRole
+import com.datadragon.app.ui.components.PopupButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -224,8 +231,8 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(AppTheme.spacing.screenInset),
+            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
         ) {
             if (section == SettingsSection.SETTINGS) {
             // How the Home bar presents the data modes: a row of icons, or a
@@ -247,7 +254,7 @@ fun SettingsScreen(
                 title = "Use mode label instead of single icon in drop-down mode.",
             )
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = AppTheme.spacing.related))
 
             // Which data modes appear in the navigation. Unchecking one only hides
             // it from the bar — the mode's data is untouched and returns when shown.
@@ -288,7 +295,7 @@ fun SettingsScreen(
                 onCheckedChange = { settingsViewModel.setModeEnabled(HomeView.CLICKER, it) },
             )
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = AppTheme.spacing.related))
 
             // Text-formatting preferences. Their titles are deliberately kept as
             // sentences (not Title Case) because they're long. The "future items"
@@ -310,7 +317,7 @@ fun SettingsScreen(
                 title = "Auto capitalize major words of drop-down and multiple choice options",
             )
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = AppTheme.spacing.related))
 
             // Global behavior for every list.
             SectionHeader("Lists")
@@ -353,7 +360,7 @@ fun SettingsScreen(
                 Text("Back Up Now…")
             }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = AppTheme.spacing.related))
 
             // Restore lives at the bottom, away from everyday controls. Times are
             // always 12-hour (AM/PM), so there is no time-format choice here.
@@ -474,7 +481,7 @@ fun SettingsScreen(
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
+                PopupButton(role = if (mode == RestoreMode.REPLACE) PopupButtonRole.DESTRUCTIVE else PopupButtonRole.PRIMARY, onClick = {
                     val json = pendingJson
                     pendingJson = null
                     if (json != null) {
@@ -511,7 +518,7 @@ fun SettingsScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pendingJson = null }) { Text("Cancel") }
+                PopupButton(onClick = { pendingJson = null }) { Text("Cancel") }
             },
         )
     }
@@ -523,7 +530,7 @@ fun SettingsScreen(
                 Text("Restore the previous state from before the last import? This can't be undone.")
             },
             confirmButton = {
-                TextButton(onClick = {
+                PopupButton(role = PopupButtonRole.DESTRUCTIVE, onClick = {
                     pendingUndo = false
                     scope.launch {
                         status = viewModel.undoImport()
@@ -533,7 +540,7 @@ fun SettingsScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pendingUndo = false }) { Text("Cancel") }
+                PopupButton(onClick = { pendingUndo = false }) { Text("Cancel") }
             },
         )
     }
@@ -609,13 +616,13 @@ private fun restoreSummary(mode: RestoreMode, counts: RestoreCounts): String = w
  */
 @Composable
 private fun SectionHeader(text: String) {
-    Text(text, style = AppTheme.textStyles.sectionHeader)
+    Text(text, style = AppTheme.textStyles.sectionHeader, modifier = Modifier.semantics { heading() })
 }
 
 /** A heading for one block inside a section, a step below [SectionHeader]. */
 @Composable
 private fun SubsectionHeader(text: String) {
-    Text(text, style = AppTheme.textStyles.subsectionHeader)
+    Text(text, style = AppTheme.textStyles.subsectionHeader, modifier = Modifier.semantics { heading() })
 }
 
 /**
@@ -632,8 +639,8 @@ private fun SettingToggleRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) }
-            .padding(vertical = 8.dp),
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
+            .padding(vertical = AppTheme.spacing.related),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -646,8 +653,8 @@ private fun SettingToggleRow(
                 )
             }
         }
-        Spacer(Modifier.width(12.dp))
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Spacer(Modifier.width(AppTheme.spacing.rowInset))
+        Switch(checked = checked, onCheckedChange = null, modifier = Modifier.sizeIn(minWidth = AppTheme.sizes.minimumTouchTarget, minHeight = AppTheme.sizes.minimumTouchTarget))
     }
 }
 
@@ -664,12 +671,12 @@ private fun NavStyleRadioRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onSelect)
-            .padding(vertical = 8.dp),
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onSelect)
+            .padding(vertical = AppTheme.spacing.related),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RadioButton(selected = selected, onClick = onSelect)
-        Spacer(Modifier.width(8.dp))
+        RadioButton(selected = selected, onClick = null, modifier = Modifier.sizeIn(minWidth = AppTheme.sizes.minimumTouchTarget, minHeight = AppTheme.sizes.minimumTouchTarget))
+        Spacer(Modifier.width(AppTheme.spacing.related))
         Text(label, style = AppTheme.textStyles.settingTitle)
     }
 }
@@ -709,8 +716,8 @@ private fun ConflictReviewScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(AppTheme.spacing.screenInset),
+            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
         ) {
             Text(
                 "Nothing will change until you continue.",
@@ -730,7 +737,7 @@ private fun ConflictReviewScreen(
                 ) { Text("Use Backup for All") }
             }
             conflicts.groupBy { it.category }.forEach { (category, categoryConflicts) ->
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = AppTheme.spacing.related))
                 SubsectionHeader(category.restoreLabel())
                 categoryConflicts.forEach { conflict ->
                     Text(conflict.title, style = AppTheme.textStyles.settingTitle)
@@ -799,19 +806,19 @@ private fun DataModeCheckRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) }
-            .padding(vertical = 8.dp),
+            .toggleable(value = checked, role = Role.Checkbox, onValueChange = onCheckedChange)
+            .padding(vertical = AppTheme.spacing.related),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         when {
             iconRes != null -> Icon(
                 painterResource(iconRes),
                 contentDescription = null,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(AppTheme.sizes.icon),
             )
-            icon != null -> Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp))
+            icon != null -> Icon(icon, contentDescription = null, modifier = Modifier.size(AppTheme.sizes.icon))
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(AppTheme.spacing.rowInset))
         Column(modifier = Modifier.weight(1f)) {
             Text(label, style = AppTheme.textStyles.settingTitle)
             Text(
@@ -820,8 +827,8 @@ private fun DataModeCheckRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Spacer(Modifier.width(12.dp))
-        Checkbox(checked = checked, onCheckedChange = onCheckedChange)
+        Spacer(Modifier.width(AppTheme.spacing.rowInset))
+        Checkbox(checked = checked, onCheckedChange = null, modifier = Modifier.sizeIn(minWidth = AppTheme.sizes.minimumTouchTarget, minHeight = AppTheme.sizes.minimumTouchTarget))
     }
 }
 

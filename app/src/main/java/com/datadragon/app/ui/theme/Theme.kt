@@ -2,6 +2,10 @@ package com.datadragon.app.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material.ripple.RippleAlpha
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalRippleConfiguration
+import androidx.compose.material3.RippleConfiguration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -30,6 +34,7 @@ private val DarkColors = darkColorScheme(
  * app's own named styles ([AppTextStyles]). Adding a theme later means adding a
  * branch in this function, not editing screens.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DataDragonTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -52,12 +57,30 @@ fun DataDragonTheme(
         LocalAppShapes provides DefaultAppShapes,
         LocalAppSpacing provides DefaultAppSpacing,
         LocalAppSizes provides DefaultAppSizes,
+        LocalAppColors provides appColorsFor(colorScheme),
+        LocalAppOpacity provides DefaultAppOpacity,
+        LocalPopupButtonStyles provides popupButtonStylesFor(appColorsFor(colorScheme), colorScheme.outline),
     ) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = AppTypography,
-            content = content,
-        )
+            shapes = AppMaterialShapes,
+        ) {
+            // No touch flash anywhere: pressing, hovering and dragging draw nothing.
+            // Only a hardware-keyboard focus highlight remains, so keyboard users
+            // can see where they are; touch never focuses these controls.
+            CompositionLocalProvider(
+                LocalRippleConfiguration provides RippleConfiguration(
+                    rippleAlpha = RippleAlpha(
+                        draggedAlpha = 0f,
+                        focusedAlpha = DefaultAppOpacity.keyboardFocus,
+                        hoveredAlpha = 0f,
+                        pressedAlpha = 0f,
+                    ),
+                ),
+                content = content,
+            )
+        }
     }
 }
 
@@ -66,6 +89,21 @@ fun DataDragonTheme(
  * style with `AppTheme.textStyles.sectionHeader`.
  */
 object AppTheme {
+    val popupButtons: PopupButtonStyles
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalPopupButtonStyles.current
+
+    val colors: AppColors
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalAppColors.current
+
+    val opacity: AppOpacity
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalAppOpacity.current
+
     val textStyles: AppTextStyles
         @Composable
         @ReadOnlyComposable

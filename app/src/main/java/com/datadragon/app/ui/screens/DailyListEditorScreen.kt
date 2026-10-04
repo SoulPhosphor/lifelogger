@@ -1,5 +1,9 @@
 package com.datadragon.app.ui.screens
 
+import com.datadragon.app.ui.components.reorderedItems
+import com.datadragon.app.ui.components.accessibleReorder
+import com.datadragon.app.ui.theme.AppTheme
+import com.datadragon.app.ui.components.PopupButton
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -32,7 +36,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import com.datadragon.app.ui.components.AccessibleOutlinedTextField as OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -206,7 +210,7 @@ fun DailyListEditorScreen(
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).imePadding()) {
             // The date, always editable, in the forms' picker style.
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = AppTheme.spacing.screenInset, vertical = AppTheme.spacing.related)) {
                 AppButton(onClick = { showDatePicker = true }) {
                     Text(editorDate?.format(DAILY_LIST_DATE_FORMAT) ?: "Select Date")
                 }
@@ -219,7 +223,7 @@ fun DailyListEditorScreen(
                     onValueChange = viewModel::setEditorTitle,
                     singleLine = true,
                     label = { Text("Title") },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = AppTheme.spacing.screenInset),
                 )
             }
 
@@ -242,7 +246,7 @@ fun DailyListEditorScreen(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
                 contentPadding = PaddingValues(bottom = keyboardScrollSpace),
             ) {
-                itemsIndexed(rows, key = { _, item -> item.localId }) { _, item ->
+                itemsIndexed(rows, key = { _, item -> item.localId }) { index, item ->
                     ReorderableItem(reorderState, key = item.localId) { _ ->
                         ListEditorItemRow(
                             rowKey = item.localId,
@@ -251,7 +255,11 @@ fun DailyListEditorScreen(
                             indent = item.indent,
                             completedIcon = Icons.Filled.Check,
                             crossOut = false,
-                            dragHandleModifier = Modifier.draggableHandle(),
+                            dragHandleModifier = Modifier.draggableHandle().accessibleReorder(index, rows.size) { offset ->
+                                val moved = reorderedItems(viewModel.editorRows.value.map { it.localId }, item.localId, offset)
+                                if (moved != null) viewModel.reorder(moved)
+                                moved != null
+                            },
                             isEditing = focusedItemId == item.localId,
                             requestFocus = pendingFocusId == item.localId,
                             onFocused = { focusedItemId = item.localId },
@@ -284,7 +292,7 @@ fun DailyListEditorScreen(
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
-                TextButton(onClick = {
+                PopupButton(onClick = {
                     val picked = state.selectedDateMillis?.let {
                         Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
                     }
@@ -300,7 +308,7 @@ fun DailyListEditorScreen(
                     }
                 }) { Text("Okay") }
             },
-            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancel") } },
+            dismissButton = { PopupButton(onClick = { showDatePicker = false }) { Text("Cancel") } },
         ) {
             DatePicker(state = state)
         }

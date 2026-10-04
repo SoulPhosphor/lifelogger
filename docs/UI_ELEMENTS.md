@@ -25,7 +25,7 @@ this file to match.
 | `border-radius` | a **shape** | `ui/theme/Shape.kt` (`AppTheme.shapes.*`) |
 | A `<button>` on a page | `AppButton` | `ui/components/AppControls.kt` |
 | A `<select>` drop-down | `AppDropdownRow` | `ui/components/AppControls.kt` |
-| A modal / dialog | an `AlertDialog` (see the Dialog anatomy below) | one per screen today |
+| A modal / dialog | `AppDialog` for simple notices; specialized pickers/export dialogs keep their existing patterns | `ui/components/AppDialog.kt` |
 
 **The one rule that makes theming possible:** a screen never writes a raw size
 or color (no `18.sp`, no `Color(0xFF…)`). It asks the theme for a *name*. That
@@ -44,6 +44,12 @@ screen needs touching:
 - **Text sizes / weights** — `ui/theme/Type.kt`.
 - **Spacing** — `ui/theme/Spacing.kt`.
 - **Corner shapes** — `ui/theme/Shape.kt`.
+- **Icon sizes / widths / minimum heights** — `ui/theme/Sizes.kt`.
+- **Extra color roles / disabled opacity** — `ui/theme/Appearance.kt`.
+- **Print appearance** — `export/PrintStyle.kt` (independent of screen themes).
+
+Existing style differences and accessibility findings are documented in
+[`STYLE_AUDIT.md`](STYLE_AUDIT.md); this audit preserves them for owner decisions.
 
 ---
 
@@ -164,3 +170,11 @@ button** (below), which only changes one number on a card already there.
   changed from that edit menu.)
 - **Clicker Data Log** — one clicker grouping: a titled series of cards, each
   carrying the same set of trackers and fields.
+
+### Pop-up action styles (October 2026 owner decision)
+
+Pop-up action buttons are outlined and use `PopupButton`. There are exactly two
+styles in `ui/theme/PopupButtonStyle.kt`: Primary and Destructive. They look
+identical now and can be changed independently later. Cancel/dismiss uses Primary;
+there is no Secondary style. Screen and top-bar button appearances are preserved.
+`AppDialog` exposes these through its existing action/destructive/dismiss helpers.

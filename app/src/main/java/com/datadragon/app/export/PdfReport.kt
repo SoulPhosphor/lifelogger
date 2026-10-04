@@ -1,7 +1,6 @@
 package com.datadragon.app.export
 
 import android.graphics.Paint
-import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import com.datadragon.app.data.EntryNote
 import com.datadragon.app.data.EntryValues
@@ -19,10 +18,6 @@ import java.io.ByteArrayOutputStream
  */
 object PdfReport {
 
-    // A4 at 72dpi, in points.
-    private const val PAGE_WIDTH = 595
-    private const val PAGE_HEIGHT = 842
-    private const val MARGIN = 40f
 
     fun writeToBytes(
         template: LogTemplate,
@@ -31,11 +26,11 @@ object PdfReport {
         entryNotes: Map<Long, List<EntryNote>> = emptyMap(),
         includeFollowUps: Boolean = false,
     ): ByteArray {
-        val titlePaint = paint(20f, bold = true)
-        val metaPaint = paint(11f).apply { color = 0xFF555555.toInt() }
-        val headingPaint = paint(14f, bold = true)
-        val labelPaint = paint(12f, bold = true)
-        val bodyPaint = paint(12f)
+        val titlePaint = paint(PrintStyle.titleSize, bold = true)
+        val metaPaint = paint(PrintStyle.metadataSize).apply { color = PrintStyle.metadataColor }
+        val headingPaint = paint(PrintStyle.headingSize, bold = true)
+        val labelPaint = paint(PrintStyle.bodySize, bold = true)
+        val bodyPaint = paint(PrintStyle.bodySize)
 
         val doc = PdfDocument()
         val writer = PageWriter(doc)
@@ -50,11 +45,11 @@ object PdfReport {
         writer.text(metaPaint, "Total entries: ${ordered.size}")
 
         ordered.forEach { entry ->
-            writer.gap(8f)
+            writer.gap(PrintStyle.sectionGap)
             writer.rule()
-            writer.gap(8f)
+            writer.gap(PrintStyle.sectionGap)
             writer.text(headingPaint, EntryValues.displayEntryDateTime(entry.createdAt))
-            writer.gap(4f)
+            writer.gap(PrintStyle.relatedGap)
 
             val values = EntryValues.decode(entry.valuesJson)
             fields.forEach { field ->
@@ -67,14 +62,14 @@ object PdfReport {
                 }
             }
             EntryValues.notes(values)?.let { notes ->
-                writer.gap(4f)
+                writer.gap(PrintStyle.relatedGap)
                 writer.text(labelPaint, "Notes:")
                 writer.text(bodyPaint, notes)
             }
 
             val followUps = if (includeFollowUps) entryNotes[entry.id].orEmpty() else emptyList()
             if (followUps.isNotEmpty()) {
-                writer.gap(4f)
+                writer.gap(PrintStyle.relatedGap)
                 writer.text(labelPaint, "Follow-Up Notes:")
                 followUps.forEach { note ->
                     writer.text(
@@ -96,28 +91,28 @@ object PdfReport {
     internal fun paint(size: Float, bold: Boolean = false) = Paint().apply {
         isAntiAlias = true
         textSize = size
-        color = 0xFF000000.toInt()
-        if (bold) typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        color = PrintStyle.bodyColor
+        if (bold) typeface = PrintStyle.boldTypeface
     }
 
     /** Cursor that lays text out top-to-bottom, paginating when a page fills. */
     internal class PageWriter(private val doc: PdfDocument) {
-        private val maxWidth = PAGE_WIDTH - 2 * MARGIN
-        private val bottom = PAGE_HEIGHT - MARGIN
+        private val maxWidth = PrintStyle.pageWidth - 2 * PrintStyle.margin
+        private val bottom = PrintStyle.pageHeight - PrintStyle.margin
         private var pageNumber = 1
         private var page = startPage()
         private var canvas = page.canvas
-        private var y = MARGIN
+        private var y = PrintStyle.margin
 
         private fun startPage(): PdfDocument.Page =
-            doc.startPage(PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, pageNumber).create())
+            doc.startPage(PdfDocument.PageInfo.Builder(PrintStyle.pageWidth, PrintStyle.pageHeight, pageNumber).create())
 
         private fun newPage() {
             doc.finishPage(page)
             pageNumber++
             page = startPage()
             canvas = page.canvas
-            y = MARGIN
+            y = PrintStyle.margin
         }
 
         fun gap(amount: Float) {
@@ -125,13 +120,13 @@ object PdfReport {
         }
 
         fun rule() {
-            if (y + 1f > bottom) newPage()
+            if (y + PrintStyle.ruleWidth > bottom) newPage()
             val linePaint = Paint().apply {
-                strokeWidth = 1f
-                color = 0xFFCCCCCC.toInt()
+                strokeWidth = PrintStyle.ruleWidth
+                color = PrintStyle.ruleColor
             }
-            canvas.drawLine(MARGIN, y, PAGE_WIDTH - MARGIN, y, linePaint)
-            y += 1f
+            canvas.drawLine(PrintStyle.margin, y, PrintStyle.pageWidth - PrintStyle.margin, y, linePaint)
+            y += PrintStyle.ruleWidth
         }
 
         fun text(paint: Paint, content: String) {
@@ -139,7 +134,7 @@ object PdfReport {
             val lineHeight = fm.descent - fm.ascent + fm.leading
             for (line in wrap(content, paint)) {
                 if (y + lineHeight > bottom) newPage()
-                canvas.drawText(line, MARGIN, y - fm.ascent, paint)
+                canvas.drawText(line, PrintStyle.margin, y - fm.ascent, paint)
                 y += lineHeight
             }
         }

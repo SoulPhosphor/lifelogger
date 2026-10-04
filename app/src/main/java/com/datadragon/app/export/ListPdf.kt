@@ -1,7 +1,6 @@
 package com.datadragon.app.export
 
 import android.graphics.Paint
-import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import java.io.ByteArrayOutputStream
 
@@ -17,25 +16,20 @@ data class ListPdfRow(val text: String, val completed: Boolean, val indent: Int)
  */
 object ListPdf {
 
-    // A4 at 72dpi, in points.
-    private const val PAGE_WIDTH = 595
-    private const val PAGE_HEIGHT = 842
-    private const val MARGIN = 40f
-    private const val SUB_INDENT = 24f
 
     fun writeToBytes(title: String, rows: List<ListPdfRow>): ByteArray {
-        val titlePaint = paint(20f, bold = true)
-        val bodyPaint = paint(12f)
+        val titlePaint = paint(PrintStyle.titleSize, bold = true)
+        val bodyPaint = paint(PrintStyle.bodySize)
 
         val doc = PdfDocument()
         val writer = PageWriter(doc)
 
         writer.text(titlePaint, title, indent = 0f)
-        writer.gap(8f)
+        writer.gap(PrintStyle.sectionGap)
 
         rows.filter { it.text.isNotBlank() }.forEach { row ->
             val box = if (row.completed) "[x]" else "[ ]"
-            val indent = if (row.indent == 1) SUB_INDENT else 0f
+            val indent = if (row.indent == 1) PrintStyle.subIndent else 0f
             writer.text(bodyPaint, "$box ${row.text}", indent = indent)
         }
 
@@ -50,27 +44,27 @@ object ListPdf {
     private fun paint(size: Float, bold: Boolean = false) = Paint().apply {
         isAntiAlias = true
         textSize = size
-        color = 0xFF000000.toInt()
-        if (bold) typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        color = PrintStyle.bodyColor
+        if (bold) typeface = PrintStyle.boldTypeface
     }
 
     /** Cursor that lays text out top-to-bottom, paginating when a page fills. */
     private class PageWriter(private val doc: PdfDocument) {
-        private val bottom = PAGE_HEIGHT - MARGIN
+        private val bottom = PrintStyle.pageHeight - PrintStyle.margin
         private var pageNumber = 1
         private var page = startPage()
         private var canvas = page.canvas
-        private var y = MARGIN
+        private var y = PrintStyle.margin
 
         private fun startPage(): PdfDocument.Page =
-            doc.startPage(PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, pageNumber).create())
+            doc.startPage(PdfDocument.PageInfo.Builder(PrintStyle.pageWidth, PrintStyle.pageHeight, pageNumber).create())
 
         private fun newPage() {
             doc.finishPage(page)
             pageNumber++
             page = startPage()
             canvas = page.canvas
-            y = MARGIN
+            y = PrintStyle.margin
         }
 
         fun gap(amount: Float) {
@@ -79,8 +73,8 @@ object ListPdf {
 
         /** Draw [content], wrapped, starting [indent] points in from the margin. */
         fun text(paint: Paint, content: String, indent: Float) {
-            val left = MARGIN + indent
-            val maxWidth = PAGE_WIDTH - MARGIN - left
+            val left = PrintStyle.margin + indent
+            val maxWidth = PrintStyle.pageWidth - PrintStyle.margin - left
             val fm = paint.fontMetrics
             val lineHeight = fm.descent - fm.ascent + fm.leading
             for (line in wrap(content, paint, maxWidth)) {

@@ -1,5 +1,7 @@
 package com.datadragon.app.ui.components
 
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -38,6 +40,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import com.datadragon.app.ui.theme.AppTheme
 
 /**
  * The one editable list-item row, shared by every list-style editor (ordinary
@@ -90,14 +93,14 @@ fun ListEditorItemRow(
         modifier = Modifier
             .fillMaxWidth()
             .bringIntoViewRequester(bringIntoViewRequester)
-            .padding(start = if (indent == 1) 32.dp else 0.dp),
+            .padding(start = if (indent == 1) AppTheme.spacing.listIndent else 0.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             imageVector = Icons.Filled.DragIndicator,
             contentDescription = "Reorder",
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = dragHandleModifier.padding(horizontal = 8.dp, vertical = 12.dp),
+            modifier = dragHandleModifier.padding(horizontal = AppTheme.spacing.related, vertical = AppTheme.spacing.rowInset),
         )
         IconButton(onClick = onToggleComplete) {
             Icon(
@@ -127,6 +130,8 @@ fun ListEditorItemRow(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             modifier = Modifier
                 .weight(1f)
+                // Named only while empty; a description would replace typed text for TalkBack.
+                .semantics { if (buffer.isEmpty()) contentDescription = "List Item" }
                 .focusRequester(focusRequester)
                 .onFocusChanged {
                     if (it.isFocused) { onFocused(); wasFocused = true }
@@ -157,7 +162,7 @@ fun AddItemRow(
     Row(
         modifier = modifier
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = AppTheme.spacing.screenInset, vertical = AppTheme.spacing.rowInset),
         horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -166,7 +171,7 @@ fun AddItemRow(
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.width(16.dp))
+        Spacer(Modifier.width(AppTheme.spacing.screenInset))
         Icon(
             imageVector = Icons.Filled.Add,
             contentDescription = null,

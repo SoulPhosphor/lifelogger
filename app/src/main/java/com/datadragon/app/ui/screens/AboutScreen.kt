@@ -22,7 +22,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -54,8 +53,8 @@ fun AboutScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(AppTheme.spacing.screenInset),
+            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
@@ -72,8 +71,8 @@ fun AboutScreen(
             state.status?.let { status ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (state.working) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                        Spacer(Modifier.width(8.dp))
+                        CircularProgressIndicator(modifier = Modifier.size(AppTheme.sizes.loadingIndicator), strokeWidth = AppTheme.sizes.loadingStroke)
+                        Spacer(Modifier.width(AppTheme.spacing.related))
                     }
                     Text(
                         status,

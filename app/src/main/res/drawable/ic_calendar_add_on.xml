@@ -17,7 +17,7 @@
     android:height="24dp"
     android:viewportWidth="960"
     android:viewportHeight="960"
-    android:tint="#FF000000">
+    android:tint="@color/icon_asset_default">
     <group android:translateY="960">
         <path
             android:fillColor="@android:color/white"

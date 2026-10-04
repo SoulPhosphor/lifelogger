@@ -1,13 +1,14 @@
 package com.datadragon.app.ui.components
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.OutlinedTextField
+import com.datadragon.app.ui.components.AccessibleOutlinedTextField as OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -16,11 +17,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.unit.dp
 import com.github.skydoves.colorpicker.compose.BrightnessSlider
 import com.github.skydoves.colorpicker.compose.ColorEnvelope
 import com.github.skydoves.colorpicker.compose.HsvColorPicker
 import com.github.skydoves.colorpicker.compose.rememberColorPickerController
+import com.datadragon.app.ui.theme.AppTheme
 
 /**
  * The color picker for a calendar color swatch: a circular rainbow wheel, a
@@ -37,7 +38,8 @@ fun ColorPickerDialog(
     onDismiss: () -> Unit,
 ) {
     val controller = rememberColorPickerController()
-    val initialColor = remember(initialHex) { parseHexOrNull(initialHex) ?: Color.Gray }
+    val fallbackColor = AppTheme.colors.invalidContentColor
+    val initialColor = remember(initialHex, fallbackColor) { parseHexOrNull(initialHex) ?: fallbackColor }
 
     // The selected color is the source of truth for Okay; the hex field mirrors it.
     var selectedColor by remember { mutableStateOf(initialColor) }
@@ -46,15 +48,15 @@ fun ColorPickerDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = { onConfirm(toRgbHex(selectedColor)) }) { Text("Okay") }
+            PopupButton(onClick = { onConfirm(toRgbHex(selectedColor)) }) { Text("Okay") }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            PopupButton(onClick = onDismiss) { Text("Cancel") }
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset)) {
                 HsvColorPicker(
-                    modifier = Modifier.fillMaxWidth().height(280.dp),
+                    modifier = Modifier.fillMaxWidth().height(AppTheme.sizes.colorWheelHeight),
                     controller = controller,
                     initialColor = initialColor,
                     onColorChanged = { envelope: ColorEnvelope ->
@@ -66,7 +68,7 @@ fun ColorPickerDialog(
                     },
                 )
                 BrightnessSlider(
-                    modifier = Modifier.fillMaxWidth().height(32.dp),
+                    modifier = Modifier.fillMaxWidth().height(AppTheme.sizes.brightnessHeight),
                     controller = controller,
                 )
                 OutlinedTextField(

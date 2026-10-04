@@ -24,7 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import com.datadragon.app.ui.components.AccessibleOutlinedTextField as OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -40,7 +40,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import com.datadragon.app.data.WebAddress
 import com.datadragon.app.ui.theme.AppTheme
 
@@ -67,7 +66,7 @@ fun TagChip(text: String) {
                 MaterialTheme.colorScheme.outline,
                 AppTheme.shapes.control,
             )
-            .padding(horizontal = 10.dp, vertical = 5.dp),
+            .padding(horizontal = AppTheme.spacing.optionVerticalInset, vertical = AppTheme.spacing.fieldVerticalInset),
     )
 }
 
@@ -77,7 +76,7 @@ fun TagChip(text: String) {
 fun TagChipRow(tags: List<String>, modifier: Modifier = Modifier) {
     FlowRow(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
     ) {
         tags.forEach { TagChip(it) }
     }
@@ -114,7 +113,7 @@ fun TagsEditor(
         draft = ""
     }
 
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
                 value = draft,
@@ -127,11 +126,11 @@ fun TagsEditor(
                     .weight(1f)
                     .let { m -> focusRequester?.let { m.focusRequester(it) } ?: m },
             )
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(AppTheme.spacing.related))
             AppButton(onClick = { addDraft() }) { Text("Add") }
         }
         if (tags.isNotEmpty()) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.related)) {
                 tags.forEach { tag ->
                     InputChip(
                         selected = false,
@@ -141,7 +140,7 @@ fun TagsEditor(
                             Icon(
                                 Icons.Filled.Close,
                                 contentDescription = "Remove $tag",
-                                modifier = Modifier.size(18.dp),
+                                modifier = Modifier.size(AppTheme.sizes.smallIcon),
                             )
                         },
                     )
@@ -166,12 +165,13 @@ fun WebpageEntryField(
     focusRequester: FocusRequester? = null,
 ) {
     val invalid = value.isNotBlank() && !WebAddress.isValid(value)
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.compact)) {
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
             singleLine = true,
             isError = isError || invalid,
+            accessibleError = if (invalid) "Enter a webpage address, like example.com." else null,
             placeholder = { Text("example.com") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
             modifier = Modifier
@@ -210,12 +210,12 @@ fun WebpageOpenButton(address: String, modifier: Modifier = Modifier) {
                     Toast.makeText(context, "Couldn't open $address", Toast.LENGTH_SHORT).show()
                 }
             },
-            modifier = modifier.size(32.dp),
+            modifier = modifier.size(AppTheme.sizes.compactIconTarget),
         ) {
             Icon(
                 Icons.Filled.OpenInNew,
                 contentDescription = "Open $address",
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(AppTheme.sizes.smallIcon),
             )
         }
     }
@@ -235,12 +235,12 @@ fun CopyValueButton(text: String, modifier: Modifier = Modifier) {
                 clipboard.setText(AnnotatedString(text))
                 Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
             },
-            modifier = Modifier.size(32.dp),
+            modifier = Modifier.size(AppTheme.sizes.compactIconTarget),
         ) {
             Icon(
                 Icons.Filled.ContentCopy,
                 contentDescription = "Copy",
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(AppTheme.sizes.smallIcon),
             )
         }
     }
@@ -255,7 +255,7 @@ fun CountsLine(text: String, modifier: Modifier = Modifier) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = modifier
             .fillMaxWidth()
-            .padding(top = 2.dp),
+            .padding(top = AppTheme.spacing.tight),
         textAlign = androidx.compose.ui.text.style.TextAlign.End,
     )
 }

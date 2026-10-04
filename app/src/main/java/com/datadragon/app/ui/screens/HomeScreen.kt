@@ -1,5 +1,7 @@
 package com.datadragon.app.ui.screens
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -16,7 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Checklist
@@ -39,7 +40,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -55,7 +55,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.R
@@ -68,7 +67,6 @@ import com.datadragon.app.ui.components.AppDialog
 import com.datadragon.app.ui.components.DialogActionButton
 import com.datadragon.app.ui.components.DialogDestructiveButton
 import com.datadragon.app.ui.components.DialogDismissButton
-import com.datadragon.app.ui.theme.AppTheme
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -78,6 +76,8 @@ import com.datadragon.app.ui.HomeLog
 import com.datadragon.app.ui.HomeViewModel
 import com.datadragon.app.ui.components.HomeCard
 import androidx.compose.ui.res.painterResource
+import com.datadragon.app.ui.theme.AppTheme
+import com.datadragon.app.ui.components.PopupButton
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -143,7 +143,7 @@ fun HomeScreen(
                                 // little space between them so none is easy to mis-tap.
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     visibleModes.forEachIndexed { index, mode ->
-                                        if (index > 0) Spacer(Modifier.width(4.dp))
+                                        if (index > 0) Spacer(Modifier.width(AppTheme.spacing.compact))
                                         ViewToggle(
                                             painter = mode.iconPainter(),
                                             contentDescription = mode.label,
@@ -195,7 +195,7 @@ fun HomeScreen(
                                         HomeView.CLICKER -> "New Clicker Data Log"
                                         HomeView.DAILY_LIST -> "New Daily Task"
                                     },
-                                    modifier = Modifier.size(24.dp),
+                                    modifier = Modifier.size(AppTheme.sizes.icon),
                                 )
                             }
                         }
@@ -241,7 +241,7 @@ fun HomeScreen(
                     "Click the cog in the upper left corner to select what data modes you'd like to use.",
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(24.dp),
+                    modifier = Modifier.padding(AppTheme.spacing.dialogInset),
                 )
             }
         }
@@ -267,7 +267,7 @@ fun HomeScreen(
         androidx.compose.material3.DatePickerDialog(
             onDismissRequest = { showDailyListDatePicker = false },
             confirmButton = {
-                TextButton(onClick = {
+                PopupButton(onClick = {
                     val picked = datePickerState.selectedDateMillis?.let {
                         java.time.Instant.ofEpochMilli(it)
                             .atZone(java.time.ZoneOffset.UTC)
@@ -286,7 +286,7 @@ fun HomeScreen(
                 }) { Text("Okay") }
             },
             dismissButton = {
-                TextButton(onClick = { showDailyListDatePicker = false }) { Text("Cancel") }
+                PopupButton(onClick = { showDailyListDatePicker = false }) { Text("Cancel") }
             },
         ) {
             androidx.compose.material3.DatePicker(state = datePickerState)
@@ -415,7 +415,7 @@ private fun DailyTasksTopBar(
                 Icon(
                     Icons.Filled.Add,
                     contentDescription = "New Daily Task",
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(AppTheme.sizes.icon),
                 )
             }
         },
@@ -435,7 +435,8 @@ private fun ViewToggle(
     val interactionSource = remember { MutableInteractionSource() }
     Box(
         modifier = Modifier
-            .size(48.dp)
+            .size(AppTheme.sizes.modeTarget)
+            .semantics { this.selected = selected }
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -446,11 +447,11 @@ private fun ViewToggle(
     ) {
         Box(
             modifier = Modifier
-                .size(36.dp)
+                .size(AppTheme.sizes.modeIndicator)
                 .then(
                     if (selected) {
                         Modifier
-                            .clip(CircleShape)
+                            .clip(AppTheme.shapes.modeSelection)
                             .background(MaterialTheme.colorScheme.onSurfaceVariant)
                     } else {
                         Modifier
@@ -461,7 +462,7 @@ private fun ViewToggle(
             Icon(
                 painter = painter,
                 contentDescription = contentDescription,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(AppTheme.sizes.icon),
                 tint = if (selected) {
                     MaterialTheme.colorScheme.surface
                 } else {
@@ -516,7 +517,7 @@ private fun NavModeDropdown(
             Icon(
                 imageVector = Icons.Filled.Menu,
                 contentDescription = "Choose data mode",
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(AppTheme.sizes.icon),
             )
         }
         if (useLabel) {
@@ -525,7 +526,7 @@ private fun NavModeDropdown(
             Icon(
                 painter = current.iconPainter(),
                 contentDescription = current.label,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(AppTheme.sizes.icon),
             )
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -558,8 +559,8 @@ private fun FormsBody(
     } else {
         LazyColumn(
             modifier = modifier,
-            contentPadding = PaddingValues(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(AppTheme.spacing.rowInset),
+            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset),
         ) {
             items(logs, key = { it.template.id }) { log ->
                 LogRow(
@@ -587,8 +588,8 @@ private fun ListsBody(
     } else {
         LazyColumn(
             modifier = modifier,
-            contentPadding = PaddingValues(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(AppTheme.spacing.rowInset),
+            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset),
         ) {
             items(checklists, key = { it.id }) { checklist ->
                 ChecklistRow(
@@ -616,8 +617,8 @@ private fun IdeasBody(
     } else {
         LazyColumn(
             modifier = modifier,
-            contentPadding = PaddingValues(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(AppTheme.spacing.rowInset),
+            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset),
         ) {
             items(ideaLogs, key = { it.log.id }) { ideaLog ->
                 IdeaLogRow(
@@ -668,7 +669,7 @@ private fun LogRow(
                     imageVector = Icons.Filled.Lock,
                     contentDescription = "Locked log",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(16.dp).padding(end = 4.dp),
+                    modifier = Modifier.size(AppTheme.sizes.inlineIcon).padding(end = AppTheme.spacing.compact),
                 )
             }
         } else {
@@ -695,7 +696,7 @@ private fun ChecklistRow(
             .clickable(onClick = onOpen),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(AppTheme.spacing.screenInset),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -799,8 +800,8 @@ private fun ClickerBody(
     } else {
         LazyColumn(
             modifier = modifier,
-            contentPadding = PaddingValues(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(AppTheme.spacing.rowInset),
+            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset),
         ) {
             items(logs, key = { it.log.id }) { log ->
                 ClickerLogRow(log = log, onOpen = { onOpenClicker(log.log.id) })
@@ -836,7 +837,7 @@ private fun EmptyMessage(title: String, body: String, modifier: Modifier = Modif
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
         ) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             Text(

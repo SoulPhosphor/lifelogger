@@ -1,5 +1,7 @@
 package com.datadragon.app.ui.components
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,10 +11,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import com.datadragon.app.ui.theme.AppTheme
 
 /**
@@ -30,8 +30,8 @@ data class ExportFormatOption(
  * The app's export dialog — the same one for every exportable thing.
  *
  * [thing] is the word for what is being exported ("List", "Form"); the title
- * reads "Export <thing>". Options are soft Material surfaces that ripple on
- * touch, never pills or cards, and the subtitles are the whole explanation —
+ * reads "Export <thing>". Options are soft Material surfaces (no press flash,
+ * per the app-wide rule), never pills or cards, and the subtitles are the whole explanation —
  * there is no paragraph underneath.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -46,7 +46,7 @@ fun ExportFormatDialog(
         onDismissRequest = onDismiss,
         title = { Text("Export $thing") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.compact)) {
                 Text(
                     "Choose an export format",
                     style = AppTheme.textStyles.dialogOptionSubtitle,
@@ -60,7 +60,7 @@ fun ExportFormatDialog(
                         color = MaterialTheme.colorScheme.surfaceContainerLow,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                        Column(modifier = Modifier.padding(horizontal = AppTheme.spacing.screenInset, vertical = AppTheme.spacing.optionVerticalInset)) {
                             Text(
                                 option.title,
                                 style = AppTheme.textStyles.dialogOptionTitle,
@@ -78,7 +78,7 @@ fun ExportFormatDialog(
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            PopupButton(onClick = onDismiss) { Text("Cancel") }
         },
     )
 }

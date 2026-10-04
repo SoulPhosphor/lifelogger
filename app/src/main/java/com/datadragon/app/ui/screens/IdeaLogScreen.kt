@@ -23,7 +23,6 @@ import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.SettingsApplications
 import androidx.compose.foundation.layout.size
-import com.datadragon.app.ui.theme.AppTheme
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
@@ -36,7 +35,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import com.datadragon.app.ui.components.AccessibleOutlinedTextField as OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -68,6 +67,7 @@ import com.datadragon.app.ui.components.DialogDestructiveButton
 import com.datadragon.app.ui.components.DialogDismissButton
 import com.datadragon.app.ui.IdeaLogViewModel
 import com.datadragon.app.ui.components.SortFilterBar
+import com.datadragon.app.ui.theme.AppTheme
 
 /**
  * One Idea Log: its ideas as cards, in the log's own order.
@@ -241,7 +241,7 @@ fun IdeaLogScreen(
                     text = searchSummary(it.text, visibleEntries.size),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    modifier = Modifier.padding(horizontal = AppTheme.spacing.screenInset, vertical = AppTheme.spacing.compact),
                 )
             }
 
@@ -260,7 +260,7 @@ fun IdeaLogScreen(
                         onSelectCategory = viewModel::selectSortCategoryLabel,
                         onSelectNewestFirst = viewModel::selectNewestFirst,
                         onClear = viewModel::clearSort,
-                        modifier = Modifier.padding(horizontal = 12.dp),
+                        modifier = Modifier.padding(horizontal = AppTheme.spacing.rowInset),
                     )
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
@@ -277,8 +277,8 @@ fun IdeaLogScreen(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(start = AppTheme.spacing.rowInset, end = AppTheme.spacing.rowInset, bottom = AppTheme.spacing.rowInset),
+                    verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset),
                 ) {
                     item(key = "ideaSortFilterBar") {
                         SortFilterBar(
@@ -370,8 +370,8 @@ private fun IdeaSearchPanel(
     }
 
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = AppTheme.spacing.screenInset, vertical = AppTheme.spacing.related),
+        verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.compact),
     ) {
         Text("Search", style = MaterialTheme.typography.labelLarge)
         OutlinedTextField(
@@ -446,7 +446,7 @@ private fun IdeaCard(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, top = 8.dp, end = 4.dp, bottom = 16.dp),
+                    .padding(start = AppTheme.spacing.screenInset, top = AppTheme.spacing.related, end = AppTheme.spacing.compact, bottom = AppTheme.spacing.screenInset),
             ) {
                 if (hoisted != null) {
                     IdeaFieldReadout(
@@ -493,7 +493,7 @@ private fun IdeaCard(
                 Row(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(top = 8.dp, end = 4.dp)
+                        .padding(top = AppTheme.spacing.related, end = AppTheme.spacing.compact)
                         .onSizeChanged { size ->
                             actionsWidth = with(density) { size.width.toDp() }
                         },

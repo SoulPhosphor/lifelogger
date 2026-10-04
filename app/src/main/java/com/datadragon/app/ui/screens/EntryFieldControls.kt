@@ -1,5 +1,13 @@
 package com.datadragon.app.ui.screens
 
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.runtime.CompositionLocalProvider
+import com.datadragon.app.ui.components.LocalAccessibleFieldLabel
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.error
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
@@ -24,10 +32,9 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import com.datadragon.app.ui.components.AccessibleOutlinedTextField as OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
@@ -42,9 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.ui.components.TagsEditor
 import com.datadragon.app.ui.components.WebpageEntryField
@@ -57,6 +62,8 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneOffset
+import com.datadragon.app.ui.theme.AppTheme
+import com.datadragon.app.ui.components.PopupButton
 
 /**
  * Legacy stored yesno values that predate the Yes / No / Unknown radio design.
@@ -103,14 +110,16 @@ fun EntryFieldControl(
     } ?: Modifier
     val validationModifier = if (showRequiredError) {
         Modifier.border(
-            width = 2.dp,
+            width = AppTheme.shapes.validationBorder,
             color = MaterialTheme.colorScheme.error,
-            shape = RoundedCornerShape(8.dp),
+            shape = AppTheme.shapes.validation,
         )
     } else {
         Modifier
     }
-    Column(modifier = targetModifier.then(validationModifier)) {
+    Column(modifier = targetModifier.then(validationModifier).semantics {
+        if (showRequiredError) error("${field.label}: This field is required.")
+    }) {
         when (field.type) {
             FieldType.TEXT -> Labeled(label) {
                 OutlinedTextField(
@@ -123,7 +132,7 @@ fun EntryFieldControl(
             }
 
             FieldType.MULTILINE -> Labeled(label) {
-                val minHeight = ((field.lines ?: 4).coerceIn(2, 12) * 24).dp
+                val minHeight = AppTheme.sizes.textLineHeight * (field.lines ?: 4).coerceIn(2, 12)
                 OutlinedTextField(
                     value = textValues[field.label].orEmpty(),
                     onValueChange = { textValues[field.label] = it },
@@ -246,9 +255,9 @@ private fun Modifier.withFocusRequester(requester: FocusRequester?): Modifier =
 
 @Composable
 internal fun Labeled(label: String, content: @Composable () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.compact)) {
         Text(label, style = MaterialTheme.typography.labelLarge)
-        content()
+        CompositionLocalProvider(LocalAccessibleFieldLabel provides label) { content() }
     }
 }
 
@@ -270,6 +279,7 @@ internal fun DropdownField(
                 placeholder = { Text("Choose…") },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                 modifier = Modifier.menuAnchor().fillMaxWidth(),
+                accessibleLabel = label,
             )
             ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 options.forEach { option ->
@@ -300,19 +310,21 @@ private fun YesNoField(
     }
     Labeled(label) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.selectableGroup(),
+            horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.screenInset),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             options.forEach { option ->
                 Row(
                     modifier = Modifier
-                        .clickable { onTap(option) }
-                        .padding(vertical = 4.dp),
+                        .selectable(selected = option == selected, role = Role.RadioButton, onClick = { onTap(option) })
+                        .padding(vertical = AppTheme.spacing.compact),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     RadioButton(
                         selected = option == selected,
-                        onClick = { onTap(option) },
+                        onClick = null,
+                        modifier = Modifier.sizeIn(minWidth = AppTheme.sizes.minimumTouchTarget, minHeight = AppTheme.sizes.minimumTouchTarget),
                     )
                     Text(option)
                 }
@@ -347,28 +359,30 @@ private fun BloodPressureField(
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
                 value = systolic,
+                accessibleLabel = "$label: Systolic",
                 onValueChange = { input ->
                     val digits = input.filter { it.isDigit() }.take(3)
                     onChange(joinBloodPressure(digits, diastolic))
                 },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.width(96.dp),
+                modifier = Modifier.width(AppTheme.sizes.numberWidth),
             )
             Text(
                 "/",
                 style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(horizontal = 8.dp),
+                modifier = Modifier.padding(horizontal = AppTheme.spacing.related),
             )
             OutlinedTextField(
                 value = diastolic,
+                accessibleLabel = "$label: Diastolic",
                 onValueChange = { input ->
                     val digits = input.filter { it.isDigit() }.take(3)
                     onChange(joinBloodPressure(systolic, digits))
                 },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.width(96.dp),
+                modifier = Modifier.width(AppTheme.sizes.numberWidth),
             )
         }
     }
@@ -396,7 +410,7 @@ private fun ScaleField(
         )
     } else {
         Labeled(label) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.compact)) {
                 numbers.forEach { n ->
                     val value = n.toString()
                     FilterChip(
@@ -431,6 +445,7 @@ private fun ScaleDropdown(
                 placeholder = { Text(if (required) "Choose…" else "") },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                 modifier = Modifier.menuAnchor().fillMaxWidth(),
+                accessibleLabel = label,
             )
             ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 if (!required) {
@@ -466,7 +481,7 @@ private fun MultipleField(
     onToggle: (String) -> Unit,
 ) {
     Labeled(label) {
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.related)) {
             options.forEach { option ->
                 FilterChip(
                     selected = option in selected,
@@ -572,7 +587,7 @@ internal fun DateTimeField(label: String, stored: String?, onChange: (String) ->
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun FlowRowSafe(content: @Composable () -> Unit) {
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { content() }
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.related)) { content() }
 }
 
 @Composable
@@ -582,7 +597,7 @@ private fun PickerButton(
     placeholder: String,
     onClick: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.compact)) {
         if (label != null) Text(label, style = MaterialTheme.typography.labelLarge)
         AppButton(onClick = onClick) {
             Text(text ?: placeholder)
@@ -605,14 +620,14 @@ private fun DatePickerModal(
     DatePickerDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = {
+            PopupButton(onClick = {
                 val picked = state.selectedDateMillis?.let {
                     Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
                 }
                 if (picked != null) onConfirm(picked) else onDismiss()
             }) { Text("Okay") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { PopupButton(onClick = onDismiss) { Text("Cancel") } },
     ) {
         DatePicker(state = state)
     }
@@ -633,9 +648,9 @@ private fun TimePickerModal(
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = { onConfirm(LocalTime.of(state.hour, state.minute)) }) { Text("Okay") }
+            PopupButton(onClick = { onConfirm(LocalTime.of(state.hour, state.minute)) }) { Text("Okay") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { PopupButton(onClick = onDismiss) { Text("Cancel") } },
         text = { TimePicker(state = state) },
     )
 }

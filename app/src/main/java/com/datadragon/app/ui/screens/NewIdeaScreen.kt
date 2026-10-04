@@ -1,5 +1,7 @@
 package com.datadragon.app.ui.screens
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.error
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.border
@@ -13,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowLeft
@@ -21,7 +22,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import com.datadragon.app.ui.components.AccessibleOutlinedTextField as OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -41,7 +42,6 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.EntryValues
@@ -61,6 +61,7 @@ import kotlinx.serialization.json.JsonElement
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import com.datadragon.app.ui.theme.AppTheme
 
 private val ideaTextSaver = Saver<SnapshotStateMap<String, String>, String>(
     save = { map -> Json.encodeToString(map.toMap()) },
@@ -201,8 +202,8 @@ fun NewIdeaScreen(
                 .padding(padding)
                 .imePadding()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(AppTheme.spacing.screenInset),
+            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.screenInset),
         ) {
             if (automaticTimestamping) {
                 Text(
@@ -270,15 +271,17 @@ private fun IdeaFieldControl(
     } ?: Modifier
     val errorModifier = if (showError) {
         Modifier.border(
-            width = 2.dp,
+            width = AppTheme.shapes.validationBorder,
             color = MaterialTheme.colorScheme.error,
-            shape = RoundedCornerShape(8.dp),
+            shape = AppTheme.shapes.validation,
         )
     } else {
         Modifier
     }
 
-    Column(modifier = targetModifier.then(errorModifier)) {
+    Column(modifier = targetModifier.then(errorModifier).semantics {
+        if (showError) error("${field.label}: Check this field.")
+    }) {
         when (field.type) {
             // "Title" is the one-line text field, under the Ideas name for it.
             FieldType.TEXT -> Labeled(label) {
@@ -295,7 +298,7 @@ private fun IdeaFieldControl(
 
             FieldType.MULTILINE -> Labeled(label) {
                 val text = textValues[field.id].orEmpty()
-                val minHeight = ((field.lines ?: 4).coerceIn(2, 12) * 24).dp
+                val minHeight = AppTheme.sizes.textLineHeight * (field.lines ?: 4).coerceIn(2, 12)
                 OutlinedTextField(
                     value = text,
                     onValueChange = { textValues[field.id] = it },

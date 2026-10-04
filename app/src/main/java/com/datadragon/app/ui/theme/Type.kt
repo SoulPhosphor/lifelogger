@@ -4,6 +4,7 @@ import androidx.compose.material3.Typography
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 /**
@@ -41,6 +42,8 @@ data class AppTextStyles(
      * value. Buttons and drop-downs share it so they read as the same control.
      */
     val controlLabel: TextStyle,
+    /** Weight only: inline labels continue inheriting their surrounding type size. */
+    val readoutLabelWeight: FontWeight,
 )
 
 /**
@@ -57,6 +60,7 @@ val DefaultAppTextStyles = AppTextStyles(
     dialogOptionTitle = AppTypography.bodyLarge,
     dialogOptionSubtitle = AppTypography.bodySmall,
     controlLabel = AppTypography.bodyLarge,
+    readoutLabelWeight = FontWeight.Medium,
 )
 
 /** Supplied by `DataDragonTheme`; read through `AppTheme.textStyles`. */
