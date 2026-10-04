@@ -30,8 +30,8 @@ data class ExportFormatOption(
  * The app's export dialog — the same one for every exportable thing.
  *
  * [thing] is the word for what is being exported ("List", "Form"); the title
- * reads "Export <thing>". Options are soft Material surfaces that ripple on
- * touch, never pills or cards, and the subtitles are the whole explanation —
+ * reads "Export <thing>". Options are soft Material surfaces (no press flash,
+ * per the app-wide rule), never pills or cards, and the subtitles are the whole explanation —
  * there is no paragraph underneath.
  */
 @OptIn(ExperimentalMaterial3Api::class)

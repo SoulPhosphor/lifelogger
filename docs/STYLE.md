@@ -118,11 +118,23 @@ Because of this, adding a theme later is a change to `Theme.kt`, `Type.kt`,
   shape or padding centrally. Their current values are identical.
   Cancel/dismiss uses Primary. Delete, discard, replacement restore and undo
   import use Destructive. Pickers and export confirmation/dismiss actions use Primary.
-- A pop-up button is only its outline around its caption plus padding; it has
-  no minimum size. Its caption keeps Material's text-button style (14sp,
+- A pop-up button's visible outline is only its caption plus padding. Its tap
+  area is still at least 48dp × 48dp, added invisibly with
+  `Modifier.minimumInteractiveComponentSize()`. Its caption keeps Material's text-button style (14sp,
   Medium). Text can wrap. `AppDialog`
   actions wrap in their existing order when space is insufficient; dialog content
   scrolls when it exceeds the available height.
+- **Tap area and visible size are separate (Android accessibility rule).**
+  Anything tappable needs at least a 48dp × 48dp tap area. Meet it with
+  `Modifier.minimumInteractiveComponentSize()` (an invisible area around the
+  control, the way Material checkboxes and switches do it). Never make the
+  visible box, outline or text bigger to meet it.
+- **No press flash anywhere.** Pressing, hovering or dragging a control draws
+  no ripple or highlight; `DataDragonTheme` sets this once through
+  `LocalRippleConfiguration`. Only hardware-keyboard focus is highlighted, so
+  keyboard users can see where they are. Do not add `ripple()` or other press
+  indication to a control. Switches do not react to presses either: a switch in
+  a row takes `onCheckedChange = null` and the row is `toggleable`.
 - **Never a pill, never a filled capsule, never a raised/elevated button.**
 - **A button never resizes based on state.** A caption that changes with state
   (e.g. "Restore" / "Nothing to Restore") still lives in a button whose frame
@@ -231,8 +243,8 @@ Used by the export dialogs; the pattern for any "pick one of these" list.
 - **Soft, not blocky:** the theme's control corner, filled with
   `MaterialTheme.colorScheme.surfaceContainerLow` so it blends into the dialog.
   No borders, no outlines, no dividers between rows.
-- **It responds to touch.** `Surface(onClick = …)` keeps the default Material
-  ripple, highlight, and focus behavior.
+- **No press flash.** `Surface(onClick = …)` follows the app-wide rule in §4:
+  touch draws nothing; only hardware-keyboard focus is highlighted.
 - **Two lines per option:** a title (`dialogOptionTitle`) and a one-line
   subtitle saying what the option is (`dialogOptionSubtitle`, in
   `onSurfaceVariant`).
@@ -362,6 +374,9 @@ existing per-role differences unless the owner approves a visible change.
 
 ## 15. Accessibility without changing appearance
 
+- A text field's accessibility name (content description) is set only while
+  the field is empty. On Android a content description replaces the typed text
+  for TalkBack, including character-by-character review while editing.
 - External field labels remain outside their outline. Use
   `AccessibleOutlinedTextField` and `LocalAccessibleFieldLabel` (provided by
   `Labeled`) to attach the existing name to the editable node. Floating Material

@@ -1,6 +1,9 @@
 package com.datadragon.app.ui
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalRippleConfiguration
+import androidx.compose.material3.RippleConfiguration
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,6 +41,21 @@ class AccessibilityControlsTest {
         compose.onNodeWithText("Other longer option").assertExists()
     }
 
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Test fun themeDrawsNoPressFlashButKeepsKeyboardFocus() {
+        var config: RippleConfiguration? = null
+        compose.setContent {
+            DataDragonTheme(dynamicColor = false) { config = LocalRippleConfiguration.current }
+        }
+        compose.runOnIdle {
+            val alpha = config!!.rippleAlpha!!
+            assertEquals(0f, alpha.pressedAlpha, 0f)
+            assertEquals(0f, alpha.hoveredAlpha, 0f)
+            assertEquals(0f, alpha.draggedAlpha, 0f)
+            assertTrue(alpha.focusedAlpha > 0f)
+        }
+    }
+
     @Test fun externalLabelKeepsEditableTextAndSpecificError() {
         compose.setContent {
             DataDragonTheme(dynamicColor = false) {
@@ -46,10 +64,13 @@ class AccessibilityControlsTest {
                     isError = true, accessibleError = "Check Notes")
             }
         }
-        val field = compose.onNodeWithContentDescription("Notes")
-        field.assert(SemanticsMatcher.expectValue(SemanticsProperties.Error, "Check Notes"))
-        field.performTextInput("Test note")
-        field.assertTextContains("Test note")
+        compose.onNodeWithContentDescription("Notes")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Error, "Check Notes"))
+            .performTextInput("Test note")
+        // Once filled, the typed text is what TalkBack reads, not the label.
+        compose.onNode(hasSetTextAction())
+            .assertTextContains("Test note")
+            .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ContentDescription))
     }
 
     @Test fun switchRowHasOneLabeledActionAndUpdatesOnce() {

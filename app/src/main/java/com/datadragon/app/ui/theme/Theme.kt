@@ -2,6 +2,10 @@ package com.datadragon.app.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material.ripple.RippleAlpha
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalRippleConfiguration
+import androidx.compose.material3.RippleConfiguration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -30,6 +34,7 @@ private val DarkColors = darkColorScheme(
  * app's own named styles ([AppTextStyles]). Adding a theme later means adding a
  * branch in this function, not editing screens.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DataDragonTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -60,8 +65,22 @@ fun DataDragonTheme(
             colorScheme = colorScheme,
             typography = AppTypography,
             shapes = AppMaterialShapes,
-            content = content,
-        )
+        ) {
+            // No touch flash anywhere: pressing, hovering and dragging draw nothing.
+            // Only a hardware-keyboard focus highlight remains, so keyboard users
+            // can see where they are; touch never focuses these controls.
+            CompositionLocalProvider(
+                LocalRippleConfiguration provides RippleConfiguration(
+                    rippleAlpha = RippleAlpha(
+                        draggedAlpha = 0f,
+                        focusedAlpha = DefaultAppOpacity.keyboardFocus,
+                        hoveredAlpha = 0f,
+                        pressedAlpha = 0f,
+                    ),
+                ),
+                content = content,
+            )
+        }
     }
 }
 

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
@@ -34,6 +35,9 @@ fun PopupButton(
         MaterialTheme.colorScheme.onSurface.copy(alpha = AppTheme.opacity.disabledBorder)
     Row(
         modifier = modifier
+            // Reserves a 48dp tap area around the button without drawing it; the
+            // outline still hugs the caption.
+            .minimumInteractiveComponentSize()
             .clip(style.shape)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .border(style.outlineWidth, outlineColor, style.shape)

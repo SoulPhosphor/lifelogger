@@ -35,8 +35,12 @@ fun AccessibleOutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         modifier = modifier.semantics {
-            // Floating Material labels already label their own field.
-            if (label == null && !accessibleLabel.isNullOrBlank()) contentDescription = accessibleLabel
+            // Floating Material labels already label their own field. A content
+            // description replaces the field's text for TalkBack (including
+            // character-by-character review), so it names the field only while
+            // empty; once filled, TalkBack reads the typed text and the external
+            // label is the item just before it.
+            if (label == null && value.isEmpty() && !accessibleLabel.isNullOrBlank()) contentDescription = accessibleLabel
             if (isError && accessibleError != null) error(accessibleError)
         },
         readOnly = readOnly,

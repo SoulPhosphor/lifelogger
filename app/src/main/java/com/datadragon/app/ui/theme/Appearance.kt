@@ -25,6 +25,8 @@ val LocalAppColors = staticCompositionLocalOf { appColorsFor(androidx.compose.ma
 data class AppOpacity(
     val disabledContent: Float = 0.38f,
     val disabledBorder: Float = 0.12f,
+    /** Material's focus state layer; shown only for hardware-keyboard focus, never on touch. */
+    val keyboardFocus: Float = 0.1f,
 )
 val DefaultAppOpacity = AppOpacity()
 val LocalAppOpacity = staticCompositionLocalOf { DefaultAppOpacity }

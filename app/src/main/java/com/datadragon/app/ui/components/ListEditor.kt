@@ -130,7 +130,8 @@ fun ListEditorItemRow(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             modifier = Modifier
                 .weight(1f)
-                .semantics { contentDescription = "List Item" }
+                // Named only while empty; a description would replace typed text for TalkBack.
+                .semantics { if (buffer.isEmpty()) contentDescription = "List Item" }
                 .focusRequester(focusRequester)
                 .onFocusChanged {
                     if (it.isFocused) { onFocused(); wasFocused = true }
