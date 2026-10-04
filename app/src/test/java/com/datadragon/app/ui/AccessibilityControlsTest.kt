@@ -56,6 +56,15 @@ class AccessibilityControlsTest {
         }
     }
 
+    @Test fun labeledDropdownAnnouncesItsCurrentValue() {
+        compose.setContent {
+            DataDragonTheme(dynamicColor = false) {
+                AppDropdown(listOf("Merge", "Replace"), "Merge", {}, { it }, accessibleLabel = "Import Mode")
+            }
+        }
+        compose.onNodeWithContentDescription("Import Mode, Merge").assertExists()
+    }
+
     @Test fun externalLabelKeepsEditableTextAndSpecificError() {
         compose.setContent {
             DataDragonTheme(dynamicColor = false) {

@@ -103,7 +103,9 @@ fun <T> AppDropdown(
                 .clip(AppTheme.shapes.control)
                 .clickable(role = Role.Button) { expanded = true }
                 .semantics {
-                    accessibleLabel?.let { contentDescription = it }
+                    // A description replaces the visible text for TalkBack, so it
+                    // carries the current value along with the label.
+                    accessibleLabel?.let { contentDescription = "$it, ${optionLabel(selected)}" }
                     stateDescription = if (expanded) "Expanded" else "Collapsed"
                 }
                 .border(
