@@ -115,10 +115,12 @@ Because of this, adding a theme later is a change to `Theme.kt`, `Type.kt`,
   buttons are preserved; changing older screen treatments requires an owner decision.
 - **Primary and Destructive are independent pop-up styles.** Change
   `ui/theme/PopupButtonStyle.kt` to adjust a role's color, border, typography,
-  shape, padding or minimum target centrally. Their current values are identical.
+  shape or padding centrally. Their current values are identical.
   Cancel/dismiss uses Primary. Delete, discard, replacement restore and undo
   import use Destructive. Pickers and export confirmation/dismiss actions use Primary.
-- Pop-up buttons have a minimum 48dp layout target. Text can wrap. `AppDialog`
+- A pop-up button is only its outline around its caption plus padding; it has
+  no minimum size. Its caption keeps Material's text-button style (14sp,
+  Medium). Text can wrap. `AppDialog`
   actions wrap in their existing order when space is insufficient; dialog content
   scrolls when it exceeds the available height.
 - **Never a pill, never a filled capsule, never a raised/elevated button.**

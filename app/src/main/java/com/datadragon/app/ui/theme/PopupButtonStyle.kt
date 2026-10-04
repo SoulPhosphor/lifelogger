@@ -20,7 +20,6 @@ data class PopupButtonStyle(
     val textStyle: TextStyle,
     val horizontalInset: Dp,
     val verticalInset: Dp,
-    val minimumTarget: Dp,
 )
 
 @Immutable
@@ -38,10 +37,10 @@ fun popupButtonStylesFor(colors: AppColors, outline: Color): PopupButtonStyles {
         outlineColor = outline,
         shape = DefaultAppShapes.control,
         outlineWidth = DefaultAppShapes.controlBorder,
-        textStyle = DefaultAppTextStyles.controlLabel,
+        // Material's text-button label (14sp, Medium), as these buttons had before.
+        textStyle = AppTypography.labelLarge,
         horizontalInset = DefaultAppSpacing.rowInset,
         verticalInset = DefaultAppSpacing.related,
-        minimumTarget = DefaultAppSizes.minimumTouchTarget,
     )
     return PopupButtonStyles(primary, primary.copy(contentColor = colors.popupDestructive))
 }

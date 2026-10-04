@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
@@ -35,7 +34,6 @@ fun PopupButton(
         MaterialTheme.colorScheme.onSurface.copy(alpha = AppTheme.opacity.disabledBorder)
     Row(
         modifier = modifier
-            .sizeIn(minWidth = style.minimumTarget, minHeight = style.minimumTarget)
             .clip(style.shape)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .border(style.outlineWidth, outlineColor, style.shape)
