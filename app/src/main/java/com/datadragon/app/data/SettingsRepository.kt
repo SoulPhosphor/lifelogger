@@ -61,7 +61,7 @@ class SettingsRepository(context: Context) {
         prefs.getBoolean("$KEY_CLICKER_FOLLOW_UP_SHOWN_PREFIX$logUuid", false)
 
     fun setClickerFollowUpShown(logUuid: String, shown: Boolean) {
-        editPortable(changed = { isClickerFollowUpShown(logUuid) != shown }) { putBoolean("$KEY_CLICKER_FOLLOW_UP_SHOWN_PREFIX$logUuid", shown) }
+        editPortable(changed = { !prefs.contains("$KEY_CLICKER_FOLLOW_UP_SHOWN_PREFIX$logUuid") || isClickerFollowUpShown(logUuid) != shown }) { putBoolean("$KEY_CLICKER_FOLLOW_UP_SHOWN_PREFIX$logUuid", shown) }
     }
 
     // --- Navigation menu preferences (all global) ----------------------------

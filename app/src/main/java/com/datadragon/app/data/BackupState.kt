@@ -67,11 +67,14 @@ object BackupRevisionTracking {
     fun installTriggers(db: SupportSQLiteDatabase) {
         protectedTables.sorted().forEach { table ->
             Event.entries.forEach { event ->
+                // Replace earlier triggers whose INSERT OR IGNORE can be overridden
+                // by a Room INSERT OR ABORT outer statement.
+                db.execSQL("DROP TRIGGER IF EXISTS `${triggerName(table, event)}`")
                 db.execSQL(
                     "CREATE TRIGGER IF NOT EXISTS `${triggerName(table, event)}` " +
                         "AFTER ${event.sql} ON `$table` " +
                         "BEGIN " +
-                        "INSERT OR IGNORE INTO `$TABLE` (`id`, `dataRevision`) VALUES ($ROW_ID, 0); " +
+                        "INSERT INTO `$TABLE` (`id`, `dataRevision`) SELECT $ROW_ID, 0 WHERE NOT EXISTS (SELECT 1 FROM `$TABLE` WHERE `id` = $ROW_ID); " +
                         "UPDATE `$TABLE` SET `dataRevision` = `dataRevision` + 1 WHERE `id` = $ROW_ID; " +
                         "END"
                 )
