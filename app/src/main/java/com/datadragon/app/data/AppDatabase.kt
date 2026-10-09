@@ -531,6 +531,13 @@ abstract class AppDatabase : RoomDatabase() {
 
         internal val MIGRATION_20_21 = object : Migration(20, 21) {
             override fun migrate(db: SupportSQLiteDatabase) {
+                // The earlier Phase 5 branch also used v20, before main added
+                // statisticsJson. Accept both installed v20 shapes losslessly.
+                val hasStatistics = db.query("PRAGMA table_info(`clicker_logs`)").use { cursor ->
+                    val nameIndex = cursor.getColumnIndexOrThrow("name")
+                    generateSequence { if (cursor.moveToNext()) cursor.getString(nameIndex) else null }.any { it == "statisticsJson" }
+                }
+                if (!hasStatistics) db.execSQL("ALTER TABLE clicker_logs ADD COLUMN statisticsJson TEXT NOT NULL DEFAULT ''")
                 BackupRevisionTracking.createStateTable(db)
             }
         }

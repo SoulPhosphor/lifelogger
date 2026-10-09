@@ -17,7 +17,10 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
 class LuckyListMigrationTest {
-    @Test fun upgradingInstalledVersion20PreservesListsAndClickerStatistics() = runBlocking {
+    @Test fun upgradingInstalledVersion20PreservesListsAndClickerStatistics() = upgrade(oldAutomaticBranch = false)
+    @Test fun upgradingEarlierAutomaticBackupVersion20PreservesData() = upgrade(oldAutomaticBranch = true)
+
+    private fun upgrade(oldAutomaticBranch: Boolean) = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val name = "lucky-upgrade-${UUID.randomUUID()}.db"
         val seed = Room.databaseBuilder(context, AppDatabase::class.java, name).allowMainThreadQueries().build()
@@ -32,6 +35,14 @@ class LuckyListMigrationTest {
             }).build())
         helper.writableDatabase.apply {
             execSQL("DROP TABLE lucky_list_items"); execSQL("DROP TABLE lucky_lists"); execSQL("DROP TABLE backup_state")
+            if (oldAutomaticBranch) {
+                // Rebuild exactly the earlier Phase 5 clicker shape, without statisticsJson.
+                execSQL("ALTER TABLE clicker_logs RENAME TO old_clicker_logs")
+                execSQL("CREATE TABLE clicker_logs (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, uuid TEXT NOT NULL, title TEXT NOT NULL, createdAt INTEGER NOT NULL, lastAccessedAt INTEGER NOT NULL, lastModifiedAt INTEGER NOT NULL DEFAULT 0, fieldsJson TEXT NOT NULL, displayOnlyClickerDateTime INTEGER NOT NULL, autoDateStamp INTEGER NOT NULL, autoTimeStamp INTEGER NOT NULL, allowFollowUp INTEGER NOT NULL)")
+                execSQL("INSERT INTO clicker_logs SELECT id, uuid, title, createdAt, lastAccessedAt, lastModifiedAt, fieldsJson, displayOnlyClickerDateTime, autoDateStamp, autoTimeStamp, allowFollowUp FROM old_clicker_logs")
+                execSQL("DROP TABLE old_clicker_logs")
+                execSQL("CREATE UNIQUE INDEX index_clicker_logs_uuid ON clicker_logs(uuid)")
+            }
             version = 20
         }
         helper.close()
@@ -41,7 +52,7 @@ class LuckyListMigrationTest {
         try {
             assertEquals("old-list", upgraded.checklistDao().getChecklist(oldListId)!!.uuid)
             assertEquals("Existing", upgraded.checklistDao().getItemsOnce(oldListId).single().text)
-            assertEquals("{}", upgraded.clickerDao().getLogByUuid("old-clicker")!!.statisticsJson)
+            assertEquals(if (oldAutomaticBranch) "" else "{}", upgraded.clickerDao().getLogByUuid("old-clicker")!!.statisticsJson)
             assertTrue(upgraded.luckyListDao().getAllOnce().isEmpty())
             assertTrue(BackupRevisionTracking.installedTriggerNames(upgraded.openHelper.readableDatabase).containsAll(BackupRevisionTracking.expectedTriggerNames()))
         } finally { upgraded.close(); context.deleteDatabase(name) }
