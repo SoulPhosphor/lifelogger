@@ -33,7 +33,7 @@ import com.datadragon.app.export.LuckyListExport
  * - **Established list** (`load(id)`): loaded from the database and auto-saved —
  *   item/title text is debounced, structural changes save immediately.
  */
-open class ChecklistViewModel(app: Application, private val lucky: Boolean = false) : AndroidViewModel(app) {
+open class ChecklistViewModel @JvmOverloads constructor(app: Application, private val lucky: Boolean = false) : AndroidViewModel(app) {
 
     private val db = AppDatabase.getInstance(app)
     private val _exclusion = MutableStateFlow(false)
@@ -121,7 +121,7 @@ open class ChecklistViewModel(app: Application, private val lucky: Boolean = fal
      * matches what's on screen.
      */
     suspend fun buildExport(format: ChecklistExportFormat): ExportContent? {
-        manager.flushPending()
+        flushPending()
         val id = manager.persistedId() ?: return null
         if (lucky) {
             val list = db.luckyListDao().getList(id) ?: return null

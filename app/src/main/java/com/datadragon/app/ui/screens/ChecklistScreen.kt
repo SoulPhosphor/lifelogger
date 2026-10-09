@@ -88,6 +88,8 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import com.datadragon.app.ui.components.AddItemRow
 import com.datadragon.app.ui.components.AppDialog
 import com.datadragon.app.ui.components.ListEditorItemRow
@@ -349,7 +351,14 @@ fun ChecklistScreen(
                 AppButton(
                     onClick = { session.reset(); spin() },
                     enabled = hasText && ready,
-                ) { Text(if (hasText) "Select Lucky Item" else "No Items to Select", textAlign = TextAlign.Center) }
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        // Reserve both captions so changing eligibility never resizes the button.
+                        Text("Select Lucky Item", modifier = Modifier.alpha(0f).clearAndSetSemantics { })
+                        Text("No Items to Select", modifier = Modifier.alpha(0f).clearAndSetSemantics { })
+                        Text(if (hasText) "Select Lucky Item" else "No Items to Select", textAlign = TextAlign.Center)
+                    }
+                }
             }
             if (!lucky) AddItemRow(
                 onClick = { viewModel.addItem { newId -> pendingFocusId = newId } },
