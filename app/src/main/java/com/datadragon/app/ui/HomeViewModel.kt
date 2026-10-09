@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.datadragon.app.data.AppDatabase
 import com.datadragon.app.data.Checklist
+import com.datadragon.app.data.asChecklist
 import com.datadragon.app.data.ClickerLog
 import com.datadragon.app.data.HomeView
 import com.datadragon.app.data.IdeaLog
@@ -15,6 +16,7 @@ import com.datadragon.app.data.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -23,6 +25,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
     private val templateDao = AppDatabase.getInstance(app).logTemplateDao()
     private val entryDao = AppDatabase.getInstance(app).logEntryDao()
+    private val luckyDao = AppDatabase.getInstance(app).luckyListDao()
     private val checklistDao = AppDatabase.getInstance(app).checklistDao()
     private val ideaLogDao = AppDatabase.getInstance(app).ideaLogDao()
     private val ideaEntryDao = AppDatabase.getInstance(app).ideaEntryDao()
@@ -64,6 +67,10 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    val luckyLists: StateFlow<List<Checklist>> = luckyDao.observeLists()
+        .map { lists -> lists.map { it.asChecklist() } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     /** All saved lists, shown as name-only cards in the Lists view (drafts excluded). */
     val checklists: StateFlow<List<Checklist>> =
         checklistDao.observeChecklists()
@@ -88,8 +95,15 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     private val _pendingDraft = MutableStateFlow<Checklist?>(null)
     val pendingDraft: StateFlow<Checklist?> = _pendingDraft
 
+    var pendingDraftIsLucky: Boolean = false
+        private set
     init {
-        viewModelScope.launch { _pendingDraft.value = checklistDao.mostRecentDraft() }
+        viewModelScope.launch {
+            val ordinary = checklistDao.mostRecentDraft()
+            val lucky = luckyDao.mostRecentDraft()
+            pendingDraftIsLucky = lucky != null && (ordinary == null || lucky.createdAt > ordinary.createdAt)
+            _pendingDraft.value = if (pendingDraftIsLucky) lucky?.asChecklist() else ordinary
+        }
     }
 
     /** Dismiss the recovery prompt without deleting the draft (it remains recoverable). */
@@ -101,7 +115,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     fun discardPendingDraft() {
         val draft = _pendingDraft.value ?: return
         _pendingDraft.value = null
-        viewModelScope.launch { checklistDao.deleteChecklistWithItems(draft.id) }
+        viewModelScope.launch { if (pendingDraftIsLucky) luckyDao.deleteWithItems(draft.id) else checklistDao.deleteChecklistWithItems(draft.id) }
     }
 
     /** Which view is showing; persisted so the app reopens where it left off. */

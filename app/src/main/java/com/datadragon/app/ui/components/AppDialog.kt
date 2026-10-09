@@ -45,6 +45,7 @@ fun AppDialog(
     title: String? = null,
     body: String? = null,
     dismissButton: (@Composable () -> Unit)? = null,
+    bodyContent: (@Composable () -> Unit)? = null,
 ) {
     BasicAlertDialog(onDismissRequest = onDismissRequest, modifier = modifier) {
         Surface(
@@ -78,6 +79,7 @@ fun AppDialog(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+                if (bodyContent != null) bodyContent()
                 // Buttons: the row is centered as a group; Cancel (left) then the
                 // action (right) keep that order.
                 FlowRow(

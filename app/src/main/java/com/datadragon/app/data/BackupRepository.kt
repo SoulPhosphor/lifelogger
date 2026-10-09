@@ -12,7 +12,7 @@ import java.time.temporal.ChronoUnit
  */
 class BackupRepository(
     private val db: AppDatabase,
-    private val portablePreferences: () -> BackupPortablePreferences = { BackupPortablePreferences() },
+    private val portablePreferences: () -> BackupPortablePreferences = { BackupPortablePreferences.defaults() },
     private val sourceAppVersion: String = "unknown",
     private val applyPortablePreferences: (BackupPortablePreferences) -> Unit = {},
     private val restoreFailureInjector: ((BackupCategory) -> Unit)? = null,
@@ -21,6 +21,7 @@ class BackupRepository(
     private val templateDao = db.logTemplateDao()
     private val entryDao = db.logEntryDao()
     private val noteDao = db.entryNoteDao()
+    private val luckyDao = db.luckyListDao()
     private val checklistDao = db.checklistDao()
     private val calendarDao = db.calendarDao()
     private val ideaLogDao = db.ideaLogDao()
@@ -30,7 +31,29 @@ class BackupRepository(
     private val colorPresetDao = db.colorPresetDao()
 
     /** Build every current category from one Room read transaction. */
-    suspend fun buildFull(): BackupFile = db.withTransaction {
+    suspend fun buildFull(): BackupFile = buildFullCaptured().backup
+
+    /**
+     * The same complete snapshot, together with the protected-data revision read
+     * inside the same transaction and the portable-preference revision captured
+     * with the preferences. Automatic backup marks only these revisions protected.
+     */
+    suspend fun buildFullCaptured(
+        capturePreferences: () -> Pair<BackupPortablePreferences, Long> = { portablePreferences() to 0L },
+    ): CapturedBackup = db.withTransaction {
+        val dataRevision = db.backupStateDao().dataRevision() ?: 0L
+        val (preferences, preferencesRevision) = capturePreferences()
+        CapturedBackup(
+            backup = snapshotInTransaction(preferences),
+            dataRevision = dataRevision,
+            preferencesRevision = preferencesRevision,
+        )
+    }
+
+    /** Current protected-data revision, outside any snapshot. */
+    suspend fun currentDataRevision(): Long = db.backupStateDao().dataRevision() ?: 0L
+
+    private suspend fun snapshotInTransaction(preferences: BackupPortablePreferences): BackupFile {
         val entriesByTemplate = entryDao.getAllOnce().groupBy { it.templateId }
         val notesByEntry = noteDao.getAllOnce().groupBy { it.entryId }
         val calendarsByTemplate = calendarDao.getAllOnce().groupBy { it.templateId }
@@ -48,6 +71,9 @@ class BackupRepository(
         val lists = checklistDao.getAllChecklistsOnce().map { checklist ->
             BackupCodec.checklistOf(checklist, checklistItems[checklist.id].orEmpty())
         }
+
+        val luckyItems = luckyDao.getAllItemsOnce().groupBy { it.luckyListId }
+        val luckyLists = luckyDao.getAllOnce().map { BackupCodec.luckyListOf(it, luckyItems[it.id].orEmpty()) }
 
         val ideaEntries = ideaEntryDao.getAllOnce().groupBy { it.ideaLogId }
         val ideas = ideaLogDao.getAllOnce().map { log ->
@@ -129,18 +155,19 @@ class BackupRepository(
             BackupColorPreset(preset.uuid, preset.name, preset.colorsJson)
         }
 
-        BackupFile.full(
+        return BackupFile.full(
             exportedAt = now(),
             sourceAppVersion = sourceAppVersion,
             roomSchemaVersion = AppDatabase.SCHEMA_VERSION,
             payload = BackupPayload(
                 forms = forms,
                 lists = lists,
+                luckyLists = luckyLists,
                 ideaLogs = ideas,
                 dailyTasks = dailyTasks,
                 clickerData = clickerData,
                 savedColorPresets = presets,
-                portablePreferences = portablePreferences(),
+                portablePreferences = preferences,
             ),
         )
     }
@@ -216,6 +243,13 @@ class BackupRepository(
             replaceLists(it)
             counts[BackupCategory.LISTS] = RestoreCategoryCounts(replaced = it.size)
             inject(BackupCategory.LISTS)
+        }
+        backup.payload.luckyLists?.takeIf { BackupCategory.LUCKY_LISTS in selected }?.let {
+            luckyDao.deleteAllItems()
+            luckyDao.deleteAllLists()
+            it.forEach { list -> insertLuckyList(list) }
+            counts[BackupCategory.LUCKY_LISTS] = RestoreCategoryCounts(replaced = it.size)
+            inject(BackupCategory.LUCKY_LISTS)
         }
         backup.payload.ideaLogs?.takeIf { BackupCategory.IDEA_LOGS in selected }?.let {
             replaceIdeas(it)
@@ -343,6 +377,17 @@ class BackupRepository(
         backup.payload.lists?.takeIf { BackupCategory.LISTS in selected }?.let {
             counts[BackupCategory.LISTS] = mergeLists(it, choices)
             inject(BackupCategory.LISTS)
+        }
+        backup.payload.luckyLists?.takeIf { BackupCategory.LUCKY_LISTS in selected }?.let {
+            counts[BackupCategory.LUCKY_LISTS] = mergeWholeGroups(
+                incoming = it, uuid = { list -> list.uuid }, category = BackupCategory.LUCKY_LISTS,
+                current = { uuid -> luckyDao.getByUuid(uuid)?.let { list -> snapshotLuckyList(list) } },
+                same = { a, b -> BackupCodec.canonicalLuckyLists(listOf(a)) == BackupCodec.canonicalLuckyLists(listOf(b)) },
+                insert = ::insertLuckyList,
+                delete = { list -> luckyDao.getByUuid(list.uuid)?.let { current -> luckyDao.deleteWithItems(current.id) } },
+                choices = choices,
+            )
+            inject(BackupCategory.LUCKY_LISTS)
         }
         backup.payload.ideaLogs?.takeIf { BackupCategory.IDEA_LOGS in selected }?.let {
             counts[BackupCategory.IDEA_LOGS] = mergeIdeas(it, choices)
@@ -625,6 +670,14 @@ class BackupRepository(
                     }
                 }
             }
+            backup.payload.luckyLists?.takeIf { BackupCategory.LUCKY_LISTS in selected }?.forEach { incoming ->
+                luckyDao.getByUuid(incoming.uuid)?.let { existing ->
+                    val current = snapshotLuckyList(existing)
+                    if (BackupCodec.canonicalLuckyLists(listOf(current)) != BackupCodec.canonicalLuckyLists(listOf(incoming))) {
+                        add(groupConflict(BackupCategory.LUCKY_LISTS, incoming.uuid, current.name, incoming.name, current.items.size, incoming.items.size))
+                    }
+                }
+            }
             backup.payload.ideaLogs?.takeIf { BackupCategory.IDEA_LOGS in selected }?.forEach { incoming ->
                 ideaLogDao.getByUuid(incoming.uuid)?.let { existing ->
                     val current = snapshotIdea(existing)
@@ -694,6 +747,14 @@ class BackupRepository(
     private suspend fun snapshotForm(template: LogTemplate): BackupLog {
         val entries = entryDao.getForTemplateOnce(template.id)
         return BackupCodec.logOf(template, entries, entries.flatMap { noteDao.getForEntryOnce(it.id) }, calendarDao.getForTemplateOnce(template.id))
+    }
+
+    private suspend fun snapshotLuckyList(list: LuckyList): BackupLuckyList =
+        BackupCodec.luckyListOf(list, luckyDao.getItemsOnce(list.id))
+
+    private suspend fun insertLuckyList(list: BackupLuckyList) {
+        val id = luckyDao.insertList(LuckyList(uuid = list.uuid, name = list.name, createdAt = list.createdAt, draft = list.draft, excludePreviouslySelected = list.excludePreviouslySelected))
+        list.items.forEach { luckyDao.insertItem(LuckyListItem(luckyListId = id, text = it.text, position = it.position)) }
     }
 
     private suspend fun snapshotList(list: Checklist): BackupChecklist =
@@ -793,6 +854,13 @@ class BackupRepository(
 }
 
 /** How a restore applies a backup to the existing data. */
+/** A complete snapshot and the revisions it contains. Revisions stay device-local. */
+data class CapturedBackup(
+    val backup: BackupFile,
+    val dataRevision: Long,
+    val preferencesRevision: Long,
+)
+
 enum class RestoreMode {
     /** Wipe everything first, then load only the backup. */
     REPLACE,

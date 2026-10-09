@@ -72,6 +72,8 @@ fun ListEditorItemRow(
     onToggleComplete: () -> Unit,
     onAddSubItem: () -> Unit,
     onDelete: () -> Unit,
+    showCompletion: Boolean = true,
+    allowSubItems: Boolean = true,
 ) {
     var buffer by remember(rowKey) { mutableStateOf(text) }
     // Keep the buffer in step if the stored text changes underneath (e.g. a
@@ -102,7 +104,7 @@ fun ListEditorItemRow(
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = dragHandleModifier.padding(horizontal = AppTheme.spacing.related, vertical = AppTheme.spacing.rowInset),
         )
-        IconButton(onClick = onToggleComplete) {
+        if (showCompletion) IconButton(onClick = onToggleComplete) {
             Icon(
                 imageVector = if (completed) completedIcon else Icons.Outlined.CheckBoxOutlineBlank,
                 contentDescription = if (completed) "Mark not done" else "Mark done",
@@ -139,7 +141,7 @@ fun ListEditorItemRow(
                 },
         )
         if (isEditing) {
-            IconButton(onClick = onAddSubItem) {
+            if (allowSubItems) IconButton(onClick = onAddSubItem) {
                 Icon(Icons.Filled.Add, contentDescription = "Add sub-item")
             }
             IconButton(onClick = onDelete) {

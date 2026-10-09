@@ -393,3 +393,13 @@ existing per-role differences unless the owner approves a visible change.
 - Device checks remain necessary for TalkBack, Switch Access, keyboard navigation,
   200% fonts, dynamic colors and actual hit bounds. See STYLE_AUDIT.md for remaining
   contrast, screen-layout and PDF accessibility work.
+
+## 15. Lucky List (October 2026 owner decisions)
+
+Lucky Lists reuse Lists' title field, home rows, item editor and reorder controls.
+They have no completion toggle or sub-items. The add-item row is directly below
+the items inside the scrolling list. The primary outlined selection button stays
+centered at the bottom. The per-list settings cog precedes the editable title.
+Winner dialogs use the normal shared dialog title and the named `luckyWinner`
+text role, two sp larger than that title. Their actions are **Spin Again**, then
+**Okay**, in that owner-specified order. Both use the Primary popup role.

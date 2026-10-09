@@ -215,7 +215,7 @@ sealed interface RestoreResult {
 internal suspend fun restoreIndividualItem(text: String, repository: BackupRepository): RestoreResult =
     try {
         val backup = BackupCodec.decode(text)
-        val items = backup.logs.size + backup.checklists.size + backup.clickerLogs.size
+        val items = backup.logs.size + backup.checklists.size + backup.clickerLogs.size + backup.payload.luckyLists.orEmpty().size
         when {
             items == 0 -> RestoreResult.Failure("That file doesn't hold a list, a form, or clicker data.")
             items > 1 -> RestoreResult.Failure(
@@ -225,6 +225,7 @@ internal suspend fun restoreIndividualItem(text: String, repository: BackupRepos
                 val category = when {
                     backup.logs.size == 1 -> BackupCategory.FORMS
                     backup.checklists.size == 1 -> BackupCategory.LISTS
+                    backup.payload.luckyLists.orEmpty().size == 1 -> BackupCategory.LUCKY_LISTS
                     else -> BackupCategory.CLICKER_DATA
                 }
                 if (backup.includedCategories.toSet() != setOf(category)) {

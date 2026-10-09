@@ -77,6 +77,8 @@ fun DataDragonNavHost(
                 onCreateForm = { navController.navigate(Routes.CREATE_LOG) },
                 onOpenLog = { logId -> navController.navigate(Routes.log(logId.toString())) },
                 onAddEntry = { logId -> navController.navigate(Routes.newEntry(logId.toString())) },
+                onCreateLuckyList = { navController.navigate(Routes.CREATE_LUCKY_LIST) },
+                onOpenLuckyList = { navController.navigate(Routes.luckyList(it)) },
                 onCreateChecklist = { navController.navigate(Routes.CREATE_CHECKLIST) },
                 onOpenChecklist = { checklistId -> navController.navigate(Routes.checklist(checklistId)) },
                 onCreateIdeaLog = { navController.navigate(Routes.CREATE_IDEA_LOG) },
@@ -218,6 +220,13 @@ fun DataDragonNavHost(
                 calendarId = backStackEntry.arguments?.getString(Routes.CALENDAR_ARG),
                 onBack = { navController.popBackStack() },
             )
+        }
+
+        composable(Routes.CREATE_LUCKY_LIST) {
+            ChecklistScreen(checklistId = null, lucky = true, onBack = { navController.popBackStack() })
+        }
+        composable(Routes.LUCKY_LIST, arguments = listOf(navArgument(Routes.CHECKLIST_ARG) { type = NavType.StringType })) { entry ->
+            ChecklistScreen(checklistId = entry.arguments?.getString(Routes.CHECKLIST_ARG), lucky = true, onBack = { navController.popBackStack() })
         }
 
         composable(Routes.CREATE_CHECKLIST) {

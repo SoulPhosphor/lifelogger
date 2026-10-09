@@ -9,6 +9,9 @@ package com.datadragon.app.navigation
 object Routes {
     const val HOME = "home"
     const val CREATE_LOG = "createLog"
+    const val CREATE_LUCKY_LIST = "createLuckyList"
+    const val LUCKY_LIST = "luckyList/{checklistId}"
+    fun luckyList(id: Long) = "luckyList/$id"
     const val CREATE_CHECKLIST = "createChecklist"
     const val CREATE_IDEA_LOG = "createIdeaLog"
     const val CREATE_CLICKER = "createClicker"

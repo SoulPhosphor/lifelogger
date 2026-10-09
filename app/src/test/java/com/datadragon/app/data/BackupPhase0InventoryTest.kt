@@ -40,8 +40,10 @@ class BackupPhase0InventoryTest {
                     cursor.getInt(0)
                 }
             }
-            assertEquals(13, counts.size)
-            assertTrue(counts.values.all { it > 0 })
+            assertEquals(15, counts.size)
+            assertTrue(counts.filterKeys { it !in setOf("lucky_lists", "lucky_list_items") }.values.all { it > 0 })
+            assertEquals(0, counts["lucky_lists"])
+            assertEquals(0, counts["lucky_list_items"])
             assertTrue(counts["checklists"]!! >= 2)
             assertTrue(counts["daily_list_items"]!! >= 2)
             assertTrue(counts["clicker_cards"]!! >= 2)
@@ -56,6 +58,7 @@ class BackupPhase0InventoryTest {
         try {
             val actualUserTables = BackupFixtureTestSupport.tableNames(db.openHelper.readableDatabase)
                 .filterNot { it in BackupPhase0Inventory.roomAndSqliteTables }
+                .filterNot { it in BackupPhase0Inventory.operationalTables }
                 .toSet()
             assertEquals(BackupPhase0Inventory.protectedTableNames, actualUserTables)
         } finally {
@@ -76,7 +79,7 @@ class BackupPhase0InventoryTest {
     @Test
     fun portablePreferencesAreAnExplicitAllowlist() {
         val keys = BackupPhase0Inventory.portablePreferenceKeys
-        assertEquals(27, keys.size)
+        assertEquals(31, keys.size)
         assertTrue(keys.contains("nav_style"))
         assertTrue(keys.contains("clicker_follow_up_shown_"))
         assertTrue(keys.contains("daily_list_retention"))
@@ -85,15 +88,15 @@ class BackupPhase0InventoryTest {
     }
 
     @Test
-    fun approvedFuturePortablePreferenceCategoriesAreInventoriedWithoutImplementingThem() {
+    fun automaticBackupCadenceAndRetentionArePortablePreferences() {
         assertEquals(
-            setOf("automatic_backup_cadence", "automatic_backup_retention"),
-            BackupPhase0Inventory.approvedFuturePortablePreferenceTokens,
+            setOf("automatic_backup_cadence", "automatic_backup_custom_days", "automatic_backup_retention"),
+            BackupPhase0Inventory.automaticBackupPortablePreferenceKeys,
         )
         assertTrue(
-            BackupPhase0Inventory.approvedFuturePortablePreferenceTokens.none {
-                it in BackupPhase0Inventory.portablePreferenceKeys
-            },
+            BackupPhase0Inventory.portablePreferenceKeys.containsAll(
+                BackupPhase0Inventory.automaticBackupPortablePreferenceKeys,
+            ),
         )
     }
 

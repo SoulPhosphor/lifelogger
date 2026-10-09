@@ -88,6 +88,8 @@ fun HomeScreen(
     onCreateForm: () -> Unit,
     onOpenLog: (Long) -> Unit,
     onAddEntry: (Long) -> Unit,
+    onCreateLuckyList: () -> Unit,
+    onOpenLuckyList: (Long) -> Unit,
     onCreateChecklist: () -> Unit,
     onOpenChecklist: (Long) -> Unit,
     onCreateIdeaLog: () -> Unit,
@@ -104,6 +106,7 @@ fun HomeScreen(
     viewModel: HomeViewModel = viewModel(),
 ) {
     val logs by viewModel.logs.collectAsStateWithLifecycle()
+    val luckyLists by viewModel.luckyLists.collectAsStateWithLifecycle()
     val checklists by viewModel.checklists.collectAsStateWithLifecycle()
     val ideaLogs by viewModel.ideaLogs.collectAsStateWithLifecycle()
     val clickerLogs by viewModel.clickerLogs.collectAsStateWithLifecycle()
@@ -180,6 +183,7 @@ fun HomeScreen(
                             IconButton(onClick = {
                                 when (activeView) {
                                     HomeView.FORMS -> onCreateForm()
+                                    HomeView.LUCKY_LIST -> onCreateLuckyList()
                                     HomeView.LISTS -> onCreateChecklist()
                                     HomeView.IDEAS -> onCreateIdeaLog()
                                     HomeView.CLICKER -> onCreateClicker()
@@ -190,6 +194,7 @@ fun HomeScreen(
                                     Icons.Filled.Add,
                                     contentDescription = when (activeView) {
                                         HomeView.FORMS -> "New form"
+                                        HomeView.LUCKY_LIST -> "New Lucky List"
                                         HomeView.LISTS -> "New list"
                                         HomeView.IDEAS -> "New Idea Log"
                                         HomeView.CLICKER -> "New Clicker Data Log"
@@ -210,6 +215,12 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxSize().padding(padding),
                 onOpenLog = onOpenLog,
                 onAddEntry = onAddEntry,
+            )
+            HomeView.LUCKY_LIST -> ListsBody(
+                checklists = luckyLists,
+                modifier = Modifier.fillMaxSize().padding(padding),
+                onOpenChecklist = onOpenLuckyList,
+                emptyTitle = "No lucky lists yet.",
             )
             HomeView.LISTS -> ListsBody(
                 checklists = checklists,
@@ -323,7 +334,7 @@ fun HomeScreen(
             confirmButton = {
                 DialogActionButton("Recover") {
                     viewModel.clearPendingDraft()
-                    onOpenChecklist(draft.id)
+                    if (viewModel.pendingDraftIsLucky) onOpenLuckyList(draft.id) else onOpenChecklist(draft.id)
                 }
             },
         )
@@ -487,6 +498,7 @@ private data class ModeMeta(
 
 /** Every data mode, in the order they appear in the bar. */
 private val MODE_META = listOf(
+    ModeMeta(HomeView.LUCKY_LIST, "Lucky List", iconRes = R.drawable.ic_cyclone),
     ModeMeta(HomeView.FORMS, "Forms", icon = Icons.Filled.Description),
     ModeMeta(HomeView.LISTS, "Lists", icon = Icons.Filled.Checklist),
     ModeMeta(HomeView.IDEAS, "Ideas", icon = Icons.Filled.OnlinePrediction),
@@ -578,10 +590,11 @@ private fun ListsBody(
     checklists: List<Checklist>,
     modifier: Modifier = Modifier,
     onOpenChecklist: (Long) -> Unit,
+    emptyTitle: String = "No lists yet.",
 ) {
     if (checklists.isEmpty()) {
         EmptyMessage(
-            title = "No lists yet.",
+            title = emptyTitle,
             body = "Click the plus in the top right to begin.",
             modifier = modifier,
         )

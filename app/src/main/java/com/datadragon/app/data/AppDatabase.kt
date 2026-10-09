@@ -32,9 +32,10 @@ class DailyListConverters {
         LogTemplate::class, LogEntry::class, EntryNote::class, Checklist::class, ChecklistItem::class,
         IdeaLog::class, IdeaEntry::class, Calendar::class, ColorPreset::class,
         DailyList::class, DailyListItem::class,
-        ClickerLog::class, ClickerCard::class,
+        ClickerLog::class, ClickerCard::class, LuckyList::class, LuckyListItem::class,
+        BackupState::class,
     ],
-    version = 20,
+    version = 22,
     exportSchema = false,
 )
 @TypeConverters(DailyListConverters::class)
@@ -45,6 +46,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun logEntryDao(): LogEntryDao
 
     abstract fun entryNoteDao(): EntryNoteDao
+
+    abstract fun luckyListDao(): LuckyListDao
 
     abstract fun checklistDao(): ChecklistDao
 
@@ -60,8 +63,10 @@ abstract class AppDatabase : RoomDatabase() {
 
     abstract fun clickerDao(): ClickerDao
 
+    abstract fun backupStateDao(): BackupStateDao
+
     companion object {
-        const val SCHEMA_VERSION = 20
+        const val SCHEMA_VERSION = 22
 
         @Volatile
         private var instance: AppDatabase? = null
@@ -94,6 +99,9 @@ abstract class AppDatabase : RoomDatabase() {
                         "BEGIN SELECT RAISE(ABORT, 'UUID is immutable'); END"
                 )
             }
+            if (db.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'lucky_lists'").use { it.moveToFirst() }) {
+                db.execSQL("CREATE TRIGGER IF NOT EXISTS prevent_lucky_lists_uuid_update BEFORE UPDATE OF uuid ON lucky_lists FOR EACH ROW WHEN OLD.uuid <> NEW.uuid BEGIN SELECT RAISE(ABORT, 'UUID is immutable'); END")
+            }
         }
 
         /** Custom SQLite triggers are not part of Room's generated table schema. */
@@ -104,6 +112,21 @@ abstract class AppDatabase : RoomDatabase() {
 
             override fun onOpen(db: SupportSQLiteDatabase) {
                 installUuidImmutabilityTriggers(db)
+            }
+        }
+
+        /**
+         * Protected-data revision tracking for automatic backup. Like the UUID
+         * triggers, SQLite triggers are not part of Room's generated schema, so
+         * they are installed idempotently whenever the database opens.
+         */
+        internal val BACKUP_REVISION_CALLBACK = object : RoomDatabase.Callback() {
+            override fun onCreate(db: SupportSQLiteDatabase) {
+                BackupRevisionTracking.install(db)
+            }
+
+            override fun onOpen(db: SupportSQLiteDatabase) {
+                BackupRevisionTracking.install(db)
             }
         }
 
@@ -506,6 +529,23 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        internal val MIGRATION_20_21 = object : Migration(20, 21) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                BackupRevisionTracking.createStateTable(db)
+            }
+        }
+
+        internal val MIGRATION_21_22 = object : Migration(21, 22) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS lucky_lists (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, uuid TEXT NOT NULL, name TEXT NOT NULL, createdAt INTEGER NOT NULL, draft INTEGER NOT NULL, excludePreviouslySelected INTEGER NOT NULL)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_lucky_lists_uuid ON lucky_lists(uuid)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS lucky_list_items (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, luckyListId INTEGER NOT NULL, text TEXT NOT NULL, position INTEGER NOT NULL, FOREIGN KEY(luckyListId) REFERENCES lucky_lists(id) ON UPDATE NO ACTION ON DELETE CASCADE)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_lucky_list_items_luckyListId ON lucky_list_items(luckyListId)")
+                installUuidImmutabilityTriggers(db)
+                BackupRevisionTracking.install(db)
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -518,9 +558,10 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11,
                         MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15,
                         MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19,
-                        MIGRATION_19_20,
+                        MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22,
                     )
                     .addCallback(UUID_IDENTITY_CALLBACK)
+                    .addCallback(BACKUP_REVISION_CALLBACK)
                     .build()
                     .also { instance = it }
             }
