@@ -89,7 +89,7 @@ class BackupPhase4Test {
             assertEquals(2, saved.counts.dailyTasks)
             assertEquals(1, saved.counts.clickerLogs)
             assertEquals(2, saved.counts.savedColorPresets)
-            assertEquals(29, saved.counts.portablePreferences)
+            assertEquals(30, saved.counts.portablePreferences)
             assertFalse(saved.payload.portablePreferences == null)
         } finally {
             db.close()

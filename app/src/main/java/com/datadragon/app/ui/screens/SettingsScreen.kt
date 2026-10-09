@@ -968,8 +968,6 @@ private fun AutomaticBackupSection(
     }
     if (cadence == AutoBackupCadence.CUSTOM) {
         val invalid = AutoBackupPolicy.parseCustomDays(customDaysText) == null
-        val invalidMessage: (@Composable () -> Unit)? =
-            if (invalid) { { Text("Enter a number from 1 to 365.") } } else null
         Text("Number of Days", style = AppTheme.textStyles.settingTitle)
         if (invalid) Text("Enter a number from 1 to 365.", style = AppTheme.textStyles.settingDescription, color = MaterialTheme.colorScheme.error)
         OutlinedTextField(

@@ -129,11 +129,10 @@ data class BackupCounts(
     val clickerCards: Int = 0,
     val savedColorPresets: Int = 0,
     val portablePreferences: Int = 0,
-) {
     @EncodeDefault(EncodeDefault.Mode.NEVER) val luckyLists: Int = 0,
     @EncodeDefault(EncodeDefault.Mode.NEVER) val luckyListItems: Int = 0,
     @EncodeDefault(EncodeDefault.Mode.NEVER) val luckyListDrafts: Int = 0,
-
+) {
     companion object {
         fun from(payload: BackupPayload): BackupCounts = BackupCounts(
             luckyLists = payload.luckyLists?.size ?: 0,

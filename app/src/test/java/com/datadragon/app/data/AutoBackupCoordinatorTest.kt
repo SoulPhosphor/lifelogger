@@ -623,7 +623,8 @@ class AutoBackupCoordinatorTest {
         settings.automaticBackupRetention = 5
         val version3 = BackupCodec.decode(
             BackupCodec.encode(
-                BackupFile.full(
+                BackupFile(
+                    includedCategories = BackupCategory.entries.filter { it != BackupCategory.LUCKY_LISTS },
                     exportedAt = "2026-09-22T00:00:00Z",
                     sourceAppVersion = "v3",
                     roomSchemaVersion = 19,
