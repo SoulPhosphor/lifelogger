@@ -121,14 +121,21 @@ class AutoBackupCoordinator(
             cancelSchedule()
             return@withLock
         }
-        if (local.error?.needsUserAction == true) {
+        val now = clock()
+        val decision = decisionState(local)
+        val accessError = local.error
+        if (accessError?.needsUserAction == true) {
+            // A clean snapshot can lose access without raising a notice. Once
+            // a late editor commit needs protection, promote that informational
+            // error to the existing one-time access notice.
+            if (AutoBackupSchedule.isDirty(decision)) {
+                state.recordFailure(now, accessError)
+            }
             // An unresolved folder-access problem is retried only on the next
             // foreground check or folder choice, never on a background timer.
             cancelSchedule()
             return@withLock
         }
-        val now = clock()
-        val decision = decisionState(local)
         if (AutoBackupSchedule.isDirty(decision)) {
             val due = AutoBackupSchedule.dueAt(decision, now)
             // After a failure, keep the retry time rather than retrying at once.

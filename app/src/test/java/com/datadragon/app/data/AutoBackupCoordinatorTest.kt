@@ -368,6 +368,29 @@ class AutoBackupCoordinatorTest {
     }
 
     @Test
+    fun cleanAccessErrorRaisesOneNoticeWhenALateCommitNeedsProtection() = runBlocking {
+        enabledWith("content://tree/A")
+        folders.permissions.remove("content://tree/A")
+        val coordinator = coordinator()
+        assertEquals(AutoBackupRunResult.CLEAN, coordinator.runIfNeeded())
+        assertFalse(store.read().accessNoticePending)
+        coordinator.ensureScheduled()
+        assertFalse("Still clean: no blocked backup yet", store.read().accessNoticePending)
+
+        db.luckyListDao().insertList(
+            LuckyList(uuid = StableUuid.createNew(), name = "Late edit", createdAt = 1)
+        )
+        coordinator.ensureScheduled()
+        assertTrue(store.read().accessNoticePending)
+        assertEquals(AutoBackupError.PERMISSION_LOST, store.read().error)
+        assertTrue(store.read().enabled)
+        assertNull("Folder access still requires the user", scheduler.scheduledAt)
+        store.consumeAccessNotice()
+        coordinator.ensureScheduled()
+        assertFalse("The same unresolved access error is shown once", store.read().accessNoticePending)
+    }
+
+    @Test
     fun lostPermissionDoesNotScheduleATimedRetryAndKeepsTheFolderAndError() = runBlocking {
         enabledWith("content://tree/A")
         insertList("Changed")
