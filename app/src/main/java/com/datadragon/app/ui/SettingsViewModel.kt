@@ -17,8 +17,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 /**
- * Backs the toggles on the Settings screen. Reads the stored flags once on
- * creation and writes each change straight through to [SettingsRepository].
+ * Backs Settings controls and keeps them synchronized with portable Restore/Undo.
+ * Writes each local change straight through to [SettingsRepository].
  */
 class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -68,6 +68,32 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     private val _folderSelectionError = MutableStateFlow<AutoBackupFolderSelection?>(null)
     val folderSelectionError: StateFlow<AutoBackupFolderSelection?> = _folderSelectionError
 
+    private var observedCustomDays = repo.automaticBackupCustomDays
+
+    // Retain the listener strongly; SharedPreferences stores weak references.
+    private val preferenceObserver = repo.observePortableBackupChanges {
+        _autoCapitalizeLabels.value = repo.autoCapitalizeLabels
+        _autoCapitalizeOptions.value = repo.autoCapitalizeOptions
+        _completeIcon.value = repo.completeIcon
+        _crossOutWhenCompleted.value = repo.crossOutWhenCompleted
+        _moveCompletedToBottom.value = repo.moveCompletedToBottom
+        _navStyle.value = repo.navStyle
+        _useModeLabelInDropdown.value = repo.useModeLabelInDropdown
+        _enabledModes.value = repo.enabledModes.toSet()
+        _autoBackupCadence.value = repo.automaticBackupCadence
+        val customDays = repo.automaticBackupCustomDays
+        if (customDays != observedCustomDays) {
+            observedCustomDays = customDays
+            _autoBackupCustomDaysText.value = customDays.toString()
+        }
+        _autoBackupRetention.value = repo.automaticBackupRetention
+    }
+
+    override fun onCleared() {
+        repo.stopObservingPortableBackupChanges(preferenceObserver)
+        super.onCleared()
+    }
+
     fun refreshAutoBackupState() = autoBackup.refresh()
 
     fun selectBackupFolder(uri: String) {
@@ -90,11 +116,12 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     /** Keeps the typed text; only a number from 1 to 365 is saved. */
     fun setAutoBackupCustomDaysText(text: String) {
         val digits = text.filter { it.isDigit() }.take(3)
-        _autoBackupCustomDaysText.value = digits
         AutoBackupPolicy.parseCustomDays(digits)?.let { days ->
+            observedCustomDays = days
             repo.automaticBackupCustomDays = days
             autoBackup.onSettingsChanged()
         }
+        _autoBackupCustomDaysText.value = digits
     }
 
     fun setAutoBackupRetention(value: Int) {

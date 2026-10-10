@@ -157,10 +157,12 @@ class SafAutoBackupFolders(context: Context) : AutoBackupFolderAccess {
             val projection = arrayOf(
                 DocumentsContract.Document.COLUMN_DISPLAY_NAME,
                 DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_MIME_TYPE,
             )
             return resolver.query(children, projection, null, null, null)?.use { cursor ->
                 buildList {
                     while (cursor.moveToNext()) {
+                        if (cursor.getString(2) == DocumentsContract.Document.MIME_TYPE_DIR) continue
                         val name = cursor.getString(0) ?: continue
                         val id = cursor.getString(1) ?: continue
                         add(AutoBackupFolderFile(name, id))

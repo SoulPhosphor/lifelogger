@@ -10,6 +10,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import android.content.Context
@@ -103,9 +105,19 @@ class MenuNavHostTest {
             nav = rememberNavController()
             DataDragonTheme(dynamicColor = false) { DataDragonNavHost(nav) }
         }
+        compose.mainClock.advanceTimeBy(1_000)
         repeat(5) {
             compose.onNodeWithContentDescription("Open App Menu").performClick()
             compose.onNode(hasText("Settings") and hasClickAction()).performClick()
+            // Settle the entrance before freezing the clock for the rapid return.
+            compose.mainClock.advanceTimeBy(1_000)
+            try {
+                compose.onNodeWithContentDescription("Back").assertIsDisplayed()
+            } catch (failure: AssertionError) {
+                println("Current route: ${nav.currentDestination?.route}; lifecycle: ${nav.currentBackStackEntry?.lifecycle?.currentState}")
+                println(compose.onRoot().printToString())
+                throw failure
+            }
             compose.mainClock.autoAdvance = false
             compose.onNodeWithContentDescription("Back").performClick()
             compose.mainClock.advanceTimeByFrame()
@@ -119,6 +131,7 @@ class MenuNavHostTest {
         }
         compose.onNodeWithContentDescription("Open App Menu").performClick()
         compose.onNode(hasText("Settings") and hasClickAction()).performClick()
+        compose.mainClock.advanceTimeBy(1_000)
         compose.onNodeWithText("Settings").assertIsDisplayed()
     }
 }
