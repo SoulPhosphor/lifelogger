@@ -1,6 +1,7 @@
 package com.datadragon.app.data
 
 import android.content.Context
+import android.os.Looper
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import java.io.ByteArrayInputStream
@@ -30,6 +31,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 /** Phase 5: change-aware automatic backup through the shared snapshot, codec, and verified writer. */
@@ -232,6 +234,42 @@ class AutoBackupCoordinatorTest {
         assertEquals(AutoBackupRunResult.BACKED_UP, coordinator().runIfNeeded())
         val latest = BackupCodec.decode(folder.text(folder.newestAutomatic()))
         assertEquals(NavStyle.DROPDOWN.key, latest.payload.portablePreferences!!.navStyle)
+    }
+
+    @Test
+    fun preferencesOnlyRestoreRepairsTheScheduleWithoutADeviceLifecycleChange() = runBlocking {
+        enabledWith("content://tree/A")
+        val coordinator = coordinator()
+        coordinator.ensureScheduled()
+        assertNull(scheduler.scheduledAt)
+        val beforeRevision = db.backupStateDao().dataRevision()
+        val scheduled = CompletableDeferred<Unit>()
+        val observerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val listener = settings.observePortableBackupChanges {
+            observerScope.launch {
+                try {
+                    coordinator.ensureScheduled()
+                    scheduled.complete(Unit)
+                } catch (failure: Exception) {
+                    scheduled.completeExceptionally(failure)
+                }
+            }
+        }
+        try {
+            val backup = BackupFile.single("now", BackupCategory.PORTABLE_PREFERENCES,
+                BackupPayload(portablePreferences = settings.portableBackupSnapshot().copy(
+                    automaticBackupCadence = AutoBackupCadence.WEEKLY.key,
+                )))
+            BackupRepository(db, settings::portableBackupSnapshot, "test", settings::applyPortableBackup)
+                .restore(backup, RestoreMode.REPLACE, setOf(BackupCategory.PORTABLE_PREFERENCES))
+            shadowOf(Looper.getMainLooper()).idle()
+            withTimeout(10_000) { scheduled.await() }
+            assertEquals(beforeRevision, db.backupStateDao().dataRevision())
+            assertEquals(start + 7 * day, scheduler.scheduledAt)
+        } finally {
+            settings.stopObservingPortableBackupChanges(listener)
+            observerScope.cancel()
+        }
     }
 
     @Test

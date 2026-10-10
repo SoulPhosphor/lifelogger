@@ -23,6 +23,19 @@ class SettingsRepository(context: Context) {
     val portablePreferencesRevision: Long
         get() = prefs.getLong(KEY_PORTABLE_PREFERENCES_REVISION, 0L)
 
+    /** Observe all portable writes, including Restore/Undo that bypass Settings setters. */
+    internal fun observePortableBackupChanges(onChanged: () -> Unit): SharedPreferences.OnSharedPreferenceChangeListener {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_PORTABLE_PREFERENCES_REVISION || key == null) onChanged()
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        return listener // SharedPreferences keeps only a weak reference; caller retains this.
+    }
+
+    internal fun stopObservingPortableBackupChanges(listener: SharedPreferences.OnSharedPreferenceChangeListener) {
+        prefs.unregisterOnSharedPreferenceChangeListener(listener)
+    }
+
     /**
      * Apply a portable-preference change and its revision increase together.
      * Writes that leave the effective value unchanged do not count as changes.

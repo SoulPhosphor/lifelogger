@@ -131,6 +131,9 @@ class AutoBackupService private constructor(context: Context) {
     private val changeObserver = observeProtectedDataChanges(AppDatabase.getInstance(app)) {
         onSettingsChanged()
     }
+    private val preferenceObserver = settings.observePortableBackupChanges {
+        onSettingsChanged()
+    }
 
     /** Device-local status for Settings and the access-failure dialog. */
     val state: StateFlow<AutoBackupLocalState> = _state
