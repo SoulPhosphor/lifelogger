@@ -7,6 +7,14 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onNode
+import androidx.compose.ui.test.performClick
+import androidx.test.core.app.ApplicationProvider
+import android.content.Context
+import com.datadragon.app.ui.theme.DataDragonTheme
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -87,5 +95,31 @@ class MenuNavHostTest {
         compose.waitForIdle()
         compose.onNodeWithText("Home visible").assertIsDisplayed()
         compose.runOnUiThread { assertEquals(Routes.HOME, nav.currentDestination?.route) }
+    }
+
+    @Test fun actualAppGearCanReopenAfterRapidSettingsClose() {
+        val app = ApplicationProvider.getApplicationContext<Context>()
+        app.getSharedPreferences("data_dragon_settings", Context.MODE_PRIVATE).edit().clear().commit()
+        compose.setContent {
+            nav = rememberNavController()
+            DataDragonTheme(dynamicColor = false) { DataDragonNavHost(nav) }
+        }
+        repeat(5) {
+            compose.onNodeWithContentDescription("Open App Menu").performClick()
+            compose.onNode(hasText("Settings") and hasClickAction()).performClick()
+            compose.mainClock.autoAdvance = false
+            compose.onNodeWithContentDescription("Back").performClick()
+            compose.mainClock.advanceTimeByFrame()
+            // Open and select the real cog popup while Settings is still exiting.
+            compose.onNodeWithContentDescription("Open App Menu").performClick()
+            compose.onNode(hasText("Settings") and hasClickAction()).performClick()
+            compose.mainClock.advanceTimeBy(1_000)
+            compose.mainClock.autoAdvance = true
+            compose.onNodeWithContentDescription("Open App Menu").assertIsDisplayed()
+            compose.runOnUiThread { assertEquals(Routes.HOME, nav.currentDestination?.route) }
+        }
+        compose.onNodeWithContentDescription("Open App Menu").performClick()
+        compose.onNode(hasText("Settings") and hasClickAction()).performClick()
+        compose.onNodeWithText("Settings").assertIsDisplayed()
     }
 }
