@@ -58,3 +58,4 @@ negative-Y viewport translated into an Android vector viewport. Compose applies
 the active theme tint; there are no runtime requests or hotlinks.
 Source: https://github.com/google/material-design-icons/blob/master/symbols/web/cyclone/materialsymbolsoutlined/cyclone_24px.svg
 License: Apache-2.0 (https://github.com/google/material-design-icons/blob/master/LICENSE)
+The original license is included in docs/MATERIAL_ICON_LICENSE.txt.

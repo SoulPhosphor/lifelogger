@@ -13,6 +13,12 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -164,6 +170,46 @@ class AutoBackupCoordinatorTest {
         assertEquals(before, folder.files.keys.toSet())
         assertTrue(folder.deleted.isEmpty())
         assertNull("Clean state leaves no unchanged job pending", scheduler.scheduledAt)
+    }
+
+    @Test
+    fun aLateEditorCommitSchedulesBackupAfterACleanBackgroundCheck() = runBlocking {
+        val listId = db.luckyListDao().insertList(
+            LuckyList(uuid = StableUuid.createNew(), name = "Options", createdAt = 1)
+        )
+        val itemId = db.luckyListDao().insertItem(
+            LuckyListItem(luckyListId = listId, text = "Before", position = 0)
+        )
+        val folder = enabledWith("content://tree/A")
+        val coordinator = coordinator()
+        coordinator.ensureScheduled()
+        assertNull(scheduler.scheduledAt)
+        db.invalidationTracker.refreshVersionsSync()
+
+        val scheduled = CompletableDeferred<Unit>()
+        val observerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val observer = observeProtectedDataChanges(db) {
+            observerScope.launch {
+                try {
+                    coordinator.ensureScheduled()
+                    scheduled.complete(Unit)
+                } catch (failure: Exception) {
+                    scheduled.completeExceptionally(failure)
+                }
+            }
+        }
+        try {
+            // The ON_STOP flush completes only after the initial clean check.
+            db.luckyListDao().updateText(itemId, "Latest edit")
+            withTimeout(10_000) { scheduled.await() }
+            assertEquals(start + day, scheduler.scheduledAt)
+            now = start + day
+            assertEquals(AutoBackupRunResult.BACKED_UP, coordinator.runIfNeeded())
+            assertTrue(folder.text(folder.newestAutomatic()).contains("Latest edit"))
+        } finally {
+            db.invalidationTracker.removeObserver(observer)
+            observerScope.cancel()
+        }
     }
 
     @Test

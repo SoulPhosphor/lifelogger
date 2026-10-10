@@ -1,6 +1,7 @@
 package com.datadragon.app.data
 
 import android.content.Context
+import androidx.room.InvalidationTracker
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
 import androidx.work.ListenableWorker
@@ -124,6 +125,13 @@ class AutoBackupService private constructor(context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val _state = MutableStateFlow(stateStore.read())
 
+    // ON_STOP scheduling may run before an editor's asynchronous flush. Observe
+    // committed protected-table changes for the whole process, so late writes
+    // repair scheduling even after the activity has stopped.
+    private val changeObserver = observeProtectedDataChanges(AppDatabase.getInstance(app)) {
+        onSettingsChanged()
+    }
+
     /** Device-local status for Settings and the access-failure dialog. */
     val state: StateFlow<AutoBackupLocalState> = _state
 
@@ -184,4 +192,17 @@ class AutoBackupService private constructor(context: Context) {
                 instance ?: AutoBackupService(context).also { instance = it }
             }
     }
+}
+
+internal fun observeProtectedDataChanges(
+    db: AppDatabase,
+    onCommitted: () -> Unit,
+): InvalidationTracker.Observer {
+    val observer = object : InvalidationTracker.Observer(
+        *BackupRevisionTracking.protectedTables.toTypedArray()
+    ) {
+        override fun onInvalidated(tables: Set<String>) = onCommitted()
+    }
+    db.invalidationTracker.addObserver(observer)
+    return observer
 }
