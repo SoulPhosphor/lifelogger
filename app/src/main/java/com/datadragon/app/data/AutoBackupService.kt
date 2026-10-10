@@ -199,7 +199,7 @@ internal fun observeProtectedDataChanges(
     onCommitted: () -> Unit,
 ): InvalidationTracker.Observer {
     val observer = object : InvalidationTracker.Observer(
-        *BackupRevisionTracking.protectedTables.toTypedArray()
+        BackupRevisionTracking.protectedTables.toTypedArray()
     ) {
         override fun onInvalidated(tables: Set<String>) = onCommitted()
     }
