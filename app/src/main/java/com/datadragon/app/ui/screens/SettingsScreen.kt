@@ -76,6 +76,7 @@ import com.datadragon.app.data.RestoreCounts
 import com.datadragon.app.data.RestoreMode
 import com.datadragon.app.ui.BackupViewModel
 import com.datadragon.app.ui.RestoreResult
+import com.datadragon.app.data.BackupCategory
 import com.datadragon.app.ui.SettingsViewModel
 import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.ui.components.AppDropdownRow
