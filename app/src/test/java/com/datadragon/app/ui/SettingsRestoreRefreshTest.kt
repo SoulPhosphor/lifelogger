@@ -4,6 +4,7 @@ import android.app.Application
 import android.os.Looper
 import androidx.lifecycle.ViewModelStore
 import androidx.test.core.app.ApplicationProvider
+import androidx.work.testing.WorkManagerTestInitHelper
 import com.datadragon.app.data.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -20,6 +21,7 @@ class SettingsRestoreRefreshTest {
     @Test fun visibleControlsFollowPreferencesRestoreAndUndo() {
         val app = ApplicationProvider.getApplicationContext<Application>()
         app.getSharedPreferences("data_dragon_settings", 0).edit().clear().commit()
+        WorkManagerTestInitHelper.initializeTestWorkManager(app)
         val repo = SettingsRepository(app)
         val db = AppDatabase.getInstance(app)
         val settings = SettingsViewModel(app)

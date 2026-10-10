@@ -14,6 +14,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
+import androidx.work.testing.WorkManagerTestInitHelper
 import android.content.Context
 import com.datadragon.app.ui.theme.DataDragonTheme
 import androidx.navigation.NavHostController
@@ -101,6 +102,7 @@ class MenuNavHostTest {
     @Test fun actualAppGearCanReopenAfterRapidSettingsClose() {
         val app = ApplicationProvider.getApplicationContext<Context>()
         app.getSharedPreferences("data_dragon_settings", Context.MODE_PRIVATE).edit().clear().commit()
+        WorkManagerTestInitHelper.initializeTestWorkManager(app)
         compose.setContent {
             nav = rememberNavController()
             DataDragonTheme(dynamicColor = false) { DataDragonNavHost(nav) }
@@ -120,7 +122,8 @@ class MenuNavHostTest {
             }
             compose.mainClock.autoAdvance = false
             compose.onNodeWithContentDescription("Back").performClick()
-            compose.mainClock.advanceTimeByFrame()
+            // Allow Home to compose, while staying inside the 700 ms return animation.
+            compose.mainClock.advanceTimeBy(64)
             // A rapid cog tap must wait for Home to finish returning before opening a popup.
             compose.onNodeWithContentDescription("Open App Menu").performClick()
             compose.onNode(hasText("Settings") and hasClickAction()).assertDoesNotExist()
