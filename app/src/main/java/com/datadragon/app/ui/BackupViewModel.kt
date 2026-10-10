@@ -70,7 +70,7 @@ class BackupViewModel(app: Application) : AndroidViewModel(app) {
 
     /**
      * Parse [text] and apply it with [mode]. The state right before the import
-     * is secured for Undo Last Import before the database transaction starts.
+     * is secured for Undo Last Import before the first database/preference mutation.
      * If restore fails, that valid pre-import snapshot remains available.
      */
     suspend fun restore(
@@ -123,41 +123,26 @@ class BackupViewModel(app: Application) : AndroidViewModel(app) {
         selected: Set<BackupCategory>,
         choices: Map<String, RestoreConflictChoice>,
     ): RestoreResult {
-        // Merge intentionally keeps device preferences (the approved backup rule).
-        // Absent categories and empty Merge collections cannot mutate data.
-        // Preserve the previous useful Undo snapshot for these no-op selections.
-        val mergeHasItems = selected.any { category ->
-            when (category) {
-                BackupCategory.FORMS -> !backup.payload.forms.isNullOrEmpty()
-                BackupCategory.LISTS -> !backup.payload.lists.isNullOrEmpty()
-                BackupCategory.LUCKY_LISTS -> !backup.payload.luckyLists.isNullOrEmpty()
-                BackupCategory.IDEA_LOGS -> !backup.payload.ideaLogs.isNullOrEmpty()
-                BackupCategory.DAILY_TASKS -> !backup.payload.dailyTasks.isNullOrEmpty()
-                BackupCategory.CLICKER_DATA -> !backup.payload.clickerData.isNullOrEmpty()
-                BackupCategory.SAVED_COLOR_PRESETS -> !backup.payload.savedColorPresets.isNullOrEmpty()
-                BackupCategory.PORTABLE_PREFERENCES -> false
-            }
-        }
-        if (selected.isEmpty() || (mode == RestoreMode.MERGE && !mergeHasItems)) {
-            return RestoreResult.Success(repository.restore(backup, mode, selected, choices))
-        }
-        val preImage = repository.buildFull()
-        try {
-            undoStore.saveVerified(
-                UndoSnapshot(
-                    capturedAt = BackupRepository.now(),
-                    data = preImage,
-                    selectedCategories = selected.sortedBy { it.ordinal },
-                ),
-            )
-        } catch (error: Exception) {
-            return RestoreResult.Failure(
-                "Restore did not start because a verified Undo Last Import snapshot could not be saved: " +
-                    (error.message ?: "unknown file error"),
-            )
-        }
         return try {
-            RestoreResult.Success(repository.restore(backup, mode, selected, choices))
+            val counts = repository.restore(backup, mode, selected, choices, beforeMutation = {
+                try {
+                    undoStore.saveVerified(
+                        UndoSnapshot(
+                            capturedAt = BackupRepository.now(),
+                            data = repository.buildFull(),
+                            selectedCategories = selected.sortedBy { it.ordinal },
+                        ),
+                    )
+                } catch (error: Exception) {
+                    throw UndoPreparationFailure(error)
+                }
+            })
+            RestoreResult.Success(counts)
+        } catch (error: UndoPreparationFailure) {
+            RestoreResult.Failure(
+                "Restore did not start because a verified Undo Last Import snapshot could not be saved: " +
+                    (error.cause?.message ?: "unknown file error"),
+            )
         } catch (error: Exception) {
             RestoreResult.Failure(
                 "Restore failed. Database changes were rolled back and Undo Last Import remains available: " +
@@ -165,6 +150,8 @@ class BackupViewModel(app: Application) : AndroidViewModel(app) {
             )
         }
     }
+
+    private class UndoPreparationFailure(cause: Exception) : Exception(cause)
 
     /**
      * Restore one exported list, form, or Clicker Data grouping.

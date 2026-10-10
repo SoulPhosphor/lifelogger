@@ -769,6 +769,48 @@ class AutoBackupCoordinatorTest {
         assertFalse(store.read().enabled)
     }
 
+    @Test
+    fun aWorkerTriggeredByRestoredPreferencesWaitsForRoomCommit() = runBlocking {
+        val folder = enabledWith("content://tree/A")
+        now = start + 2 * day
+        val preferencesApplied = CountDownLatch(1)
+        val releaseRestore = CountDownLatch(1)
+        val incoming = BackupFile(
+            exportedAt = "2026-10-10T00:00:00Z",
+            includedCategories = listOf(BackupCategory.LUCKY_LISTS, BackupCategory.PORTABLE_PREFERENCES),
+            payload = BackupPayload(
+                luckyLists = listOf(BackupLuckyList("restored-lucky", "Restored together", 1, false, false, emptyList())),
+                portablePreferences = settings.portableBackupSnapshot().copy(automaticBackupRetention = 5),
+            ),
+        )
+        val restoring = async(Dispatchers.IO) {
+            BackupRepository(db, settings::portableBackupSnapshot, "test", { preferences ->
+                settings.applyPortableBackup(preferences)
+                preferencesApplied.countDown()
+                check(releaseRestore.await(5, TimeUnit.SECONDS))
+            }).restore(incoming, RestoreMode.REPLACE)
+        }
+        val workerStarted = CountDownLatch(1)
+        try {
+            assertTrue(preferencesApplied.await(5, TimeUnit.SECONDS))
+            val worker = async(Dispatchers.IO) {
+                workerStarted.countDown()
+                coordinator().runIfNeeded()
+            }
+            assertTrue(workerStarted.await(5, TimeUnit.SECONDS))
+            assertTrue(AutoBackupCoordinator.RUN_LOCK.isLocked)
+            assertFalse(worker.isCompleted)
+            releaseRestore.countDown()
+            withTimeout(5_000) { restoring.await() }
+            assertEquals(AutoBackupRunResult.BACKED_UP, withTimeout(5_000) { worker.await() })
+            val captured = BackupCodec.decode(folder.text(folder.newestAutomatic()))
+            assertEquals("Restored together", captured.payload.luckyLists!!.single().name)
+            assertEquals(5, captured.payload.portablePreferences!!.automaticBackupRetention)
+        } finally {
+            releaseRestore.countDown()
+        }
+    }
+
     // --- Helpers ------------------------------------------------------------------
 
     private suspend fun enabledWith(uri: String): FakeFolder {

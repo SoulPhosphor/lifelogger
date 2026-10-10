@@ -315,7 +315,7 @@ class AutoBackupCoordinator(
     }
 
     companion object {
-        /** The one runner lock shared by every automatic-backup entry point in the process. */
+        /** Shared by automatic-backup entry points and complete Restore/Undo operations. */
         val RUN_LOCK = Mutex()
     }
 }

@@ -52,6 +52,8 @@ class SettingsRestoreRefreshTest {
             automaticBackupRetention = 7,
             navStyle = NavStyle.DROPDOWN.key,
         )
+        val luckyUuid = java.util.UUID.randomUUID().toString()
+        runBlocking(Dispatchers.IO) { db.luckyListDao().insertList(LuckyList(uuid = luckyUuid, name = "Current", createdAt = 1)) }
         try {
             val encoded = runBlocking(Dispatchers.IO) {
                 BackupCodec.encode(BackupRepository(db, { incoming }).buildFull())
@@ -82,6 +84,20 @@ class SettingsRestoreRefreshTest {
                 backup.restore(empty, RestoreMode.MERGE, categories = setOf(BackupCategory.LUCKY_LISTS))
             }
             assertEquals(previousUndo, undoFile.readText())
+            runBlocking(Dispatchers.IO) {
+                val identical = backup.restore(encoded, RestoreMode.MERGE, categories = setOf(BackupCategory.LUCKY_LISTS)) as RestoreResult.Success
+                assertEquals(1, identical.counts.skipped)
+                val conflict = BackupCodec.encode(BackupFile(
+                    exportedAt = "2026-10-10T00:00:00Z",
+                    includedCategories = listOf(BackupCategory.LUCKY_LISTS),
+                    payload = BackupPayload(luckyLists = listOf(BackupLuckyList(luckyUuid, "Incoming", 1, false, false, emptyList()))),
+                ))
+                val keptConflict = backup.restore(conflict, RestoreMode.MERGE,
+                    conflictPolicy = RestoreConflictPolicy.KEEP_CURRENT, categories = setOf(BackupCategory.LUCKY_LISTS)) as RestoreResult.Success
+                assertEquals(1, keptConflict.counts.skipped)
+                assertEquals(1, keptConflict.counts.conflicted)
+            }
+            assertEquals(previousUndo, undoFile.readText())
             assertEquals(12, repo.automaticBackupCustomDays)
             runBlocking(Dispatchers.IO) { backup.undoImport() }
             shadowOf(Looper.getMainLooper()).idle()
@@ -98,6 +114,7 @@ class SettingsRestoreRefreshTest {
             assertEquals("012", settings.autoBackupCustomDaysText.value)
         } finally {
             store.clear()
+            runBlocking(Dispatchers.IO) { db.luckyListDao().getByUuid(luckyUuid)?.let { db.luckyListDao().deleteWithItems(it.id) } }
             java.io.File(app.filesDir, "pre_import_snapshot.json").delete()
         }
     }
