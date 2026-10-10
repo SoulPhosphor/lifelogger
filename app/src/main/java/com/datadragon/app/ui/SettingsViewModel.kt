@@ -2,16 +2,23 @@ package com.datadragon.app.ui
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.datadragon.app.data.AutoBackupCadence
+import com.datadragon.app.data.AutoBackupFolderSelection
+import com.datadragon.app.data.AutoBackupLocalState
+import com.datadragon.app.data.AutoBackupPolicy
+import com.datadragon.app.data.AutoBackupService
 import com.datadragon.app.data.CompleteIcon
 import com.datadragon.app.data.HomeView
 import com.datadragon.app.data.NavStyle
 import com.datadragon.app.data.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 
 /**
- * Backs the toggles on the Settings screen. Reads the stored flags once on
- * creation and writes each change straight through to [SettingsRepository].
+ * Backs Settings controls and keeps them synchronized with portable Restore/Undo.
+ * Writes each local change straight through to [SettingsRepository].
  */
 class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -42,6 +49,86 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _enabledModes = MutableStateFlow(repo.enabledModes.toSet())
     val enabledModes: StateFlow<Set<HomeView>> = _enabledModes
+
+    // Automatic backup. Cadence and retention are portable preferences; the
+    // folder, enabled state, history, and errors are device-local.
+    private val autoBackup = AutoBackupService.get(app)
+    val autoBackupState: StateFlow<AutoBackupLocalState> = autoBackup.state
+
+    private val _autoBackupCadence = MutableStateFlow(repo.automaticBackupCadence)
+    val autoBackupCadence: StateFlow<AutoBackupCadence> = _autoBackupCadence
+
+    private val _autoBackupCustomDaysText = MutableStateFlow(repo.automaticBackupCustomDays.toString())
+    val autoBackupCustomDaysText: StateFlow<String> = _autoBackupCustomDaysText
+
+    private val _autoBackupRetention = MutableStateFlow(repo.automaticBackupRetention)
+    val autoBackupRetention: StateFlow<Int> = _autoBackupRetention
+
+    /** The result of the most recent folder choice, while it failed. */
+    private val _folderSelectionError = MutableStateFlow<AutoBackupFolderSelection?>(null)
+    val folderSelectionError: StateFlow<AutoBackupFolderSelection?> = _folderSelectionError
+
+    private var observedCustomDays = repo.automaticBackupCustomDays
+
+    // Retain the listener strongly; SharedPreferences stores weak references.
+    private val preferenceObserver = repo.observePortableBackupChanges {
+        _autoCapitalizeLabels.value = repo.autoCapitalizeLabels
+        _autoCapitalizeOptions.value = repo.autoCapitalizeOptions
+        _completeIcon.value = repo.completeIcon
+        _crossOutWhenCompleted.value = repo.crossOutWhenCompleted
+        _moveCompletedToBottom.value = repo.moveCompletedToBottom
+        _navStyle.value = repo.navStyle
+        _useModeLabelInDropdown.value = repo.useModeLabelInDropdown
+        _enabledModes.value = repo.enabledModes.toSet()
+        _autoBackupCadence.value = repo.automaticBackupCadence
+        val customDays = repo.automaticBackupCustomDays
+        if (customDays != observedCustomDays) {
+            observedCustomDays = customDays
+            _autoBackupCustomDaysText.value = customDays.toString()
+        }
+        _autoBackupRetention.value = repo.automaticBackupRetention
+    }
+
+    override fun onCleared() {
+        repo.stopObservingPortableBackupChanges(preferenceObserver)
+        super.onCleared()
+    }
+
+    fun refreshAutoBackupState() = autoBackup.refresh()
+
+    fun selectBackupFolder(uri: String) {
+        viewModelScope.launch {
+            val result = autoBackup.selectFolder(uri)
+            _folderSelectionError.value = result.takeIf { it != AutoBackupFolderSelection.SELECTED }
+        }
+    }
+
+    fun setAutoBackupEnabled(enabled: Boolean) {
+        viewModelScope.launch { autoBackup.setEnabled(enabled) }
+    }
+
+    fun setAutoBackupCadence(value: AutoBackupCadence) {
+        repo.automaticBackupCadence = value
+        _autoBackupCadence.value = value
+        autoBackup.onSettingsChanged()
+    }
+
+    /** Keeps the typed text; only a number from 1 to 365 is saved. */
+    fun setAutoBackupCustomDaysText(text: String) {
+        val digits = text.filter { it.isDigit() }.take(3)
+        AutoBackupPolicy.parseCustomDays(digits)?.let { days ->
+            observedCustomDays = days
+            repo.automaticBackupCustomDays = days
+            autoBackup.onSettingsChanged()
+        }
+        _autoBackupCustomDaysText.value = digits
+    }
+
+    fun setAutoBackupRetention(value: Int) {
+        repo.automaticBackupRetention = value
+        _autoBackupRetention.value = value
+        autoBackup.onSettingsChanged()
+    }
 
     fun setAutoCapitalizeLabels(value: Boolean) {
         repo.autoCapitalizeLabels = value

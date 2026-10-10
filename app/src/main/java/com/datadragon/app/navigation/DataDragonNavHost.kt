@@ -77,6 +77,8 @@ fun DataDragonNavHost(
                 onCreateForm = { navController.navigate(Routes.CREATE_LOG) },
                 onOpenLog = { logId -> navController.navigate(Routes.log(logId.toString())) },
                 onAddEntry = { logId -> navController.navigate(Routes.newEntry(logId.toString())) },
+                onCreateLuckyList = { navController.navigate(Routes.CREATE_LUCKY_LIST) },
+                onOpenLuckyList = { navController.navigate(Routes.luckyList(it)) },
                 onCreateChecklist = { navController.navigate(Routes.CREATE_CHECKLIST) },
                 onOpenChecklist = { checklistId -> navController.navigate(Routes.checklist(checklistId)) },
                 onCreateIdeaLog = { navController.navigate(Routes.CREATE_IDEA_LOG) },
@@ -113,6 +115,7 @@ fun DataDragonNavHost(
         }
 
         composable(Routes.SETTINGS) { menuEntry ->
+            MenuBackHandler(navController, menuEntry)
             SettingsScreen(
                 section = SettingsSection.SETTINGS,
                 onBack = { navController.popFromResumed(menuEntry) },
@@ -120,6 +123,7 @@ fun DataDragonNavHost(
         }
 
         composable(Routes.BACKUP_RESTORE) { menuEntry ->
+            MenuBackHandler(navController, menuEntry)
             SettingsScreen(
                 section = SettingsSection.BACKUP_RESTORE,
                 onBack = { navController.popFromResumed(menuEntry) },
@@ -127,6 +131,7 @@ fun DataDragonNavHost(
         }
 
         composable(Routes.ABOUT) { menuEntry ->
+            MenuBackHandler(navController, menuEntry)
             AboutScreen(onBack = { navController.popFromResumed(menuEntry) })
         }
 
@@ -220,6 +225,13 @@ fun DataDragonNavHost(
             )
         }
 
+        composable(Routes.CREATE_LUCKY_LIST) {
+            ChecklistScreen(checklistId = null, lucky = true, onBack = { navController.popBackStack() })
+        }
+        composable(Routes.LUCKY_LIST, arguments = listOf(navArgument(Routes.CHECKLIST_ARG) { type = NavType.StringType })) { entry ->
+            ChecklistScreen(checklistId = entry.arguments?.getString(Routes.CHECKLIST_ARG), lucky = true, onBack = { navController.popBackStack() })
+        }
+
         composable(Routes.CREATE_CHECKLIST) {
             // A brand-new list (no id yet) — it's a draft until Save.
             ChecklistScreen(
@@ -240,6 +252,7 @@ fun DataDragonNavHost(
         }
 
         composable(Routes.DAILY_LIST_PREFERENCES) { menuEntry ->
+            MenuBackHandler(navController, menuEntry)
             // Same shared model as Home and the editor, so a preference change
             // (Allow Title, Show Completed, celebration, renewal, …) is reflected
             // immediately when returning, not only after a process restart.
@@ -412,4 +425,5 @@ fun DataDragonNavHost(
             )
         }
     }
+    EnsureVisibleDestination(navController)
 }

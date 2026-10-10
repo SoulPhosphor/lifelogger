@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Checklist
@@ -34,6 +35,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import com.datadragon.app.ui.components.AccessibleOutlinedTextField as OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -54,9 +56,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.KeyboardType
 import com.datadragon.app.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.datadragon.app.data.AutoBackupCadence
+import com.datadragon.app.data.AutoBackupError
+import com.datadragon.app.data.AutoBackupFolderSelection
+import com.datadragon.app.data.AutoBackupLocalState
+import com.datadragon.app.data.AutoBackupPolicy
 import com.datadragon.app.data.CompleteIcon
 import com.datadragon.app.data.HomeView
 import com.datadragon.app.data.NavStyle
@@ -68,6 +76,7 @@ import com.datadragon.app.data.RestoreCounts
 import com.datadragon.app.data.RestoreMode
 import com.datadragon.app.ui.BackupViewModel
 import com.datadragon.app.ui.RestoreResult
+import com.datadragon.app.data.BackupCategory
 import com.datadragon.app.ui.SettingsViewModel
 import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.ui.components.AppDropdownRow
@@ -77,7 +86,11 @@ import com.datadragon.app.ui.components.PopupButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 enum class SettingsSection { SETTINGS, BACKUP_RESTORE }
 
@@ -99,6 +112,11 @@ fun SettingsScreen(
     val completeIcon by settingsViewModel.completeIcon.collectAsStateWithLifecycle()
     val crossOutWhenCompleted by settingsViewModel.crossOutWhenCompleted.collectAsStateWithLifecycle()
     val moveCompletedToBottom by settingsViewModel.moveCompletedToBottom.collectAsStateWithLifecycle()
+    val autoBackupState by settingsViewModel.autoBackupState.collectAsStateWithLifecycle()
+    val autoBackupCadence by settingsViewModel.autoBackupCadence.collectAsStateWithLifecycle()
+    val autoBackupCustomDaysText by settingsViewModel.autoBackupCustomDaysText.collectAsStateWithLifecycle()
+    val autoBackupRetention by settingsViewModel.autoBackupRetention.collectAsStateWithLifecycle()
+    val folderSelectionError by settingsViewModel.folderSelectionError.collectAsStateWithLifecycle()
     // Not saveable: a chosen backup file's full contents can be large enough to
     // overflow the instance-state Bundle (TransactionTooLargeException), so a
     // process death simply asks the user to re-choose the file rather than risk
@@ -117,6 +135,15 @@ fun SettingsScreen(
 
     LaunchedEffect(Unit) {
         hasUndoSnapshot = viewModel.hasUndoSnapshot()
+        // A background run may have changed the status since this screen last looked.
+        settingsViewModel.refreshAutoBackupState()
+    }
+
+    // Android's folder picker for the automatic backup destination.
+    val chooseBackupFolder = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { uri ->
+        if (uri != null) settingsViewModel.selectBackupFolder(uri.toString())
     }
 
     val openDocument = rememberLauncherForActivityResult(
@@ -151,7 +178,7 @@ fun SettingsScreen(
                     "Couldn't read that file."
                 } else {
                     when (val result = viewModel.restoreSingleItem(text)) {
-                        is RestoreResult.Success -> singleItemSummary(result.logs, result.lists, result.clickerData)
+                        is RestoreResult.Success -> singleItemSummary(result.logs, result.lists, result.clickerData, result.luckyLists)
                         is RestoreResult.NeedsConflictResolution ->
                             "This individual item conflicts with current data."
                         is RestoreResult.Failure -> result.message
@@ -193,7 +220,7 @@ fun SettingsScreen(
                 scope.launch {
                     when (val result = viewModel.continueRestore(choices)) {
                         is RestoreResult.Success -> {
-                            hasUndoSnapshot = true
+                            hasUndoSnapshot = viewModel.hasUndoSnapshot()
                             status = restoreSummary(RestoreMode.MERGE, result.counts)
                             pendingConflicts = null
                         }
@@ -259,6 +286,13 @@ fun SettingsScreen(
             // Which data modes appear in the navigation. Unchecking one only hides
             // it from the bar — the mode's data is untouched and returns when shown.
             SectionHeader("Choose Your Data Modes")
+            DataModeCheckRow(
+                iconRes = R.drawable.ic_cyclone,
+                label = "Lucky List",
+                subtext = "Randomly select a lucky item or option.",
+                checked = HomeView.LUCKY_LIST in enabledModes,
+                onCheckedChange = { settingsViewModel.setModeEnabled(HomeView.LUCKY_LIST, it) },
+            )
             DataModeCheckRow(
                 icon = Icons.Filled.Description,
                 label = "Forms",
@@ -359,6 +393,21 @@ fun SettingsScreen(
             }) {
                 Text("Back Up Now…")
             }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = AppTheme.spacing.related))
+
+            AutomaticBackupSection(
+                state = autoBackupState,
+                cadence = autoBackupCadence,
+                customDaysText = autoBackupCustomDaysText,
+                retention = autoBackupRetention,
+                folderSelectionError = folderSelectionError,
+                onChooseFolder = { chooseBackupFolder.launch(null) },
+                onEnabledChange = settingsViewModel::setAutoBackupEnabled,
+                onCadenceChange = settingsViewModel::setAutoBackupCadence,
+                onCustomDaysChange = settingsViewModel::setAutoBackupCustomDaysText,
+                onRetentionChange = settingsViewModel::setAutoBackupRetention,
+            )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = AppTheme.spacing.related))
 
@@ -490,13 +539,12 @@ fun SettingsScreen(
                                 val result = viewModel.restore(
                                     json,
                                     mode,
-                                    forms = type.forms(),
-                                    lists = type.lists(),
+                                    categories = type.categories(),
                                     conflictPolicy = conflictPolicy,
                                 )
                             ) {
                                 is RestoreResult.Success -> {
-                                    hasUndoSnapshot = true
+                                    hasUndoSnapshot = viewModel.hasUndoSnapshot()
                                     restoreSummary(mode, result.counts)
                                 }
                                 is RestoreResult.NeedsConflictResolution -> {
@@ -551,8 +599,8 @@ private val BACKUP_MIME_TYPES =
     arrayOf("application/json", "application/octet-stream", "text/plain")
 
 /** The status line shown after restoring one exported list or form. */
-private fun singleItemSummary(logs: Int, lists: Int, clickerData: Int): String = when {
-    lists > 0 -> "Restored 1 list."
+internal fun singleItemSummary(logs: Int, lists: Int, clickerData: Int, luckyLists: Int = 0): String = when {
+    lists > 0 || luckyLists > 0 -> "Restored 1 list."
     logs > 0 -> "Restored 1 form."
     clickerData > 0 -> "Restored data."
     else -> "Nothing to restore."
@@ -563,22 +611,23 @@ private fun singleItemSummary(logs: Int, lists: Int, clickerData: Int): String =
  * kinds Undo puts back. Everything covers every type at once; the named types
  * leave the others exactly as they are. A new data type gets an entry here.
  */
-private enum class RestoreType { EVERYTHING, LIST, FORM }
+internal enum class RestoreType(val category: BackupCategory?, private val caption: String) {
+    EVERYTHING(null, "Everything"),
+    LIST(BackupCategory.LISTS, "List"),
+    FORM(BackupCategory.FORMS, "Form"),
+    LUCKY_LIST(BackupCategory.LUCKY_LISTS, "Lucky List"),
+    IDEA_LOG(BackupCategory.IDEA_LOGS, "Idea Logs"),
+    DAILY_TASK(BackupCategory.DAILY_TASKS, "Daily Tasks"),
+    CLICKER_DATA(BackupCategory.CLICKER_DATA, "Clicker Data"),
+    SAVED_COLOR_PRESETS(BackupCategory.SAVED_COLOR_PRESETS, "Saved Color Presets"),
+    PORTABLE_PREFERENCES(BackupCategory.PORTABLE_PREFERENCES, "Portable Preferences");
 
-private fun RestoreType.label(): String = when (this) {
-    RestoreType.EVERYTHING -> "Everything"
-    RestoreType.LIST -> "List"
-    RestoreType.FORM -> "Form"
+    fun label(): String = caption
+    fun categories(): Set<BackupCategory> = category?.let { setOf(it) } ?: BackupCategory.entries.toSet()
 }
 
-/** True when this choice includes forms. */
-private fun RestoreType.forms(): Boolean = this != RestoreType.LIST
-
-/** True when this choice includes lists. */
-private fun RestoreType.lists(): Boolean = this != RestoreType.FORM
-
 /**
- * "Restore Type:" chooser for Undo Last Import (docs/STYLE.md — a drop-down
+ * "Restore Type:" chooser for database restore (docs/STYLE.md — a drop-down
  * shares its label's line, and its width never changes with the value picked).
  */
 @Composable
@@ -635,11 +684,12 @@ private fun SettingToggleRow(
     onCheckedChange: (Boolean) -> Unit,
     title: String,
     subtitle: String? = null,
+    enabled: Boolean = true,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
+            .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange)
             .padding(vertical = AppTheme.spacing.related),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -654,7 +704,7 @@ private fun SettingToggleRow(
             }
         }
         Spacer(Modifier.width(AppTheme.spacing.rowInset))
-        Switch(checked = checked, onCheckedChange = null, modifier = Modifier.sizeIn(minWidth = AppTheme.sizes.minimumTouchTarget, minHeight = AppTheme.sizes.minimumTouchTarget))
+        Switch(checked = checked, onCheckedChange = null, enabled = enabled, modifier = Modifier.sizeIn(minWidth = AppTheme.sizes.minimumTouchTarget, minHeight = AppTheme.sizes.minimumTouchTarget))
     }
 }
 
@@ -781,6 +831,7 @@ private fun ConflictReviewScreen(
 
 private fun com.datadragon.app.data.BackupCategory.restoreLabel(): String = when (this) {
     com.datadragon.app.data.BackupCategory.FORMS -> "Forms"
+    com.datadragon.app.data.BackupCategory.LUCKY_LISTS -> "Lucky Lists"
     com.datadragon.app.data.BackupCategory.LISTS -> "Lists"
     com.datadragon.app.data.BackupCategory.IDEA_LOGS -> "Idea Logs"
     com.datadragon.app.data.BackupCategory.DAILY_TASKS -> "Daily Tasks"
@@ -872,3 +923,115 @@ private fun CompleteIconRow(
         optionLabel = { it.label() },
     )
 }
+
+/**
+ * Automatic Backup: only the controls and status needed to use it, in the
+ * owner-approved order. Folder checks and verification stay internal.
+ */
+@Composable
+private fun AutomaticBackupSection(
+    state: AutoBackupLocalState,
+    cadence: AutoBackupCadence,
+    customDaysText: String,
+    retention: Int,
+    folderSelectionError: AutoBackupFolderSelection?,
+    onChooseFolder: () -> Unit,
+    onEnabledChange: (Boolean) -> Unit,
+    onCadenceChange: (AutoBackupCadence) -> Unit,
+    onCustomDaysChange: (String) -> Unit,
+    onRetentionChange: (Int) -> Unit,
+) {
+    val hasFolder = state.folderUri != null
+    SectionHeader("Automatic Backup")
+    Text("Backup Folder", style = AppTheme.textStyles.settingTitle)
+    Text(
+        state.folderLabel ?: "No folder selected.",
+        style = AppTheme.textStyles.settingDescription,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    AppButton(onClick = onChooseFolder) {
+        Text(if (hasFolder) "Change Backup Folder" else "Choose Backup Folder")
+    }
+    SettingToggleRow(
+        checked = state.enabled,
+        onCheckedChange = onEnabledChange,
+        title = "Back Up Automatically",
+        subtitle = if (hasFolder) null else "Choose a backup folder first.",
+        enabled = hasFolder,
+    )
+    Text("How Often", style = AppTheme.textStyles.settingTitle)
+    AutoBackupCadence.entries.forEach { option ->
+        NavStyleRadioRow(
+            label = option.label(),
+            selected = cadence == option,
+            onSelect = { onCadenceChange(option) },
+        )
+    }
+    if (cadence == AutoBackupCadence.CUSTOM) {
+        val invalid = AutoBackupPolicy.parseCustomDays(customDaysText) == null
+        Text("Number of Days", style = AppTheme.textStyles.settingTitle)
+        if (invalid) Text("Enter a number from 1 to 365.", style = AppTheme.textStyles.settingDescription, color = MaterialTheme.colorScheme.error)
+        OutlinedTextField(
+            value = customDaysText,
+            onValueChange = onCustomDaysChange,
+            singleLine = true,
+            accessibleLabel = "Number of Days",
+            isError = invalid,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    Text("Backups to Keep", style = AppTheme.textStyles.settingTitle)
+    AutoBackupPolicy.RETENTION_CHOICES.forEach { option ->
+        NavStyleRadioRow(
+            label = option.toString(),
+            selected = retention == option,
+            onSelect = { onRetentionChange(option) },
+        )
+    }
+    Text(
+        state.lastSuccessAt?.let { "Last backup: ${formatBackupTime(it)}" } ?: "No automatic backups yet.",
+        style = AppTheme.textStyles.settingDescription,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    folderSelectionError?.let { error ->
+        Text(
+            when (error) {
+                AutoBackupFolderSelection.PERMISSION_DENIED -> "Data Dragon doesn't have permission to use this folder."
+                AutoBackupFolderSelection.CANNOT_SAVE -> "Data Dragon can't save backups to this folder."
+                AutoBackupFolderSelection.SELECTED -> ""
+            },
+            style = AppTheme.textStyles.settingDescription,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+    state.error?.let { error ->
+        Text(
+            error.message(),
+            style = AppTheme.textStyles.settingDescription,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+}
+
+private fun AutoBackupCadence.label(): String = when (this) {
+    AutoBackupCadence.DAILY -> "Daily"
+    AutoBackupCadence.WEEKLY -> "Weekly"
+    AutoBackupCadence.CUSTOM -> "Custom"
+}
+
+private fun AutoBackupError.message(): String = when (this) {
+    AutoBackupError.PERMISSION_LOST ->
+        "Backup failed because Data Dragon no longer has access to this folder. Tap change backup folder and select it again."
+    AutoBackupError.FOLDER_MISSING ->
+        "Backup failed because this folder can't be found. It may have been moved, deleted, or disconnected. Tap change backup folder to choose another."
+    AutoBackupError.WRITE_FAILED -> "Backup couldn't be saved to this folder. Retrying."
+    AutoBackupError.VERIFY_FAILED -> "Backup couldn't be verified. Retrying."
+}
+
+/** Times read `Sep 22, 2026 at 2:32 PM` (docs/STYLE.md §12). */
+private val BACKUP_TIME_FORMAT: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("MMM d, yyyy 'at' h:mm a", Locale.getDefault())
+
+private fun formatBackupTime(epochMillis: Long): String =
+    Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()).format(BACKUP_TIME_FORMAT)

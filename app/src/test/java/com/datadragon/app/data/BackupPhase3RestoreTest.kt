@@ -35,6 +35,32 @@ class BackupPhase3RestoreTest {
     fun tearDown() = db.close()
 
     @Test
+    fun failedUndoPreparationStopsTheFirstMergeMutation() = runBlocking {
+        db.luckyListDao().insertList(LuckyList(uuid = "protected-undo", name = "Current", createdAt = 1))
+        val incoming = BackupFile(
+            exportedAt = "2026-10-10T00:00:00Z",
+            includedCategories = listOf(BackupCategory.LUCKY_LISTS),
+            payload = BackupPayload(luckyLists = listOf(BackupLuckyList("protected-undo", "Incoming", 1, false, false, emptyList()))),
+        )
+        val repository = BackupRepository(db)
+        val conflicts = repository.preflight(incoming, RestoreMode.MERGE).conflicts
+        var preparations = 0
+        val outcome = runCatching {
+            repository.restore(incoming, RestoreMode.MERGE,
+                conflictChoices = conflicts.associate { it.id to RestoreConflictChoice.USE_BACKUP },
+                beforeMutation = {
+                    preparations++
+                    assertEquals("Current", db.luckyListDao().getByUuid("protected-undo")!!.name)
+                    throw java.io.IOException("Undo storage unavailable")
+                })
+        }
+        assertTrue(outcome.isFailure)
+        assertEquals(1, preparations)
+        assertEquals("Current", db.luckyListDao().getByUuid("protected-undo")!!.name)
+    }
+
+
+    @Test
     fun replaceRestoresEveryCategoryRemapsRelationshipsAndAppliesPreferences() = runBlocking {
         var preferences = BackupPortablePreferences()
         val incomingPreferences = preferences.copy(autoCapitalizeLabels = false, lastHomeView = HomeView.CLICKER.key)

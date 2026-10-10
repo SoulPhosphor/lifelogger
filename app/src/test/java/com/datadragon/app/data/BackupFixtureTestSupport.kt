@@ -46,6 +46,8 @@ object BackupFixtureTestSupport {
             sqlite.execSQL("DROP INDEX IF EXISTS `index_${table}_uuid`")
             sqlite.execSQL("DROP TRIGGER IF EXISTS `prevent_${table}_uuid_update`")
         }
+        BackupRevisionTracking.expectedTriggerNames().forEach { sqlite.execSQL("DROP TRIGGER IF EXISTS `$it`") }
+        sqlite.execSQL("DROP TABLE IF EXISTS `${BackupRevisionTracking.TABLE}`")
         sqlite.execSQL("ALTER TABLE color_presets RENAME TO color_presets_v19")
         sqlite.execSQL(
             "CREATE TABLE color_presets (" +
@@ -74,8 +76,9 @@ object BackupFixtureTestSupport {
 
         return Room.databaseBuilder(context, AppDatabase::class.java, name)
             .allowMainThreadQueries()
-            .addMigrations(AppDatabase.MIGRATION_18_19, AppDatabase.MIGRATION_19_20)
+            .addMigrations(AppDatabase.MIGRATION_18_19, AppDatabase.MIGRATION_19_20, AppDatabase.MIGRATION_20_21, AppDatabase.MIGRATION_21_22)
             .addCallback(AppDatabase.UUID_IDENTITY_CALLBACK)
+            .addCallback(AppDatabase.BACKUP_REVISION_CALLBACK)
             .build()
             .also { it.openHelper.writableDatabase }
     }

@@ -17,6 +17,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import com.datadragon.app.data.RoomLuckyListStore
+import com.datadragon.app.export.LuckyListExport
 
 /**
  * Backs a single open list. The editing logic lives in [ChecklistDraftManager]
@@ -29,9 +33,14 @@ import kotlinx.coroutines.flow.StateFlow
  * - **Established list** (`load(id)`): loaded from the database and auto-saved —
  *   item/title text is debounced, structural changes save immediately.
  */
-class ChecklistViewModel(app: Application) : AndroidViewModel(app) {
+open class ChecklistViewModel @JvmOverloads constructor(app: Application, private val lucky: Boolean = false) : AndroidViewModel(app) {
 
-    private val store = RoomChecklistStore(AppDatabase.getInstance(app))
+    private val db = AppDatabase.getInstance(app)
+    private val _exclusion = MutableStateFlow(false)
+    val exclusion: StateFlow<Boolean> = _exclusion
+    private val _ready = MutableStateFlow(!lucky)
+    val ready: StateFlow<Boolean> = _ready
+    private val store = if (lucky) RoomLuckyListStore(db) { _exclusion.value } else RoomChecklistStore(db)
     private val settings = SettingsRepository(app)
     private val manager = ChecklistDraftManager(store, viewModelScope, cleanupScope)
 
@@ -47,11 +56,31 @@ class ChecklistViewModel(app: Application) : AndroidViewModel(app) {
     private val _crossOut = MutableStateFlow(settings.crossOutWhenCompleted)
     val crossOut: StateFlow<Boolean> = _crossOut
 
+    private var initialized = false
+    private var loadedId: Long? = null
+
     /** [id] null means a brand-new (unsaved) list; otherwise load an existing one. */
     fun load(id: Long?) {
+        if (initialized && loadedId == id) return
+        initialized = true
+        loadedId = id
         _completeIcon.value = settings.completeIcon
         _crossOut.value = settings.crossOutWhenCompleted
-        manager.load(id, settings.moveCompletedToBottom)
+        manager.load(id, if (lucky) false else settings.moveCompletedToBottom)
+        if (lucky) viewModelScope.launch {
+            _exclusion.value = id?.let { db.luckyListDao().getList(it)?.excludePreviouslySelected } ?: false
+            _ready.value = true
+        }
+    }
+
+    private var exclusionWrite: Job? = null
+
+    fun setExclusion(value: Boolean) {
+        _exclusion.value = value
+        exclusionWrite = cleanupScope.launch {
+            manager.flushPending()
+            manager.persistedId()?.let { db.luckyListDao().setExclusion(it, _exclusion.value) }
+        }
     }
 
     fun setTitle(text: String) = manager.setTitle(text)
@@ -65,7 +94,10 @@ class ChecklistViewModel(app: Application) : AndroidViewModel(app) {
     fun onTitleFocusLost() = manager.onTitleFocusLost()
 
     /** Flush pending text and wait for it, before an explicit Back/navigation. */
-    suspend fun flushPending() = manager.flushPending()
+    suspend fun flushPending() {
+        manager.flushPending()
+        exclusionWrite?.join()
+    }
 
     /** Best-effort flush when the app is backgrounded. */
     fun flushOnBackground() = manager.flushOnBackground()
@@ -74,7 +106,7 @@ class ChecklistViewModel(app: Application) : AndroidViewModel(app) {
     fun onLeave() = manager.onLeave()
 
     /** Save: finalize the draft into a normal saved list, flush, then report done. */
-    fun save(onSaved: () -> Unit) = manager.save(onSaved)
+    fun save(onSaved: () -> Unit) { viewModelScope.launch { flushPending(); manager.save(onSaved) } }
 
     /** Discard: delete the draft and its items, then report done. */
     fun discardDraft(onDiscarded: () -> Unit) = manager.discardDraft(onDiscarded)
@@ -89,8 +121,12 @@ class ChecklistViewModel(app: Application) : AndroidViewModel(app) {
      * matches what's on screen.
      */
     suspend fun buildExport(format: ChecklistExportFormat): ExportContent? {
-        manager.flushPending()
+        flushPending()
         val id = manager.persistedId() ?: return null
+        if (lucky) {
+            val list = db.luckyListDao().getList(id) ?: return null
+            return LuckyListExport.build(list, db.luckyListDao().getItemsOnce(id), format)
+        }
         val checklist = store.getChecklist(id) ?: return null
         val items = store.getItemsOnce(id)
         return when (format) {
@@ -107,3 +143,5 @@ class ChecklistViewModel(app: Application) : AndroidViewModel(app) {
         private val cleanupScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     }
 }
+
+class LuckyListViewModel(app: Application) : ChecklistViewModel(app, lucky = true)

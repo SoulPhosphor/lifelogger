@@ -17,6 +17,7 @@ import kotlinx.serialization.json.jsonPrimitive
 enum class BackupCategory {
     @SerialName("forms") FORMS,
     @SerialName("lists") LISTS,
+    @SerialName("lucky_lists") LUCKY_LISTS,
     @SerialName("idea_logs") IDEA_LOGS,
     @SerialName("daily_tasks") DAILY_TASKS,
     @SerialName("clicker_data") CLICKER_DATA,
@@ -47,7 +48,10 @@ data class BackupFile(
 
     companion object {
         const val FORMAT = "datadragon-backup"
-        const val VERSION = 3
+        const val VERSION = 5
+
+        /** Version 3 is the first envelope format; it lacks the automatic-backup preferences. */
+        const val FIRST_ENVELOPE_VERSION = 3
 
         fun full(
             exportedAt: String,
@@ -61,7 +65,17 @@ data class BackupFile(
             sourceAppVersion = sourceAppVersion,
             roomSchemaVersion = roomSchemaVersion,
             includedCategories = BackupCategory.entries,
-            payload = payload,
+            payload = payload.copy(
+                luckyLists = payload.luckyLists ?: emptyList(),
+                portablePreferences = payload.portablePreferences?.let {
+                    it.copy(
+                        modeEnabledLuckyList = it.modeEnabledLuckyList ?: false,
+                        automaticBackupCadence = it.automaticBackupCadence ?: AutoBackupCadence.DEFAULT.key,
+                        automaticBackupCustomDays = it.automaticBackupCustomDays ?: AutoBackupPolicy.DEFAULT_CUSTOM_DAYS,
+                        automaticBackupRetention = it.automaticBackupRetention ?: AutoBackupPolicy.DEFAULT_RETENTION,
+                    )
+                },
+            ),
         )
 
         fun single(
@@ -81,6 +95,7 @@ data class BackupFile(
     }
 }
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class BackupPayload(
     val forms: List<BackupLog>? = null,
@@ -90,8 +105,13 @@ data class BackupPayload(
     val clickerData: List<BackupClickerLog>? = null,
     val savedColorPresets: List<BackupColorPreset>? = null,
     val portablePreferences: BackupPortablePreferences? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val luckyLists: List<BackupLuckyList>? = null,
 )
 
+private const val BASE_PORTABLE_PREFERENCE_COUNT = 26
+private const val AUTOMATIC_BACKUP_PREFERENCE_COUNT = 3
+
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class BackupCounts(
     val forms: Int = 0,
@@ -109,9 +129,15 @@ data class BackupCounts(
     val clickerCards: Int = 0,
     val savedColorPresets: Int = 0,
     val portablePreferences: Int = 0,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val luckyLists: Int = 0,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val luckyListItems: Int = 0,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val luckyListDrafts: Int = 0,
 ) {
     companion object {
         fun from(payload: BackupPayload): BackupCounts = BackupCounts(
+            luckyLists = payload.luckyLists?.size ?: 0,
+            luckyListItems = payload.luckyLists?.sumOf { it.items.size } ?: 0,
+            luckyListDrafts = payload.luckyLists?.count { it.draft } ?: 0,
             forms = payload.forms?.size ?: 0,
             formEntries = payload.forms?.sumOf { it.entries.size } ?: 0,
             followUpNotes = payload.forms?.sumOf { form -> form.entries.sumOf { it.notes.size } } ?: 0,
@@ -126,9 +152,11 @@ data class BackupCounts(
             clickerLogs = payload.clickerData?.size ?: 0,
             clickerCards = payload.clickerData?.sumOf { it.cards.size } ?: 0,
             savedColorPresets = payload.savedColorPresets?.size ?: 0,
-            // The 26 fixed preferences, plus one per Clicker grouping's Follow-Up
-            // Notes show/hide choice (none in backups made before that existed).
-            portablePreferences = payload.portablePreferences?.let { 26 + (it.clickerFollowUpShown?.size ?: 0) } ?: 0,
+            portablePreferences = payload.portablePreferences?.let { preferences ->
+                BASE_PORTABLE_PREFERENCE_COUNT + (preferences.clickerFollowUpShown?.size ?: 0) +
+                    (if (preferences.modeEnabledLuckyList != null) 1 else 0) +
+                    if (preferences.hasAutomaticBackupPreferences) AUTOMATIC_BACKUP_PREFERENCE_COUNT else 0
+            } ?: 0,
         )
     }
 }
@@ -160,6 +188,19 @@ data class BackupCalendar(
     val description: String = "",
     val configJson: String = "",
 )
+
+@Serializable
+data class BackupLuckyList(
+    val uuid: String,
+    val name: String,
+    val createdAt: Long,
+    val draft: Boolean,
+    val excludePreviouslySelected: Boolean,
+    val items: List<BackupLuckyListItem>,
+)
+
+@Serializable
+data class BackupLuckyListItem(val text: String, val position: Int)
 
 @Serializable
 data class BackupChecklist(
@@ -279,8 +320,11 @@ data class BackupClickerCard(
 data class BackupColorPreset(val uuid: String, val name: String, val colorsJson: String)
 
 /**
- * Explicit allowlist of the 26 portable preferences that currently exist, plus
- * the per-grouping Clicker Follow-Up Notes show/hide choices.
+ * Explicit allowlist of the portable preferences. The automatic-backup cadence,
+ * custom day count, and retention were added in format version 4. They are null
+ * only for a version-3 file, which never carried them, and are then omitted from
+ * the canonical payload so version-3 checksums remain valid. Restoring a
+ * version-3 file leaves the current automatic-backup preferences unchanged.
  */
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
@@ -292,6 +336,7 @@ data class BackupPortablePreferences(
     val navUseModeLabel: Boolean = true,
     val modeEnabledForms: Boolean = true,
     val modeEnabledLists: Boolean = true,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val modeEnabledLuckyList: Boolean? = null,
     val modeEnabledIdeas: Boolean = true,
     val modeEnabledDailyList: Boolean = true,
     val modeEnabledClicker: Boolean = true,
@@ -322,7 +367,26 @@ data class BackupPortablePreferences(
      */
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val clickerFollowUpShown: Map<String, Boolean>? = null,
-)
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val automaticBackupCadence: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val automaticBackupCustomDays: Int? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val automaticBackupRetention: Int? = null,
+) {
+    val hasAutomaticBackupPreferences: Boolean
+        get() = automaticBackupCadence != null || automaticBackupCustomDays != null || automaticBackupRetention != null
+
+    val hasCompleteAutomaticBackupPreferences: Boolean
+        get() = automaticBackupCadence != null && automaticBackupCustomDays != null && automaticBackupRetention != null
+
+    companion object {
+        /** Every portable preference at its default, including the version-4 automatic-backup fields. */
+        fun defaults(): BackupPortablePreferences = BackupPortablePreferences(
+            modeEnabledLuckyList = false,
+            automaticBackupCadence = AutoBackupCadence.DEFAULT.key,
+            automaticBackupCustomDays = AutoBackupPolicy.DEFAULT_CUSTOM_DAYS,
+            automaticBackupRetention = AutoBackupPolicy.DEFAULT_RETENTION,
+        )
+    }
+}
 
 data class UndoSnapshot(
     val capturedAt: String,
@@ -388,7 +452,11 @@ object BackupCodec {
                 "This backup version is not supported."
             }
         }
-        return if (version == BackupFile.VERSION) decodeCurrent(text) else decodeLegacy(text, version)
+        return if (version >= BackupFile.FIRST_ENVELOPE_VERSION) {
+            decodeCurrent(text)
+        } else {
+            decodeLegacy(text, version)
+        }
     }
 
     fun encodeSnapshot(snapshot: UndoSnapshot): String = diskJson.encodeToString(
@@ -441,9 +509,22 @@ object BackupCodec {
         require(backup.format == BackupFile.FORMAT) { "This file is not a Data Dragon backup." }
         val payload = canonicalPayload(backup.payload)
         validateManifest(backup.includedCategories, payload)
+        val preferences = payload.portablePreferences
+        require(
+            preferences == null ||
+                !preferences.hasAutomaticBackupPreferences ||
+                preferences.hasCompleteAutomaticBackupPreferences,
+        ) { "Backup automatic backup preferences are incomplete." }
+        // Preferences converted from a version-3 file lack the version-4 fields,
+        // so they are re-encoded with the version that truthfully describes them.
+        val version = if (preferences != null && !preferences.hasAutomaticBackupPreferences && payload.luckyLists == null && preferences.modeEnabledLuckyList == null) {
+            BackupFile.FIRST_ENVELOPE_VERSION
+        } else {
+            BackupFile.VERSION
+        }
         return BackupEnvelopeV3(
             format = BackupFile.FORMAT,
-            version = BackupFile.VERSION,
+            version = version,
             backupId = backup.backupId ?: StableUuid.createNew(),
             createdAt = backup.exportedAt,
             sourceAppVersion = backup.sourceAppVersion ?: "legacy-import",
@@ -457,8 +538,24 @@ object BackupCodec {
 
     private fun validateAndConvert(envelope: BackupEnvelopeV3): BackupFile {
         require(envelope.format == BackupFile.FORMAT) { "This file is not a Data Dragon backup." }
-        require(envelope.version == BackupFile.VERSION) { "This backup version is not supported." }
+        require(envelope.version in BackupFile.FIRST_ENVELOPE_VERSION..BackupFile.VERSION) {
+            "This backup version is not supported."
+        }
         require(envelope.backupId.isNotBlank()) { "Backup ID is missing." }
+        envelope.payload.portablePreferences?.let { preferences ->
+            if (envelope.version == BackupFile.FIRST_ENVELOPE_VERSION) {
+                require(!preferences.hasAutomaticBackupPreferences) {
+                    "A version 3 backup cannot contain automatic backup preferences."
+                }
+            } else {
+                require(preferences.hasCompleteAutomaticBackupPreferences) {
+                    "Backup is missing its automatic backup preferences."
+                }
+            }
+        }
+        require(envelope.version >= 5 || (envelope.payload.luckyLists == null && envelope.payload.portablePreferences?.modeEnabledLuckyList == null)) {
+            "Lucky List data requires backup version 5."
+        }
         validateManifest(envelope.includedCategories, envelope.payload)
         val canonical = canonicalPayload(envelope.payload)
         require(envelope.counts == BackupCounts.from(canonical)) { "Backup category counts do not match its payload." }
@@ -481,6 +578,7 @@ object BackupCodec {
         val declared = categories.toSet()
         val present = buildSet {
             if (payload.forms != null) add(BackupCategory.FORMS)
+            if (payload.luckyLists != null) add(BackupCategory.LUCKY_LISTS)
             if (payload.lists != null) add(BackupCategory.LISTS)
             if (payload.ideaLogs != null) add(BackupCategory.IDEA_LOGS)
             if (payload.dailyTasks != null) add(BackupCategory.DAILY_TASKS)
@@ -497,6 +595,7 @@ object BackupCodec {
     }
 
     private fun canonicalPayload(payload: BackupPayload): BackupPayload = payload.copy(
+        luckyLists = payload.luckyLists?.let(::canonicalLuckyLists),
         forms = payload.forms?.let(::canonicalForms),
         lists = payload.lists?.let(::canonicalLists),
         ideaLogs = payload.ideaLogs?.map { log ->
@@ -522,6 +621,19 @@ object BackupCodec {
             calendars = form.calendars.sortedWith(compareBy({ it.position }, { it.type }, { it.label })),
         )
     }.sortedWith(compareBy({ it.uuid }, { it.createdAt }, { it.name }))
+
+    internal fun canonicalLuckyLists(lists: List<BackupLuckyList>): List<BackupLuckyList> =
+        lists.map { it.copy(items = it.items.sortedBy { item -> item.position }) }
+            .sortedWith(compareBy({ it.uuid }, { it.createdAt }, { it.name }))
+
+    fun luckyListOf(list: LuckyList, items: List<LuckyListItem>) = BackupLuckyList(
+        list.uuid, list.name, list.createdAt, list.draft, list.excludePreviouslySelected,
+        items.map { BackupLuckyListItem(it.text, it.position) },
+    )
+
+    fun encodeSingleLuckyList(list: LuckyList, items: List<LuckyListItem>, exportedAt: String): String = encode(
+        BackupFile.single(exportedAt, BackupCategory.LUCKY_LISTS, BackupPayload(luckyLists = listOf(luckyListOf(list, items)))),
+    )
 
     private fun canonicalLists(lists: List<BackupChecklist>): List<BackupChecklist> = lists.map { list ->
         list.copy(items = list.items.sortedWith(compareBy({ it.position }, { it.text })))

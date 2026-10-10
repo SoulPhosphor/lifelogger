@@ -10,9 +10,16 @@ interface BackupDestination {
     fun openInputStream(): InputStream?
 }
 
+/** The complete backup could not be written to and closed at the destination. */
+class BackupWriteException(message: String, cause: Throwable? = null) : Exception(message, cause)
+
+/** The destination was written but did not reopen, decode, and validate as the prepared backup. */
+class BackupVerificationException(message: String, cause: Throwable? = null) : Exception(message, cause)
+
 /**
  * Writes a complete current backup and reports success only after reopening the
  * actual destination and validating its contents with the shared codec and semantic validator.
+ * Manual and automatic backup both use this writer.
  */
 class BackupFileWriter {
     fun validateFullBackup(encoded: String): BackupFile = validatedFullBackup(encoded)
@@ -20,19 +27,31 @@ class BackupFileWriter {
     fun writeAndVerify(destination: BackupDestination, encoded: String): BackupFile {
         val prepared = validatedFullBackup(encoded)
 
-        destination.openOutputStream()?.use { output ->
-            output.write(encoded.toByteArray(StandardCharsets.UTF_8))
-            output.flush()
-        } ?: error("No output stream")
-
-        val saved = destination.openInputStream()?.use { input ->
-            input.readBytes().toString(StandardCharsets.UTF_8)
-        } ?: error("No input stream")
-        val reopened = validatedFullBackup(saved)
-        check(BackupCodec.encode(reopened) == BackupCodec.encode(prepared)) {
-            "Saved backup does not match the prepared backup."
+        try {
+            destination.openOutputStream()?.use { output ->
+                output.write(encoded.toByteArray(StandardCharsets.UTF_8))
+                output.flush()
+            } ?: throw BackupWriteException("No output stream")
+        } catch (error: BackupWriteException) {
+            throw error
+        } catch (error: Exception) {
+            throw BackupWriteException(error.message ?: "The backup could not be written.", error)
         }
-        return reopened
+
+        try {
+            val saved = destination.openInputStream()?.use { input ->
+                input.readBytes().toString(StandardCharsets.UTF_8)
+            } ?: throw BackupVerificationException("No input stream")
+            val reopened = validatedFullBackup(saved)
+            if (BackupCodec.encode(reopened) != BackupCodec.encode(prepared)) {
+                throw BackupVerificationException("Saved backup does not match the prepared backup.")
+            }
+            return reopened
+        } catch (error: BackupVerificationException) {
+            throw error
+        } catch (error: Exception) {
+            throw BackupVerificationException(error.message ?: "The saved backup could not be verified.", error)
+        }
     }
 
     private fun validatedFullBackup(encoded: String): BackupFile {

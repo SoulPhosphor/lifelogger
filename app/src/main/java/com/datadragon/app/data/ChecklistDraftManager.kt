@@ -219,6 +219,9 @@ class ChecklistDraftManager(
      * caller's scope is cancelled as the screen tears down.
      */
     suspend fun flushPending() {
+        // Initial crash-safety creation may still be in flight when a settings
+        // change or explicit navigation requests a flush. Wait for its row ID.
+        creationMutex.withLock { }
         survivingScope.launch { writer.flushAll() }.join()
     }
 

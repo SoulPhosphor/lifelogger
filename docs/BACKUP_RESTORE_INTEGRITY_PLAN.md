@@ -315,6 +315,8 @@ Improve folder setup:
 - Build the complete pre-import snapshot.
 - Write it to an app-private temporary file, close it, reopen and validate it, then atomically rename it into the undo slot before changing the database.
 - If the undo snapshot cannot be secured, do not start the restore.
+- Secure the snapshot immediately before the first actual mutation, within the restore transaction while its pre-import state is unchanged. A Merge that skips every item preserves the preceding useful Undo slot.
+- Restore and Undo share the automatic-backup runner lock; preference-triggered scheduling and workers wait for the entire restore to commit or roll back.
 - Perform the database restore in one Room transaction.
 - A failed database restore leaves the database unchanged and the valid pre-import snapshot available.
 - Do not report an undo-file failure as though the database rolled back when it did not.

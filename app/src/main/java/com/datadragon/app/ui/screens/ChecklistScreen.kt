@@ -79,6 +79,17 @@ import com.datadragon.app.data.CompleteIcon
 import com.datadragon.app.export.ChecklistExportFormat
 import com.datadragon.app.export.ExportContent
 import com.datadragon.app.ui.ChecklistViewModel
+import com.datadragon.app.ui.LuckyListViewModel
+import com.datadragon.app.data.LuckySelectionSession
+import com.datadragon.app.ui.components.AppButton
+import com.datadragon.app.ui.components.DialogActionButton
+import com.datadragon.app.ui.theme.AppTheme
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import com.datadragon.app.ui.components.AddItemRow
 import com.datadragon.app.ui.components.AppDialog
 import com.datadragon.app.ui.components.ListEditorItemRow
@@ -95,7 +106,8 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 fun ChecklistScreen(
     checklistId: String?,
     onBack: () -> Unit,
-    viewModel: ChecklistViewModel = viewModel(),
+    lucky: Boolean = false,
+    viewModel: ChecklistViewModel = if (lucky) viewModel<LuckyListViewModel>() else viewModel(),
 ) {
     val idLong = checklistId?.toLongOrNull()
     LaunchedEffect(checklistId) { viewModel.load(idLong) }
@@ -104,6 +116,17 @@ fun ChecklistScreen(
     val exportScope = rememberCoroutineScope()
     var menuOpen by remember { mutableStateOf(false) }
     var showFormatChooser by remember { mutableStateOf(false) }
+    var showLuckySettings by rememberSaveable { mutableStateOf(false) }
+    val exclusion by viewModel.exclusion.collectAsStateWithLifecycle()
+    val ready by viewModel.ready.collectAsStateWithLifecycle()
+    val session = remember { LuckySelectionSession() }
+    var winner by remember { mutableStateOf<ChecklistItem?>(null) }
+    var showExhausted by remember { mutableStateOf(false) }
+    fun closeWinner() { winner = null; showExhausted = false; session.reset() }
+    fun spin() {
+        val next = session.select(viewModel.items.value, exclusion)
+        if (next == null) showExhausted = true else winner = next
+    }
     var showDeleteList by remember { mutableStateOf(false) }
 
     // The file being saved: the user picks the destination and name via the
@@ -174,12 +197,17 @@ fun ChecklistScreen(
     var showDiscard by rememberSaveable { mutableStateOf(false) }
     fun leaveFlushing() { scope.launch { viewModel.flushPending(); onBack() } }
     fun attemptBack() { if (isDraft && hasContent) showDiscard = true else leaveFlushing() }
-    BackHandler { attemptBack() }
+    BackHandler { if (showLuckySettings) showLuckySettings = false else attemptBack() }
 
     // Which row is being edited (shows its +/× controls), and which newly-added
     // row should grab focus next.
     var focusedItemId by rememberSaveable { mutableStateOf<Long?>(null) }
     var pendingFocusId by rememberSaveable { mutableStateOf<Long?>(null) }
+    LaunchedEffect(checklistId, lucky) {
+        if (lucky && idLong == null && viewModel.items.value.isEmpty()) {
+            viewModel.addItem { pendingFocusId = it }
+        }
+    }
 
     val lazyListState = rememberLazyListState()
     val density = LocalDensity.current
@@ -198,18 +226,30 @@ fun ChecklistScreen(
         }
     }
 
-    Scaffold(
+    if (showLuckySettings) {
+        LuckyListSettingsScreen(
+            checked = exclusion,
+            enabled = ready,
+            onCheckedChange = viewModel::setExclusion,
+            onBack = { showLuckySettings = false },
+        )
+    } else Scaffold(
         topBar = {
             TopAppBar(
                 // The list's name sits in the top bar, immediately right of the
                 // double-chevron Back button, and stays editable there.
                 title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (lucky) IconButton(onClick = { showLuckySettings = true }) {
+                        Icon(Icons.Filled.Settings, contentDescription = "Lucky List Settings", modifier = Modifier.size(AppTheme.sizes.settingsCog))
+                    }
                     EditableTitleField(
                         value = title,
                         onValueChange = viewModel::setTitle,
                         onFocusLost = viewModel::onTitleFocusLost,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.weight(1f),
                     )
+                    }
                 },
                 navigationIcon = {
                     IconButton(onClick = { attemptBack() }) {
@@ -287,6 +327,8 @@ fun ChecklistScreen(
                             onAddSubItem = {
                                 viewModel.addSubItem(item.id) { newId -> pendingFocusId = newId }
                             },
+                            showCompletion = !lucky,
+                            allowSubItems = !lucky,
                             onDelete = {
                                 if (focusedItemId == item.id) focusedItemId = null
                                 viewModel.deleteItem(item.id)
@@ -294,13 +336,54 @@ fun ChecklistScreen(
                         )
                     }
                 }
+                if (lucky) item(key = "addLuckyItem") {
+                    AddItemRow(
+                        onClick = { viewModel.addItem { newId -> pendingFocusId = newId } },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
 
-            AddItemRow(
+            if (lucky) Row(
+                modifier = Modifier.fillMaxWidth().padding(AppTheme.spacing.screenInset),
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                AppButton(
+                    onClick = { session.reset(); spin() },
+                    enabled = hasText && ready,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        // Reserve both captions so changing eligibility never resizes the button.
+                        Text("Select Lucky Item", modifier = Modifier.alpha(0f).clearAndSetSemantics { })
+                        Text("No Items to Select", modifier = Modifier.alpha(0f).clearAndSetSemantics { })
+                        Text(if (hasText) "Select Lucky Item" else "No Items to Select", textAlign = TextAlign.Center)
+                    }
+                }
+            }
+            if (!lucky) AddItemRow(
                 onClick = { viewModel.addItem { newId -> pendingFocusId = newId } },
                 modifier = Modifier.fillMaxWidth(),
             )
         }
+    }
+
+    if (lucky && winner != null && !showExhausted) {
+        AppDialog(
+            title = "We have a winner!",
+            onDismissRequest = ::closeWinner,
+            bodyContent = { Text(winner!!.text, style = AppTheme.textStyles.luckyWinner, color = MaterialTheme.colorScheme.onSurface) },
+            dismissButton = { DialogActionButton("Spin Again") { spin() } },
+            confirmButton = { DialogDismissButton("Okay") { closeWinner() } },
+        )
+    }
+    if (showExhausted) {
+        AppDialog(
+            title = "All items have been selected.",
+            body = "Start fresh so all options are available again?",
+            onDismissRequest = { showExhausted = false },
+            dismissButton = { DialogDismissButton("Cancel") { showExhausted = false } },
+            confirmButton = { DialogActionButton("Start Fresh") { session.reset(); showExhausted = false; spin() } },
+        )
     }
 
     if (showDiscard) {
@@ -313,7 +396,7 @@ fun ChecklistScreen(
 
     if (showFormatChooser) {
         ExportFormatDialog(
-            thing = "List",
+            thing = if (lucky) "Lucky List" else "List",
             onDismiss = { showFormatChooser = false },
             options = listOf(
                 ExportFormatOption(
@@ -330,7 +413,7 @@ fun ChecklistScreen(
                 ) { startSave(ChecklistExportFormat.PDF) },
                 ExportFormatOption(
                     "Application Data (.json)",
-                    "Use this file to import or restore this list later",
+                    if (lucky) "Use this file to import or restore this lucky list later" else "Use this file to import or restore this list later",
                 ) { startSave(ChecklistExportFormat.JSON) },
             ),
         )

@@ -42,6 +42,8 @@ data class AppTextStyles(
      * value. Buttons and drop-downs share it so they read as the same control.
      */
     val controlLabel: TextStyle,
+    /** Lucky winner is two sp larger than the normal popup title. */
+    val luckyWinner: TextStyle,
     /** Weight only: inline labels continue inheriting their surrounding type size. */
     val readoutLabelWeight: FontWeight,
 )
@@ -60,6 +62,7 @@ val DefaultAppTextStyles = AppTextStyles(
     dialogOptionTitle = AppTypography.bodyLarge,
     dialogOptionSubtitle = AppTypography.bodySmall,
     controlLabel = AppTypography.bodyLarge,
+    luckyWinner = AppTypography.headlineSmall.copy(fontSize = AppTypography.headlineSmall.fontSize.value.plus(2).sp),
     readoutLabelWeight = FontWeight.Medium,
 )
 

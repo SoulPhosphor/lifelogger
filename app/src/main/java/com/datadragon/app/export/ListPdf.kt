@@ -17,7 +17,7 @@ data class ListPdfRow(val text: String, val completed: Boolean, val indent: Int)
 object ListPdf {
 
 
-    fun writeToBytes(title: String, rows: List<ListPdfRow>): ByteArray {
+    fun writeToBytes(title: String, rows: List<ListPdfRow>, showCompletion: Boolean = true): ByteArray {
         val titlePaint = paint(PrintStyle.titleSize, bold = true)
         val bodyPaint = paint(PrintStyle.bodySize)
 
@@ -30,7 +30,7 @@ object ListPdf {
         rows.filter { it.text.isNotBlank() }.forEach { row ->
             val box = if (row.completed) "[x]" else "[ ]"
             val indent = if (row.indent == 1) PrintStyle.subIndent else 0f
-            writer.text(bodyPaint, "$box ${row.text}", indent = indent)
+            writer.text(bodyPaint, if (showCompletion) "$box ${row.text}" else row.text, indent = indent)
         }
 
         writer.finish()

@@ -1,6 +1,7 @@
 package com.datadragon.app.data
 
 import androidx.room.withTransaction
+import kotlinx.coroutines.sync.withLock
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -12,7 +13,7 @@ import java.time.temporal.ChronoUnit
  */
 class BackupRepository(
     private val db: AppDatabase,
-    private val portablePreferences: () -> BackupPortablePreferences = { BackupPortablePreferences() },
+    private val portablePreferences: () -> BackupPortablePreferences = { BackupPortablePreferences.defaults() },
     private val sourceAppVersion: String = "unknown",
     private val applyPortablePreferences: (BackupPortablePreferences) -> Unit = {},
     private val restoreFailureInjector: ((BackupCategory) -> Unit)? = null,
@@ -21,6 +22,7 @@ class BackupRepository(
     private val templateDao = db.logTemplateDao()
     private val entryDao = db.logEntryDao()
     private val noteDao = db.entryNoteDao()
+    private val luckyDao = db.luckyListDao()
     private val checklistDao = db.checklistDao()
     private val calendarDao = db.calendarDao()
     private val ideaLogDao = db.ideaLogDao()
@@ -30,7 +32,29 @@ class BackupRepository(
     private val colorPresetDao = db.colorPresetDao()
 
     /** Build every current category from one Room read transaction. */
-    suspend fun buildFull(): BackupFile = db.withTransaction {
+    suspend fun buildFull(): BackupFile = buildFullCaptured().backup
+
+    /**
+     * The same complete snapshot, together with the protected-data revision read
+     * inside the same transaction and the portable-preference revision captured
+     * with the preferences. Automatic backup marks only these revisions protected.
+     */
+    suspend fun buildFullCaptured(
+        capturePreferences: () -> Pair<BackupPortablePreferences, Long> = { portablePreferences() to 0L },
+    ): CapturedBackup = db.withTransaction {
+        val dataRevision = db.backupStateDao().dataRevision() ?: 0L
+        val (preferences, preferencesRevision) = capturePreferences()
+        CapturedBackup(
+            backup = snapshotInTransaction(preferences),
+            dataRevision = dataRevision,
+            preferencesRevision = preferencesRevision,
+        )
+    }
+
+    /** Current protected-data revision, outside any snapshot. */
+    suspend fun currentDataRevision(): Long = db.backupStateDao().dataRevision() ?: 0L
+
+    private suspend fun snapshotInTransaction(preferences: BackupPortablePreferences): BackupFile {
         val entriesByTemplate = entryDao.getAllOnce().groupBy { it.templateId }
         val notesByEntry = noteDao.getAllOnce().groupBy { it.entryId }
         val calendarsByTemplate = calendarDao.getAllOnce().groupBy { it.templateId }
@@ -48,6 +72,9 @@ class BackupRepository(
         val lists = checklistDao.getAllChecklistsOnce().map { checklist ->
             BackupCodec.checklistOf(checklist, checklistItems[checklist.id].orEmpty())
         }
+
+        val luckyItems = luckyDao.getAllItemsOnce().groupBy { it.luckyListId }
+        val luckyLists = luckyDao.getAllOnce().map { BackupCodec.luckyListOf(it, luckyItems[it.id].orEmpty()) }
 
         val ideaEntries = ideaEntryDao.getAllOnce().groupBy { it.ideaLogId }
         val ideas = ideaLogDao.getAllOnce().map { log ->
@@ -129,18 +156,19 @@ class BackupRepository(
             BackupColorPreset(preset.uuid, preset.name, preset.colorsJson)
         }
 
-        BackupFile.full(
+        return BackupFile.full(
             exportedAt = now(),
             sourceAppVersion = sourceAppVersion,
             roomSchemaVersion = AppDatabase.SCHEMA_VERSION,
             payload = BackupPayload(
                 forms = forms,
                 lists = lists,
+                luckyLists = luckyLists,
                 ideaLogs = ideas,
                 dailyTasks = dailyTasks,
                 clickerData = clickerData,
                 savedColorPresets = presets,
-                portablePreferences = portablePreferences(),
+                portablePreferences = preferences,
             ),
         )
     }
@@ -159,30 +187,42 @@ class BackupRepository(
 
     /**
      * Apply an already validated restore. Every Room category is changed inside
-     * one transaction. Portable preferences are synchronously applied first and
-     * restored to their pre-import state if the Room transaction fails.
+     * one transaction. Portable preferences are synchronously applied inside the transaction and
+     * restored to their pre-import state if it fails. The automatic runner and
+     * scheduler share the restore lock, so they see only the completed state.
      */
     suspend fun restore(
         backup: BackupFile,
         mode: RestoreMode,
         selectedCategories: Set<BackupCategory> = BackupCategory.entries.toSet(),
         conflictChoices: Map<String, RestoreConflictChoice> = emptyMap(),
-    ): RestoreCounts {
+        beforeMutation: suspend () -> Unit = {},
+    ): RestoreCounts = AutoBackupCoordinator.RUN_LOCK.withLock {
         BackupRestoreValidator.validate(backup)
         val selected = selectedCategories.intersect(backup.includedCategories.toSet())
         val currentPreferences = portablePreferences()
         val incomingPreferences = backup.payload.portablePreferences
             ?.takeIf { mode == RestoreMode.REPLACE && BackupCategory.PORTABLE_PREFERENCES in selected }
-        if (incomingPreferences != null) applyPortablePreferences(incomingPreferences)
-        return try {
+        var prepared = false
+        val prepare: suspend () -> Unit = {
+            if (!prepared) {
+                beforeMutation()
+                prepared = true
+            }
+        }
+        try {
             db.withTransaction {
+                // Prepare Undo before the first actual change, while the read
+                // transaction still contains the complete pre-import state.
+                if (mode == RestoreMode.REPLACE && selected.isNotEmpty()) prepare()
+                if (incomingPreferences != null) applyPortablePreferences(incomingPreferences)
                 when (mode) {
                     RestoreMode.REPLACE -> replaceSelected(backup, selected)
-                    RestoreMode.MERGE -> mergeSelected(backup, selected, conflictChoices)
+                    RestoreMode.MERGE -> mergeSelected(backup, selected, conflictChoices, prepare)
                 }
             }
         } catch (error: Throwable) {
-            if (incomingPreferences != null) runCatching { applyPortablePreferences(currentPreferences) }
+            if (incomingPreferences != null && prepared) runCatching { applyPortablePreferences(currentPreferences) }
             throw error
         }
     }
@@ -216,6 +256,13 @@ class BackupRepository(
             replaceLists(it)
             counts[BackupCategory.LISTS] = RestoreCategoryCounts(replaced = it.size)
             inject(BackupCategory.LISTS)
+        }
+        backup.payload.luckyLists?.takeIf { BackupCategory.LUCKY_LISTS in selected }?.let {
+            luckyDao.deleteAllItems()
+            luckyDao.deleteAllLists()
+            it.forEach { list -> insertLuckyList(list) }
+            counts[BackupCategory.LUCKY_LISTS] = RestoreCategoryCounts(replaced = it.size)
+            inject(BackupCategory.LUCKY_LISTS)
         }
         backup.payload.ideaLogs?.takeIf { BackupCategory.IDEA_LOGS in selected }?.let {
             replaceIdeas(it)
@@ -334,30 +381,43 @@ class BackupRepository(
         backup: BackupFile,
         selected: Set<BackupCategory>,
         choices: Map<String, RestoreConflictChoice>,
+        beforeMutation: suspend () -> Unit,
     ): RestoreCounts {
         val counts = linkedMapOf<BackupCategory, RestoreCategoryCounts>()
         backup.payload.forms?.takeIf { BackupCategory.FORMS in selected }?.let {
-            counts[BackupCategory.FORMS] = mergeForms(it, choices)
+            counts[BackupCategory.FORMS] = mergeForms(it, choices, beforeMutation)
             inject(BackupCategory.FORMS)
         }
         backup.payload.lists?.takeIf { BackupCategory.LISTS in selected }?.let {
-            counts[BackupCategory.LISTS] = mergeLists(it, choices)
+            counts[BackupCategory.LISTS] = mergeLists(it, choices, beforeMutation)
             inject(BackupCategory.LISTS)
         }
+        backup.payload.luckyLists?.takeIf { BackupCategory.LUCKY_LISTS in selected }?.let {
+            counts[BackupCategory.LUCKY_LISTS] = mergeWholeGroups(
+                incoming = it, uuid = { list -> list.uuid }, category = BackupCategory.LUCKY_LISTS,
+                current = { uuid -> luckyDao.getByUuid(uuid)?.let { list -> snapshotLuckyList(list) } },
+                same = { a, b -> BackupCodec.canonicalLuckyLists(listOf(a)) == BackupCodec.canonicalLuckyLists(listOf(b)) },
+                insert = ::insertLuckyList,
+                delete = { list -> luckyDao.getByUuid(list.uuid)?.let { current -> luckyDao.deleteWithItems(current.id) } },
+                choices = choices,
+                beforeMutation = beforeMutation,
+            )
+            inject(BackupCategory.LUCKY_LISTS)
+        }
         backup.payload.ideaLogs?.takeIf { BackupCategory.IDEA_LOGS in selected }?.let {
-            counts[BackupCategory.IDEA_LOGS] = mergeIdeas(it, choices)
+            counts[BackupCategory.IDEA_LOGS] = mergeIdeas(it, choices, beforeMutation)
             inject(BackupCategory.IDEA_LOGS)
         }
         backup.payload.dailyTasks?.takeIf { BackupCategory.DAILY_TASKS in selected }?.let {
-            counts[BackupCategory.DAILY_TASKS] = mergeDailyTasks(it, choices)
+            counts[BackupCategory.DAILY_TASKS] = mergeDailyTasks(it, choices, beforeMutation)
             inject(BackupCategory.DAILY_TASKS)
         }
         backup.payload.clickerData?.takeIf { BackupCategory.CLICKER_DATA in selected }?.let {
-            counts[BackupCategory.CLICKER_DATA] = mergeClickerData(it, choices)
+            counts[BackupCategory.CLICKER_DATA] = mergeClickerData(it, choices, beforeMutation)
             inject(BackupCategory.CLICKER_DATA)
         }
         backup.payload.savedColorPresets?.takeIf { BackupCategory.SAVED_COLOR_PRESETS in selected }?.let {
-            counts[BackupCategory.SAVED_COLOR_PRESETS] = mergeColorPresets(it, choices)
+            counts[BackupCategory.SAVED_COLOR_PRESETS] = mergeColorPresets(it, choices, beforeMutation)
             inject(BackupCategory.SAVED_COLOR_PRESETS)
         }
         if (BackupCategory.PORTABLE_PREFERENCES in selected && backup.payload.portablePreferences != null) {
@@ -369,11 +429,13 @@ class BackupRepository(
     private suspend fun mergeForms(
         forms: List<BackupLog>,
         choices: Map<String, RestoreConflictChoice>,
+        beforeMutation: suspend () -> Unit,
     ): RestoreCategoryCounts {
         var result = RestoreCategoryCounts()
         forms.forEach { incoming ->
             val existing = incoming.uuid.takeIf(String::isNotBlank)?.let { templateDao.getByUuid(it) }
             if (existing == null) {
+                beforeMutation()
                 insertForm(incoming)
                 result = result.copy(added = result.added + 1)
             } else {
@@ -384,6 +446,7 @@ class BackupRepository(
                     val id = conflictId(BackupCategory.FORMS, incoming.uuid)
                     requireChoice(choices, id).also { choice ->
                         if (choice == RestoreConflictChoice.USE_BACKUP) {
+                            beforeMutation()
                             deleteForm(existing)
                             insertForm(incoming)
                             result = result.copy(replaced = result.replaced + 1, conflicted = result.conflicted + 1)
@@ -400,6 +463,7 @@ class BackupRepository(
     private suspend fun mergeLists(
         lists: List<BackupChecklist>,
         choices: Map<String, RestoreConflictChoice>,
+        beforeMutation: suspend () -> Unit,
     ): RestoreCategoryCounts = mergeWholeGroups(
         incoming = lists,
         uuid = { it.uuid },
@@ -409,11 +473,13 @@ class BackupRepository(
         insert = ::insertList,
         delete = { value -> checklistDao.getChecklistByUuid(value.uuid)?.let { checklistDao.deleteItemsForChecklist(it.id); checklistDao.deleteChecklist(it.id) } },
         choices = choices,
+        beforeMutation = beforeMutation,
     )
 
     private suspend fun mergeIdeas(
         logs: List<BackupIdeaLog>,
         choices: Map<String, RestoreConflictChoice>,
+        beforeMutation: suspend () -> Unit,
     ): RestoreCategoryCounts = mergeWholeGroups(
         incoming = logs,
         uuid = { it.uuid },
@@ -425,11 +491,13 @@ class BackupRepository(
         insert = ::insertIdeaLog,
         delete = { value -> ideaLogDao.getByUuid(value.uuid)?.let { ideaEntryDao.deleteForLog(it.id); ideaLogDao.delete(it) } },
         choices = choices,
+        beforeMutation = beforeMutation,
     )
 
     private suspend fun mergeClickerData(
         logs: List<BackupClickerLog>,
         choices: Map<String, RestoreConflictChoice>,
+        beforeMutation: suspend () -> Unit,
     ): RestoreCategoryCounts = mergeWholeGroups(
         incoming = logs,
         uuid = { it.uuid },
@@ -441,17 +509,20 @@ class BackupRepository(
         insert = ::insertClickerLog,
         delete = { value -> clickerDao.getLogByUuid(value.uuid)?.let { clickerDao.deleteLogWithCards(it) } },
         choices = choices,
+        beforeMutation = beforeMutation,
     )
 
     private suspend fun mergeColorPresets(
         presets: List<BackupColorPreset>,
         choices: Map<String, RestoreConflictChoice>,
+        beforeMutation: suspend () -> Unit,
     ): RestoreCategoryCounts {
         var result = RestoreCategoryCounts()
         presets.forEach { incoming ->
             val existing = colorPresetDao.getByUuid(incoming.uuid)
             when {
                 existing == null -> {
+                    beforeMutation()
                     colorPresetDao.insert(ColorPreset(uuid = incoming.uuid, name = incoming.name, colorsJson = incoming.colorsJson))
                     result = result.copy(added = result.added + 1)
                 }
@@ -459,6 +530,7 @@ class BackupRepository(
                     result = result.copy(skipped = result.skipped + 1)
                 requireChoice(choices, conflictId(BackupCategory.SAVED_COLOR_PRESETS, incoming.uuid)) ==
                     RestoreConflictChoice.USE_BACKUP -> {
+                    beforeMutation()
                     colorPresetDao.deleteById(existing.id)
                     colorPresetDao.insert(ColorPreset(uuid = incoming.uuid, name = incoming.name, colorsJson = incoming.colorsJson))
                     result = result.copy(replaced = result.replaced + 1, conflicted = result.conflicted + 1)
@@ -472,6 +544,7 @@ class BackupRepository(
     private suspend fun mergeDailyTasks(
         tasks: List<BackupDailyTask>,
         choices: Map<String, RestoreConflictChoice>,
+        beforeMutation: suspend () -> Unit,
     ): RestoreCategoryCounts {
         var result = RestoreCategoryCounts()
         tasks.forEach { incoming ->
@@ -483,9 +556,10 @@ class BackupRepository(
                 // it is and the incoming card is created as a new card with a new
                 // permanent UUID.
                 val card = if (byUuid == null) incoming else incoming.copy(uuid = StableUuid.createNew())
+                beforeMutation()
                 val targetId = insertDailyTaskCard(card)
                 result = result.copy(added = result.added + 1)
-                result += mergeDailyItems(targetId, incoming)
+                result += mergeDailyItems(targetId, incoming, beforeMutation)
                 return@forEach
             }
 
@@ -499,7 +573,7 @@ class BackupRepository(
                 }
                 result = result.copy(conflicted = result.conflicted + 1)
             }
-            result += mergeDailyItems(byDate.id, incoming)
+            result += mergeDailyItems(byDate.id, incoming, beforeMutation)
         }
         return result
     }
@@ -507,6 +581,7 @@ class BackupRepository(
     private suspend fun mergeDailyItems(
         targetCardId: Long,
         incoming: BackupDailyTask,
+        beforeMutation: suspend () -> Unit,
     ): RestoreCategoryCounts {
         var counts = RestoreCategoryCounts()
         val initialTarget = dailyListDao.getItemsOnce(targetCardId).sortedBy { it.position }
@@ -567,8 +642,13 @@ class BackupRepository(
             appendedSequences.forEach(::addAll)
         }.distinctBy { it.uuid }
         ordered.forEachIndexed { index, item ->
-            if (item.id == 0L) dailyListDao.insertItem(item.copy(position = index))
-            else if (item.position != index) dailyListDao.setItemPosition(item.id, index)
+            if (item.id == 0L) {
+                beforeMutation()
+                dailyListDao.insertItem(item.copy(position = index))
+            } else if (item.position != index) {
+                beforeMutation()
+                dailyListDao.setItemPosition(item.id, index)
+            }
         }
         return counts
     }
@@ -582,6 +662,7 @@ class BackupRepository(
         insert: suspend (T) -> Unit,
         delete: suspend (T) -> Unit,
         choices: Map<String, RestoreConflictChoice>,
+        beforeMutation: suspend () -> Unit,
     ): RestoreCategoryCounts {
         var result = RestoreCategoryCounts()
         incoming.forEach { value ->
@@ -589,11 +670,13 @@ class BackupRepository(
             val existing = identity.takeIf(String::isNotBlank)?.let { current(it) }
             when {
                 existing == null -> {
+                    beforeMutation()
                     insert(value)
                     result = result.copy(added = result.added + 1)
                 }
                 same(existing, value) -> result = result.copy(skipped = result.skipped + 1)
                 requireChoice(choices, conflictId(category, identity)) == RestoreConflictChoice.USE_BACKUP -> {
+                    beforeMutation()
                     delete(existing)
                     insert(value)
                     result = result.copy(replaced = result.replaced + 1, conflicted = result.conflicted + 1)
@@ -622,6 +705,14 @@ class BackupRepository(
                     val current = snapshotList(existing)
                     if (semantic(current) != semantic(incoming)) {
                         add(groupConflict(BackupCategory.LISTS, incoming.uuid, current.name, incoming.name, current.items.size, incoming.items.size))
+                    }
+                }
+            }
+            backup.payload.luckyLists?.takeIf { BackupCategory.LUCKY_LISTS in selected }?.forEach { incoming ->
+                luckyDao.getByUuid(incoming.uuid)?.let { existing ->
+                    val current = snapshotLuckyList(existing)
+                    if (BackupCodec.canonicalLuckyLists(listOf(current)) != BackupCodec.canonicalLuckyLists(listOf(incoming))) {
+                        add(groupConflict(BackupCategory.LUCKY_LISTS, incoming.uuid, current.name, incoming.name, current.items.size, incoming.items.size))
                     }
                 }
             }
@@ -694,6 +785,14 @@ class BackupRepository(
     private suspend fun snapshotForm(template: LogTemplate): BackupLog {
         val entries = entryDao.getForTemplateOnce(template.id)
         return BackupCodec.logOf(template, entries, entries.flatMap { noteDao.getForEntryOnce(it.id) }, calendarDao.getForTemplateOnce(template.id))
+    }
+
+    private suspend fun snapshotLuckyList(list: LuckyList): BackupLuckyList =
+        BackupCodec.luckyListOf(list, luckyDao.getItemsOnce(list.id))
+
+    private suspend fun insertLuckyList(list: BackupLuckyList) {
+        val id = luckyDao.insertList(LuckyList(uuid = list.uuid, name = list.name, createdAt = list.createdAt, draft = list.draft, excludePreviouslySelected = list.excludePreviouslySelected))
+        list.items.forEach { luckyDao.insertItem(LuckyListItem(luckyListId = id, text = it.text, position = it.position)) }
     }
 
     private suspend fun snapshotList(list: Checklist): BackupChecklist =
@@ -793,6 +892,13 @@ class BackupRepository(
 }
 
 /** How a restore applies a backup to the existing data. */
+/** A complete snapshot and the revisions it contains. Revisions stay device-local. */
+data class CapturedBackup(
+    val backup: BackupFile,
+    val dataRevision: Long,
+    val preferencesRevision: Long,
+)
+
 enum class RestoreMode {
     /** Wipe everything first, then load only the backup. */
     REPLACE,
