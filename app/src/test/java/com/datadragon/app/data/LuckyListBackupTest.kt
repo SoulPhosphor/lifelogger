@@ -6,6 +6,8 @@ import androidx.test.core.app.ApplicationProvider
 import com.datadragon.app.export.ChecklistExportFormat
 import com.datadragon.app.export.LuckyListExport
 import com.datadragon.app.ui.restoreIndividualItem
+import com.datadragon.app.ui.RestoreResult
+import com.datadragon.app.ui.screens.singleItemSummary
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
@@ -97,7 +99,9 @@ class LuckyListBackupTest {
                 assertFalse(LuckyListExport.build(list, items, format).bytes.decodeToString().contains("[ ]"))
             }
             val json = LuckyListExport.build(list, items, ChecklistExportFormat.JSON).bytes.decodeToString()
-            restoreIndividualItem(json, BackupRepository(db))
+            val result = restoreIndividualItem(json, BackupRepository(db)) as RestoreResult.Success
+            assertEquals(1, result.luckyLists)
+            assertEquals("Restored 1 list.", singleItemSummary(result.logs, result.lists, result.clickerData, result.luckyLists))
             assertTrue(db.checklistDao().getAllChecklistsOnce().isEmpty())
             val restored = db.luckyListDao().getByUuid("exported")!!
             assertTrue(restored.draft)

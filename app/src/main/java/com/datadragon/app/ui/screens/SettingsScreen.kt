@@ -177,7 +177,7 @@ fun SettingsScreen(
                     "Couldn't read that file."
                 } else {
                     when (val result = viewModel.restoreSingleItem(text)) {
-                        is RestoreResult.Success -> singleItemSummary(result.logs, result.lists, result.clickerData)
+                        is RestoreResult.Success -> singleItemSummary(result.logs, result.lists, result.clickerData, result.luckyLists)
                         is RestoreResult.NeedsConflictResolution ->
                             "This individual item conflicts with current data."
                         is RestoreResult.Failure -> result.message
@@ -599,8 +599,8 @@ private val BACKUP_MIME_TYPES =
     arrayOf("application/json", "application/octet-stream", "text/plain")
 
 /** The status line shown after restoring one exported list or form. */
-private fun singleItemSummary(logs: Int, lists: Int, clickerData: Int): String = when {
-    lists > 0 -> "Restored 1 list."
+internal fun singleItemSummary(logs: Int, lists: Int, clickerData: Int, luckyLists: Int = 0): String = when {
+    lists > 0 || luckyLists > 0 -> "Restored 1 list."
     logs > 0 -> "Restored 1 form."
     clickerData > 0 -> "Restored data."
     else -> "Nothing to restore."

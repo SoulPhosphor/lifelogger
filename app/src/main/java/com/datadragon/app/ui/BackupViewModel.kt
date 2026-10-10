@@ -200,6 +200,7 @@ sealed interface RestoreResult {
     data class Success(val counts: RestoreCounts) : RestoreResult {
         val logs: Int get() = counts.logs
         val lists: Int get() = counts.lists
+        val luckyLists: Int get() = counts.luckyLists
         val clickerData: Int get() = counts.clickerData
     }
     data class NeedsConflictResolution(val conflicts: List<RestoreConflict>) : RestoreResult
