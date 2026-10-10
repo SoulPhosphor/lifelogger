@@ -538,8 +538,7 @@ fun SettingsScreen(
                                 val result = viewModel.restore(
                                     json,
                                     mode,
-                                    forms = type.forms(),
-                                    lists = type.lists(),
+                                    categories = type.categories(),
                                     conflictPolicy = conflictPolicy,
                                 )
                             ) {
@@ -611,22 +610,23 @@ internal fun singleItemSummary(logs: Int, lists: Int, clickerData: Int, luckyLis
  * kinds Undo puts back. Everything covers every type at once; the named types
  * leave the others exactly as they are. A new data type gets an entry here.
  */
-private enum class RestoreType { EVERYTHING, LIST, FORM }
+internal enum class RestoreType(val category: BackupCategory?, private val caption: String) {
+    EVERYTHING(null, "Everything"),
+    LIST(BackupCategory.LISTS, "List"),
+    FORM(BackupCategory.FORMS, "Form"),
+    LUCKY_LIST(BackupCategory.LUCKY_LISTS, "Lucky List"),
+    IDEA_LOG(BackupCategory.IDEA_LOGS, "Idea Logs"),
+    DAILY_TASK(BackupCategory.DAILY_TASKS, "Daily Tasks"),
+    CLICKER_DATA(BackupCategory.CLICKER_DATA, "Clicker Data"),
+    SAVED_COLOR_PRESETS(BackupCategory.SAVED_COLOR_PRESETS, "Saved Color Presets"),
+    PORTABLE_PREFERENCES(BackupCategory.PORTABLE_PREFERENCES, "Portable Preferences");
 
-private fun RestoreType.label(): String = when (this) {
-    RestoreType.EVERYTHING -> "Everything"
-    RestoreType.LIST -> "List"
-    RestoreType.FORM -> "Form"
+    fun label(): String = caption
+    fun categories(): Set<BackupCategory> = category?.let { setOf(it) } ?: BackupCategory.entries.toSet()
 }
 
-/** True when this choice includes forms. */
-private fun RestoreType.forms(): Boolean = this != RestoreType.LIST
-
-/** True when this choice includes lists. */
-private fun RestoreType.lists(): Boolean = this != RestoreType.FORM
-
 /**
- * "Restore Type:" chooser for Undo Last Import (docs/STYLE.md — a drop-down
+ * "Restore Type:" chooser for database restore (docs/STYLE.md — a drop-down
  * shares its label's line, and its width never changes with the value picked).
  */
 @Composable

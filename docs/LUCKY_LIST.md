@@ -43,6 +43,9 @@ remain readable; absent Lucky List data cannot erase current lists. Null new
 fields are omitted when validating old checksums. Replace, whole-group Merge,
 conflict policies, selected-category Undo, individual restore, verified manual
 backup, automatic snapshot capture and database revision triggers cover it.
+The owner-approved Restore Type chooser offers Everything plus each individual
+backup category. Lucky List restores only Lucky Lists; List restores only
+ordinary Lists. Undo uses the same selected-category boundary as the import.
 
 The existing Phase 5 automatic-backup work and its two fixes are included here.
 Its operational backup_state table is added after the main branch's v20

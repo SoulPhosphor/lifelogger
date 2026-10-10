@@ -115,6 +115,7 @@ fun DataDragonNavHost(
         }
 
         composable(Routes.SETTINGS) { menuEntry ->
+            MenuBackHandler(navController, menuEntry)
             SettingsScreen(
                 section = SettingsSection.SETTINGS,
                 onBack = { navController.popFromResumed(menuEntry) },
@@ -122,6 +123,7 @@ fun DataDragonNavHost(
         }
 
         composable(Routes.BACKUP_RESTORE) { menuEntry ->
+            MenuBackHandler(navController, menuEntry)
             SettingsScreen(
                 section = SettingsSection.BACKUP_RESTORE,
                 onBack = { navController.popFromResumed(menuEntry) },
@@ -129,6 +131,7 @@ fun DataDragonNavHost(
         }
 
         composable(Routes.ABOUT) { menuEntry ->
+            MenuBackHandler(navController, menuEntry)
             AboutScreen(onBack = { navController.popFromResumed(menuEntry) })
         }
 
@@ -249,6 +252,7 @@ fun DataDragonNavHost(
         }
 
         composable(Routes.DAILY_LIST_PREFERENCES) { menuEntry ->
+            MenuBackHandler(navController, menuEntry)
             // Same shared model as Home and the editor, so a preference change
             // (Allow Title, Show Completed, celebration, renewal, …) is reflected
             // immediately when returning, not only after a process restart.
@@ -421,4 +425,5 @@ fun DataDragonNavHost(
             )
         }
     }
+    EnsureVisibleDestination(navController)
 }

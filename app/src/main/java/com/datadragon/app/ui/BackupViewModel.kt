@@ -79,10 +79,11 @@ class BackupViewModel(app: Application) : AndroidViewModel(app) {
         forms: Boolean = true,
         lists: Boolean = true,
         conflictPolicy: RestoreConflictPolicy = settings.restoreConflictPolicy,
+        categories: Set<BackupCategory>? = null,
     ): RestoreResult =
         try {
             val backup = BackupCodec.decode(text)
-            val selected = selectedCategories(forms, lists)
+            val selected = categories ?: selectedCategories(forms, lists)
             val preflight = repository.preflight(backup, mode, selected)
             if (mode == RestoreMode.MERGE && conflictPolicy == RestoreConflictPolicy.ASK && preflight.conflicts.isNotEmpty()) {
                 pendingRestore = PendingRestore(backup, mode, preflight.selectedCategories, preflight.conflicts)
