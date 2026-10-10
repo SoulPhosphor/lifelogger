@@ -220,7 +220,7 @@ fun SettingsScreen(
                 scope.launch {
                     when (val result = viewModel.continueRestore(choices)) {
                         is RestoreResult.Success -> {
-                            hasUndoSnapshot = true
+                            hasUndoSnapshot = viewModel.hasUndoSnapshot()
                             status = restoreSummary(RestoreMode.MERGE, result.counts)
                             pendingConflicts = null
                         }
@@ -544,7 +544,7 @@ fun SettingsScreen(
                                 )
                             ) {
                                 is RestoreResult.Success -> {
-                                    hasUndoSnapshot = true
+                                    hasUndoSnapshot = viewModel.hasUndoSnapshot()
                                     restoreSummary(mode, result.counts)
                                 }
                                 is RestoreResult.NeedsConflictResolution -> {

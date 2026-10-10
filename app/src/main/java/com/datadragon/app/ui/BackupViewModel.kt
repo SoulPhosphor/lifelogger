@@ -24,7 +24,7 @@ import kotlinx.coroutines.withContext
 /**
  * Backs the Backup and Restore actions. Backup builds the JSON for the whole
  * database; restore parses a backup and applies it using the chosen [RestoreMode].
- * Every restore also captures a pre-import snapshot for Undo Last Import.
+ * Restores that can change data capture a pre-import snapshot for Undo Last Import.
  */
 class BackupViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -124,9 +124,21 @@ class BackupViewModel(app: Application) : AndroidViewModel(app) {
         choices: Map<String, RestoreConflictChoice>,
     ): RestoreResult {
         // Merge intentionally keeps device preferences (the approved backup rule).
-        // A preferences-only/absent selection cannot mutate data, so preserve the
-        // previous useful Undo snapshot while reporting the normal skipped counts.
-        if (selected.isEmpty() || (mode == RestoreMode.MERGE && selected.all { it == BackupCategory.PORTABLE_PREFERENCES })) {
+        // Absent categories and empty Merge collections cannot mutate data.
+        // Preserve the previous useful Undo snapshot for these no-op selections.
+        val mergeHasItems = selected.any { category ->
+            when (category) {
+                BackupCategory.FORMS -> !backup.payload.forms.isNullOrEmpty()
+                BackupCategory.LISTS -> !backup.payload.lists.isNullOrEmpty()
+                BackupCategory.LUCKY_LISTS -> !backup.payload.luckyLists.isNullOrEmpty()
+                BackupCategory.IDEA_LOGS -> !backup.payload.ideaLogs.isNullOrEmpty()
+                BackupCategory.DAILY_TASKS -> !backup.payload.dailyTasks.isNullOrEmpty()
+                BackupCategory.CLICKER_DATA -> !backup.payload.clickerData.isNullOrEmpty()
+                BackupCategory.SAVED_COLOR_PRESETS -> !backup.payload.savedColorPresets.isNullOrEmpty()
+                BackupCategory.PORTABLE_PREFERENCES -> false
+            }
+        }
+        if (selected.isEmpty() || (mode == RestoreMode.MERGE && !mergeHasItems)) {
             return RestoreResult.Success(repository.restore(backup, mode, selected, choices))
         }
         val preImage = repository.buildFull()

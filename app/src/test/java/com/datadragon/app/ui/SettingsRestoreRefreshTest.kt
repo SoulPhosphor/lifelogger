@@ -18,6 +18,24 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
 class SettingsRestoreRefreshTest {
+    @Test fun firstEmptyOrPreferencesOnlyMergeLeavesUndoUnavailable() = runBlocking(Dispatchers.IO) {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val undoFile = java.io.File(app.filesDir, "pre_import_snapshot.json")
+        undoFile.delete()
+        val viewModel = BackupViewModel(app)
+        val empty = BackupCodec.encode(BackupFile(
+            exportedAt = "2026-10-10T00:00:00Z",
+            includedCategories = listOf(BackupCategory.LUCKY_LISTS, BackupCategory.PORTABLE_PREFERENCES),
+            payload = BackupPayload(luckyLists = emptyList(), portablePreferences = BackupPortablePreferences.defaults()),
+        ))
+        for (category in listOf(BackupCategory.LUCKY_LISTS, BackupCategory.PORTABLE_PREFERENCES, BackupCategory.FORMS)) {
+            val result = viewModel.restore(empty, RestoreMode.MERGE, categories = setOf(category)) as RestoreResult.Success
+            assertEquals(0, result.counts.added)
+            assertEquals(false, viewModel.hasUndoSnapshot())
+            assertEquals(false, undoFile.exists())
+        }
+    }
+
     @Test fun visibleControlsFollowPreferencesRestoreAndUndo() {
         val app = ApplicationProvider.getApplicationContext<Application>()
         app.getSharedPreferences("data_dragon_settings", 0).edit().clear().commit()
@@ -54,6 +72,15 @@ class SettingsRestoreRefreshTest {
             }
             assertEquals(1, kept.counts.skipped)
             assertEquals(0, kept.counts.added)
+            assertEquals(previousUndo, undoFile.readText())
+            val empty = BackupCodec.encode(BackupFile(
+                exportedAt = "2026-10-10T00:00:00Z",
+                includedCategories = listOf(BackupCategory.LUCKY_LISTS),
+                payload = BackupPayload(luckyLists = emptyList()),
+            ))
+            runBlocking(Dispatchers.IO) {
+                backup.restore(empty, RestoreMode.MERGE, categories = setOf(BackupCategory.LUCKY_LISTS))
+            }
             assertEquals(previousUndo, undoFile.readText())
             assertEquals(12, repo.automaticBackupCustomDays)
             runBlocking(Dispatchers.IO) { backup.undoImport() }
