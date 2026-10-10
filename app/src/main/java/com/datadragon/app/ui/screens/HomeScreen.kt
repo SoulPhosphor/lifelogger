@@ -42,6 +42,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,6 +57,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.R
 import com.datadragon.app.data.Checklist
@@ -349,9 +353,21 @@ private fun AppMenuButton(
     onOpenAbout: () -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) expanded = false
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
 
     Box {
-        IconButton(onClick = { expanded = true }) {
+        IconButton(onClick = {
+            // Home is composed during exit/return animations. A popup must not
+            // open against that transitioning destination's window/lifecycle.
+            if (lifecycle.currentState == Lifecycle.State.RESUMED) expanded = true
+        }) {
             Icon(
                 Icons.Filled.SettingsApplications,
                 contentDescription = "Open App Menu",

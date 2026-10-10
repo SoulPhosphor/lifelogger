@@ -109,9 +109,9 @@ class MenuNavHostTest {
             compose.mainClock.autoAdvance = false
             compose.onNodeWithContentDescription("Back").performClick()
             compose.mainClock.advanceTimeByFrame()
-            // Open and select the real cog popup while Settings is still exiting.
+            // A rapid cog tap must wait for Home to finish returning before opening a popup.
             compose.onNodeWithContentDescription("Open App Menu").performClick()
-            compose.onNode(hasText("Settings") and hasClickAction()).performClick()
+            compose.onNode(hasText("Settings") and hasClickAction()).assertDoesNotExist()
             compose.mainClock.advanceTimeBy(1_000)
             compose.mainClock.autoAdvance = true
             compose.onNodeWithContentDescription("Open App Menu").assertIsDisplayed()
