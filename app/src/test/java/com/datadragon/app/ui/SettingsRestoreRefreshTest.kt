@@ -46,6 +46,16 @@ class SettingsRestoreRefreshTest {
             assertEquals("12", settings.autoBackupCustomDaysText.value)
             assertEquals(7, settings.autoBackupRetention.value)
             assertEquals(NavStyle.DROPDOWN, settings.navStyle.value)
+            val undoFile = java.io.File(app.filesDir, "pre_import_snapshot.json")
+            val previousUndo = undoFile.readText()
+            val kept = runBlocking(Dispatchers.IO) {
+                val earlierPreferences = BackupCodec.encode(BackupRepository(db, { original }).buildFull())
+                backup.restore(earlierPreferences, RestoreMode.MERGE, categories = setOf(BackupCategory.PORTABLE_PREFERENCES)) as RestoreResult.Success
+            }
+            assertEquals(1, kept.counts.skipped)
+            assertEquals(0, kept.counts.added)
+            assertEquals(previousUndo, undoFile.readText())
+            assertEquals(12, repo.automaticBackupCustomDays)
             runBlocking(Dispatchers.IO) { backup.undoImport() }
             shadowOf(Looper.getMainLooper()).idle()
             assertEquals(original.automaticBackupCadence, settings.autoBackupCadence.value.key)

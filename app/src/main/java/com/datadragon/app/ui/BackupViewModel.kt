@@ -123,6 +123,12 @@ class BackupViewModel(app: Application) : AndroidViewModel(app) {
         selected: Set<BackupCategory>,
         choices: Map<String, RestoreConflictChoice>,
     ): RestoreResult {
+        // Merge intentionally keeps device preferences (the approved backup rule).
+        // A preferences-only/absent selection cannot mutate data, so preserve the
+        // previous useful Undo snapshot while reporting the normal skipped counts.
+        if (selected.isEmpty() || (mode == RestoreMode.MERGE && selected.all { it == BackupCategory.PORTABLE_PREFERENCES })) {
+            return RestoreResult.Success(repository.restore(backup, mode, selected, choices))
+        }
         val preImage = repository.buildFull()
         try {
             undoStore.saveVerified(
