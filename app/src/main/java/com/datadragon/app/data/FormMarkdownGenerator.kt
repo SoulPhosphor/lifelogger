@@ -28,6 +28,10 @@ object FormMarkdownGenerator {
                 FieldType.DROPDOWN, FieldType.MULTIPLE -> {
                     sb.append("options:\n")
                     field.options.forEach { sb.append("- ").append(it).append('\n') }
+                    if (field.type == FieldType.DROPDOWN) {
+                        if (field.choiceStyle == ChoiceStyle.DISPLAYED) sb.append("choice_style: displayed\n")
+                        if (field.topAnswerPreselected) sb.append("top_answer_preselected: true\n")
+                    }
                 }
                 FieldType.DATETIME -> if (field.defaultNow) sb.append("default: now\n")
                 FieldType.YESNO -> if (field.allowUnknown) sb.append("allow_unknown: true\n")

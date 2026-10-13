@@ -38,6 +38,8 @@ object FormMarkdownParser {
         var defaultNow = false
         var allowUnknown = false
         var makeDropdown = false
+        var choiceStyle = ChoiceStyle.DROPDOWN
+        var topAnswerPreselected = false
         val options = mutableListOf<String>()
     }
 
@@ -135,6 +137,13 @@ object FormMarkdownParser {
                             value.equals("true", ignoreCase = true) || value.equals("yes", ignoreCase = true)
                         "make_dropdown" -> b.makeDropdown =
                             value.equals("true", ignoreCase = true) || value.equals("yes", ignoreCase = true)
+                        "choice_style" -> when (value.lowercase()) {
+                            "dropdown" -> b.choiceStyle = ChoiceStyle.DROPDOWN
+                            "displayed" -> b.choiceStyle = ChoiceStyle.DISPLAYED
+                            else -> issues.add("Field \"${b.label}\": choice_style \"$value\" is not dropdown or displayed.")
+                        }
+                        "top_answer_preselected" -> b.topAnswerPreselected =
+                            value.equals("true", ignoreCase = true) || value.equals("yes", ignoreCase = true)
                         "options" -> {
                             inOptions = true
                             if (value.isNotEmpty()) {
@@ -209,6 +218,8 @@ object FormMarkdownParser {
                 defaultNow = b.defaultNow && type == FieldType.DATETIME,
                 allowUnknown = b.allowUnknown && type == FieldType.YESNO,
                 makeDropdown = b.makeDropdown && type == FieldType.SCALE,
+                choiceStyle = if (type == FieldType.DROPDOWN) b.choiceStyle else ChoiceStyle.DROPDOWN,
+                topAnswerPreselected = b.topAnswerPreselected && type == FieldType.DROPDOWN,
             )
         )
     }

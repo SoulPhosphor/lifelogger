@@ -34,7 +34,7 @@ lines: 4
 | `text` | A single line of text | none |
 | `multiline` | Multi-line text box | `lines` — visible height |
 | `number` | Type any number | `digits` — max number of digits allowed |
-| `dropdown` | Pick one from a list | the list of choices |
+| `dropdown` | Pick one from a list | the list of choices; `choice_style: displayed` shows chips instead of a dropdown; `top_answer_preselected: true` pre-selects the first option on new entries |
 | `multiple` | Pick several from a list | the list of choices |
 | `scale` | Pick a number in a range | `from` and `to`; `make_dropdown: true` renders as a dropdown |
 | `yesno` | Yes / No radios | `allow_unknown: true` to add an Unknown radio |
@@ -93,6 +93,20 @@ options:
 - Tag 1
 - Tag 2
 - Tag 3
+```
+
+A `dropdown` field may add `choice_style: displayed` (chips, one pick at a time;
+the default is `dropdown`) and `top_answer_preselected: true` (the first option
+is selected when a new entry opens):
+
+```
+## Category
+type: dropdown
+options:
+- Option A
+- Option B
+choice_style: displayed
+top_answer_preselected: true
 ```
 
 ### scale
