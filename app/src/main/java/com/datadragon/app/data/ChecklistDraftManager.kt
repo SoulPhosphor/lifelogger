@@ -153,9 +153,15 @@ class ChecklistDraftManager(
         }
     }
 
-    fun updateText(itemId: Long, text: String) {
+    /**
+     * Show [text] for the item and autosave it. With [persist] false the text is
+     * shown but not written — a Lucky List row holding a refused duplicate keeps
+     * its last allowed text in storage until the edit is resolved.
+     */
+    fun updateText(itemId: Long, text: String, persist: Boolean = true) {
         val seq = ++inputSeq
         _items.value = _items.value.map { if (it.id == itemId) it.copy(text = text) else it }
+        if (!persist) return
         scope.launch {
             if (!_persisted.value && _items.value.any { it.text.isNotBlank() }) ensurePersisted()
             if (_persisted.value) {

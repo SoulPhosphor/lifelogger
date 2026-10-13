@@ -86,7 +86,8 @@ open class ChecklistViewModel @JvmOverloads constructor(app: Application, privat
     fun setTitle(text: String) = manager.setTitle(text)
     fun addItem(onAdded: (Long) -> Unit = {}) = manager.addItem(onAdded)
     fun addSubItem(afterId: Long, onAdded: (Long) -> Unit = {}) = manager.addSubItem(afterId, onAdded)
-    fun updateText(itemId: Long, text: String) = manager.updateText(itemId, text)
+    fun updateText(itemId: Long, text: String, persist: Boolean = true) =
+        manager.updateText(itemId, text, persist)
     fun setCompleted(itemId: Long, completed: Boolean) = manager.setCompleted(itemId, completed)
     fun deleteItem(itemId: Long) = manager.deleteItem(itemId)
     fun reorder(orderedIds: List<Long>) = manager.reorder(orderedIds)

@@ -563,7 +563,8 @@ object BackupCodec {
         require(envelope.version >= 5 || (envelope.payload.luckyLists == null && envelope.payload.portablePreferences?.modeEnabledLuckyList == null)) {
             "Lucky List data requires backup version 5."
         }
-        require(envelope.version >= 6 || !envelope.payload.hasAllowAdditionsFromForm()) {
+        // Any declaration of the version-6 flag — even an explicit false — needs version 6.
+        require(envelope.version >= 6 || envelope.payload.forms.orEmpty().none { it.allowAdditionsFromForm != null }) {
             "Allow Additions from Form requires backup version 6."
         }
         validateManifest(envelope.includedCategories, envelope.payload)

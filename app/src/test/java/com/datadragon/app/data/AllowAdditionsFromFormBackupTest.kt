@@ -71,4 +71,13 @@ class AllowAdditionsFromFormBackupTest {
         val text = singleFormFile(true).replace("\"version\": ${BackupFile.VERSION}", "\"version\": 5")
         assertThrows(IllegalArgumentException::class.java) { BackupCodec.decode(text) }
     }
+
+    @Test
+    fun aVersionFiveFileCannotDeclareTheSettingEvenAsFalse() {
+        val text = singleFormFile(false)
+            .replace("\"version\": ${BackupFile.VERSION}", "\"version\": 5")
+            .replace("\"integrateCalendar\": false,", "\"integrateCalendar\": false,\n            \"allowAdditionsFromForm\": false,")
+        assertTrue(text.contains("allowAdditionsFromForm"))
+        assertThrows(IllegalArgumentException::class.java) { BackupCodec.decode(text) }
+    }
 }

@@ -210,16 +210,19 @@ fun ChecklistScreen(
     var editStartId by rememberSaveable { mutableStateOf<Long?>(null) }
     var editStartText by rememberSaveable { mutableStateOf("") }
     var showDuplicate by rememberSaveable { mutableStateOf(false) }
-    fun refuseDuplicate(itemId: Long): Boolean {
-        if (!lucky) return false
-        val all = viewModel.items.value
-        val text = all.firstOrNull { it.id == itemId }?.text?.trim().orEmpty()
-        if (text.isEmpty()) return false
+    /** True when [text] is a new repeat of another Lucky List item. */
+    fun isNewDuplicate(itemId: Long, text: String): Boolean {
+        if (!lucky || text.isBlank()) return false
         val start = if (editStartId == itemId) editStartText else ""
         // An unchanged item keeps a duplicate that was already saved.
         if (OptionDuplicates.key(text) == OptionDuplicates.key(start)) return false
-        val others = all.filter { it.id != itemId && it.text.isNotBlank() }.map { it.text }
-        if (!OptionDuplicates.contains(others, text)) return false
+        val others = viewModel.items.value.filter { it.id != itemId && it.text.isNotBlank() }.map { it.text }
+        return OptionDuplicates.contains(others, text)
+    }
+    fun refuseDuplicate(itemId: Long): Boolean {
+        val text = viewModel.items.value.firstOrNull { it.id == itemId }?.text.orEmpty()
+        if (!isNewDuplicate(itemId, text)) return false
+        val start = if (editStartId == itemId) editStartText else ""
         viewModel.updateText(itemId, start)
         showDuplicate = true
         return true
@@ -357,7 +360,11 @@ fun ChecklistScreen(
                                 if (editStartId == item.id) editStartId = null
                                 viewModel.onItemFocusLost(item.id)
                             },
-                            onTextChange = { viewModel.updateText(item.id, it) },
+                            // A Lucky List duplicate is shown while typed but never
+                            // autosaved; finishing the edit refuses it.
+                            onTextChange = {
+                                viewModel.updateText(item.id, it, persist = !isNewDuplicate(item.id, it))
+                            },
                             onToggleComplete = { viewModel.setCompleted(item.id, !item.completed) },
                             onAddSubItem = {
                                 viewModel.addSubItem(item.id) { newId -> pendingFocusId = newId }
