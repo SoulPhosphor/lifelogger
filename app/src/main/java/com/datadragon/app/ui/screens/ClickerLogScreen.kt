@@ -60,7 +60,9 @@ import com.datadragon.app.data.ClickerValues
 import com.datadragon.app.data.editOnlyFromCardMenu
 import com.datadragon.app.export.ClickerExport
 import com.datadragon.app.export.ExportContent
+import com.datadragon.app.ui.AUTOMATIC_TIMESTAMP_LABEL
 import com.datadragon.app.ui.ClickerLogViewModel
+import com.datadragon.app.ui.components.SortFilterBar
 import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.ui.components.AppDialog
 import com.datadragon.app.ui.components.DialogDestructiveButton
@@ -125,6 +127,7 @@ fun ClickerLogScreen(
     val log by viewModel.log.collectAsStateWithLifecycle()
     val fields by viewModel.fields.collectAsStateWithLifecycle()
     val cards by viewModel.cards.collectAsStateWithLifecycle()
+    val newestFirst by viewModel.newestFirst.collectAsStateWithLifecycle()
     val followUpShown by viewModel.followUpShown.collectAsStateWithLifecycle()
 
     var cogMenuOpen by remember { mutableStateOf(false) }
@@ -163,20 +166,23 @@ fun ClickerLogScreen(
         saveDocument.launch(content.suggestedName)
     }
 
-    // Cards are listed newest first, so a card added with the top-bar "+" lands
-    // above whatever is on screen. When a tall card fills the screen the list
-    // would otherwise stay put and the new card would be out of sight, so each
-    // add scrolls back up until the new card's top is at the top of the screen.
+    // A card added with the top-bar "+" may land out of sight (above a tall card
+    // when newest first, at the bottom when oldest first), so each add scrolls
+    // until the new card's top is at the top of the screen.
     val listState = rememberLazyListState()
     // Counts taps whose card hasn't appeared yet, so several quick taps each scroll.
     var pendingAddScrolls by remember { mutableStateOf(0) }
-    val topCardId = cards.firstOrNull()?.id
-    LaunchedEffect(topCardId) {
-        if (pendingAddScrolls > 0 && topCardId != null) {
+    val newestCardId = cards.maxOfOrNull { it.id }
+    LaunchedEffect(newestCardId) {
+        if (pendingAddScrolls > 0 && newestCardId != null) {
             pendingAddScrolls -= 1
-            listState.animateScrollToItem(0)
+            // The sort bar is the list's first item, so a card sits one below its index.
+            val index = cards.indexOfFirst { it.id == newestCardId }
+            if (index >= 0) listState.animateScrollToItem(index + 1)
         }
     }
+    // Changing the direction re-sorts the cards and puts the user back at the top.
+    LaunchedEffect(newestFirst) { listState.scrollToItem(0) }
 
     Scaffold(
         topBar = {
@@ -236,30 +242,55 @@ fun ClickerLogScreen(
             )
         },
     ) { padding ->
+        // The sorting controls are always present, cards or not, as in Forms.
         if (cards.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(padding),
-                contentAlignment = Alignment.Center,
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
+            // With nothing to scroll there is no list to sit at the top of.
+            Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+                SortFilterBar(
+                    categoryLabels = listOf(AUTOMATIC_TIMESTAMP_LABEL),
+                    selectedLabel = AUTOMATIC_TIMESTAMP_LABEL,
+                    newestFirst = newestFirst,
+                    onSelectCategory = {},
+                    onSelectNewestFirst = viewModel::selectNewestFirst,
+                    onClear = viewModel::clearSort,
+                    modifier = Modifier.padding(horizontal = AppTheme.spacing.rowInset),
+                )
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Text("No cards yet.", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "Click the plus in the top right to begin.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center,
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
+                    ) {
+                        Text("No cards yet.", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Click the plus in the top right to begin.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
                 }
             }
         } else {
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(AppTheme.spacing.rowInset),
+                contentPadding = PaddingValues(start = AppTheme.spacing.rowInset, end = AppTheme.spacing.rowInset, bottom = AppTheme.spacing.rowInset),
                 verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset),
             ) {
+                // The controls are the first thing in the list, not a fixed header,
+                // so they scroll away with the cards.
+                item(key = CLICKER_SORT_BAR_KEY) {
+                    SortFilterBar(
+                        categoryLabels = listOf(AUTOMATIC_TIMESTAMP_LABEL),
+                        selectedLabel = AUTOMATIC_TIMESTAMP_LABEL,
+                        newestFirst = newestFirst,
+                        onSelectCategory = {},
+                        onSelectNewestFirst = viewModel::selectNewestFirst,
+                        onClear = viewModel::clearSort,
+                    )
+                }
                 items(cards, key = { it.id }) { card ->
                     ClickerCardView(
                         card = card,
@@ -508,3 +539,6 @@ private fun ClickerFieldFace(
         }
     }
 }
+
+/** List key for the sort bar, which sits above the cards as the first list item. */
+private const val CLICKER_SORT_BAR_KEY = "sortFilterBar"
