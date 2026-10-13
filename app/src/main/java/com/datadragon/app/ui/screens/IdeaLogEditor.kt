@@ -53,6 +53,7 @@ import com.datadragon.app.data.IdeaFieldKind
 import com.datadragon.app.data.StableUuid
 import com.datadragon.app.data.MAX_IDEA_LINES
 import com.datadragon.app.data.OptionDuplicates
+import com.datadragon.app.data.RatioValues
 import com.datadragon.app.data.SettingsRepository
 import com.datadragon.app.data.TitleCase
 import com.datadragon.app.data.ideaLineCount
@@ -97,6 +98,9 @@ class IdeaDraftField(
     allowCopying: Boolean = false,
     truncateInEntireCard: Boolean = false,
     entireCardLines: String = DEFAULT_IDEA_LINES.toString(),
+    leftDigits: String = "",
+    rightDigits: String = "",
+    unit: String = "",
     /** The Categories options as last saved, so a historical duplicate stays saveable. */
     val originalOptions: List<String> = emptyList(),
 ) {
@@ -113,6 +117,9 @@ class IdeaDraftField(
     var allowCopying by mutableStateOf(allowCopying)
     var truncateInEntireCard by mutableStateOf(truncateInEntireCard)
     var entireCardLines by mutableStateOf(entireCardLines)
+    var leftDigits by mutableStateOf(leftDigits)
+    var rightDigits by mutableStateOf(rightDigits)
+    var unit by mutableStateOf(unit)
 
     fun optionList(): List<String> =
         optionsText.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
@@ -120,14 +127,19 @@ class IdeaDraftField(
     fun isValid(): Boolean = when {
         label.trim().isEmpty() -> false
         kind == IdeaFieldKind.CATEGORIES -> optionList().isNotEmpty()
+        kind == IdeaFieldKind.RATIOS -> ratioDigitsValid()
         else -> true
     }
 
     fun validationHint(): String? = when {
         label.trim().isEmpty() -> "Add a label."
         kind == IdeaFieldKind.CATEGORIES && optionList().isEmpty() -> "Add at least one option."
+        kind == IdeaFieldKind.RATIOS && !ratioDigitsValid() -> RATIO_DIGITS_HINT
         else -> null
     }
+
+    private fun ratioDigitsValid(): Boolean =
+        RatioValues.parseDigits(leftDigits) != null && RatioValues.parseDigits(rightDigits) != null
 
     /** True when the Categories options repeat an item (ignoring capitalization) not already saved twice. */
     fun introducesCategoryDuplicate(): Boolean =
@@ -148,6 +160,9 @@ class IdeaDraftField(
         allowCopying = kind == IdeaFieldKind.TEXT && allowCopying,
         truncateInEntireCard = kind == IdeaFieldKind.TEXT && truncateInEntireCard,
         entireCardLines = ideaLineCount(entireCardLines),
+        leftDigits = if (kind == IdeaFieldKind.RATIOS) RatioValues.parseDigits(leftDigits) else null,
+        rightDigits = if (kind == IdeaFieldKind.RATIOS) RatioValues.parseDigits(rightDigits) else null,
+        unit = if (kind == IdeaFieldKind.RATIOS) unit.trim() else "",
     )
 
     fun toSnapshot(): IdeaDraftSnapshot = IdeaDraftSnapshot(
@@ -165,6 +180,9 @@ class IdeaDraftField(
         allowCopying = allowCopying,
         truncateInEntireCard = truncateInEntireCard,
         entireCardLines = entireCardLines,
+        leftDigits = leftDigits,
+        rightDigits = rightDigits,
+        unit = unit,
         originalOptions = originalOptions,
     )
 }
@@ -186,6 +204,9 @@ data class IdeaDraftSnapshot(
     val allowCopying: Boolean,
     val truncateInEntireCard: Boolean,
     val entireCardLines: String,
+    val leftDigits: String = "",
+    val rightDigits: String = "",
+    val unit: String = "",
     val originalOptions: List<String> = emptyList(),
 )
 
@@ -204,6 +225,9 @@ fun IdeaDraftSnapshot.toDraft(): IdeaDraftField = IdeaDraftField(
     allowCopying = allowCopying,
     truncateInEntireCard = truncateInEntireCard,
     entireCardLines = entireCardLines,
+    leftDigits = leftDigits,
+    rightDigits = rightDigits,
+    unit = unit,
     originalOptions = originalOptions,
 )
 
@@ -223,6 +247,9 @@ fun IdeaFieldDef.toDraft(sortByTimestamp: Boolean): IdeaDraftField = IdeaDraftFi
     allowCopying = allowCopying,
     truncateInEntireCard = truncateInEntireCard,
     entireCardLines = entireCardLines.toString(),
+    leftDigits = leftDigits?.toString() ?: "",
+    rightDigits = rightDigits?.toString() ?: "",
+    unit = unit,
     originalOptions = options,
 )
 
@@ -552,6 +579,14 @@ private fun IdeaFieldCard(
                     modifier = Modifier.fillMaxWidth().heightIn(min = AppTheme.sizes.editorMinHeight),
                 )
                 IdeaFieldKind.TEXT -> MultilineFieldSettings(field)
+                IdeaFieldKind.RATIOS -> RatioFieldSettings(
+                    leftDigits = field.leftDigits,
+                    onLeftDigitsChange = { field.leftDigits = it },
+                    rightDigits = field.rightDigits,
+                    onRightDigitsChange = { field.rightDigits = it },
+                    unit = field.unit,
+                    onUnitChange = { field.unit = it },
+                )
                 else -> Unit
             }
 
@@ -574,7 +609,7 @@ private fun IdeaFieldCard(
                 }
             }
 
-            CheckboxSettingRow(
+            SettingSwitchRow(
                 checked = field.required,
                 onCheckedChange = { field.required = it },
                 title = "Required",

@@ -28,6 +28,15 @@ object FormMarkdownGenerator {
                 FieldType.DROPDOWN, FieldType.MULTIPLE -> {
                     sb.append("options:\n")
                     field.options.forEach { sb.append("- ").append(it).append('\n') }
+                    if (field.type == FieldType.DROPDOWN) {
+                        if (field.choiceStyle == ChoiceStyle.DISPLAYED) sb.append("choice_style: displayed\n")
+                        if (field.topAnswerPreselected) sb.append("top_answer_preselected: true\n")
+                    }
+                }
+                FieldType.RATIO -> {
+                    field.leftDigits?.let { sb.append("left_digits: ").append(it).append('\n') }
+                    field.rightDigits?.let { sb.append("right_digits: ").append(it).append('\n') }
+                    if (field.unit.isNotBlank()) sb.append("unit: ").append(field.unit.trim()).append('\n')
                 }
                 FieldType.DATETIME -> if (field.defaultNow) sb.append("default: now\n")
                 FieldType.YESNO -> if (field.allowUnknown) sb.append("allow_unknown: true\n")

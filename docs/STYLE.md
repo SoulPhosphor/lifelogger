@@ -135,6 +135,9 @@ Because of this, adding a theme later is a change to `Theme.kt`, `Type.kt`,
   keyboard users can see where they are. Do not add `ripple()` or other press
   indication to a control. Switches do not react to presses either: a switch in
   a row takes `onCheckedChange = null` and the row is `toggleable`.
+- **Required is always a toggle, never a checkbox.** Every "Required" setting
+  (form fields, Idea fields, and any added later) uses `SettingSwitchRow`
+  titled "Required", off by default.
 - **Never a pill, never a filled capsule, never a raised/elevated button.**
 - **A button never resizes based on state.** A caption that changes with state
   (e.g. "Restore" / "Nothing to Restore") still lives in a button whose frame

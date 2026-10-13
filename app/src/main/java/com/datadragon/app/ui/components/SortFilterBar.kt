@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -40,12 +39,11 @@ private object NoPressFeedback : MutableInteractionSource {
 
 /**
  * The ordering controls that sit at the top of an entry list:
- * `[ Timestamp ▾ ] [ Sort: Newest ▾ ] [ ✕ Clear ]`. The first chip carries the
+ * `[ Timestamp ▾ ] [ Sort: Newest ▾ ]`. The first chip carries the
  * name of the field the list is currently ordered by, and its menu lists every
  * other ordering available. With only the automatic entry timestamp to sort by
  * there is nothing to choose between, so that chip becomes a plain label next to
- * the Sort dropdown. Clear drops both picks and returns the list to its own
- * default ordering. The whole row is centred across the screen.
+ * the Sort dropdown. The whole row is centred across the screen.
  *
  * Forms and Ideas share this one bar — there is a single sorting system, not one
  * per feature — so it is addressed purely by category name.
@@ -57,7 +55,6 @@ fun SortFilterBar(
     newestFirst: Boolean,
     onSelectCategory: (String) -> Unit,
     onSelectNewestFirst: (Boolean) -> Unit,
-    onClear: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (categoryLabels.isEmpty()) return
@@ -132,12 +129,5 @@ fun SortFilterBar(
                 )
             }
         }
-
-        AssistChip(
-            onClick = onClear,
-            label = { Text("Clear") },
-            leadingIcon = { Icon(Icons.Filled.Close, contentDescription = null) },
-            interactionSource = NoPressFeedback,
-        )
     }
 }

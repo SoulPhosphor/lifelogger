@@ -61,6 +61,7 @@ object IdeaValues {
         FieldType.DATETIME -> reformat(rawValue(values, field)) {
             EntryValues.displayDateTime(LocalDateTime.parse(it, EntryValues.DATETIME_STORAGE))
         }
+        FieldType.RATIO -> rawValue(values, field)?.let { RatioValues.display(it, field.unit) }
         else -> rawValue(values, field)
     }
 

@@ -48,6 +48,8 @@ import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.IdeaFieldDef
 import com.datadragon.app.data.IdeaValues
+import com.datadragon.app.data.MAX_RATIO_DIGITS
+import com.datadragon.app.data.RatioValues
 import com.datadragon.app.data.WebAddress
 import com.datadragon.app.ui.NewIdeaViewModel
 import com.datadragon.app.ui.components.CountsLine
@@ -356,6 +358,15 @@ private fun IdeaFieldControl(
                 onChange = { textValues[field.id] = it },
             )
 
+            FieldType.RATIO -> RatioField(
+                label = label,
+                stored = textValues[field.id].orEmpty(),
+                leftDigits = field.leftDigits ?: MAX_RATIO_DIGITS,
+                rightDigits = field.rightDigits ?: MAX_RATIO_DIGITS,
+                unit = field.unit,
+                onChange = { textValues[field.id] = it },
+            )
+
             // Not offered by the Ideas field picker.
             else -> Unit
         }
@@ -377,6 +388,12 @@ internal fun blockingIdeaFieldIds(
         FieldType.WEBPAGE ->
             if (value.isNullOrBlank()) field.required else !WebAddress.isValid(value)
         FieldType.TAGS -> field.required && tagValues[field.id].orEmpty().isEmpty()
+        FieldType.RATIO -> !RatioValues.acceptable(
+            value,
+            field.required,
+            field.leftDigits ?: MAX_RATIO_DIGITS,
+            field.rightDigits ?: MAX_RATIO_DIGITS,
+        )
         else -> field.required && value.isNullOrBlank()
     }
     field.id.takeIf { blocked }

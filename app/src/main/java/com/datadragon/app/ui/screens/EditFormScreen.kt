@@ -64,7 +64,9 @@ import com.datadragon.app.ui.components.DialogActionButton
 import com.datadragon.app.ui.components.DialogDismissButton
 import com.datadragon.app.ui.components.DuplicateItemDialog
 import com.datadragon.app.data.introducesOptionDuplicate
+import com.datadragon.app.data.ChoiceStyle
 import com.datadragon.app.data.FieldDef
+import com.datadragon.app.data.RatioValues
 import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.sortEligible
 import com.datadragon.app.data.SettingsRepository
@@ -670,6 +672,12 @@ private fun FieldEditorScreen(
                 }
             }
             RequiredRow(draft)
+            if (draft.type == FieldType.DROPDOWN) {
+                ChoiceStyleRadios(
+                    style = draft.choiceStyle,
+                    onStyleChange = { draft.choiceStyle = it },
+                )
+            }
 
             draft.validationHint()?.let { hint ->
                 Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
@@ -756,6 +764,13 @@ private fun SettingsControls(field: EditDraft) {
                 label = { Text("Options (One per Line)") },
                 modifier = Modifier.fillMaxWidth().heightIn(min = AppTheme.sizes.editorMinHeight),
             )
+            if (field.type == FieldType.DROPDOWN) {
+                SettingSwitchRow(
+                    checked = field.topAnswerPreselected,
+                    onCheckedChange = { field.topAnswerPreselected = it },
+                    title = "Top Answer is Pre-Selected",
+                )
+            }
             if (field.type == FieldType.MULTIPLE) {
                 CheckboxSettingRow(
                     checked = field.allowPreselectedMultipleChoices,
@@ -765,6 +780,14 @@ private fun SettingsControls(field: EditDraft) {
                 )
             }
         }
+        FieldType.RATIO -> RatioFieldSettings(
+            leftDigits = field.leftDigits,
+            onLeftDigitsChange = { field.leftDigits = it },
+            rightDigits = field.rightDigits,
+            onRightDigitsChange = { field.rightDigits = it },
+            unit = field.unit,
+            onUnitChange = { field.unit = it },
+        )
         FieldType.DATETIME -> CheckboxSettingRow(
             checked = field.defaultNow,
             onCheckedChange = { field.defaultNow = it },
@@ -781,7 +804,7 @@ private fun SettingsControls(field: EditDraft) {
 
 @Composable
 private fun RequiredRow(field: EditDraft) {
-    CheckboxSettingRow(
+    SettingSwitchRow(
         checked = field.required,
         onCheckedChange = { field.required = it },
         title = "Required",
@@ -887,6 +910,11 @@ private class EditDraft(
     allowUnknown: Boolean = false,
     makeDropdown: Boolean = false,
     allowPreselectedMultipleChoices: Boolean = false,
+    choiceStyle: ChoiceStyle = ChoiceStyle.DROPDOWN,
+    topAnswerPreselected: Boolean = false,
+    leftDigits: String = "",
+    rightDigits: String = "",
+    unit: String = "",
     /** True for a field that already exists in the saved schema (type locked). */
     val existing: Boolean = false,
     /** The label this field was loaded with, for re-keying entries on rename. */
@@ -908,6 +936,11 @@ private class EditDraft(
     var allowUnknown by mutableStateOf(allowUnknown)
     var makeDropdown by mutableStateOf(makeDropdown)
     var allowPreselectedMultipleChoices by mutableStateOf(allowPreselectedMultipleChoices)
+    var choiceStyle by mutableStateOf(choiceStyle)
+    var topAnswerPreselected by mutableStateOf(topAnswerPreselected)
+    var leftDigits by mutableStateOf(leftDigits)
+    var rightDigits by mutableStateOf(rightDigits)
+    var unit by mutableStateOf(unit)
 
     // Baselines for rename detection; realigned after each save.
     var originalLabel by mutableStateOf(originalLabel)
@@ -925,7 +958,10 @@ private class EditDraft(
             sortByTimestamp == o.sortByTimestamp &&
             allowUnknown == o.allowUnknown &&
             makeDropdown == o.makeDropdown &&
-            allowPreselectedMultipleChoices == o.allowPreselectedMultipleChoices
+            allowPreselectedMultipleChoices == o.allowPreselectedMultipleChoices &&
+            choiceStyle == o.choiceStyle &&
+            topAnswerPreselected == o.topAnswerPreselected &&
+            leftDigits == o.leftDigits && rightDigits == o.rightDigits && unit == o.unit
 
     fun optionList(): List<String> =
         optionsText.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
@@ -938,6 +974,7 @@ private class EditDraft(
         return when (type) {
             FieldType.SCALE -> effectiveTo() >= effectiveFrom()
             FieldType.DROPDOWN, FieldType.MULTIPLE -> optionList().isNotEmpty()
+            FieldType.RATIO -> ratioDigitsValid()
             else -> true
         }
     }
@@ -947,8 +984,12 @@ private class EditDraft(
         type == FieldType.SCALE && !isValid() -> "Scale To must be ≥ From."
         (type == FieldType.DROPDOWN || type == FieldType.MULTIPLE) && optionList().isEmpty() ->
             "Add at least one option."
+        type == FieldType.RATIO && !ratioDigitsValid() -> RATIO_DIGITS_HINT
         else -> null
     }
+
+    private fun ratioDigitsValid(): Boolean =
+        RatioValues.parseDigits(leftDigits) != null && RatioValues.parseDigits(rightDigits) != null
 
     /** A short summary of the field's type and settings for the list card. */
     fun summaryText(): String {
@@ -970,6 +1011,7 @@ private class EditDraft(
             FieldType.TAGS -> "Tags"
             FieldType.WEBPAGE -> "Webpage address"
             FieldType.BLOOD_PRESSURE -> "Blood pressure (###/###)"
+            FieldType.RATIO -> "Ratios"
         }
         return if (required) "$base · required" else base
     }
@@ -995,6 +1037,11 @@ private class EditDraft(
         allowUnknown = allowUnknown,
         makeDropdown = makeDropdown,
         allowPreselectedMultipleChoices = allowPreselectedMultipleChoices,
+        choiceStyle = choiceStyle,
+        topAnswerPreselected = topAnswerPreselected,
+        leftDigits = leftDigits,
+        rightDigits = rightDigits,
+        unit = unit,
         existing = existing,
         originalLabel = originalLabel,
         originalOptions = originalOptions,
@@ -1016,6 +1063,11 @@ private class EditDraft(
         allowUnknown = other.allowUnknown
         makeDropdown = other.makeDropdown
         allowPreselectedMultipleChoices = other.allowPreselectedMultipleChoices
+        choiceStyle = other.choiceStyle
+        topAnswerPreselected = other.topAnswerPreselected
+        leftDigits = other.leftDigits
+        rightDigits = other.rightDigits
+        unit = other.unit
     }
 
     fun toFieldDef(): FieldDef = FieldDef(
@@ -1032,6 +1084,11 @@ private class EditDraft(
         allowUnknown = type == FieldType.YESNO && allowUnknown,
         makeDropdown = type == FieldType.SCALE && makeDropdown,
         allowPreselectedMultipleChoices = type == FieldType.MULTIPLE && allowPreselectedMultipleChoices,
+        choiceStyle = if (type == FieldType.DROPDOWN) choiceStyle else ChoiceStyle.DROPDOWN,
+        topAnswerPreselected = type == FieldType.DROPDOWN && topAnswerPreselected,
+        leftDigits = if (type == FieldType.RATIO) RatioValues.parseDigits(leftDigits) else null,
+        rightDigits = if (type == FieldType.RATIO) RatioValues.parseDigits(rightDigits) else null,
+        unit = if (type == FieldType.RATIO) unit.trim() else "",
     )
 
     fun toSnapshot(): EditDraftSnapshot = EditDraftSnapshot(
@@ -1049,6 +1106,11 @@ private class EditDraft(
         allowUnknown = allowUnknown,
         makeDropdown = makeDropdown,
         allowPreselectedMultipleChoices = allowPreselectedMultipleChoices,
+        choiceStyle = choiceStyle,
+        topAnswerPreselected = topAnswerPreselected,
+        leftDigits = leftDigits,
+        rightDigits = rightDigits,
+        unit = unit,
         existing = existing,
         originalLabel = originalLabel,
         originalOptions = originalOptions,
@@ -1076,6 +1138,11 @@ private data class EditDraftSnapshot(
     val allowUnknown: Boolean = false,
     val makeDropdown: Boolean = false,
     val allowPreselectedMultipleChoices: Boolean = false,
+    val choiceStyle: ChoiceStyle = ChoiceStyle.DROPDOWN,
+    val topAnswerPreselected: Boolean = false,
+    val leftDigits: String = "",
+    val rightDigits: String = "",
+    val unit: String = "",
     val existing: Boolean,
     val originalLabel: String?,
     val originalOptions: List<String>,
@@ -1096,6 +1163,11 @@ private fun EditDraftSnapshot.toEditDraft(): EditDraft = EditDraft(
     allowUnknown = allowUnknown,
     makeDropdown = makeDropdown,
     allowPreselectedMultipleChoices = allowPreselectedMultipleChoices,
+    choiceStyle = choiceStyle,
+    topAnswerPreselected = topAnswerPreselected,
+    leftDigits = leftDigits,
+    rightDigits = rightDigits,
+    unit = unit,
     existing = existing,
     originalLabel = originalLabel,
     originalOptions = originalOptions,
@@ -1117,6 +1189,11 @@ private fun draftOf(f: FieldDef, sortByTimestamp: Boolean): EditDraft = EditDraf
     allowUnknown = f.allowUnknown,
     makeDropdown = f.makeDropdown,
     allowPreselectedMultipleChoices = f.allowPreselectedMultipleChoices,
+    choiceStyle = f.choiceStyle,
+    topAnswerPreselected = f.topAnswerPreselected,
+    leftDigits = f.leftDigits?.toString() ?: "",
+    rightDigits = f.rightDigits?.toString() ?: "",
+    unit = f.unit,
     existing = true,
     originalLabel = f.label,
     originalOptions = f.options,
@@ -1143,8 +1220,8 @@ private fun FieldType.editFriendly(): String = when (this) {
     FieldType.TEXT -> "Text (one line)"
     FieldType.MULTILINE -> "Text (multi-line)"
     FieldType.NUMBER -> "Number"
-    FieldType.DROPDOWN -> "Dropdown (pick one)"
-    FieldType.MULTIPLE -> "Multiple (pick several)"
+    FieldType.DROPDOWN -> "Single Choice"
+    FieldType.MULTIPLE -> "Multiple Choices"
     FieldType.SCALE -> "Scale (Number Range)"
     FieldType.YESNO -> "Yes / No (with optional Unknown)"
     FieldType.DATE -> "Date"
@@ -1153,4 +1230,5 @@ private fun FieldType.editFriendly(): String = when (this) {
     FieldType.TAGS -> "Tags"
     FieldType.WEBPAGE -> "Webpages"
     FieldType.BLOOD_PRESSURE -> "Blood Pressure"
+    FieldType.RATIO -> "Ratios"
 }

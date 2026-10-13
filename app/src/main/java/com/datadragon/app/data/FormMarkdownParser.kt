@@ -38,6 +38,11 @@ object FormMarkdownParser {
         var defaultNow = false
         var allowUnknown = false
         var makeDropdown = false
+        var choiceStyle = ChoiceStyle.DROPDOWN
+        var topAnswerPreselected = false
+        var leftDigits: Int? = null
+        var rightDigits: Int? = null
+        var unit = ""
         val options = mutableListOf<String>()
     }
 
@@ -135,6 +140,18 @@ object FormMarkdownParser {
                             value.equals("true", ignoreCase = true) || value.equals("yes", ignoreCase = true)
                         "make_dropdown" -> b.makeDropdown =
                             value.equals("true", ignoreCase = true) || value.equals("yes", ignoreCase = true)
+                        "choice_style" -> when (value.lowercase()) {
+                            "dropdown" -> b.choiceStyle = ChoiceStyle.DROPDOWN
+                            "displayed" -> b.choiceStyle = ChoiceStyle.DISPLAYED
+                            else -> issues.add("Field \"${b.label}\": choice_style \"$value\" is not dropdown or displayed.")
+                        }
+                        "top_answer_preselected" -> b.topAnswerPreselected =
+                            value.equals("true", ignoreCase = true) || value.equals("yes", ignoreCase = true)
+                        "left_digits" -> b.leftDigits = value.toIntOrNull()
+                            ?: run { issues.add("Field \"${b.label}\": left_digits \"$value\" is not a number."); null }
+                        "right_digits" -> b.rightDigits = value.toIntOrNull()
+                            ?: run { issues.add("Field \"${b.label}\": right_digits \"$value\" is not a number."); null }
+                        "unit" -> b.unit = value
                         "options" -> {
                             inOptions = true
                             if (value.isNotEmpty()) {
@@ -187,6 +204,13 @@ object FormMarkdownParser {
                     return
                 }
             }
+            FieldType.RATIO -> {
+                val digitRange = MIN_RATIO_DIGITS..MAX_RATIO_DIGITS
+                if (b.leftDigits?.let { it in digitRange } != true || b.rightDigits?.let { it in digitRange } != true) {
+                    issues.add("Field \"${b.label}\" (ratio) needs left_digits and right_digits from 1 to 10; skipped.")
+                    return
+                }
+            }
             FieldType.DROPDOWN, FieldType.MULTIPLE -> {
                 if (b.options.isEmpty()) {
                     issues.add("Field \"${b.label}\" (${type.token}) has no options; skipped.")
@@ -209,6 +233,11 @@ object FormMarkdownParser {
                 defaultNow = b.defaultNow && type == FieldType.DATETIME,
                 allowUnknown = b.allowUnknown && type == FieldType.YESNO,
                 makeDropdown = b.makeDropdown && type == FieldType.SCALE,
+                choiceStyle = if (type == FieldType.DROPDOWN) b.choiceStyle else ChoiceStyle.DROPDOWN,
+                topAnswerPreselected = b.topAnswerPreselected && type == FieldType.DROPDOWN,
+                leftDigits = b.leftDigits.takeIf { type == FieldType.RATIO },
+                rightDigits = b.rightDigits.takeIf { type == FieldType.RATIO },
+                unit = if (type == FieldType.RATIO) b.unit else "",
             )
         )
     }

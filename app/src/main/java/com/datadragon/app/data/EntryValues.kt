@@ -128,6 +128,8 @@ object EntryValues {
                 reformat(raw, { LocalTime.parse(it, TIME_STORAGE) }) { timeDisplay.format(it) }
             FieldType.DATETIME ->
                 reformat(raw, { LocalDateTime.parse(it, DATETIME_STORAGE) }) { dateTimeDisplay.format(it) }
+            FieldType.RATIO ->
+                (raw as? JsonPrimitive)?.contentOrNull?.ifBlank { null }?.let { RatioValues.display(it, field.unit) }
             else -> (raw as? JsonPrimitive)?.contentOrNull?.ifBlank { null }
         }
     }

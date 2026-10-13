@@ -8,7 +8,10 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -48,7 +51,7 @@ data class BackupFile(
 
     companion object {
         const val FORMAT = "datadragon-backup"
-        const val VERSION = 6
+        const val VERSION = 7
 
         /** Version 3 is the first envelope format; it lacks the automatic-backup preferences. */
         const val FIRST_ENVELOPE_VERSION = 3
@@ -524,7 +527,7 @@ object BackupCodec {
         ) { "Backup automatic backup preferences are incomplete." }
         // Preferences converted from a version-3 file lack the version-4 fields,
         // so they are re-encoded with the version that truthfully describes them.
-        val version = if (preferences != null && !preferences.hasAutomaticBackupPreferences && payload.luckyLists == null && preferences.modeEnabledLuckyList == null && !payload.hasAllowAdditionsFromForm()) {
+        val version = if (preferences != null && !preferences.hasAutomaticBackupPreferences && payload.luckyLists == null && preferences.modeEnabledLuckyList == null && !payload.hasAllowAdditionsFromForm() && !payload.hasVersion7FieldSettings()) {
             BackupFile.FIRST_ENVELOPE_VERSION
         } else {
             BackupFile.VERSION
@@ -566,6 +569,11 @@ object BackupCodec {
         // Any declaration of the version-6 flag — even an explicit false — needs version 6.
         require(envelope.version >= 6 || envelope.payload.forms.orEmpty().none { it.allowAdditionsFromForm != null }) {
             "Allow Additions from Form requires backup version 6."
+        }
+        // Single Choice style/pre-selection and Ratios fields arrived in version 7;
+        // an older reader would silently drop them, so only version 7 may carry them.
+        require(envelope.version >= 7 || !envelope.payload.hasVersion7FieldSettings()) {
+            "Single Choice and Ratios settings require backup version 7."
         }
         validateManifest(envelope.includedCategories, envelope.payload)
         val canonical = canonicalPayload(envelope.payload)
@@ -623,6 +631,25 @@ object BackupCodec {
             prefs.copy(clickerFollowUpShown = prefs.clickerFollowUpShown?.toSortedMap())
         },
     )
+
+    /**
+     * True when a form or Idea Log field declares a version-7 setting: a Ratios
+     * field, or any Single Choice style / pre-selection / ratio setting key.
+     */
+    private fun BackupPayload.hasVersion7FieldSettings(): Boolean =
+        forms.orEmpty().any { declaresVersion7Fields(it.schemaJson) } ||
+            ideaLogs.orEmpty().any { declaresVersion7Fields(it.fieldsJson) }
+
+    private fun declaresVersion7Fields(fieldsJson: String): Boolean {
+        val fields = runCatching { Json.parseToJsonElement(fieldsJson) }.getOrNull() as? JsonArray ?: return false
+        return fields.any { element ->
+            val field = element as? JsonObject ?: return@any false
+            val type = (field["type"] as? JsonPrimitive)?.contentOrNull?.let(FieldType::fromToken)
+            type == FieldType.RATIO || VERSION_7_FIELD_KEYS.any { it in field }
+        }
+    }
+
+    private val VERSION_7_FIELD_KEYS = listOf("choiceStyle", "topAnswerPreselected", "leftDigits", "rightDigits", "unit")
 
     private fun BackupPayload.hasAllowAdditionsFromForm(): Boolean =
         forms.orEmpty().any { it.allowAdditionsFromForm == true }

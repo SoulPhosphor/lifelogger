@@ -43,6 +43,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.preselectedMultipleChoices
+import com.datadragon.app.data.preselectedSingleChoice
+import com.datadragon.app.data.MAX_RATIO_DIGITS
+import com.datadragon.app.data.RatioValues
 import com.datadragon.app.data.WebAddress
 import com.datadragon.app.ui.NewEntryViewModel
 import kotlinx.serialization.decodeFromString
@@ -160,7 +163,8 @@ fun NewEntryScreen(
         EntryValues.notes(values)?.let { notes = it }
     }
 
-    // Pre-select marked multiple-choice options for new entries only. The map
+    // Pre-select marked multiple-choice options, and a Single Choice field's top
+    // answer when that is turned on, for new entries only. The map
     // check prevents this initialization from restoring a choice after the user
     // has deliberately deselected every option.
     LaunchedEffect(fields, isEditing) {
@@ -169,6 +173,9 @@ fun NewEntryScreen(
             if (field.type == FieldType.MULTIPLE && multiValues[field.label] == null) {
                 val preselected = field.preselectedMultipleChoices()
                 if (preselected.isNotEmpty()) multiValues[field.label] = preselected
+            }
+            if (field.type == FieldType.DROPDOWN && textValues[field.label] == null) {
+                field.preselectedSingleChoice()?.let { textValues[field.label] = it }
             }
         }
     }
@@ -339,6 +346,13 @@ internal fun missingRequiredFieldLabels(
             if (value.isNullOrBlank()) field.required else !WebAddress.isValid(value)
         field.type == FieldType.BLOOD_PRESSURE ->
             !bloodPressureAcceptable(value, field.required)
+        field.type == FieldType.RATIO ->
+            !RatioValues.acceptable(
+                value,
+                field.required,
+                field.leftDigits ?: MAX_RATIO_DIGITS,
+                field.rightDigits ?: MAX_RATIO_DIGITS,
+            )
         !field.required -> false
         field.type == FieldType.MULTIPLE -> multiValues[field.label].orEmpty().isEmpty()
         field.type == FieldType.TAGS -> tagValues[field.label].orEmpty().isEmpty()

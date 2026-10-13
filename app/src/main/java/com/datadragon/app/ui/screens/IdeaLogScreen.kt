@@ -259,7 +259,6 @@ fun IdeaLogScreen(
                         newestFirst = newestFirst,
                         onSelectCategory = viewModel::selectSortCategoryLabel,
                         onSelectNewestFirst = viewModel::selectNewestFirst,
-                        onClear = viewModel::clearSort,
                         modifier = Modifier.padding(horizontal = AppTheme.spacing.rowInset),
                     )
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -287,7 +286,6 @@ fun IdeaLogScreen(
                             newestFirst = newestFirst,
                             onSelectCategory = viewModel::selectSortCategoryLabel,
                             onSelectNewestFirst = viewModel::selectNewestFirst,
-                            onClear = viewModel::clearSort,
                         )
                     }
                     items(visibleEntries, key = { it.id }) { entry ->

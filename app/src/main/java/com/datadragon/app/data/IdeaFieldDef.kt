@@ -48,6 +48,11 @@ data class IdeaFieldDef(
     val allowCopying: Boolean = false,
     val truncateInEntireCard: Boolean = false,
     val entireCardLines: Int = DEFAULT_IDEA_LINES,
+    /** ratios: the most digits allowed on each side of the "/". */
+    val leftDigits: Int? = null,
+    val rightDigits: Int? = null,
+    /** ratios: the unit of measurement shown after the value (blank for none). */
+    val unit: String = "",
 )
 
 /**
@@ -60,6 +65,7 @@ data class IdeaFieldDef(
 enum class IdeaFieldKind(val label: String, val fieldType: FieldType) {
     TITLE("Title", FieldType.TEXT),
     TEXT("Text (Multiline)", FieldType.MULTILINE),
+    RATIOS("Ratios", FieldType.RATIO),
     TAGS("Tags", FieldType.TAGS),
     CATEGORIES("Categories", FieldType.DROPDOWN),
     WEBPAGES("Webpages", FieldType.WEBPAGE),

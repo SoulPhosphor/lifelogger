@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.datadragon.app.data.AppDatabase
 import com.datadragon.app.data.ClickerCard
+import com.datadragon.app.data.ClickerCardOrder
 import com.datadragon.app.data.ClickerField
 import com.datadragon.app.data.ClickerFieldType
 import com.datadragon.app.data.ClickerIncrementDirection
@@ -52,7 +53,6 @@ class ClickerLogViewModel(app: Application) : AndroidViewModel(app) {
     private val json = Json { ignoreUnknownKeys = true }
     private val logId = MutableStateFlow<Long?>(null)
 
-
     val log: StateFlow<ClickerLog?> =
         logId.flatMapLatest { id -> if (id == null) flowOf(null) else dao.observeLog(id) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -61,9 +61,27 @@ class ClickerLogViewModel(app: Application) : AndroidViewModel(app) {
         log.map { it?.let { l -> decodeFields(l.fieldsJson) } ?: emptyList() }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    // The sort bar's direction pick. Null until the user changes it, which means
+    // the default (newest first); it dies with this screen, as it does in Forms.
+    private val _pickedNewestFirst = MutableStateFlow<Boolean?>(null)
+
+    /** The direction in force: newest first until the user picks. */
+    val newestFirst: StateFlow<Boolean> =
+        _pickedNewestFirst.map { it ?: true }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
+    /** The log's cards, ordered by their shown date/time in the chosen direction. */
     val cards: StateFlow<List<ClickerCard>> =
-        logId.flatMapLatest { id -> if (id == null) flowOf(emptyList()) else dao.observeCards(id) }
+        combine(
+            logId.flatMapLatest { id -> if (id == null) flowOf(emptyList()) else dao.observeCards(id) },
+            _pickedNewestFirst,
+        ) { stored, picked -> ClickerCardOrder.sort(stored, newestFirst = picked ?: true) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Run the cards newest first, or oldest first. */
+    fun selectNewestFirst(value: Boolean) {
+        _pickedNewestFirst.value = value
+    }
 
     // Bumped on each toggle so [followUpShown] re-reads the stored state.
     private val followUpToggles = MutableStateFlow(0)

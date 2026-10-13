@@ -57,9 +57,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.ui.components.TagsEditor
 import com.datadragon.app.ui.components.WebpageEntryField
+import com.datadragon.app.data.ChoiceStyle
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.FieldType
+import com.datadragon.app.data.MAX_RATIO_DIGITS
+import com.datadragon.app.data.RatioValues
 import com.datadragon.app.data.multipleChoiceOptionValue
 import java.time.Instant
 import java.time.LocalDate
@@ -164,13 +167,29 @@ fun EntryFieldControl(
                 )
             }
 
-            FieldType.DROPDOWN -> DropdownField(
-                label = label,
-                options = field.options,
-                selected = textValues[field.label].orEmpty(),
-                onSelected = { textValues[field.label] = it },
-                onAdd = onAddOption?.let { add -> { add(field) } },
-            )
+            FieldType.DROPDOWN -> if (field.choiceStyle == ChoiceStyle.DISPLAYED) {
+                // A saved answer that was later removed from the options still
+                // shows (and stays deselectable), as the dropdown shows it.
+                val stored = textValues[field.label].orEmpty()
+                SingleChoiceChipsField(
+                    label = label,
+                    options = if (stored.isEmpty() || stored in field.options) field.options else field.options + stored,
+                    selected = textValues[field.label].orEmpty(),
+                    onTap = { option ->
+                        textValues[field.label] =
+                            if (option == textValues[field.label]) "" else option
+                    },
+                    onAdd = onAddOption?.let { add -> { add(field) } },
+                )
+            } else {
+                DropdownField(
+                    label = label,
+                    options = field.options,
+                    selected = textValues[field.label].orEmpty(),
+                    onSelected = { textValues[field.label] = it },
+                    onAdd = onAddOption?.let { add -> { add(field) } },
+                )
+            }
 
             FieldType.YESNO -> {
                 val raw = textValues[field.label].orEmpty()
@@ -252,6 +271,15 @@ fun EntryFieldControl(
             FieldType.BLOOD_PRESSURE -> BloodPressureField(
                 label = label,
                 stored = textValues[field.label].orEmpty(),
+                onChange = { textValues[field.label] = it },
+            )
+
+            FieldType.RATIO -> RatioField(
+                label = label,
+                stored = textValues[field.label].orEmpty(),
+                leftDigits = field.leftDigits ?: MAX_RATIO_DIGITS,
+                rightDigits = field.rightDigits ?: MAX_RATIO_DIGITS,
+                unit = field.unit,
                 onChange = { textValues[field.label] = it },
             )
         }
@@ -419,6 +447,58 @@ private fun BloodPressureField(
     }
 }
 
+/**
+ * A Ratios field: two number boxes separated by "/", each taking no more digits
+ * than the field allows, followed by the field's unit of measurement.
+ */
+@Composable
+internal fun RatioField(
+    label: String,
+    stored: String,
+    leftDigits: Int,
+    rightDigits: Int,
+    unit: String,
+    onChange: (String) -> Unit,
+) {
+    val (left, right) = RatioValues.split(stored)
+    Labeled(label) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = left,
+                accessibleLabel = "$label: Left",
+                onValueChange = { input ->
+                    onChange(RatioValues.join(input.filter { it.isDigit() }.take(leftDigits), right))
+                },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                "/",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = AppTheme.spacing.related),
+            )
+            OutlinedTextField(
+                value = right,
+                accessibleLabel = "$label: Right",
+                onValueChange = { input ->
+                    onChange(RatioValues.join(left, input.filter { it.isDigit() }.take(rightDigits)))
+                },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.weight(1f),
+            )
+            if (unit.isNotBlank()) {
+                Text(
+                    unit.trim(),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(start = AppTheme.spacing.related),
+                )
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ScaleField(
@@ -518,6 +598,32 @@ private fun MultipleField(
                 FilterChip(
                     selected = option in selected,
                     onClick = { onToggle(option) },
+                    label = { Text(option) },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * A Single Choice field shown as the Multiple Choices chips, but holding one
+ * answer: tapping another chip moves the selection to it.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SingleChoiceChipsField(
+    label: String,
+    options: List<String>,
+    selected: String,
+    onTap: (String) -> Unit,
+    onAdd: (() -> Unit)? = null,
+) {
+    Labeled(label, onAdd) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.related)) {
+            options.forEach { option ->
+                FilterChip(
+                    selected = option == selected,
+                    onClick = { onTap(option) },
                     label = { Text(option) },
                 )
             }
