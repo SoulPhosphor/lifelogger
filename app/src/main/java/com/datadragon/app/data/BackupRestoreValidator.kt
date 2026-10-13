@@ -240,8 +240,12 @@ object BackupRestoreValidator {
     private fun validateFormSchema(value: String) {
         val parsed = runCatching { json.parseToJsonElement(value) }.getOrNull()
         require(parsed is JsonArray) { "Form schema is invalid JSON." }
+        var declaresChoices = false
         val normalized = JsonArray(parsed.map { element ->
             require(element is JsonObject) { "Form schema is invalid JSON." }
+            // Checked on the raw object: an empty "choices" list decodes the same
+            // as an omitted one but still marks the identity shape.
+            if ("choices" in element) declaresChoices = true
             val token = (element["type"] as? JsonPrimitive)?.contentOrNull
             val fieldType = token?.let(FieldType::fromToken)
             require(fieldType != null) { "Form schema contains an unsupported field type." }
@@ -251,12 +255,12 @@ object BackupRestoreValidator {
             .getOrElse { throw IllegalArgumentException("Form schema is invalid JSON.", it) }
         // A schema written before field identities has no ids and no option
         // identities at all, and is converted on restore. Once any field has an
-        // id or any option list uses ChoiceOptions, the schema is the identity
+        // id or any field declares a "choices" list, the schema is the identity
         // shape and its entries are keyed by ids, so every field must have an id
         // and they must be unique; a blank one could never be matched back to its
         // stored answers.
         val fieldIds = fields.map { it.id }
-        if (fieldIds.any { it.isNotBlank() } || fields.any { it.choices.isNotEmpty() }) {
+        if (fieldIds.any { it.isNotBlank() } || declaresChoices) {
             require(fieldIds.none { it.isBlank() }) { "Form field UUID is missing." }
             require(fieldIds.size == fieldIds.distinct().size) { "Form field UUIDs must be unique." }
         }

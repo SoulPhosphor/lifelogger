@@ -178,6 +178,14 @@ class BackupIdentityUpgradeTest {
             BackupRestoreValidator.validate(BackupCodec.decode(file(choicesWithoutFieldIds)))
         }
 
+        // An empty "choices" list is still the identity shape.
+        val emptyChoicesWithoutFieldIds = currentLog().copy(
+            schemaJson = """[{"label":"Mood","type":"TEXT","choices":[]}]""",
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            BackupRestoreValidator.validate(BackupCodec.decode(file(emptyChoicesWithoutFieldIds)))
+        }
+
         // The well-formed backup passes the same validation.
         BackupRestoreValidator.validate(BackupCodec.decode(file(currentLog())))
     }
