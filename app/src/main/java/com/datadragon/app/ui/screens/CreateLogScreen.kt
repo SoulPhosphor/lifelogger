@@ -220,17 +220,26 @@ fun CreateLogScreen(
                         onClick = {
                             val fields: List<FieldDef>
                             val markdown: String
+                            // Build mode knows which field the user picked, so the
+                            // default sort keeps that field's id even when another
+                            // field shares its label.
+                            var builtSortFieldId: String? = null
                             if (mode == BuilderMode.BUILD) {
                                 // Every field here is newly created, so apply the
                                 // auto-capitalize settings before saving.
-                                fields = draftFields.filter { it.isValid() }
-                                    .map { it.toFieldDef() }
-                                    .map {
-                                        it.autoCapitalized(
+                                val built = draftFields.filter { it.isValid() }
+                                    .map { draft ->
+                                        draft to draft.toFieldDef().autoCapitalized(
                                             labels = settings.autoCapitalizeLabels,
                                             options = settings.autoCapitalizeOptions,
                                         )
                                     }
+                                fields = built.map { it.second }
+                                builtSortFieldId = built
+                                    .singleOrNull { (draft, _) -> draft.sortByTimestamp }
+                                    ?.second
+                                    ?.takeIf { it.type.sortEligible }
+                                    ?.id
                                 markdown = FormMarkdownGenerator.generate(name, fields)
                             } else {
                                 // Fix the casing of pasted markdown in place (labels
@@ -254,11 +263,15 @@ fun CreateLogScreen(
                                 .singleOrNull { it.sortByTimestamp }
                                 ?.label
                                 ?.trim()
-                            val sortTimestampFieldId = selectedSortLabel?.let { selected ->
-                                fields.firstOrNull {
-                                    it.type.sortEligible &&
-                                        it.label.equals(selected, ignoreCase = true)
-                                }?.id
+                            val sortTimestampFieldId = if (mode == BuilderMode.BUILD) {
+                                builtSortFieldId
+                            } else {
+                                selectedSortLabel?.let { selected ->
+                                    fields.firstOrNull {
+                                        it.type.sortEligible &&
+                                            it.label.equals(selected, ignoreCase = true)
+                                    }?.id
+                                }
                             }
                             viewModel.save(
                                 name = finalName,
