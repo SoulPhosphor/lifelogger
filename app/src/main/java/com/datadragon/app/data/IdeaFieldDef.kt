@@ -48,6 +48,11 @@ data class IdeaFieldDef(
     val allowCopying: Boolean = false,
     val truncateInEntireCard: Boolean = false,
     val entireCardLines: Int = DEFAULT_IDEA_LINES,
+    /** ratios: the most digits allowed on each side of the "/". */
+    val leftDigits: Int? = null,
+    val rightDigits: Int? = null,
+    /** ratios: the unit of measurement shown after the value (blank for none). */
+    val unit: String = "",
 )
 
 /**
@@ -65,7 +70,8 @@ enum class IdeaFieldKind(val label: String, val fieldType: FieldType) {
     WEBPAGES("Webpages", FieldType.WEBPAGE),
     DATE("Date Only", FieldType.DATE),
     TIME("Time Only", FieldType.TIME),
-    DATETIME("Date/Time", FieldType.DATETIME);
+    DATETIME("Date/Time", FieldType.DATETIME),
+    RATIOS("Ratios", FieldType.RATIO);
 
     companion object {
         fun of(type: FieldType): IdeaFieldKind = entries.firstOrNull { it.fieldType == type } ?: TEXT

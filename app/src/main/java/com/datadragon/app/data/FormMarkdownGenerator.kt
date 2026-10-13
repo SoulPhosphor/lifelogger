@@ -33,6 +33,11 @@ object FormMarkdownGenerator {
                         if (field.topAnswerPreselected) sb.append("top_answer_preselected: true\n")
                     }
                 }
+                FieldType.RATIO -> {
+                    field.leftDigits?.let { sb.append("left_digits: ").append(it).append('\n') }
+                    field.rightDigits?.let { sb.append("right_digits: ").append(it).append('\n') }
+                    if (field.unit.isNotBlank()) sb.append("unit: ").append(field.unit.trim()).append('\n')
+                }
                 FieldType.DATETIME -> if (field.defaultNow) sb.append("default: now\n")
                 FieldType.YESNO -> if (field.allowUnknown) sb.append("allow_unknown: true\n")
                 else -> Unit

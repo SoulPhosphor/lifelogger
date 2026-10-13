@@ -61,6 +61,8 @@ import com.datadragon.app.data.ChoiceStyle
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.FieldType
+import com.datadragon.app.data.MAX_RATIO_DIGITS
+import com.datadragon.app.data.RatioValues
 import com.datadragon.app.data.multipleChoiceOptionValue
 import java.time.Instant
 import java.time.LocalDate
@@ -268,6 +270,15 @@ fun EntryFieldControl(
                 stored = textValues[field.label].orEmpty(),
                 onChange = { textValues[field.label] = it },
             )
+
+            FieldType.RATIO -> RatioField(
+                label = label,
+                stored = textValues[field.label].orEmpty(),
+                leftDigits = field.leftDigits ?: MAX_RATIO_DIGITS,
+                rightDigits = field.rightDigits ?: MAX_RATIO_DIGITS,
+                unit = field.unit,
+                onChange = { textValues[field.label] = it },
+            )
         }
     }
 }
@@ -429,6 +440,58 @@ private fun BloodPressureField(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.width(AppTheme.sizes.numberWidth),
             )
+        }
+    }
+}
+
+/**
+ * A Ratios field: two number boxes separated by "/", each taking no more digits
+ * than the field allows, followed by the field's unit of measurement.
+ */
+@Composable
+internal fun RatioField(
+    label: String,
+    stored: String,
+    leftDigits: Int,
+    rightDigits: Int,
+    unit: String,
+    onChange: (String) -> Unit,
+) {
+    val (left, right) = RatioValues.split(stored)
+    Labeled(label) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = left,
+                accessibleLabel = "$label: Left",
+                onValueChange = { input ->
+                    onChange(RatioValues.join(input.filter { it.isDigit() }.take(leftDigits), right))
+                },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                "/",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = AppTheme.spacing.related),
+            )
+            OutlinedTextField(
+                value = right,
+                accessibleLabel = "$label: Right",
+                onValueChange = { input ->
+                    onChange(RatioValues.join(left, input.filter { it.isDigit() }.take(rightDigits)))
+                },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.weight(1f),
+            )
+            if (unit.isNotBlank()) {
+                Text(
+                    unit.trim(),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(start = AppTheme.spacing.related),
+                )
+            }
         }
     }
 }

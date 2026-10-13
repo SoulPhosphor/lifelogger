@@ -44,6 +44,7 @@ lines: 4
 | `tags` | Type a tag and add it; each becomes a removable chip | none |
 | `webpage` | A web address, with a button that opens it in the browser | none |
 | `blood_pressure` | Two 3-digit boxes separated by `/` (systolic / diastolic) | none |
+| `ratio` | Two number boxes separated by `/`, followed by an optional unit | `left_digits` and `right_digits` — max digits on each side (1 to 10, both required); `unit` — unit of measurement (optional) |
 
 Any field may also add `required` (the user must fill it before saving). Fields are optional by default.
 
@@ -127,6 +128,21 @@ from: 0
 to: 100
 make_dropdown: true
 ```
+
+### ratio
+
+```
+## Blood Pressure Reading
+type: ratio
+left_digits: 3
+right_digits: 3
+unit: mmHg
+```
+
+Stored as the two numbers joined by `/` (e.g. `120/80`) and displayed with the
+unit after it (`Blood Pressure Reading: 120/80 mmHg`). Each box takes up to its
+digit count, fewer is fine. Both boxes must be filled, or (when optional) both
+left blank.
 
 ### yesno
 

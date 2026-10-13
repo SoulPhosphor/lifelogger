@@ -44,6 +44,8 @@ import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.preselectedMultipleChoices
 import com.datadragon.app.data.preselectedSingleChoice
+import com.datadragon.app.data.MAX_RATIO_DIGITS
+import com.datadragon.app.data.RatioValues
 import com.datadragon.app.data.WebAddress
 import com.datadragon.app.ui.NewEntryViewModel
 import kotlinx.serialization.decodeFromString
@@ -344,6 +346,13 @@ internal fun missingRequiredFieldLabels(
             if (value.isNullOrBlank()) field.required else !WebAddress.isValid(value)
         field.type == FieldType.BLOOD_PRESSURE ->
             !bloodPressureAcceptable(value, field.required)
+        field.type == FieldType.RATIO ->
+            !RatioValues.acceptable(
+                value,
+                field.required,
+                field.leftDigits ?: MAX_RATIO_DIGITS,
+                field.rightDigits ?: MAX_RATIO_DIGITS,
+            )
         !field.required -> false
         field.type == FieldType.MULTIPLE -> multiValues[field.label].orEmpty().isEmpty()
         field.type == FieldType.TAGS -> tagValues[field.label].orEmpty().isEmpty()

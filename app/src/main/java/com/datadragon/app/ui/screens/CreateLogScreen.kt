@@ -76,6 +76,7 @@ import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.sortEligible
 import com.datadragon.app.data.FormMarkdownGenerator
 import com.datadragon.app.data.FormMarkdownParser
+import com.datadragon.app.data.RatioValues
 import com.datadragon.app.data.SettingsRepository
 import com.datadragon.app.data.TitleCase
 import com.datadragon.app.ui.CreateLogViewModel
@@ -101,6 +102,7 @@ multiple       — pick several items from a list (tappable chips)
 tags           — type a tag and add it; each becomes a removable chip
 webpage        — a web address, with a button that opens it
 blood_pressure — Two 3-Digit Boxes Separated by "/" (Systolic / Diastolic)
+ratio          — two numbers separated by "/". Set "left_digits" and "right_digits" (1 to 10). Add "unit" for a unit of measurement
 
 Any field can add "required" to prevent saving without it."""
 
@@ -471,6 +473,50 @@ internal fun ChoiceStyleRadios(
     }
 }
 
+/**
+ * A Ratios field's settings: the digit limit for each side of the "/", then an
+ * optional unit of measurement. Each digit box takes 1–10.
+ */
+@Composable
+internal fun RatioFieldSettings(
+    leftDigits: String,
+    onLeftDigitsChange: (String) -> Unit,
+    rightDigits: String,
+    onRightDigitsChange: (String) -> Unit,
+    unit: String,
+    onUnitChange: (String) -> Unit,
+) {
+    RatioDigitsRow(title = "Number of Digits on Left", value = leftDigits, onChange = onLeftDigitsChange)
+    RatioDigitsRow(title = "Number of Digits on Right", value = rightDigits, onChange = onRightDigitsChange)
+    Text("Unit of Measurement", style = MaterialTheme.typography.bodyLarge)
+    OutlinedTextField(
+        value = unit,
+        onValueChange = onUnitChange,
+        placeholder = { Text("Optional") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+/** One "Number of Digits" setting: the title on the left, a short digits box on the right. */
+@Composable
+private fun RatioDigitsRow(title: String, value: String, onChange: (String) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        Spacer(Modifier.width(AppTheme.spacing.rowInset))
+        OutlinedTextField(
+            value = value,
+            onValueChange = { input -> onChange(RatioValues.digitsSetting(input, value)) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.width(AppTheme.sizes.numberWidth),
+        )
+    }
+}
+
 /** A checkbox whose entire labeled row is one toggle target. */
 @Composable
 internal fun CheckboxSettingRow(
@@ -703,6 +749,14 @@ private fun FieldEditorCard(
                         )
                     }
                 }
+                FieldType.RATIO -> RatioFieldSettings(
+                    leftDigits = field.leftDigits,
+                    onLeftDigitsChange = { field.leftDigits = it },
+                    rightDigits = field.rightDigits,
+                    onRightDigitsChange = { field.rightDigits = it },
+                    unit = field.unit,
+                    onUnitChange = { field.unit = it },
+                )
                 FieldType.DATETIME -> CheckboxSettingRow(
                     checked = field.defaultNow,
                     onCheckedChange = { field.defaultNow = it },
@@ -734,7 +788,7 @@ private fun FieldEditorCard(
                     )
                 }
             }
-            CheckboxSettingRow(
+            SettingSwitchRow(
                 checked = field.required,
                 onCheckedChange = { field.required = it },
                 title = "Required",
@@ -926,6 +980,9 @@ private class DraftField(
     allowPreselectedMultipleChoices: Boolean = false,
     choiceStyle: ChoiceStyle = ChoiceStyle.DROPDOWN,
     topAnswerPreselected: Boolean = false,
+    leftDigits: String = "",
+    rightDigits: String = "",
+    unit: String = "",
 ) {
     var label by mutableStateOf(label)
     var type by mutableStateOf(type)
@@ -943,6 +1000,9 @@ private class DraftField(
     var allowPreselectedMultipleChoices by mutableStateOf(allowPreselectedMultipleChoices)
     var choiceStyle by mutableStateOf(choiceStyle)
     var topAnswerPreselected by mutableStateOf(topAnswerPreselected)
+    var leftDigits by mutableStateOf(leftDigits)
+    var rightDigits by mutableStateOf(rightDigits)
+    var unit by mutableStateOf(unit)
 
     fun optionList(): List<String> =
         optionsText.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
@@ -956,6 +1016,7 @@ private class DraftField(
         return when (type) {
             FieldType.SCALE -> effectiveTo() >= effectiveFrom()
             FieldType.DROPDOWN, FieldType.MULTIPLE -> optionList().isNotEmpty()
+            FieldType.RATIO -> ratioDigitsValid()
             else -> true
         }
     }
@@ -966,8 +1027,12 @@ private class DraftField(
         type == FieldType.SCALE && !isValid() -> "Scale To must be ≥ From."
         (type == FieldType.DROPDOWN || type == FieldType.MULTIPLE) && optionList().isEmpty() ->
             "Add at least one option."
+        type == FieldType.RATIO && !ratioDigitsValid() -> RATIO_DIGITS_HINT
         else -> null
     }
+
+    private fun ratioDigitsValid(): Boolean =
+        RatioValues.parseDigits(leftDigits) != null && RatioValues.parseDigits(rightDigits) != null
 
     fun toFieldDef(): FieldDef = FieldDef(
         label = label.trim(),
@@ -985,6 +1050,9 @@ private class DraftField(
         allowPreselectedMultipleChoices = type == FieldType.MULTIPLE && allowPreselectedMultipleChoices,
         choiceStyle = if (type == FieldType.DROPDOWN) choiceStyle else ChoiceStyle.DROPDOWN,
         topAnswerPreselected = type == FieldType.DROPDOWN && topAnswerPreselected,
+        leftDigits = if (type == FieldType.RATIO) RatioValues.parseDigits(leftDigits) else null,
+        rightDigits = if (type == FieldType.RATIO) RatioValues.parseDigits(rightDigits) else null,
+        unit = if (type == FieldType.RATIO) unit.trim() else "",
     )
 
     fun toSnapshot(): DraftFieldSnapshot = DraftFieldSnapshot(
@@ -1004,8 +1072,14 @@ private class DraftField(
         allowPreselectedMultipleChoices = allowPreselectedMultipleChoices,
         choiceStyle = choiceStyle,
         topAnswerPreselected = topAnswerPreselected,
+        leftDigits = leftDigits,
+        rightDigits = rightDigits,
+        unit = unit,
     )
 }
+
+/** Shown under a Ratios field until both digit boxes hold 1–10. */
+internal const val RATIO_DIGITS_HINT = "Add the number of digits on each side."
 
 /** Scale bounds used when the user leaves the From/To boxes blank. */
 private const val SCALE_DEFAULT_FROM = 1
@@ -1030,6 +1104,9 @@ private data class DraftFieldSnapshot(
     val allowPreselectedMultipleChoices: Boolean = false,
     val choiceStyle: ChoiceStyle = ChoiceStyle.DROPDOWN,
     val topAnswerPreselected: Boolean = false,
+    val leftDigits: String = "",
+    val rightDigits: String = "",
+    val unit: String = "",
 )
 
 private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
@@ -1049,6 +1126,9 @@ private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
     allowPreselectedMultipleChoices = allowPreselectedMultipleChoices,
     choiceStyle = choiceStyle,
     topAnswerPreselected = topAnswerPreselected,
+    leftDigits = leftDigits,
+    rightDigits = rightDigits,
+    unit = unit,
 )
 
 /**
@@ -1111,6 +1191,9 @@ private fun FieldDef.toDraft(): DraftField = DraftField(
     allowPreselectedMultipleChoices = allowPreselectedMultipleChoices,
     choiceStyle = choiceStyle,
     topAnswerPreselected = topAnswerPreselected,
+    leftDigits = leftDigits?.toString() ?: "",
+    rightDigits = rightDigits?.toString() ?: "",
+    unit = unit,
 )
 
 /** The first single-`#` line of [text], used as the log name when the box is empty. */
@@ -1134,6 +1217,7 @@ private fun FieldType.friendly(): String = when (this) {
     FieldType.TAGS -> "Tags"
     FieldType.WEBPAGE -> "Webpages"
     FieldType.BLOOD_PRESSURE -> "Blood Pressure"
+    FieldType.RATIO -> "Ratios"
 }
 
 /** A short human-readable description of a parsed field for the preview. */
@@ -1152,6 +1236,7 @@ private fun FieldDef.summary(): String {
         FieldType.TAGS -> "Tags"
         FieldType.WEBPAGE -> "Webpage address"
         FieldType.BLOOD_PRESSURE -> "Blood pressure (###/###)"
+        FieldType.RATIO -> "Ratios"
     }
     return if (required) "$base · required" else base
 }

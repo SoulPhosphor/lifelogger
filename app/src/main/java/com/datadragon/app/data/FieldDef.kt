@@ -38,6 +38,11 @@ data class FieldDef(
     val choiceStyle: ChoiceStyle = ChoiceStyle.DROPDOWN,
     /** dropdown (Single Choice): pre-select the first option on new entries. */
     val topAnswerPreselected: Boolean = false,
+    /** ratio: the most digits allowed on each side of the "/". */
+    val leftDigits: Int? = null,
+    val rightDigits: Int? = null,
+    /** ratio: the unit of measurement shown after the value (blank for none). */
+    val unit: String = "",
 )
 
 /** How a Single Choice (`dropdown`) field presents its options on the entry form. */
@@ -89,7 +94,8 @@ enum class FieldType(val token: String) {
     DATETIME("datetime"),
     TAGS("tags"),
     WEBPAGE("webpage"),
-    BLOOD_PRESSURE("blood_pressure");
+    BLOOD_PRESSURE("blood_pressure"),
+    RATIO("ratio");
 
     companion object {
         fun fromToken(token: String): FieldType? =
