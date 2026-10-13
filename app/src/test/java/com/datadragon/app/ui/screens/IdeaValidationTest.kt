@@ -147,4 +147,41 @@ class IdeaValidationTest {
             assertEquals(listOf("filled"), visibleIdeaFields(fields, values, mode).map { it.id })
         }
     }
+
+    @Test
+    fun anUntouchedFieldKeepsItsStoredValueWhenAnIdeaIsResaved() {
+        // A saved Categories field that has since been changed to Text, and a
+        // former Text field now set to Tags: both still hold their old values.
+        val kind = IdeaFieldDef(
+            id = "kind",
+            label = "Kind",
+            type = FieldType.TEXT,
+            choices = listOf(com.datadragon.app.data.ChoiceOption("work-id", "Work")),
+        )
+        val tags = field("tags", FieldType.TAGS)
+        val note = field("note", FieldType.TEXT)
+        val stored = IdeaValues.decode("""{"kind":"work-id","tags":"old text","note":"before"}""")
+        val fields = listOf(kind, tags, note)
+
+        // The controls are filled exactly as the edit screen fills them.
+        val untouched = collectIdeaValues(
+            fields = fields,
+            textValues = mapOf("kind" to IdeaValues.rawValue(stored, kind)!!, "note" to "before"),
+            tagValues = emptyMap(),
+            stored = stored,
+        )
+        assertEquals(stored, IdeaValues.decode(EntryValues.encode(untouched)))
+
+        // Only the field that was actually edited is rewritten.
+        val edited = collectIdeaValues(
+            fields = fields,
+            textValues = mapOf("kind" to "Work", "note" to "after"),
+            tagValues = emptyMap(),
+            stored = stored,
+        )
+        val decoded = IdeaValues.decode(EntryValues.encode(edited))
+        assertEquals("work-id", (decoded["kind"] as kotlinx.serialization.json.JsonPrimitive).content)
+        assertEquals("old text", (decoded["tags"] as kotlinx.serialization.json.JsonPrimitive).content)
+        assertEquals("after", IdeaValues.rawValue(decoded, note))
+    }
 }
