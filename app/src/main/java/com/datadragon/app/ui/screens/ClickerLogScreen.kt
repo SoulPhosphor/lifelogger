@@ -252,7 +252,6 @@ fun ClickerLogScreen(
                     newestFirst = newestFirst,
                     onSelectCategory = {},
                     onSelectNewestFirst = viewModel::selectNewestFirst,
-                    onClear = viewModel::clearSort,
                     modifier = Modifier.padding(horizontal = AppTheme.spacing.rowInset),
                 )
                 Box(
@@ -288,7 +287,6 @@ fun ClickerLogScreen(
                         newestFirst = newestFirst,
                         onSelectCategory = {},
                         onSelectNewestFirst = viewModel::selectNewestFirst,
-                        onClear = viewModel::clearSort,
                     )
                 }
                 items(cards, key = { it.id }) { card ->

@@ -134,12 +134,6 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
         _pickedNewestFirst.value = value
     }
 
-    /** Drop both picks and go back to the form's own default ordering. */
-    fun clearSort() {
-        _pickedCategoryLabel.value = null
-        _pickedNewestFirst.value = null
-    }
-
     /** Update the visible title immediately and debounce its database write. */
     fun setTitle(name: String) {
         val current = _template.value ?: return

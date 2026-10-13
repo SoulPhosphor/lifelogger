@@ -165,11 +165,6 @@ class IdeaLogViewModel(app: Application) : AndroidViewModel(app) {
         _pickedNewestFirst.value = value
     }
 
-    fun clearSort() {
-        _pickedCategoryLabel.value = null
-        _pickedNewestFirst.value = null
-    }
-
     /** Switch between the active list and the archive. */
     fun setLocation(location: IdeaLocation) {
         _location.value = location

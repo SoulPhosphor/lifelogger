@@ -270,7 +270,6 @@ fun LogScreen(
                     newestFirst = newestFirst,
                     onSelectCategory = viewModel::selectSortCategoryLabel,
                     onSelectNewestFirst = viewModel::selectNewestFirst,
-                    onClear = viewModel::clearSort,
                     modifier = Modifier.padding(horizontal = AppTheme.spacing.rowInset),
                 )
                 Box(
@@ -296,7 +295,6 @@ fun LogScreen(
                         newestFirst = newestFirst,
                         onSelectCategory = viewModel::selectSortCategoryLabel,
                         onSelectNewestFirst = viewModel::selectNewestFirst,
-                        onClear = viewModel::clearSort,
                     )
                 }
                 items(visibleEntries, key = { it.id }) { entry ->

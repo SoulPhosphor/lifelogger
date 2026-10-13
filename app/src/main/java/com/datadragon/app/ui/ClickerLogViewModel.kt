@@ -53,7 +53,6 @@ class ClickerLogViewModel(app: Application) : AndroidViewModel(app) {
     private val json = Json { ignoreUnknownKeys = true }
     private val logId = MutableStateFlow<Long?>(null)
 
-
     val log: StateFlow<ClickerLog?> =
         logId.flatMapLatest { id -> if (id == null) flowOf(null) else dao.observeLog(id) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -82,11 +81,6 @@ class ClickerLogViewModel(app: Application) : AndroidViewModel(app) {
     /** Run the cards newest first, or oldest first. */
     fun selectNewestFirst(value: Boolean) {
         _pickedNewestFirst.value = value
-    }
-
-    /** Drop the pick and go back to the default ordering (newest first). */
-    fun clearSort() {
-        _pickedNewestFirst.value = null
     }
 
     // Bumped on each toggle so [followUpShown] re-reads the stored state.
