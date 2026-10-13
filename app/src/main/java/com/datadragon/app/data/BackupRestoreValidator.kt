@@ -10,6 +10,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.jsonObject
 
 /** Complete semantic validation performed before restore preflight or database writes. */
 object BackupRestoreValidator {
@@ -195,7 +196,14 @@ object BackupRestoreValidator {
         })
         val fields = runCatching { json.decodeFromJsonElement<List<IdeaFieldDef>>(normalized) }
             .getOrElse { throw IllegalArgumentException("Idea Log fields are invalid JSON.", it) }
-        fields.forEach { requireUniqueChoiceIds(it.choices, "Idea Category") }
+        fields.forEachIndexed { index, field ->
+            // A field with category identities is never converted again, so a
+            // text category list beside them would never be resolved.
+            if ("choices" in normalized[index].jsonObject) {
+                require(field.legacyOptions.isEmpty()) { "Idea Categories are missing UUIDs." }
+            }
+            requireUniqueChoiceIds(field.choices, "Idea Category")
+        }
     }
 
     /**

@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.withTransaction
 import com.datadragon.app.data.AppDatabase
+import com.datadragon.app.data.CategoryAdoption
 import com.datadragon.app.data.ChoiceDeletion
 import com.datadragon.app.data.ChoiceEdits
 import com.datadragon.app.data.IdeaFieldDef
@@ -114,22 +115,37 @@ class IdeaLogEditorViewModel(app: Application) : AndroidViewModel(app) {
                 return@launch
             }
             val savedName = name.trim()
-            logDao.updateLog(
-                id = id,
-                name = savedName,
-                fieldsJson = json.encodeToString(fields),
-                automaticTimestamping = automaticTimestamping,
-                allowArchiving = allowArchiving,
-                showEntireIdeaCard = showEntireIdeaCard,
-                previewLines = previewLines,
-                sortTimestampFieldId = sortTimestampFieldId,
-                sortNewestFirst = sortNewestFirst,
-            )
+            // A field changed to Categories has its ideas' text answers pointed
+            // at matching categories in the same transaction as the schema.
+            val savedFields = db.withTransaction {
+                val entries = entryDao.getForLogOnce(id)
+                val adopted = CategoryAdoption.adopt(
+                    previous = _loadedFields.value,
+                    fields = fields,
+                    entryValues = entries.map { it.valuesJson },
+                )
+                logDao.updateLog(
+                    id = id,
+                    name = savedName,
+                    fieldsJson = json.encodeToString(adopted.fields),
+                    automaticTimestamping = automaticTimestamping,
+                    allowArchiving = allowArchiving,
+                    showEntireIdeaCard = showEntireIdeaCard,
+                    previewLines = previewLines,
+                    sortTimestampFieldId = sortTimestampFieldId,
+                    sortNewestFirst = sortNewestFirst,
+                )
+                entries.forEachIndexed { index, entry ->
+                    val values = adopted.entryValues[index]
+                    if (values != entry.valuesJson) entryDao.update(entry.copy(valuesJson = values))
+                }
+                adopted.fields
+            }
             _loaded.value = _loaded.value?.copy(
                 name = savedName,
                 allowArchiving = allowArchiving,
             )
-            _loadedFields.value = fields
+            _loadedFields.value = savedFields
             onSaved()
         }
     }

@@ -123,6 +123,31 @@ class BackupIdentityUpgradeTest {
     }
 
     @Test
+    fun anIdeaCategoriesFieldMixingIdentitiesAndTextCategoriesIsRejected() {
+        fun ideaFile(fieldsJson: String) = BackupCodec.encode(
+            BackupFile.single(
+                exportedAt = "2026-10-13T12:00:00Z",
+                category = BackupCategory.IDEA_LOGS,
+                payload = BackupPayload(
+                    ideaLogs = listOf(
+                        BackupIdeaLog(
+                            "idea-uuid", "Ideas", 1, fieldsJson,
+                            false, false, false, 20, null, true,
+                            listOf(BackupIdeaEntry("2026-10-01T10:00:00-05:00", null, """{"kind":"home-id"}""", false, false)),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        val mixed = """[{"id":"kind","label":"Kind","type":"DROPDOWN","choices":[{"id":"home-id","label":"Home"}],"options":["Work"]}]"""
+        assertThrows(IllegalArgumentException::class.java) {
+            BackupRestoreValidator.validate(BackupCodec.decode(ideaFile(mixed)))
+        }
+        val current = """[{"id":"kind","label":"Kind","type":"DROPDOWN","choices":[{"id":"home-id","label":"Home"}]}]"""
+        BackupRestoreValidator.validate(BackupCodec.decode(ideaFile(current)))
+    }
+
+    @Test
     fun anOlderFormatCannotCarryIdentities() {
         val text = file(currentLog()).replace("\"version\": ${BackupFile.VERSION}", "\"version\": 7")
         assertThrows(IllegalArgumentException::class.java) { BackupCodec.decode(text) }
