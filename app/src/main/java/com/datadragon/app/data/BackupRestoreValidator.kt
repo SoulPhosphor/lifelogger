@@ -263,6 +263,9 @@ object BackupRestoreValidator {
         if (fieldIds.any { it.isNotBlank() } || declaresChoices) {
             require(fieldIds.none { it.isBlank() }) { "Form field UUID is missing." }
             require(fieldIds.size == fieldIds.distinct().size) { "Form field UUIDs must be unique." }
+            // Options in the identity shape are ChoiceOptions; a text option list
+            // would never be converted, so its answers could not be resolved.
+            require(fields.none { it.legacyOptions.isNotEmpty() }) { "Form options are missing UUIDs." }
         }
         fields.forEach { requireUniqueChoiceIds(it.choices, "Form option") }
     }

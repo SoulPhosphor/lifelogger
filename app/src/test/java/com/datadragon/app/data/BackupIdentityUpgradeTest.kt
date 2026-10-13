@@ -186,6 +186,14 @@ class BackupIdentityUpgradeTest {
             BackupRestoreValidator.validate(BackupCodec.decode(file(emptyChoicesWithoutFieldIds)))
         }
 
+        // Field ids with a text option list are a mixed shape that is never converted.
+        val legacyOptionsWithFieldIds = currentLog().copy(
+            schemaJson = """[{"id":"pet","label":"Pet","type":"DROPDOWN","options":["Cat","Dog"]}]""",
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            BackupRestoreValidator.validate(BackupCodec.decode(file(legacyOptionsWithFieldIds)))
+        }
+
         // The well-formed backup passes the same validation.
         BackupRestoreValidator.validate(BackupCodec.decode(file(currentLog())))
     }
