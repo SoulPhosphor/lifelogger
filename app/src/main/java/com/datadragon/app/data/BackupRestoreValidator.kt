@@ -249,12 +249,14 @@ object BackupRestoreValidator {
         })
         val fields = runCatching { json.decodeFromJsonElement<List<FieldDef>>(normalized) }
             .getOrElse { throw IllegalArgumentException("Form schema is invalid JSON.", it) }
-        // A schema written before field identities has no ids at all and is
-        // converted on restore. Once any field has an id, the entries are keyed
-        // by ids, so every field must have one and they must be unique; a blank
-        // id there could never be matched back to its stored answers.
+        // A schema written before field identities has no ids and no option
+        // identities at all, and is converted on restore. Once any field has an
+        // id or any option list uses ChoiceOptions, the schema is the identity
+        // shape and its entries are keyed by ids, so every field must have an id
+        // and they must be unique; a blank one could never be matched back to its
+        // stored answers.
         val fieldIds = fields.map { it.id }
-        if (fieldIds.any { it.isNotBlank() }) {
+        if (fieldIds.any { it.isNotBlank() } || fields.any { it.choices.isNotEmpty() }) {
             require(fieldIds.none { it.isBlank() }) { "Form field UUID is missing." }
             require(fieldIds.size == fieldIds.distinct().size) { "Form field UUIDs must be unique." }
         }

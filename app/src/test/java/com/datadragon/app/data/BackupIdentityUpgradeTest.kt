@@ -169,6 +169,15 @@ class BackupIdentityUpgradeTest {
             BackupRestoreValidator.validate(BackupCodec.decode(file(blankField)))
         }
 
+        // Option identities without field ids are also the identity shape, so the
+        // blank field ids are rejected rather than treated as legacy data.
+        val choicesWithoutFieldIds = currentLog().copy(
+            schemaJson = FormMarkdownParser.encodeFields(listOf(pet.copy(id = ""), whenField.copy(id = ""))),
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            BackupRestoreValidator.validate(BackupCodec.decode(file(choicesWithoutFieldIds)))
+        }
+
         // The well-formed backup passes the same validation.
         BackupRestoreValidator.validate(BackupCodec.decode(file(currentLog())))
     }
