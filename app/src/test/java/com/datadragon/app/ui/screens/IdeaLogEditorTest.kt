@@ -139,4 +139,20 @@ class IdeaLogEditorTest {
         assertEquals(false, def.allowCopying)
         assertEquals(false, def.truncateInEntireCard)
     }
+
+    @Test
+    fun aSavedCategoriesFieldKeepsItsCategoriesWhenItsTypeChanges() {
+        val saved = IdeaFieldDef(
+            id = "kind",
+            label = "Kind",
+            type = FieldType.DROPDOWN,
+            choices = listOf(ChoiceOption("home", "Home")),
+        )
+        val draft = saved.toDraft(sortByTimestamp = false)
+        draft.kind = IdeaFieldKind.TITLE
+
+        assertEquals(listOf("home"), draft.toFieldDef().choices.map { it.id })
+        // A brand-new field of another type carries no categories.
+        assertTrue(IdeaDraftField(label = "T", kind = IdeaFieldKind.TITLE).toFieldDef().choices.isEmpty())
+    }
 }

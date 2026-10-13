@@ -177,7 +177,13 @@ class IdeaDraftField(
         type = kind.fieldType,
         required = required,
         includeInPreview = includeInPreview,
-        choices = if (kind == IdeaFieldKind.CATEGORIES) categories() else emptyList(),
+        // A saved Categories field switched to another type keeps its categories,
+        // so the answers already stored as category ids still read as names.
+        choices = when {
+            kind == IdeaFieldKind.CATEGORIES -> categories()
+            rowEditing -> choices
+            else -> emptyList()
+        },
         lines = if (kind == IdeaFieldKind.TEXT) lines.toIntOrNull() else null,
         allowOrderFiltering = kind.fieldType.sortEligible && allowOrderFiltering,
         wordCount = kind == IdeaFieldKind.TEXT && wordCount,

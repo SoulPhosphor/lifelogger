@@ -30,9 +30,17 @@ object IdeaValues {
 
     fun decode(valuesJson: String): JsonObject = EntryValues.decode(valuesJson)
 
-    /** The raw stored string for any single-valued field, or null if absent. */
-    fun rawValue(values: JsonObject, field: IdeaFieldDef): String? =
-        (values[field.id] as? JsonPrimitive)?.contentOrNull?.ifBlank { null }
+    /**
+     * The stored string for any single-valued field, or null if absent. A
+     * Categories field returns the stored category id. A field that used to be
+     * Categories still keeps its categories, so a stored category id under it
+     * reads back as that category's name rather than an opaque id.
+     */
+    fun rawValue(values: JsonObject, field: IdeaFieldDef): String? {
+        val text = (values[field.id] as? JsonPrimitive)?.contentOrNull?.ifBlank { null } ?: return null
+        if (field.type == FieldType.DROPDOWN) return text
+        return field.choices.firstOrNull { it.id == text }?.label ?: text
+    }
 
     /** The saved tags of a Tags field, in the order they were added. */
     fun tags(values: JsonObject, field: IdeaFieldDef): List<String> =
