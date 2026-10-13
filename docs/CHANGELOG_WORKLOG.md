@@ -1103,3 +1103,11 @@ Completed the remaining Daily List behavior gaps without changing ordinary Lists
 - **Persistence**: `log_templates.allowAdditionsFromForm`, database v22 → v23 with an additive, idempotent migration (existing forms off; tested).
 - **Backup**: format version 6. `BackupLog.allowAdditionsFromForm` is written only when on, so forms without it encode exactly as before and older backups keep their checksums. Older files restore it as off, and a version-5 file claiming it is rejected. Round trip and UUID preservation are tested.
 - **Lucky List**: items may not repeat one another, ignoring capitalization. When a row's edit finishes (leaving the row, Save, Select Lucky Item, or Back), a repeat shows the same notice and the row returns to the text it had before that edit. Duplicates already saved are preserved.
+
+## Single Choice style, Ratios, Required toggle, Clicker sorting (October 13 2026)
+
+- **Single Choice** (was "Dropdown (pick one)") gains Top Answer is Pre-Selected (off by default; new entries only) and Choice Style: Dropdown or Displayed (Multiple Choices chips, one pick). "Multiple (pick several)" is now "Multiple Choices". Form Markdown keys: `choice_style`, `top_answer_preselected`.
+- **Ratios** field type in Forms (`ratio`, with `left_digits`, `right_digits`, `unit`) and Ideas: two number boxes separated by "/", per-side digit limits of 1–10, optional unit shown after the value. Blood Pressure is unchanged.
+- **Required** is a toggle everywhere (STYLE.md rule).
+- **Clicker Data Log Main screens** carry the Forms sort bar; cards order by their shown date/time, newest first by default.
+- **Backup**: format version 7. A form or Idea Log field declaring a Ratios type or any of the new keys needs version 7; a version-6 file carrying one is rejected, and older apps reject version-7 files. Round trip tested.

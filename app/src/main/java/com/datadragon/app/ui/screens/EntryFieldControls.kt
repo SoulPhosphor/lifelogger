@@ -168,9 +168,12 @@ fun EntryFieldControl(
             }
 
             FieldType.DROPDOWN -> if (field.choiceStyle == ChoiceStyle.DISPLAYED) {
+                // A saved answer that was later removed from the options still
+                // shows (and stays deselectable), as the dropdown shows it.
+                val stored = textValues[field.label].orEmpty()
                 SingleChoiceChipsField(
                     label = label,
-                    options = field.options,
+                    options = if (stored.isEmpty() || stored in field.options) field.options else field.options + stored,
                     selected = textValues[field.label].orEmpty(),
                     onTap = { option ->
                         textValues[field.label] =
