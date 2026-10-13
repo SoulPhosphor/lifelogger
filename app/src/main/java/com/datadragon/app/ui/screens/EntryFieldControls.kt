@@ -57,6 +57,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.ui.components.TagsEditor
 import com.datadragon.app.ui.components.WebpageEntryField
+import com.datadragon.app.data.ChoiceStyle
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.FieldType
@@ -164,13 +165,26 @@ fun EntryFieldControl(
                 )
             }
 
-            FieldType.DROPDOWN -> DropdownField(
-                label = label,
-                options = field.options,
-                selected = textValues[field.label].orEmpty(),
-                onSelected = { textValues[field.label] = it },
-                onAdd = onAddOption?.let { add -> { add(field) } },
-            )
+            FieldType.DROPDOWN -> if (field.choiceStyle == ChoiceStyle.DISPLAYED) {
+                SingleChoiceChipsField(
+                    label = label,
+                    options = field.options,
+                    selected = textValues[field.label].orEmpty(),
+                    onTap = { option ->
+                        textValues[field.label] =
+                            if (option == textValues[field.label]) "" else option
+                    },
+                    onAdd = onAddOption?.let { add -> { add(field) } },
+                )
+            } else {
+                DropdownField(
+                    label = label,
+                    options = field.options,
+                    selected = textValues[field.label].orEmpty(),
+                    onSelected = { textValues[field.label] = it },
+                    onAdd = onAddOption?.let { add -> { add(field) } },
+                )
+            }
 
             FieldType.YESNO -> {
                 val raw = textValues[field.label].orEmpty()
@@ -518,6 +532,32 @@ private fun MultipleField(
                 FilterChip(
                     selected = option in selected,
                     onClick = { onToggle(option) },
+                    label = { Text(option) },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * A Single Choice field shown as the Multiple Choices chips, but holding one
+ * answer: tapping another chip moves the selection to it.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SingleChoiceChipsField(
+    label: String,
+    options: List<String>,
+    selected: String,
+    onTap: (String) -> Unit,
+    onAdd: (() -> Unit)? = null,
+) {
+    Labeled(label, onAdd) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.related)) {
+            options.forEach { option ->
+                FilterChip(
+                    selected = option == selected,
+                    onClick = { onTap(option) },
                     label = { Text(option) },
                 )
             }

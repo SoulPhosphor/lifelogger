@@ -70,6 +70,7 @@ import com.datadragon.app.ui.components.DialogActionButton
 import com.datadragon.app.ui.components.DialogDismissButton
 import com.datadragon.app.ui.components.DuplicateItemDialog
 import com.datadragon.app.data.introducesOptionDuplicate
+import com.datadragon.app.data.ChoiceStyle
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.sortEligible
@@ -442,6 +443,34 @@ internal fun SortDirectionRadios(
     }
 }
 
+/** A Single Choice field's "Choice Style:" pick, shown below Required. */
+@Composable
+internal fun ChoiceStyleRadios(
+    style: ChoiceStyle,
+    onStyleChange: (ChoiceStyle) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text("Choice Style:", style = MaterialTheme.typography.bodyLarge)
+        // Both choices share the width so a narrow screen wraps the labels
+        // rather than clipping them.
+        Row(
+            modifier = Modifier.fillMaxWidth().selectableGroup(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
+        ) {
+            listOf(ChoiceStyle.DROPDOWN to "Dropdown", ChoiceStyle.DISPLAYED to "Displayed").forEach { (option, text) ->
+                Row(
+                    modifier = Modifier.weight(1f).selectable(selected = style == option, role = Role.RadioButton, onClick = { onStyleChange(option) }),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(selected = style == option, onClick = null, modifier = Modifier.sizeIn(minWidth = AppTheme.sizes.minimumTouchTarget, minHeight = AppTheme.sizes.minimumTouchTarget))
+                    Text(text)
+                }
+            }
+        }
+    }
+}
+
 /** A checkbox whose entire labeled row is one toggle target. */
 @Composable
 internal fun CheckboxSettingRow(
@@ -658,6 +687,13 @@ private fun FieldEditorCard(
                         label = { Text("Options (One per Line)") },
                         modifier = Modifier.fillMaxWidth().heightIn(min = AppTheme.sizes.editorMinHeight),
                     )
+                    if (field.type == FieldType.DROPDOWN) {
+                        SettingSwitchRow(
+                            checked = field.topAnswerPreselected,
+                            onCheckedChange = { field.topAnswerPreselected = it },
+                            title = "Top Answer is Pre-Selected",
+                        )
+                    }
                     if (field.type == FieldType.MULTIPLE) {
                         CheckboxSettingRow(
                             checked = field.allowPreselectedMultipleChoices,
@@ -703,6 +739,12 @@ private fun FieldEditorCard(
                 onCheckedChange = { field.required = it },
                 title = "Required",
             )
+            if (field.type == FieldType.DROPDOWN) {
+                ChoiceStyleRadios(
+                    style = field.choiceStyle,
+                    onStyleChange = { field.choiceStyle = it },
+                )
+            }
 
             field.validationHint()?.let { hint ->
                 Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
@@ -882,6 +924,8 @@ private class DraftField(
     allowUnknown: Boolean = false,
     makeDropdown: Boolean = false,
     allowPreselectedMultipleChoices: Boolean = false,
+    choiceStyle: ChoiceStyle = ChoiceStyle.DROPDOWN,
+    topAnswerPreselected: Boolean = false,
 ) {
     var label by mutableStateOf(label)
     var type by mutableStateOf(type)
@@ -897,6 +941,8 @@ private class DraftField(
     var allowUnknown by mutableStateOf(allowUnknown)
     var makeDropdown by mutableStateOf(makeDropdown)
     var allowPreselectedMultipleChoices by mutableStateOf(allowPreselectedMultipleChoices)
+    var choiceStyle by mutableStateOf(choiceStyle)
+    var topAnswerPreselected by mutableStateOf(topAnswerPreselected)
 
     fun optionList(): List<String> =
         optionsText.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
@@ -937,6 +983,8 @@ private class DraftField(
         allowUnknown = type == FieldType.YESNO && allowUnknown,
         makeDropdown = type == FieldType.SCALE && makeDropdown,
         allowPreselectedMultipleChoices = type == FieldType.MULTIPLE && allowPreselectedMultipleChoices,
+        choiceStyle = if (type == FieldType.DROPDOWN) choiceStyle else ChoiceStyle.DROPDOWN,
+        topAnswerPreselected = type == FieldType.DROPDOWN && topAnswerPreselected,
     )
 
     fun toSnapshot(): DraftFieldSnapshot = DraftFieldSnapshot(
@@ -954,6 +1002,8 @@ private class DraftField(
         allowUnknown = allowUnknown,
         makeDropdown = makeDropdown,
         allowPreselectedMultipleChoices = allowPreselectedMultipleChoices,
+        choiceStyle = choiceStyle,
+        topAnswerPreselected = topAnswerPreselected,
     )
 }
 
@@ -978,6 +1028,8 @@ private data class DraftFieldSnapshot(
     val allowUnknown: Boolean = false,
     val makeDropdown: Boolean = false,
     val allowPreselectedMultipleChoices: Boolean = false,
+    val choiceStyle: ChoiceStyle = ChoiceStyle.DROPDOWN,
+    val topAnswerPreselected: Boolean = false,
 )
 
 private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
@@ -995,6 +1047,8 @@ private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
     allowUnknown = allowUnknown,
     makeDropdown = makeDropdown,
     allowPreselectedMultipleChoices = allowPreselectedMultipleChoices,
+    choiceStyle = choiceStyle,
+    topAnswerPreselected = topAnswerPreselected,
 )
 
 /**
@@ -1055,6 +1109,8 @@ private fun FieldDef.toDraft(): DraftField = DraftField(
     allowUnknown = allowUnknown,
     makeDropdown = makeDropdown,
     allowPreselectedMultipleChoices = allowPreselectedMultipleChoices,
+    choiceStyle = choiceStyle,
+    topAnswerPreselected = topAnswerPreselected,
 )
 
 /** The first single-`#` line of [text], used as the log name when the box is empty. */
@@ -1068,8 +1124,8 @@ private fun FieldType.friendly(): String = when (this) {
     FieldType.TEXT -> "Text (one line)"
     FieldType.MULTILINE -> "Text (multi-line)"
     FieldType.NUMBER -> "Number"
-    FieldType.DROPDOWN -> "Dropdown (pick one)"
-    FieldType.MULTIPLE -> "Multiple (pick several)"
+    FieldType.DROPDOWN -> "Single Choice"
+    FieldType.MULTIPLE -> "Multiple Choices"
     FieldType.SCALE -> "Scale (Number Range)"
     FieldType.YESNO -> "Yes / No (with optional Unknown)"
     FieldType.DATE -> "Date"

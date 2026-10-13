@@ -1,5 +1,6 @@
 package com.datadragon.app.data
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -33,7 +34,22 @@ data class FieldDef(
     val allowUnknown: Boolean = false,
     /** scale: render as a dropdown of numbers instead of tappable chips. */
     val makeDropdown: Boolean = false,
+    /** dropdown (Single Choice): show as a dropdown or as displayed chips. */
+    val choiceStyle: ChoiceStyle = ChoiceStyle.DROPDOWN,
+    /** dropdown (Single Choice): pre-select the first option on new entries. */
+    val topAnswerPreselected: Boolean = false,
 )
+
+/** How a Single Choice (`dropdown`) field presents its options on the entry form. */
+@Serializable
+enum class ChoiceStyle {
+    @SerialName("dropdown") DROPDOWN,
+    @SerialName("displayed") DISPLAYED,
+}
+
+/** The Single Choice answer selected automatically when a new entry opens, if any. */
+fun FieldDef.preselectedSingleChoice(): String? =
+    if (type == FieldType.DROPDOWN && topAnswerPreselected) options.firstOrNull() else null
 
 /**
  * Returns the value used for a multiple-choice answer. When pre-selection is
