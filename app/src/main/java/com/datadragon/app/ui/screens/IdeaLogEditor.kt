@@ -52,6 +52,7 @@ import com.datadragon.app.data.IdeaFieldDef
 import com.datadragon.app.data.IdeaFieldKind
 import com.datadragon.app.data.StableUuid
 import com.datadragon.app.data.MAX_IDEA_LINES
+import com.datadragon.app.data.OptionDuplicates
 import com.datadragon.app.data.SettingsRepository
 import com.datadragon.app.data.TitleCase
 import com.datadragon.app.data.ideaLineCount
@@ -60,6 +61,7 @@ import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.ui.components.AppDialog
 import com.datadragon.app.ui.components.DialogActionButton
 import com.datadragon.app.ui.components.DialogDismissButton
+import com.datadragon.app.ui.components.DuplicateItemDialog
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -95,6 +97,8 @@ class IdeaDraftField(
     allowCopying: Boolean = false,
     truncateInEntireCard: Boolean = false,
     entireCardLines: String = DEFAULT_IDEA_LINES.toString(),
+    /** The Categories options as last saved, so a historical duplicate stays saveable. */
+    val originalOptions: List<String> = emptyList(),
 ) {
     var label by mutableStateOf(label)
     var kind by mutableStateOf(kind)
@@ -124,6 +128,11 @@ class IdeaDraftField(
         kind == IdeaFieldKind.CATEGORIES && optionList().isEmpty() -> "Add at least one option."
         else -> null
     }
+
+    /** True when the Categories options repeat an item (ignoring capitalization) not already saved twice. */
+    fun introducesCategoryDuplicate(): Boolean =
+        kind == IdeaFieldKind.CATEGORIES &&
+            OptionDuplicates.introducesDuplicate(originalOptions, optionList())
 
     fun toFieldDef(): IdeaFieldDef = IdeaFieldDef(
         id = id,
@@ -156,6 +165,7 @@ class IdeaDraftField(
         allowCopying = allowCopying,
         truncateInEntireCard = truncateInEntireCard,
         entireCardLines = entireCardLines,
+        originalOptions = originalOptions,
     )
 }
 
@@ -176,6 +186,7 @@ data class IdeaDraftSnapshot(
     val allowCopying: Boolean,
     val truncateInEntireCard: Boolean,
     val entireCardLines: String,
+    val originalOptions: List<String> = emptyList(),
 )
 
 fun IdeaDraftSnapshot.toDraft(): IdeaDraftField = IdeaDraftField(
@@ -193,6 +204,7 @@ fun IdeaDraftSnapshot.toDraft(): IdeaDraftField = IdeaDraftField(
     allowCopying = allowCopying,
     truncateInEntireCard = truncateInEntireCard,
     entireCardLines = entireCardLines,
+    originalOptions = originalOptions,
 )
 
 /** Seed a draft from a saved field, keeping its permanent id. */
@@ -211,6 +223,7 @@ fun IdeaFieldDef.toDraft(sortByTimestamp: Boolean): IdeaDraftField = IdeaDraftFi
     allowCopying = allowCopying,
     truncateInEntireCard = truncateInEntireCard,
     entireCardLines = entireCardLines.toString(),
+    originalOptions = options,
 )
 
 /** Saves the in-progress field list so it survives a background process kill. */
@@ -286,6 +299,7 @@ fun IdeaLogEditorScaffold(
     onBack: () -> Unit,
 ) {
     var showDiscard by rememberSaveable { mutableStateOf(false) }
+    var showDuplicate by rememberSaveable { mutableStateOf(false) }
     fun attemptBack() { if (dirty) showDiscard = true else onBack() }
     BackHandler { attemptBack() }
 
@@ -314,7 +328,17 @@ fun IdeaLogEditorScaffold(
                     }
                 },
                 actions = {
-                    TextButton(enabled = canSave, onClick = onSave) { Text("Save") }
+                    TextButton(
+                        enabled = canSave,
+                        onClick = {
+                            // Categories may not repeat an item, ignoring capitalization.
+                            if (fields.any { it.introducesCategoryDuplicate() }) {
+                                showDuplicate = true
+                            } else {
+                                onSave()
+                            }
+                        },
+                    ) { Text("Save") }
                 },
             )
         },
@@ -435,6 +459,10 @@ fun IdeaLogEditorScaffold(
             onConfirm = { showDiscard = false; onBack() },
             onDismiss = { showDiscard = false },
         )
+    }
+
+    if (showDuplicate) {
+        DuplicateItemDialog(onDismiss = { showDuplicate = false })
     }
 }
 

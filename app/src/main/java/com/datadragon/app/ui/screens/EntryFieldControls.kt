@@ -32,6 +32,10 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import com.datadragon.app.ui.components.AccessibleOutlinedTextField as OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -103,6 +107,8 @@ fun EntryFieldControl(
     showRequiredError: Boolean = false,
     bringIntoViewRequester: BringIntoViewRequester? = null,
     focusRequester: FocusRequester? = null,
+    /** Set when the form allows additions: opens Add Option for a Dropdown/Multiple field. */
+    onAddOption: ((FieldDef) -> Unit)? = null,
 ) {
     val label = field.displayLabel()
     val targetModifier = bringIntoViewRequester?.let {
@@ -163,6 +169,7 @@ fun EntryFieldControl(
                 options = field.options,
                 selected = textValues[field.label].orEmpty(),
                 onSelected = { textValues[field.label] = it },
+                onAdd = onAddOption?.let { add -> { add(field) } },
             )
 
             FieldType.YESNO -> {
@@ -203,6 +210,7 @@ fun EntryFieldControl(
                     multiValues[field.label] =
                         if (option in current) current - option else current + option
                 },
+                onAdd = onAddOption?.let { add -> { add(field) } },
             )
 
             FieldType.DATE -> DateField(
@@ -253,10 +261,32 @@ fun EntryFieldControl(
 private fun Modifier.withFocusRequester(requester: FocusRequester?): Modifier =
     requester?.let { this.focusRequester(it) } ?: this
 
+/**
+ * A field's title above its control. When [onAdd] is set (a Dropdown/Multiple
+ * field on a form that allows additions), a background-less "+" sits at the far
+ * right of the title's line and opens the Add Option pop-up.
+ */
 @Composable
-internal fun Labeled(label: String, content: @Composable () -> Unit) {
+internal fun Labeled(
+    label: String,
+    onAdd: (() -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.compact)) {
-        Text(label, style = MaterialTheme.typography.labelLarge)
+        if (onAdd == null) {
+            Text(label, style = MaterialTheme.typography.labelLarge)
+        } else {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+                IconButton(onClick = onAdd) {
+                    Icon(
+                        Icons.Filled.Add,
+                        contentDescription = "Add Option to $label",
+                        tint = AppTheme.colors.addOptionIcon,
+                    )
+                }
+            }
+        }
         CompositionLocalProvider(LocalAccessibleFieldLabel provides label) { content() }
     }
 }
@@ -268,9 +298,10 @@ internal fun DropdownField(
     options: List<String>,
     selected: String,
     onSelected: (String) -> Unit,
+    onAdd: (() -> Unit)? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    Labeled(label) {
+    Labeled(label, onAdd) {
         ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
             OutlinedTextField(
                 value = selected,
@@ -479,8 +510,9 @@ private fun MultipleField(
     options: List<String>,
     selected: Set<String>,
     onToggle: (String) -> Unit,
+    onAdd: (() -> Unit)? = null,
 ) {
-    Labeled(label) {
+    Labeled(label, onAdd) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.related)) {
             options.forEach { option ->
                 FilterChip(

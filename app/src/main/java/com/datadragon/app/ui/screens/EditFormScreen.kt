@@ -62,6 +62,8 @@ import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.ui.components.AppDialog
 import com.datadragon.app.ui.components.DialogActionButton
 import com.datadragon.app.ui.components.DialogDismissButton
+import com.datadragon.app.ui.components.DuplicateItemDialog
+import com.datadragon.app.data.introducesOptionDuplicate
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.sortEligible
@@ -129,6 +131,7 @@ fun EditFormScreen(
     val loadedSortTimestampLabel by viewModel.sortTimestampLabel.collectAsStateWithLifecycle()
     val loadedSortNewestFirst by viewModel.sortNewestFirst.collectAsStateWithLifecycle()
     val loadedIntegrateCalendar by viewModel.integrateCalendar.collectAsStateWithLifecycle()
+    val loadedAllowAdditionsFromForm by viewModel.allowAdditionsFromForm.collectAsStateWithLifecycle()
     val calendars by viewModel.calendars.collectAsStateWithLifecycle()
     // The existing form title is editable alongside the field list and is saved
     // by this screen's existing Save action.
@@ -140,6 +143,8 @@ fun EditFormScreen(
     var savedSortNewestFirst by rememberSaveable { mutableStateOf<Boolean?>(null) }
     var integrateCalendar by rememberSaveable { mutableStateOf<Boolean?>(null) }
     var savedIntegrateCalendar by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    var allowAdditionsFromForm by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    var savedAllowAdditionsFromForm by rememberSaveable { mutableStateOf<Boolean?>(null) }
     LaunchedEffect(name) {
         if (formTitle == null && name != null) {
             formTitle = name
@@ -162,6 +167,12 @@ fun EditFormScreen(
         if (integrateCalendar == null && name != null) {
             integrateCalendar = loadedIntegrateCalendar
             savedIntegrateCalendar = loadedIntegrateCalendar
+        }
+    }
+    LaunchedEffect(name, loadedAllowAdditionsFromForm) {
+        if (allowAdditionsFromForm == null && name != null) {
+            allowAdditionsFromForm = loadedAllowAdditionsFromForm
+            savedAllowAdditionsFromForm = loadedAllowAdditionsFromForm
         }
     }
 
@@ -190,7 +201,8 @@ fun EditFormScreen(
     var editingIndex by rememberSaveable { mutableStateOf<Int?>(null) }
 
     val canSave = name != null && formTitle != null && automaticTimestamping != null &&
-        sortNewestFirst != null && integrateCalendar != null && rows.all { it.isValid() }
+        sortNewestFirst != null && integrateCalendar != null && allowAdditionsFromForm != null &&
+        rows.all { it.isValid() }
 
     fun move(index: Int, delta: Int) {
         val target = index + delta
@@ -231,6 +243,7 @@ fun EditFormScreen(
             sortTimestampLabel = rows.firstOrNull { it.sortByTimestamp }?.label?.trim(),
             sortNewestFirst = sortNewestFirst ?: true,
             integrateCalendar = integrateCalendar ?: false,
+            allowAdditionsFromForm = allowAdditionsFromForm ?: false,
             labelRenames = labelRenames(),
             optionRenames = optionRenames(),
             onSaved = {
@@ -245,6 +258,7 @@ fun EditFormScreen(
                 savedAutomaticTimestamping = automaticTimestamping
                 savedSortNewestFirst = sortNewestFirst
                 savedIntegrateCalendar = integrateCalendar
+                savedAllowAdditionsFromForm = allowAdditionsFromForm
                 savedSnapshot = rows.map { it.toFieldDef() }
                 onDone()
             },
@@ -283,6 +297,7 @@ fun EditFormScreen(
         (savedAutomaticTimestamping != null && automaticTimestamping != savedAutomaticTimestamping) ||
         (savedSortNewestFirst != null && sortNewestFirst != savedSortNewestFirst) ||
         (savedIntegrateCalendar != null && integrateCalendar != savedIntegrateCalendar) ||
+        (savedAllowAdditionsFromForm != null && allowAdditionsFromForm != savedAllowAdditionsFromForm) ||
         (seeded && currentSortLabel != savedSortLabel)
     var showDiscard by rememberSaveable { mutableStateOf(false) }
     fun attemptBack() { if (dirty) showDiscard = true else onBack() }
@@ -326,6 +341,16 @@ fun EditFormScreen(
             contentPadding = PaddingValues(AppTheme.spacing.screenInset),
             verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset),
         ) {
+            item(key = "title") {
+                OutlinedTextField(
+                    value = formTitle.orEmpty(),
+                    onValueChange = { formTitle = it },
+                    label = { Text("Title") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
             item(key = "integrate-calendar") {
                 SettingSwitchRow(
                     checked = integrateCalendar ?: false,
@@ -375,21 +400,21 @@ fun EditFormScreen(
                 }
             }
 
-            item(key = "title") {
-                OutlinedTextField(
-                    value = formTitle.orEmpty(),
-                    onValueChange = { formTitle = it },
-                    label = { Text("Title") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-
             item(key = "automatic-timestamping") {
                 SettingSwitchRow(
                     checked = automaticTimestamping ?: false,
                     onCheckedChange = { automaticTimestamping = it },
                     title = "Automatic Timestamping",
+                )
+            }
+
+            item(key = "allow-additions-from-form") {
+                // Lets a Dropdown or Multiple field gain options from the entry
+                // form itself (the "+" beside the field's title there).
+                SettingSwitchRow(
+                    checked = allowAdditionsFromForm ?: false,
+                    onCheckedChange = { allowAdditionsFromForm = it },
+                    title = "Allow Additions from Form",
                 )
             }
 
@@ -534,6 +559,7 @@ private fun FieldEditorScreen(
     // Editing works on a copy; warn before dropping unsaved edits to this field.
     var showDiscard by remember { mutableStateOf(false) }
     var showSortReplacement by remember { mutableStateOf(false) }
+    var showDuplicate by remember { mutableStateOf(false) }
     // The sort direction belongs to the form, not the field, so it is held here
     // and only handed back on Save — cancelling this editor leaves it untouched.
     var newestFirst by remember { mutableStateOf(sortNewestFirst) }
@@ -554,6 +580,13 @@ private fun FieldEditorScreen(
                     TextButton(
                         enabled = canSave(draft),
                         onClick = {
+                            // Refuse an option list that repeats an item; a duplicate
+                            // already saved before this edit is left alone.
+                            val baseline = if (draft.existing) draft.originalOptions else emptyList()
+                            if (draft.toFieldDef().introducesOptionDuplicate(baseline)) {
+                                showDuplicate = true
+                                return@TextButton
+                            }
                             source.applyFrom(draft)
                             if (source.sortByTimestamp) onSortSelected()
                             onSortDirectionChange(newestFirst)
@@ -649,6 +682,10 @@ private fun FieldEditorScreen(
             onConfirm = { showDiscard = false; onCancel() },
             onDismiss = { showDiscard = false },
         )
+    }
+
+    if (showDuplicate) {
+        DuplicateItemDialog(onDismiss = { showDuplicate = false })
     }
 
 

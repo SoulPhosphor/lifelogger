@@ -48,7 +48,7 @@ data class BackupFile(
 
     companion object {
         const val FORMAT = "datadragon-backup"
-        const val VERSION = 5
+        const val VERSION = 6
 
         /** Version 3 is the first envelope format; it lacks the automatic-backup preferences. */
         const val FIRST_ENVELOPE_VERSION = 3
@@ -161,6 +161,7 @@ data class BackupCounts(
     }
 }
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class BackupLog(
     @Transient val id: Long = 0,
@@ -175,6 +176,12 @@ data class BackupLog(
     val sortTimestampLabel: String? = null,
     val sortNewestFirst: Boolean = true,
     val integrateCalendar: Boolean = false,
+    /**
+     * "Allow Additions from Form", added in format version 6. Written only when
+     * on (null means off), so a form without it encodes exactly as before and
+     * older backups keep their checksums.
+     */
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val allowAdditionsFromForm: Boolean? = null,
     val entries: List<BackupEntry> = emptyList(),
     val calendars: List<BackupCalendar> = emptyList(),
 )
@@ -517,7 +524,7 @@ object BackupCodec {
         ) { "Backup automatic backup preferences are incomplete." }
         // Preferences converted from a version-3 file lack the version-4 fields,
         // so they are re-encoded with the version that truthfully describes them.
-        val version = if (preferences != null && !preferences.hasAutomaticBackupPreferences && payload.luckyLists == null && preferences.modeEnabledLuckyList == null) {
+        val version = if (preferences != null && !preferences.hasAutomaticBackupPreferences && payload.luckyLists == null && preferences.modeEnabledLuckyList == null && !payload.hasAllowAdditionsFromForm()) {
             BackupFile.FIRST_ENVELOPE_VERSION
         } else {
             BackupFile.VERSION
@@ -555,6 +562,9 @@ object BackupCodec {
         }
         require(envelope.version >= 5 || (envelope.payload.luckyLists == null && envelope.payload.portablePreferences?.modeEnabledLuckyList == null)) {
             "Lucky List data requires backup version 5."
+        }
+        require(envelope.version >= 6 || !envelope.payload.hasAllowAdditionsFromForm()) {
+            "Allow Additions from Form requires backup version 6."
         }
         validateManifest(envelope.includedCategories, envelope.payload)
         val canonical = canonicalPayload(envelope.payload)
@@ -613,8 +623,13 @@ object BackupCodec {
         },
     )
 
+    private fun BackupPayload.hasAllowAdditionsFromForm(): Boolean =
+        forms.orEmpty().any { it.allowAdditionsFromForm == true }
+
     private fun canonicalForms(forms: List<BackupLog>): List<BackupLog> = forms.map { form ->
         form.copy(
+            // Off is always represented as absent, so it compares and hashes the same.
+            allowAdditionsFromForm = form.allowAdditionsFromForm?.takeIf { it },
             entries = form.entries.map { entry ->
                 entry.copy(notes = entry.notes.sortedWith(compareBy({ it.createdAt }, { it.text })))
             }.sortedWith(compareBy({ it.createdAt }, { it.updatedAt }, { it.valuesJson })),
@@ -671,6 +686,7 @@ object BackupCodec {
             sortTimestampLabel = template.sortTimestampLabel,
             sortNewestFirst = template.sortNewestFirst,
             integrateCalendar = template.integrateCalendar,
+            allowAdditionsFromForm = template.allowAdditionsFromForm.takeIf { it },
             entries = entries.map { entry ->
                 BackupEntry(
                     id = entry.id,
@@ -709,6 +725,7 @@ object BackupCodec {
         sortTimestampLabel = log.sortTimestampLabel,
         sortNewestFirst = log.sortNewestFirst,
         integrateCalendar = log.integrateCalendar,
+        allowAdditionsFromForm = log.allowAdditionsFromForm == true,
     )
 
     fun entriesOf(log: BackupLog): List<LogEntry> = log.entries.map {

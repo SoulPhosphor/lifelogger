@@ -57,4 +57,11 @@ data class LogTemplate(
      */
     @ColumnInfo(defaultValue = "0")
     val integrateCalendar: Boolean = false,
+    /**
+     * The Form Editor's "Allow Additions from Form" toggle. When on, each
+     * Dropdown and Multiple field shows a "+" on the entry form that adds new
+     * options to this form's schema. Off by default so existing forms are unchanged.
+     */
+    @ColumnInfo(defaultValue = "0")
+    val allowAdditionsFromForm: Boolean = false,
 )

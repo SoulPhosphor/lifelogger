@@ -112,6 +112,9 @@ fun NewEntryScreen(
 
     val fields by viewModel.fields.collectAsStateWithLifecycle()
     val initialValues by viewModel.initialValues.collectAsStateWithLifecycle()
+    val allowAdditionsFromForm by viewModel.allowAdditionsFromForm.collectAsStateWithLifecycle()
+    // The Dropdown/Multiple field whose Add Option pop-up is open, by label.
+    var addingOptionTo by rememberSaveable { mutableStateOf<String?>(null) }
 
     val timestamp = remember {
         LocalDateTime.now().format(
@@ -137,7 +140,9 @@ fun NewEntryScreen(
     }
 
     // When editing, pre-fill the form from the entry's stored values once loaded.
-    LaunchedEffect(initialValues, fields) {
+    // Keyed on the fields' labels and types, not their options, so adding an
+    // option from this form never overwrites what has already been changed.
+    LaunchedEffect(initialValues, fields.map { it.label to it.type }) {
         val values = initialValues ?: return@LaunchedEffect
         fields.forEach { field ->
             when (field.type) {
@@ -267,6 +272,11 @@ fun NewEntryScreen(
                     showRequiredError = validationAttempted && field.label in missingRequiredLabels,
                     bringIntoViewRequester = target?.bringIntoViewRequester,
                     focusRequester = target?.focusRequester,
+                    onAddOption = if (allowAdditionsFromForm) {
+                        { addingOptionTo = it.label }
+                    } else {
+                        null
+                    },
                 )
             }
 
@@ -286,6 +296,17 @@ fun NewEntryScreen(
         DiscardChangesDialog(
             onConfirm = { showDiscard = false; onBack() },
             onDismiss = { showDiscard = false },
+        )
+    }
+
+    fields.firstOrNull { it.label == addingOptionTo }?.let { field ->
+        AddOptionDialog(
+            field = field,
+            onCancel = { addingOptionTo = null },
+            onConfirm = { additions ->
+                viewModel.addOptions(field.label, additions)
+                addingOptionTo = null
+            },
         )
     }
 }
