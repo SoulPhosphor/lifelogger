@@ -68,6 +68,8 @@ import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.ui.components.AppDialog
 import com.datadragon.app.ui.components.DialogActionButton
 import com.datadragon.app.ui.components.DialogDismissButton
+import com.datadragon.app.ui.components.DuplicateItemDialog
+import com.datadragon.app.data.introducesOptionDuplicate
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.sortEligible
@@ -189,6 +191,7 @@ fun CreateLogScreen(
 
     // Backing out of a brand-new form warns only once at least one field exists.
     var showDiscard by rememberSaveable { mutableStateOf(false) }
+    var showDuplicate by rememberSaveable { mutableStateOf(false) }
     val dirty = draftFields.isNotEmpty() || pasteText.isNotBlank()
     fun attemptBack() { if (dirty) showDiscard = true else onBack() }
     BackHandler { attemptBack() }
@@ -230,6 +233,12 @@ fun CreateLogScreen(
                                     options = settings.autoCapitalizeOptions,
                                 )
                                 fields = FormMarkdownParser.parse(markdown).fields
+                            }
+                            // A new form's options may not repeat an item (ignoring
+                            // capitalization), whichever way they were entered.
+                            if (fields.any { it.introducesOptionDuplicate() }) {
+                                showDuplicate = true
+                                return@TextButton
                             }
                             val finalName = name.ifBlank { firstMarkdownName(pasteText) ?: "" }
                             val selectedSortLabel = draftFields
@@ -359,6 +368,9 @@ fun CreateLogScreen(
             onConfirm = { showDiscard = false; onBack() },
             onDismiss = { showDiscard = false },
         )
+    }
+    if (showDuplicate) {
+        DuplicateItemDialog(onDismiss = { showDuplicate = false })
     }
 }
 

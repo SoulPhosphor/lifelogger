@@ -38,6 +38,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
+import com.datadragon.app.data.OptionDuplicates
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import com.datadragon.app.data.WebAddress
@@ -86,9 +87,13 @@ fun TagChipRow(tags: List<String>, modifier: Modifier = Modifier) {
  * The Tags entry control: a text box with an **Add** button immediately after
  * it, and the saved tags below as removable chips.
  *
- * Add trims the typed text, ignores it when empty, and refuses a tag this field
- * already holds — compared without regard to case, so "android" can't be added
- * alongside "Android". The casing of the first saved tag is what stays.
+ * Add trims the typed text and ignores it when empty. A tag this field already
+ * holds — or that matches one of [existingItems] — compared without regard to
+ * case, is refused with the duplicate notice ([DuplicateItemDialog]), so
+ * "android" can't be added alongside "Android".
+ *
+ * The typed text is held internally unless [draft]/[onDraftChange] hoist it, as
+ * the Add Option pop-up does so its Okay can save what is still typed.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -98,26 +103,38 @@ fun TagsEditor(
     modifier: Modifier = Modifier,
     isError: Boolean = false,
     focusRequester: FocusRequester? = null,
+    existingItems: Collection<String> = emptyList(),
+    stripPreselectMarker: Boolean = false,
+    draft: String? = null,
+    onDraftChange: ((String) -> Unit)? = null,
 ) {
-    var draft by remember { mutableStateOf("") }
+    var ownDraft by remember { mutableStateOf("") }
+    val currentDraft = draft ?: ownDraft
+    fun setDraft(value: String) {
+        if (onDraftChange != null) onDraftChange(value) else ownDraft = value
+    }
+    var showDuplicate by remember { mutableStateOf(false) }
 
     fun addDraft() {
-        val tag = draft.trim()
+        val tag = currentDraft.trim()
         if (tag.isEmpty()) return
-        if (tags.any { it.equals(tag, ignoreCase = true) }) {
-            // Already held under some casing; the first one keeps its spelling.
-            draft = ""
+        if (OptionDuplicates.contains(tags + existingItems, tag, stripPreselectMarker)) {
+            showDuplicate = true
             return
         }
         onTagsChange(tags + tag)
-        draft = ""
+        setDraft("")
+    }
+
+    if (showDuplicate) {
+        DuplicateItemDialog(onDismiss = { showDuplicate = false })
     }
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
-                value = draft,
-                onValueChange = { draft = it },
+                value = currentDraft,
+                onValueChange = { setDraft(it) },
                 singleLine = true,
                 isError = isError,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),

@@ -35,7 +35,7 @@ class DailyListConverters {
         ClickerLog::class, ClickerCard::class, LuckyList::class, LuckyListItem::class,
         BackupState::class,
     ],
-    version = 22,
+    version = 23,
     exportSchema = false,
 )
 @TypeConverters(DailyListConverters::class)
@@ -66,7 +66,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun backupStateDao(): BackupStateDao
 
     companion object {
-        const val SCHEMA_VERSION = 22
+        const val SCHEMA_VERSION = 23
 
         @Volatile
         private var instance: AppDatabase? = null
@@ -553,6 +553,28 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v23 added the per-form `allowAdditionsFromForm` flag (the Form Editor's
+         * "Allow Additions from Form" toggle). Purely additive — existing forms
+         * default to 0 (off), so their data and behavior are untouched. Skipped
+         * when the column is already present, so it can never fail on re-run.
+         */
+        internal val MIGRATION_22_23 = object : Migration(22, 23) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                val hasColumn = db.query("PRAGMA table_info(`log_templates`)").use { cursor ->
+                    val nameIndex = cursor.getColumnIndexOrThrow("name")
+                    generateSequence { if (cursor.moveToNext()) cursor.getString(nameIndex) else null }
+                        .any { it == "allowAdditionsFromForm" }
+                }
+                if (!hasColumn) {
+                    db.execSQL(
+                        "ALTER TABLE log_templates ADD COLUMN allowAdditionsFromForm " +
+                            "INTEGER NOT NULL DEFAULT 0"
+                    )
+                }
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -565,7 +587,7 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11,
                         MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15,
                         MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19,
-                        MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22,
+                        MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23,
                     )
                     .addCallback(UUID_IDENTITY_CALLBACK)
                     .addCallback(BACKUP_REVISION_CALLBACK)

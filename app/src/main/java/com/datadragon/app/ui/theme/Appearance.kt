@@ -11,11 +11,14 @@ data class AppColors(
     val invalidContentColor: Color = Color.Gray,
     val popupPrimary: Color,
     val popupDestructive: Color,
+    /** The background-less "+" beside a Dropdown/Multiple field's title on the entry form. */
+    val addOptionIcon: Color,
 )
 
 fun appColorsFor(scheme: ColorScheme) = AppColors(
     popupPrimary = scheme.onSurface,
     popupDestructive = scheme.onSurface,
+    addOptionIcon = scheme.onSurface,
 )
 
 val LocalAppColors = staticCompositionLocalOf { appColorsFor(androidx.compose.material3.lightColorScheme()) }

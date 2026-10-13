@@ -1092,3 +1092,14 @@ Completed the remaining Daily List behavior gaps without changing ordinary Lists
 
 - The automatic-backup worker returns success only when the coordinator completes; an unexpected exception escaping the coordinator returns retry. Expected backup failures are still handled inside the coordinator.
 - Lost folder permission and a missing folder no longer schedule a 15-minute background retry. Automatic backup stays on with the folder and error preserved, and the next foreground check or folder choice retries and clears the error when the folder works again.
+
+---
+
+## 2026-10-13 — Allow Additions from Form; no duplicate options, Categories or tags
+
+- **Edit Form**: the Title box is now at the top. A new "Allow Additions from Form" toggle (default off) sits under "Automatic Timestamping".
+- **Entry form**: with the toggle on, each Dropdown and Multiple field shows a background-less "+" at the right of its title line (theme role `AppColors.addOptionIcon`). It opens "Add Option to (field title)": a single line with an Add button, added words as chips with an X, and Cancel / Okay. Okay also takes text still on the line. New options are appended to the field, auto-capitalized when that setting is on, and saved to the form immediately. Stored entries are untouched, and values already typed on the entry are kept.
+- **No duplicates**: Dropdown/Multiple options (New Log Build and Paste, Edit Form field editor, Add Option), Idea Categories (New/Edit Idea Log), and Tags on form and idea cards refuse an item that already exists, ignoring capitalization (and a leading `*` on Multiple fields that allow pre-selection). The refusal is an `AppDialog` titled "Sorry, that item can't be added as it already exists." with one Okay. Duplicates already saved are preserved; only new ones are refused.
+- **Persistence**: `log_templates.allowAdditionsFromForm`, database v22 → v23 with an additive, idempotent migration (existing forms off; tested).
+- **Backup**: format version 6. `BackupLog.allowAdditionsFromForm` is written only when on, so forms without it encode exactly as before and older backups keep their checksums. Older files restore it as off, and a version-5 file claiming it is rejected. Round trip and UUID preservation are tested.
+- **Lucky List**: items may not repeat one another, ignoring capitalization. When a row's edit finishes (leaving the row, Save, Select Lucky Item, or Back), a repeat shows the same notice and the row returns to the text it had before that edit. Duplicates already saved are preserved.

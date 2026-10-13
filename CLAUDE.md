@@ -129,10 +129,26 @@ Write like a professional technical writer, not like someone thinking out loud.
 
 ## Appearance
 
-Read `docs/STYLE.md` before changing UI styling. Theme values live in
-`ui/theme/`; run `python3 scripts/check_theme_tokens.py` after UI changes.
-`docs/STYLE_AUDIT.md` records existing differences and accessibility findings.
-Do not normalize those differences without an owner decision.
+**Always follow `docs/STYLE.md` and `docs/UI_ELEMENTS.md` before implementing
+or discussing UI appearance.** These documents contain already-approved design
+decisions. Inspect the existing theme and reusable components before asking the
+owner how an element should look.
+
+- Reuse the appropriate existing named theme style and component whenever
+  possible. Do not ask the owner to re-decide established styling.
+- If no suitable named style exists, create a reusable, semantically named role
+  in `ui/theme/` and use it consistently. Keep visual properties centrally
+  themeable rather than hard-coding colors, dimensions, type or shapes in screens.
+- Use the documented `AppDialog`, `AppButton`, `PopupButton`, and other
+  existing patterns as appropriate. Follow the documented dialog title, body
+  and button alignment without asking again.
+- Ask the owner only when a **genuinely new visual design choice** is needed,
+  or when existing approved rules conflict. Creating the implementation's named
+  theme token to faithfully represent an already-approved look is engineering
+  work, not a new owner decision.
+- Run `python3 scripts/check_theme_tokens.py` after UI changes.
+- `docs/STYLE_AUDIT.md` records existing differences and accessibility
+  findings. Do not normalize those differences without an owner decision.
 
 ## Text house style
 
@@ -252,3 +268,20 @@ owner ruling before implementation.
   forces a one-time uninstall). So: prefer schema-compatible changes, and when a
   schema change is unavoidable, add a proper migration so existing data isn't
   wiped on update.
+
+### Finishing work and waiting on pull requests (owner ruling, October 13 2026)
+
+Waiting on a pull request wakes the session and re-reads the whole
+conversation, which spends the owner's usage. Wait only while something is
+actually arriving, such as a running check or a requested review.
+
+- When the owner has said to merge, merge once checks pass and review
+  findings are addressed. Do not hold the merge for a question that does not
+  block the work; raise it after merging as a follow-up.
+- Once a pull request is waiting only on the owner, finish or stop: stop
+  watching it and do not schedule check-ins or reminders.
+- A genuinely merge-blocking question is fine: ask it once in chat, leave the
+  pull request unmerged, and stop. The owner will come back to it when ready;
+  do not wait or check in for the answer.
+- Do not set up pull-request watching or scheduled check-ins the owner did
+  not ask for.

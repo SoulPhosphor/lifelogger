@@ -7,6 +7,13 @@ import com.datadragon.app.data.AppDatabase
 import com.datadragon.app.data.BackupRepository
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.FieldDef
+import com.datadragon.app.data.FieldType
+import com.datadragon.app.data.FormMarkdownGenerator
+import com.datadragon.app.data.FormMarkdownParser
+import com.datadragon.app.data.OptionDuplicates
+import com.datadragon.app.data.SettingsRepository
+import com.datadragon.app.data.TitleCase
+import com.datadragon.app.data.stripsPreselectMarker
 import com.datadragon.app.data.LogEntry
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,6 +44,10 @@ class NewEntryViewModel(app: Application) : AndroidViewModel(app) {
     private val _logName = MutableStateFlow<String?>(null)
     val logName: StateFlow<String?> = _logName
 
+    /** The form's "Allow Additions from Form" setting: shows "+" on Dropdown/Multiple fields. */
+    private val _allowAdditionsFromForm = MutableStateFlow(false)
+    val allowAdditionsFromForm: StateFlow<Boolean> = _allowAdditionsFromForm
+
     // The entry being edited, when this screen was opened for an existing entry.
     private var editing: LogEntry? = null
     private val _initialValues = MutableStateFlow<JsonObject?>(null)
@@ -49,6 +60,7 @@ class NewEntryViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val template = templateDao.getById(id)
             _logName.value = template?.name
+            _allowAdditionsFromForm.value = template?.allowAdditionsFromForm ?: false
             _fields.value = template
                 ?.let { runCatching { json.decodeFromString<List<FieldDef>>(it.schemaJson) }.getOrNull() }
                 ?: emptyList()
@@ -57,6 +69,48 @@ class NewEntryViewModel(app: Application) : AndroidViewModel(app) {
                 editing = entry
                 _initialValues.value = entry?.let { EntryValues.decode(it.valuesJson) }
             }
+        }
+    }
+
+    /**
+     * Add [additions] to the options of the Dropdown/Multiple field labelled
+     * [fieldLabel] and save them to the form right away, so they are live on this
+     * entry form and every later one. New options go after the existing ones, are
+     * auto-capitalized when that setting is on, and any that repeat an existing
+     * option (ignoring capitalization) are dropped. Stored entries are untouched.
+     */
+    fun addOptions(fieldLabel: String, additions: List<String>) {
+        if (templateId < 0 || additions.isEmpty()) return
+        val capitalize = SettingsRepository(getApplication()).autoCapitalizeOptions
+        viewModelScope.launch {
+            val template = templateDao.getById(templateId) ?: return@launch
+            val current = runCatching { json.decodeFromString<List<FieldDef>>(template.schemaJson) }
+                .getOrNull() ?: return@launch
+            val updated = current.map { field ->
+                if (field.label != fieldLabel ||
+                    (field.type != FieldType.DROPDOWN && field.type != FieldType.MULTIPLE)
+                ) {
+                    return@map field
+                }
+                val options = field.options.toMutableList()
+                additions
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                    .map { if (capitalize) TitleCase.apply(it) else it }
+                    .forEach { option ->
+                        if (!OptionDuplicates.contains(options, option, field.stripsPreselectMarker)) {
+                            options += option
+                        }
+                    }
+                field.copy(options = options)
+            }
+            if (updated == current) return@launch
+            templateDao.updateSchema(
+                templateId,
+                FormMarkdownParser.encodeFields(updated),
+                FormMarkdownGenerator.generate(template.name, updated),
+            )
+            _fields.value = updated
         }
     }
 

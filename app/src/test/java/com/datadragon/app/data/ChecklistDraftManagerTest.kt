@@ -319,6 +319,25 @@ class ChecklistDraftManagerTest {
     }
 
     @Test
+    fun unpersistedTextIsShownButNeverWritten() = runTest {
+        val store = FakeChecklistStore()
+        val mgr = manager(store, this, CoroutineScope(UnconfinedTestDispatcher(testScheduler)))
+        mgr.load(null, moveCompletedToBottom = false)
+
+        var aId = 0L
+        mgr.addItem { aId = it }
+        mgr.updateText(aId, "Milk")
+        advanceUntilIdle()
+        val rowId = store.rows.keys.first()
+
+        mgr.updateText(aId, "Bread", persist = false)
+        assertEquals("Bread", mgr.items.value.single { it.id == aId }.text)
+        mgr.flushPending()
+        advanceUntilIdle()
+        assertEquals("Milk", store.rows[rowId]!!.text)
+    }
+
+    @Test
     fun blankCleanupRunsAfterPendingTextIsFlushed() = runTest {
         val store = FakeChecklistStore()
         val mgr = manager(store, this, CoroutineScope(UnconfinedTestDispatcher(testScheduler)))
