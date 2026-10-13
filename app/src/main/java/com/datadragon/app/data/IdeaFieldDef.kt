@@ -65,13 +65,13 @@ data class IdeaFieldDef(
 enum class IdeaFieldKind(val label: String, val fieldType: FieldType) {
     TITLE("Title", FieldType.TEXT),
     TEXT("Text (Multiline)", FieldType.MULTILINE),
+    RATIOS("Ratios", FieldType.RATIO),
     TAGS("Tags", FieldType.TAGS),
     CATEGORIES("Categories", FieldType.DROPDOWN),
     WEBPAGES("Webpages", FieldType.WEBPAGE),
     DATE("Date Only", FieldType.DATE),
     TIME("Time Only", FieldType.TIME),
-    DATETIME("Date/Time", FieldType.DATETIME),
-    RATIOS("Ratios", FieldType.RATIO);
+    DATETIME("Date/Time", FieldType.DATETIME);
 
     companion object {
         fun of(type: FieldType): IdeaFieldKind = entries.firstOrNull { it.fieldType == type } ?: TEXT

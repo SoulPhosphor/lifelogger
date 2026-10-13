@@ -92,10 +92,10 @@ enum class FieldType(val token: String) {
     DATE("date"),
     TIME("time"),
     DATETIME("datetime"),
+    RATIO("ratio"),
     TAGS("tags"),
     WEBPAGE("webpage"),
-    BLOOD_PRESSURE("blood_pressure"),
-    RATIO("ratio");
+    BLOOD_PRESSURE("blood_pressure");
 
     companion object {
         fun fromToken(token: String): FieldType? =
