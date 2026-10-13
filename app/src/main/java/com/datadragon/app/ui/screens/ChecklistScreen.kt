@@ -81,6 +81,8 @@ import com.datadragon.app.export.ExportContent
 import com.datadragon.app.ui.ChecklistViewModel
 import com.datadragon.app.ui.LuckyListViewModel
 import com.datadragon.app.data.LuckySelectionSession
+import com.datadragon.app.data.OptionDuplicates
+import com.datadragon.app.ui.components.DuplicateItemDialog
 import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.ui.components.DialogActionButton
 import com.datadragon.app.ui.theme.AppTheme
@@ -197,12 +199,35 @@ fun ChecklistScreen(
     var showDiscard by rememberSaveable { mutableStateOf(false) }
     fun leaveFlushing() { scope.launch { viewModel.flushPending(); onBack() } }
     fun attemptBack() { if (isDraft && hasContent) showDiscard = true else leaveFlushing() }
-    BackHandler { if (showLuckySettings) showLuckySettings = false else attemptBack() }
 
     // Which row is being edited (shows its +/× controls), and which newly-added
     // row should grab focus next.
     var focusedItemId by rememberSaveable { mutableStateOf<Long?>(null) }
     var pendingFocusId by rememberSaveable { mutableStateOf<Long?>(null) }
+
+    // Lucky List items may not repeat one another (ignoring capitalization). The
+    // row being edited and its text when editing began, restored on refusal.
+    var editStartId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var editStartText by rememberSaveable { mutableStateOf("") }
+    var showDuplicate by rememberSaveable { mutableStateOf(false) }
+    fun refuseDuplicate(itemId: Long): Boolean {
+        if (!lucky) return false
+        val all = viewModel.items.value
+        val text = all.firstOrNull { it.id == itemId }?.text?.trim().orEmpty()
+        if (text.isEmpty()) return false
+        val start = if (editStartId == itemId) editStartText else ""
+        // An unchanged item keeps a duplicate that was already saved.
+        if (OptionDuplicates.key(text) == OptionDuplicates.key(start)) return false
+        val others = all.filter { it.id != itemId && it.text.isNotBlank() }.map { it.text }
+        if (!OptionDuplicates.contains(others, text)) return false
+        viewModel.updateText(itemId, start)
+        showDuplicate = true
+        return true
+    }
+    /** Checks the row still being edited before Save, Select or Back acts. */
+    fun refuseEditingDuplicate(): Boolean = editStartId?.let { refuseDuplicate(it) } ?: false
+    fun guardedBack() { if (!refuseEditingDuplicate()) attemptBack() }
+    BackHandler { if (showLuckySettings) showLuckySettings = false else guardedBack() }
     LaunchedEffect(checklistId, lucky) {
         if (lucky && idLong == null && viewModel.items.value.isEmpty()) {
             viewModel.addItem { pendingFocusId = it }
@@ -252,7 +277,7 @@ fun ChecklistScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = { attemptBack() }) {
+                    IconButton(onClick = { guardedBack() }) {
                         Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
                     }
                 },
@@ -263,7 +288,7 @@ fun ChecklistScreen(
                     if (isDraft) {
                         TextButton(
                             enabled = hasText,
-                            onClick = { viewModel.save(onBack) },
+                            onClick = { if (!refuseEditingDuplicate()) viewModel.save(onBack) },
                         ) { Text("Save") }
                     } else {
                         Box {
@@ -319,9 +344,19 @@ fun ChecklistScreen(
                             dragHandleModifier = handleModifier,
                             isEditing = focusedItemId == item.id,
                             requestFocus = pendingFocusId == item.id,
-                            onFocused = { focusedItemId = item.id },
+                            onFocused = {
+                                focusedItemId = item.id
+                                if (editStartId != item.id) {
+                                    editStartId = item.id
+                                    editStartText = item.text
+                                }
+                            },
                             onFocusHandled = { if (pendingFocusId == item.id) pendingFocusId = null },
-                            onBlur = { viewModel.onItemFocusLost(item.id) },
+                            onBlur = {
+                                refuseDuplicate(item.id)
+                                if (editStartId == item.id) editStartId = null
+                                viewModel.onItemFocusLost(item.id)
+                            },
                             onTextChange = { viewModel.updateText(item.id, it) },
                             onToggleComplete = { viewModel.setCompleted(item.id, !item.completed) },
                             onAddSubItem = {
@@ -349,7 +384,7 @@ fun ChecklistScreen(
                 horizontalArrangement = Arrangement.Center,
             ) {
                 AppButton(
-                    onClick = { session.reset(); spin() },
+                    onClick = { if (!refuseEditingDuplicate()) { session.reset(); spin() } },
                     enabled = hasText && ready,
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -365,6 +400,10 @@ fun ChecklistScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
+    }
+
+    if (showDuplicate) {
+        DuplicateItemDialog(onDismiss = { showDuplicate = false })
     }
 
     if (lucky && winner != null && !showExhausted) {
