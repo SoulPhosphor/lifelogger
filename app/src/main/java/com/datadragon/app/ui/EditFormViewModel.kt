@@ -12,7 +12,9 @@ import com.datadragon.app.data.FormMarkdownGenerator
 import com.datadragon.app.data.FormMarkdownParser
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 
@@ -131,34 +133,38 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
         val id = templateId
         if (id < 0) return
         viewModelScope.launch {
-            db.withTransaction {
-                val template = dao.getById(id) ?: return@withTransaction
-                val entries = entryDao.getForTemplateOnce(id)
-                val calendars = calendarDao.getForTemplateOnce(id)
-                val result = ChoiceDeletion.fromForm(
-                    schemaJson = template.schemaJson,
-                    entryValues = entries.map { it.valuesJson },
-                    calendarConfigs = calendars.map { it.configJson },
-                    fieldId = fieldId,
-                    optionId = optionId,
-                ) ?: return@withTransaction
-                if (result.schemaJson != template.schemaJson) {
-                    val storedFields = runCatching {
-                        json.decodeFromString<List<FieldDef>>(result.schemaJson)
-                    }.getOrNull().orEmpty()
-                    dao.updateSchema(
-                        id,
-                        result.schemaJson,
-                        FormMarkdownGenerator.generate(template.name, storedFields),
-                    )
-                }
-                entries.forEachIndexed { index, entry ->
-                    val values = result.entryValues[index]
-                    if (values != entry.valuesJson) entryDao.update(entry.copy(valuesJson = values))
-                }
-                calendars.forEachIndexed { index, calendar ->
-                    val config = result.calendarConfigs[index]
-                    if (config != calendar.configJson) calendarDao.update(calendar.copy(configJson = config))
+            // Once confirmed, the deletion always runs to the end: leaving the
+            // screen (which clears this ViewModel) must not roll it back.
+            withContext(NonCancellable) {
+                db.withTransaction {
+                    val template = dao.getById(id) ?: return@withTransaction
+                    val entries = entryDao.getForTemplateOnce(id)
+                    val calendars = calendarDao.getForTemplateOnce(id)
+                    val result = ChoiceDeletion.fromForm(
+                        schemaJson = template.schemaJson,
+                        entryValues = entries.map { it.valuesJson },
+                        calendarConfigs = calendars.map { it.configJson },
+                        fieldId = fieldId,
+                        optionId = optionId,
+                    ) ?: return@withTransaction
+                    if (result.schemaJson != template.schemaJson) {
+                        val storedFields = runCatching {
+                            json.decodeFromString<List<FieldDef>>(result.schemaJson)
+                        }.getOrNull().orEmpty()
+                        dao.updateSchema(
+                            id,
+                            result.schemaJson,
+                            FormMarkdownGenerator.generate(template.name, storedFields),
+                        )
+                    }
+                    entries.forEachIndexed { index, entry ->
+                        val values = result.entryValues[index]
+                        if (values != entry.valuesJson) entryDao.update(entry.copy(valuesJson = values))
+                    }
+                    calendars.forEachIndexed { index, calendar ->
+                        val config = result.calendarConfigs[index]
+                        if (config != calendar.configJson) calendarDao.update(calendar.copy(configJson = config))
+                    }
                 }
             }
         }

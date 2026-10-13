@@ -249,10 +249,15 @@ object BackupRestoreValidator {
         })
         val fields = runCatching { json.decodeFromJsonElement<List<FieldDef>>(normalized) }
             .getOrElse { throw IllegalArgumentException("Form schema is invalid JSON.", it) }
-        // A field without an id is legacy data that is converted on restore;
-        // established ids must be unique, as must each field's option ids.
-        val fieldIds = fields.map { it.id }.filter { it.isNotBlank() }
-        require(fieldIds.size == fieldIds.distinct().size) { "Form field UUIDs must be unique." }
+        // A schema written before field identities has no ids at all and is
+        // converted on restore. Once any field has an id, the entries are keyed
+        // by ids, so every field must have one and they must be unique; a blank
+        // id there could never be matched back to its stored answers.
+        val fieldIds = fields.map { it.id }
+        if (fieldIds.any { it.isNotBlank() }) {
+            require(fieldIds.none { it.isBlank() }) { "Form field UUID is missing." }
+            require(fieldIds.size == fieldIds.distinct().size) { "Form field UUIDs must be unique." }
+        }
         fields.forEach { requireUniqueChoiceIds(it.choices, "Form option") }
     }
 

@@ -12,7 +12,9 @@ import com.datadragon.app.data.IdeaLog
 import com.datadragon.app.data.StableUuid
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -143,25 +145,29 @@ class IdeaLogEditorViewModel(app: Application) : AndroidViewModel(app) {
         val id = editingId
         if (id < 0) return
         viewModelScope.launch {
-            db.withTransaction {
-                val log = logDao.getById(id) ?: return@withTransaction
-                val entries = entryDao.getForLogOnce(id)
-                val result = ChoiceDeletion.fromIdeaLog(
-                    fieldsJson = log.fieldsJson,
-                    entryValues = entries.map { it.valuesJson },
-                    fieldId = fieldId,
-                    categoryId = categoryId,
-                ) ?: return@withTransaction
-                if (result.fieldsJson != log.fieldsJson) logDao.updateFields(id, result.fieldsJson)
-                entries.forEachIndexed { index, entry ->
-                    val values = result.entryValues[index]
-                    if (values != entry.valuesJson) entryDao.update(entry.copy(valuesJson = values))
+            // Once confirmed, the deletion always runs to the end: leaving the
+            // screen (which clears this ViewModel) must not roll it back.
+            withContext(NonCancellable) {
+                db.withTransaction {
+                    val log = logDao.getById(id) ?: return@withTransaction
+                    val entries = entryDao.getForLogOnce(id)
+                    val result = ChoiceDeletion.fromIdeaLog(
+                        fieldsJson = log.fieldsJson,
+                        entryValues = entries.map { it.valuesJson },
+                        fieldId = fieldId,
+                        categoryId = categoryId,
+                    ) ?: return@withTransaction
+                    if (result.fieldsJson != log.fieldsJson) logDao.updateFields(id, result.fieldsJson)
+                    entries.forEachIndexed { index, entry ->
+                        val values = result.entryValues[index]
+                        if (values != entry.valuesJson) entryDao.update(entry.copy(valuesJson = values))
+                    }
                 }
-            }
-            // Keep the saved baseline in step so the deleted category never
-            // counts as an unsaved change or comes back on Discard.
-            _loadedFields.value = _loadedFields.value.map { field ->
-                if (field.id == fieldId) field.copy(choices = ChoiceEdits.withoutId(field.choices, categoryId)) else field
+                // Keep the saved baseline in step so the deleted category never
+                // counts as an unsaved change or comes back on Discard.
+                _loadedFields.value = _loadedFields.value.map { field ->
+                    if (field.id == fieldId) field.copy(choices = ChoiceEdits.withoutId(field.choices, categoryId)) else field
+                }
             }
         }
     }

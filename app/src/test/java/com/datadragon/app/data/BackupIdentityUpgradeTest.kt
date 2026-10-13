@@ -160,6 +160,15 @@ class BackupIdentityUpgradeTest {
             BackupRestoreValidator.validate(BackupCodec.decode(file(duplicateOptions)))
         }
 
+        // A field without an id beside fields that have ids can never be matched
+        // to its stored answers, so it is rejected too.
+        val blankField = currentLog().copy(
+            schemaJson = FormMarkdownParser.encodeFields(listOf(pet, whenField.copy(id = ""))),
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            BackupRestoreValidator.validate(BackupCodec.decode(file(blankField)))
+        }
+
         // The well-formed backup passes the same validation.
         BackupRestoreValidator.validate(BackupCodec.decode(file(currentLog())))
     }
