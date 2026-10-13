@@ -35,7 +35,7 @@ class DailyListConverters {
         ClickerLog::class, ClickerCard::class, LuckyList::class, LuckyListItem::class,
         BackupState::class,
     ],
-    version = 23,
+    version = 24,
     exportSchema = false,
 )
 @TypeConverters(DailyListConverters::class)
@@ -66,7 +66,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun backupStateDao(): BackupStateDao
 
     companion object {
-        const val SCHEMA_VERSION = 23
+        const val SCHEMA_VERSION = 24
 
         @Volatile
         private var instance: AppDatabase? = null
@@ -575,6 +575,101 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v24 gives every Form field and every Single / Multiple Choice option a
+         * permanent identity, and every Idea Category one too. No table changes:
+         * the stored JSON is converted by [FieldIdentityMigration] — fields gain
+         * ids, entry values move from label keys to those ids, option text
+         * becomes option ids (duplicates merged, unmatched answers kept as
+         * retired options), and the default sort field and calendar references
+         * are re-pointed. Room runs this inside a transaction, so a failure
+         * leaves the v23 data untouched and the upgrade is simply retried on the
+         * next launch. A row whose JSON can't be read is left exactly as it is.
+         */
+        internal val MIGRATION_23_24 = object : Migration(23, 24) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                migrateFormIdentities(db)
+                migrateIdeaCategoryIdentities(db)
+            }
+        }
+
+        private fun migrateFormIdentities(db: SupportSQLiteDatabase) {
+            val templates = db.query("SELECT id, schemaJson, sortTimestampLabel FROM log_templates").use { c ->
+                buildList {
+                    while (c.moveToNext()) {
+                        add(Triple(c.getLong(0), c.getString(1), if (c.isNull(2)) null else c.getString(2)))
+                    }
+                }
+            }
+            templates.forEach { (templateId, schemaJson, sortReference) ->
+                if (!FieldIdentityMigration.formNeedsMigration(schemaJson)) return@forEach
+                val entries = idAndText(
+                    db,
+                    "SELECT id, valuesJson FROM log_entries WHERE templateId = ? ORDER BY createdAt ASC, id ASC",
+                    templateId,
+                )
+                val calendars = idAndText(
+                    db,
+                    "SELECT id, configJson FROM calendars WHERE templateId = ? ORDER BY position ASC, id ASC",
+                    templateId,
+                )
+                val input = FieldIdentityMigration.FormData(
+                    schemaJson = schemaJson,
+                    entryValues = entries.map { it.second },
+                    calendarConfigs = calendars.map { it.second },
+                    sortTimestampField = sortReference,
+                )
+                val migrated = FieldIdentityMigration.migrateForm(input)
+                if (migrated === input) return@forEach
+                db.execSQL(
+                    "UPDATE log_templates SET schemaJson = ?, sortTimestampLabel = ? WHERE id = ?",
+                    arrayOf<Any?>(migrated.schemaJson, migrated.sortTimestampField, templateId),
+                )
+                entries.forEachIndexed { index, (entryId, valuesJson) ->
+                    val updated = migrated.entryValues[index]
+                    if (updated != valuesJson) {
+                        db.execSQL("UPDATE log_entries SET valuesJson = ? WHERE id = ?", arrayOf<Any?>(updated, entryId))
+                    }
+                }
+                calendars.forEachIndexed { index, (calendarId, configJson) ->
+                    val updated = migrated.calendarConfigs[index]
+                    if (updated != configJson) {
+                        db.execSQL("UPDATE calendars SET configJson = ? WHERE id = ?", arrayOf<Any?>(updated, calendarId))
+                    }
+                }
+            }
+        }
+
+        private fun migrateIdeaCategoryIdentities(db: SupportSQLiteDatabase) {
+            val logs = idAndText(db, "SELECT id, fieldsJson FROM idea_logs", null)
+            logs.forEach { (logId, fieldsJson) ->
+                if (!FieldIdentityMigration.ideaNeedsMigration(fieldsJson)) return@forEach
+                val entries = idAndText(
+                    db,
+                    "SELECT id, valuesJson FROM idea_entries WHERE ideaLogId = ? ORDER BY createdAt ASC, id ASC",
+                    logId,
+                )
+                val input = FieldIdentityMigration.IdeaData(fieldsJson, entries.map { it.second })
+                val migrated = FieldIdentityMigration.migrateIdeaLog(input)
+                if (migrated === input) return@forEach
+                db.execSQL("UPDATE idea_logs SET fieldsJson = ? WHERE id = ?", arrayOf<Any?>(migrated.fieldsJson, logId))
+                entries.forEachIndexed { index, (entryId, valuesJson) ->
+                    val updated = migrated.entryValues[index]
+                    if (updated != valuesJson) {
+                        db.execSQL("UPDATE idea_entries SET valuesJson = ? WHERE id = ?", arrayOf<Any?>(updated, entryId))
+                    }
+                }
+            }
+        }
+
+        /** Rows of (id, text) from a two-column query, with an optional single argument. */
+        private fun idAndText(db: SupportSQLiteDatabase, sql: String, argument: Long?): List<Pair<Long, String>> {
+            val cursor = if (argument == null) db.query(sql) else db.query(sql, arrayOf<Any?>(argument))
+            return cursor.use { c ->
+                buildList { while (c.moveToNext()) add(c.getLong(0) to c.getString(1)) }
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -588,6 +683,7 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15,
                         MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19,
                         MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23,
+                        MIGRATION_23_24,
                     )
                     .addCallback(UUID_IDENTITY_CALLBACK)
                     .addCallback(BACKUP_REVISION_CALLBACK)

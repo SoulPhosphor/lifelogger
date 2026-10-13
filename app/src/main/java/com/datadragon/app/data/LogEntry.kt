@@ -16,7 +16,7 @@ import androidx.room.PrimaryKey
  * docs/FORMATTING_SPEC.md §1 — storage stays machine-readable; the 12-hour
  * AM/PM display format is applied only at read time.
  *
- * `valuesJson` holds the field values keyed by field label (a JSON object). Its
+ * `valuesJson` holds the field values keyed by each field's permanent id (a JSON object). Its
  * shape is owned by [EntryValues]; the user's free-text Notes live there too,
  * under a reserved key so they can never collide with a user-defined field.
  *

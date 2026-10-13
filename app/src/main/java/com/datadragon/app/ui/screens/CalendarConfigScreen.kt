@@ -310,7 +310,7 @@ fun CalendarConfigScreen(
             SourceOption.LogFrequency
     val selectedSource: SourceOption? = when {
         sourceLogFrequency -> SourceOption.LogFrequency
-        sourceField != null -> formFields.firstOrNull { it.label == sourceField }?.let { SourceOption.Field(it) }
+        sourceField != null -> formFields.firstOrNull { it.id == sourceField }?.let { SourceOption.Field(it) }
         else -> null
     }
     val availableRules: List<String> = when (val s = selectedSource) {
@@ -322,7 +322,7 @@ fun CalendarConfigScreen(
     fun selectSource(option: SourceOption) {
         when (option) {
             SourceOption.LogFrequency -> { sourceLogFrequency = true; sourceField = null }
-            is SourceOption.Field -> { sourceLogFrequency = false; sourceField = option.field.label }
+            is SourceOption.Field -> { sourceLogFrequency = false; sourceField = option.field.id }
         }
         // Drop a calculation rule that the new source doesn't offer.
         val rules = when (option) {
@@ -404,7 +404,7 @@ fun CalendarConfigScreen(
             if (dateFields.isNotEmpty()) {
                 val options = listOf(TimestampOption.Automatic) + dateFields.map { TimestampOption.Field(it) }
                 val selectedTimestamp: TimestampOption = dayTimestampField
-                    ?.let { label -> dateFields.firstOrNull { it.label == label } }
+                    ?.let { id -> dateFields.firstOrNull { it.id == id } }
                     ?.let { TimestampOption.Field(it) }
                     ?: TimestampOption.Automatic
                 LabeledDropdown(
@@ -415,7 +415,7 @@ fun CalendarConfigScreen(
                     onSelected = {
                         dayTimestampField = when (it) {
                             TimestampOption.Automatic -> null
-                            is TimestampOption.Field -> it.field.label
+                            is TimestampOption.Field -> it.field.id
                         }
                     },
                 )
@@ -451,13 +451,16 @@ fun CalendarConfigScreen(
                         if (sourceFieldDef != null &&
                             (sourceFieldDef.type == FieldType.DROPDOWN || sourceFieldDef.type == FieldType.MULTIPLE)
                         ) {
-                            // Choice field: count occurrences of one chosen option.
+                            // Choice field: count occurrences of one chosen option,
+                            // stored by its permanent id. A retired option already
+                            // chosen here stays listed so the setting reads true.
+                            val matchChoices = sourceFieldDef.choices.filter { !it.retired || it.id == matchOption }
                             LabeledDropdown(
                                 label = "Value",
-                                options = sourceFieldDef.options,
-                                selected = matchOption?.takeIf { it in sourceFieldDef.options },
-                                optionLabel = { it },
-                                onSelected = { matchOption = it },
+                                options = matchChoices,
+                                selected = matchChoices.firstOrNull { it.id == matchOption },
+                                optionLabel = { it.label },
+                                onSelected = { matchOption = it.id },
                             )
                         } else {
                             // Number / Scale: a numeric condition and value.
@@ -487,7 +490,7 @@ fun CalendarConfigScreen(
                 // One calendar tracks one Yes/No response. Both Yes and No means two
                 // separate calendars, so there is a single condition here.
                 val yesNoFields = formFields.filter { it.type == FieldType.YESNO }
-                val trackedField = yesNoFields.firstOrNull { it.label == sourceField }
+                val trackedField = yesNoFields.firstOrNull { it.id == sourceField }
                 LabeledDropdown(
                     label = "Item Tracked",
                     options = yesNoFields,
@@ -495,7 +498,7 @@ fun CalendarConfigScreen(
                     optionLabel = { it.label },
                     onSelected = { field ->
                         sourceLogFrequency = false
-                        sourceField = field.label
+                        sourceField = field.id
                         val rules = CalendarCalcRules.forField(FieldType.YESNO, field.allowUnknown)
                         if (calculationRule !in rules) calculationRule = null
                     },

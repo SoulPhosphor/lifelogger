@@ -10,13 +10,13 @@ class NewEntryValidationTest {
     @Test
     fun missingRequiredFieldsStayInVisibleFormOrder() {
         val fields = listOf(
-            FieldDef("Optional", FieldType.TEXT),
-            FieldDef("First missing", FieldType.TEXT, required = true),
-            FieldDef("Completed", FieldType.NUMBER, required = true),
-            FieldDef("Second missing", FieldType.MULTIPLE, required = true),
+            FieldDef(id = "Optional", label = "Optional", type = FieldType.TEXT),
+            FieldDef(id = "First missing", label = "First missing", type = FieldType.TEXT, required = true),
+            FieldDef(id = "Completed", label = "Completed", type = FieldType.NUMBER, required = true),
+            FieldDef(id = "Second missing", label = "Second missing", type = FieldType.MULTIPLE, required = true),
         )
 
-        val missing = missingRequiredFieldLabels(
+        val missing = missingRequiredFieldIds(
             fields = fields,
             textValues = mapOf("Completed" to "4"),
             multiValues = emptyMap(),
@@ -27,9 +27,9 @@ class NewEntryValidationTest {
 
     @Test
     fun whitespaceDoesNotCompleteARequiredTextField() {
-        val fields = listOf(FieldDef("Required", FieldType.TEXT, required = true))
+        val fields = listOf(FieldDef(id = "Required", label = "Required", type = FieldType.TEXT, required = true))
 
-        val missing = missingRequiredFieldLabels(
+        val missing = missingRequiredFieldIds(
             fields = fields,
             textValues = mapOf("Required" to "   "),
             multiValues = emptyMap(),

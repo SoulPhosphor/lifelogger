@@ -28,12 +28,13 @@ class Version7BackupTest {
         ),
     )
 
+    // A form as version 7 wrote it, before field and option identities.
     private val displayed = FieldDef(
         label = "Mood",
         type = FieldType.DROPDOWN,
-        options = listOf("Good", "Bad"),
+        legacyOptions = listOf("Good", "Bad"),
         choiceStyle = ChoiceStyle.DISPLAYED,
-        topAnswerPreselected = true,
+        legacyTopAnswerPreselected = true,
     )
     private val ratio = FieldDef(label = "BP", type = FieldType.RATIO, leftDigits = 3, rightDigits = 3, unit = "mmHg")
 
@@ -41,7 +42,7 @@ class Version7BackupTest {
     fun newFieldSettingsRoundTripAsVersion7() {
         val decoded = BackupCodec.decode(formFile(listOf(displayed, ratio)))
         assertEquals(BackupFile.VERSION, decoded.version)
-        assertEquals(7, BackupFile.VERSION)
+        assertEquals(8, BackupFile.VERSION)
         val restored = kotlinx.serialization.json.Json.decodeFromString<List<FieldDef>>(decoded.logs.single().schemaJson)
         assertEquals(listOf(displayed, ratio), restored)
     }

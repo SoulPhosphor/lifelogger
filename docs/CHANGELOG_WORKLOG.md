@@ -4,6 +4,32 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-10-13 — Permanent field and option identities; option row editor
+
+- **Identity**: every Form field and every Single / Multiple Choice option has a
+  permanent id; Idea Categories too. Entries store answers by field id and
+  option id, so renaming, reordering, retiring and restoring never touch saved
+  answers. The default sort field and calendar references are stored by id.
+- **Migration**: database v23 → v24 (`MIGRATION_23_24`, no table changes)
+  converts stored JSON once: field ids assigned, entry values moved from label
+  keys to ids, duplicate options within a field merged (answers follow the
+  first occurrence, Multiple Choice answers de-duplicated, pre-selection kept),
+  answers matching no current option kept as retired options, the Multiple
+  Choice `*` (only where that switch was on) and the Single Choice "top answer"
+  switch turned into per-option pre-selection. Backups written before this are
+  converted the same way on restore. Backup format is now 8.
+- **Edit Form / Edit Idea Log**: options (Categories) are edited as rows — tap
+  to rename, hold and drag to reorder, ⋮ menu with Make Pre-Selected (Forms),
+  Retire and Delete; a collapsible Retired Options (Retired Categories) section
+  restores (+) or permanently deletes (trash). Permanent deletion asks first and
+  is committed immediately, removing only that option's answers.
+- **Create Form**: Single Choice uses a Pre-Selected Option box; Multiple Choice
+  `*` always marks pre-selected options and its explanation sits above the
+  options box. Markdown: `preselected_option:` for Single Choice; the old
+  `top_answer_preselected: true` is still read.
+
+---
+
 ## 2026-09-19 — Daily List feature
 
 The fourth Home data type: one Daily List system holding one card per saved

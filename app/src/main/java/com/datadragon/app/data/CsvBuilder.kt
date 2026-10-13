@@ -48,15 +48,18 @@ object CsvBuilder {
 
     private fun cell(field: FieldDef, values: kotlinx.serialization.json.JsonObject): String =
         when (field.type) {
-            FieldType.MULTIPLE -> {
-                val selected = EntryValues.selectedOptions(values, field.label)
-                field.options.filter { it in selected }.joinToString("; ")
-            }
+            // Choice answers export their option labels, in the field's option order.
+            FieldType.MULTIPLE -> values[field.id]
+                ?.let { EntryValues.choiceLabels(field, it).joinToString("; ") }
+                .orEmpty()
+            FieldType.DROPDOWN -> values[field.id]
+                ?.let { EntryValues.choiceLabels(field, it).joinToString("; ") }
+                .orEmpty()
             // Tags have no fixed option list, so they export in saved order.
-            FieldType.TAGS -> EntryValues.stringList(values, field.label).joinToString("; ")
+            FieldType.TAGS -> EntryValues.stringList(values, field).joinToString("; ")
             // Everything else exports its raw stored value (scale as the bare
             // number; date/time as the stored ISO-8601 string).
-            else -> EntryValues.rawValue(values, field.label) ?: ""
+            else -> EntryValues.rawValue(values, field) ?: ""
         }
 
     internal fun escape(value: String): String =

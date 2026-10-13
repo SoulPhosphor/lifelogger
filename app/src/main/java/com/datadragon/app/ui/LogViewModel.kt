@@ -238,7 +238,7 @@ val TIMESTAMP_CATEGORY = SortCategory(AUTOMATIC_TIMESTAMP_LABEL, null)
 internal fun sortCategoriesOf(fields: List<FieldDef>, template: LogTemplate?): List<SortCategory> {
     val default = defaultSortField(fields, template)
     val opted = fields.filter {
-        it.type.sortEligible && (it.allowOrderFiltering || it.label == default?.label)
+        it.type.sortEligible && (it.allowOrderFiltering || it.id == default?.id)
     }
     return listOf(TIMESTAMP_CATEGORY) + opted.map { SortCategory(it.label, it) }
 }
@@ -257,17 +257,18 @@ internal fun resolveCategory(
         categories.firstOrNull { it.label == label }?.let { return it }
     }
     val default = defaultSortField(fields, template)
-    return categories.firstOrNull { it.field?.label == default?.label } ?: categories.firstOrNull()
+    return categories.firstOrNull { default != null && it.field?.id == default.id } ?: categories.firstOrNull()
 }
 
 /**
  * The field the form sorts by, or null when it falls back to the hidden automatic
- * entry timestamp. A stored label only counts while a sort-eligible field still
- * carries it, so deleting or retyping that field reverts the form to createdAt.
+ * entry timestamp. The form stores the field's permanent id, so renaming the
+ * field keeps it; the id only counts while a sort-eligible field still carries
+ * it, so a retyped field reverts the form to createdAt.
  */
 internal fun defaultSortField(fields: List<FieldDef>, template: LogTemplate?): FieldDef? =
-    template?.sortTimestampLabel?.let { label ->
-        fields.firstOrNull { it.type.sortEligible && it.label == label }
+    template?.sortTimestampFieldId?.let { id ->
+        fields.firstOrNull { it.type.sortEligible && it.id == id }
     }
 
 /**
@@ -301,7 +302,7 @@ private fun entrySortTime(entry: LogEntry, sortField: FieldDef?): LocalDateTime?
     if (sortField == null) {
         return runCatching { OffsetDateTime.parse(entry.createdAt).toLocalDateTime() }.getOrNull()
     }
-    val raw = EntryValues.rawValue(EntryValues.decode(entry.valuesJson), sortField.label)
+    val raw = EntryValues.rawValue(EntryValues.decode(entry.valuesJson), sortField)
         ?.takeIf { it.isNotBlank() }
         ?: return null
     return when (sortField.type) {

@@ -116,7 +116,7 @@ fun CalendarViewScreen(
 
     // Every calendar's line for a given day (short press shows all of them).
     fun linesForDay(date: LocalDate): List<String> = calendarDays.mapNotNull { cd ->
-        cd.values[date]?.let { CalendarCalculator.shortPressLine(cd.config, it) }
+        cd.values[date]?.let { CalendarCalculator.shortPressLine(cd.config, fields, it) }
     }
 
     Scaffold(

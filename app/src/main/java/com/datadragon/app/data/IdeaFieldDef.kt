@@ -1,5 +1,6 @@
 package com.datadragon.app.data
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /** The default number of rendered lines a multiline field is limited to. */
@@ -37,8 +38,17 @@ data class IdeaFieldDef(
     val type: FieldType,
     val required: Boolean = false,
     val includeInPreview: Boolean = true,
-    /** categories: the list of choices. */
-    val options: List<String> = emptyList(),
+    /**
+     * categories: the categories, active and retired, in display order. Each
+     * has a permanent id, and a saved category answer stores that id.
+     */
+    val choices: List<ChoiceOption> = emptyList(),
+    /**
+     * Legacy (pre-identity) category text, read only by
+     * [FieldIdentityMigration]; empty afterwards.
+     */
+    @SerialName("options")
+    val legacyOptions: List<String> = emptyList(),
     /** multiline: visible input height while filling the idea in. */
     val lines: Int? = null,
     /** date / date&time: offer this label as an order-sorting category. */

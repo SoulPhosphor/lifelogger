@@ -132,6 +132,10 @@ fun EditIdeaLogScreen(
             )
         },
         onBack = onBack,
+        rowEditing = true,
+        onDeleteCategory = { fieldId, category ->
+            viewModel.deleteCategoryPermanently(fieldId, category.id)
+        },
     )
 
     if (showArchivedIdeasExist) {

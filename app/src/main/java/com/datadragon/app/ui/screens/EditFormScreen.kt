@@ -63,7 +63,15 @@ import com.datadragon.app.ui.components.AppDialog
 import com.datadragon.app.ui.components.DialogActionButton
 import com.datadragon.app.ui.components.DialogDismissButton
 import com.datadragon.app.ui.components.DuplicateItemDialog
-import com.datadragon.app.data.introducesOptionDuplicate
+import com.datadragon.app.data.ChoiceEdits
+import com.datadragon.app.data.ChoiceOption
+import com.datadragon.app.data.StableUuid
+import com.datadragon.app.data.activeChoices
+import com.datadragon.app.data.hasChoices
+import com.datadragon.app.data.hasDuplicateLabels
+import com.datadragon.app.ui.components.ChoiceEditorWordings
+import com.datadragon.app.ui.components.ChoiceOptionsEditor
+import com.datadragon.app.ui.components.ChoicePreselection
 import com.datadragon.app.data.ChoiceStyle
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.RatioValues
@@ -104,9 +112,11 @@ private val savedSnapshotSaver = Saver<List<FieldDef>?, String>(
  * Edit a log's fields after creation. To keep stored entries valid, a field's
  * **type** can never change and existing fields can't be deleted. What you *can*
  * do: **add** new fields, **reorder** any field, and open a field to edit its
- * content — its label (spelling), options, and adjustable settings. Renaming a
- * label or an option re-keys the already-submitted entries so their values stay
- * attached under the new spelling; the values themselves are never changed.
+ * content — its label (spelling), options, and adjustable settings. Entries
+ * store answers by each field's and option's permanent id, so renaming or
+ * reordering never touches them. A Single / Multiple Choice field's options are
+ * edited as rows ([ChoiceOptionsEditor]); permanently deleting an option there
+ * is committed at once, separately from this screen's Save.
  *
  * The list is a set of tappable summary cards; tapping a card (anywhere but its
  * reorder/delete buttons) opens a full-screen **field editor** with the block
@@ -130,7 +140,7 @@ fun EditFormScreen(
     // schema before the existing fields have been read in.
     val name by viewModel.name.collectAsStateWithLifecycle()
     val loadedAutomaticTimestamping by viewModel.automaticTimestamping.collectAsStateWithLifecycle()
-    val loadedSortTimestampLabel by viewModel.sortTimestampLabel.collectAsStateWithLifecycle()
+    val loadedSortTimestampFieldId by viewModel.sortTimestampFieldId.collectAsStateWithLifecycle()
     val loadedSortNewestFirst by viewModel.sortNewestFirst.collectAsStateWithLifecycle()
     val loadedIntegrateCalendar by viewModel.integrateCalendar.collectAsStateWithLifecycle()
     val loadedAllowAdditionsFromForm by viewModel.allowAdditionsFromForm.collectAsStateWithLifecycle()
@@ -179,19 +189,18 @@ fun EditFormScreen(
     }
 
     // Every field is an editable draft; existing ones are flagged so their type
-    // stays locked and their original label/options are remembered for re-keying.
-    // Seeded once from the loaded schema.
+    // stays locked. Seeded once from the loaded schema.
     val rows = rememberSaveable(saver = rowsSaver) { mutableStateListOf() }
     var seeded by rememberSaveable { mutableStateOf(false) }
     // The schema as last saved, so an unsaved reorder or added field can be caught
     // on the way out. Seeded from the round-tripped rows so a freshly loaded, untouched
     // form is never seen as "changed."
     var savedSnapshot by rememberSaveable(stateSaver = savedSnapshotSaver) { mutableStateOf<List<FieldDef>?>(null) }
-    LaunchedEffect(loadedFields, loadedSortTimestampLabel) {
+    LaunchedEffect(loadedFields, loadedSortTimestampFieldId) {
         if (!seeded && loadedFields.isNotEmpty()) {
             rows.clear()
             loadedFields.forEach {
-                rows.add(draftOf(it, sortByTimestamp = it.label == loadedSortTimestampLabel))
+                rows.add(draftOf(it, sortByTimestamp = it.id == loadedSortTimestampFieldId))
             }
             savedSnapshot = rows.map { it.toFieldDef() }
             seeded = true
@@ -214,47 +223,18 @@ fun EditFormScreen(
         }
     }
 
-    // Rename maps derived from what each existing field started as vs. what it is
-    // now, so the ViewModel can re-key submitted entries before writing the schema.
-    fun labelRenames(): Map<String, String> =
-        rows.filter { it.existing }
-            .mapNotNull { d ->
-                val original = d.originalLabel ?: return@mapNotNull null
-                val current = d.label.trim()
-                if (original != current) original to current else null
-            }
-            .toMap()
-
-    fun optionRenames(): Map<String, Map<String, String>> =
-        rows.filter { it.existing && (it.type == FieldType.DROPDOWN || it.type == FieldType.MULTIPLE) }
-            .mapNotNull { d ->
-                val map = optionRenameMap(d.originalOptions, d.optionList())
-                if (map.isEmpty()) null else d.label.trim() to map
-            }
-            .toMap()
-
-    // Persist the current schema, re-keying submitted entries for any rename, then
-    // realign each existing field's "original" to what was just saved so a second
-    // edit computes its rename fresh rather than re-applying the last one.
+    // Persist the current schema and form settings.
     fun persist(onDone: () -> Unit) {
         val titleToSave = formTitle.orEmpty().trim()
         viewModel.save(
             name = titleToSave,
             fields = rows.map { it.toFieldDef() },
             automaticTimestamping = automaticTimestamping ?: false,
-            sortTimestampLabel = rows.firstOrNull { it.sortByTimestamp }?.label?.trim(),
+            sortTimestampFieldId = rows.firstOrNull { it.sortByTimestamp }?.id,
             sortNewestFirst = sortNewestFirst ?: true,
             integrateCalendar = integrateCalendar ?: false,
             allowAdditionsFromForm = allowAdditionsFromForm ?: false,
-            labelRenames = labelRenames(),
-            optionRenames = optionRenames(),
             onSaved = {
-                rows.forEach { d ->
-                    if (d.existing) {
-                        d.originalLabel = d.label.trim()
-                        d.originalOptions = d.optionList()
-                    }
-                }
                 formTitle = titleToSave
                 savedTitle = titleToSave
                 savedAutomaticTimestamping = automaticTimestamping
@@ -281,6 +261,19 @@ fun EditFormScreen(
             },
             onSortDirectionChange = { sortNewestFirst = it },
             onSave = { persist { editingIndex = null } },
+            onDeleteOption = { option ->
+                // Committed right away; also drop it from the screen's own copy
+                // and its saved baseline so neither Save nor Discard brings it back.
+                viewModel.deleteOptionPermanently(draft.id, option.id)
+                draft.choices = ChoiceEdits.withoutId(draft.choices, option.id)
+                savedSnapshot = savedSnapshot?.map { saved ->
+                    if (saved.id == draft.id) {
+                        saved.copy(choices = ChoiceEdits.withoutId(saved.choices, option.id))
+                    } else {
+                        saved
+                    }
+                }
+            },
             onCancel = {
                 // A brand-new field that was never filled in is discarded on cancel
                 // so the list isn't left with an empty card.
@@ -292,15 +285,15 @@ fun EditFormScreen(
     }
 
     val fieldsDirty = savedSnapshot?.let { snap -> rows.map { it.toFieldDef() } != snap } ?: false
-    val savedSortLabel = loadedSortTimestampLabel
-    val currentSortLabel = rows.firstOrNull { it.sortByTimestamp }?.label?.trim()
+    val savedSortFieldId = loadedSortTimestampFieldId
+    val currentSortFieldId = rows.firstOrNull { it.sortByTimestamp }?.id
     val dirty = fieldsDirty ||
         (savedTitle != null && formTitle != savedTitle) ||
         (savedAutomaticTimestamping != null && automaticTimestamping != savedAutomaticTimestamping) ||
         (savedSortNewestFirst != null && sortNewestFirst != savedSortNewestFirst) ||
         (savedIntegrateCalendar != null && integrateCalendar != savedIntegrateCalendar) ||
         (savedAllowAdditionsFromForm != null && allowAdditionsFromForm != savedAllowAdditionsFromForm) ||
-        (seeded && currentSortLabel != savedSortLabel)
+        (seeded && currentSortFieldId != savedSortFieldId)
     var showDiscard by rememberSaveable { mutableStateOf(false) }
     fun attemptBack() { if (dirty) showDiscard = true else onBack() }
     BackHandler { attemptBack() }
@@ -552,6 +545,7 @@ private fun FieldEditorScreen(
     onSortSelected: () -> Unit,
     onSortDirectionChange: (Boolean) -> Unit,
     onSave: () -> Unit,
+    onDeleteOption: (ChoiceOption) -> Unit,
     onCancel: () -> Unit,
 ) {
     val draft = remember(source) { source.copy() }
@@ -582,27 +576,18 @@ private fun FieldEditorScreen(
                     TextButton(
                         enabled = canSave(draft),
                         onClick = {
-                            // Refuse an option list that repeats an item; a duplicate
-                            // already saved before this edit is left alone.
-                            val baseline = if (draft.existing) draft.originalOptions else emptyList()
-                            if (draft.toFieldDef().introducesOptionDuplicate(baseline)) {
+                            // Refuse an option list that repeats an item.
+                            if (draft.toFieldDef().choices.hasDuplicateLabels()) {
                                 showDuplicate = true
                                 return@TextButton
                             }
                             source.applyFrom(draft)
                             if (source.sortByTimestamp) onSortSelected()
                             onSortDirectionChange(newestFirst)
-                            // Auto-capitalize only newly added fields; existing
-                            // fields are left as-is so their entries aren't re-keyed.
-                            if (!source.existing) {
-                                if (settings.autoCapitalizeLabels) {
-                                    source.label = TitleCase.apply(source.label)
-                                }
-                                val hasOptions = source.type == FieldType.DROPDOWN ||
-                                    source.type == FieldType.MULTIPLE
-                                if (settings.autoCapitalizeOptions && hasOptions) {
-                                    source.optionsText = TitleCase.applyLines(source.optionsText)
-                                }
+                            // Auto-capitalize only a newly added field's label;
+                            // new option rows are capitalized as they're added.
+                            if (!source.existing && settings.autoCapitalizeLabels) {
+                                source.label = TitleCase.apply(source.label)
                             }
                             onSave()
                         },
@@ -649,7 +634,11 @@ private fun FieldEditorScreen(
                 })
             }
 
-            SettingsControls(draft)
+            SettingsControls(
+                field = draft,
+                capitalizeNewOptions = settings.autoCapitalizeOptions,
+                onDeleteOption = onDeleteOption,
+            )
             if (draft.type.sortEligible) {
                 CheckboxSettingRow(
                     checked = draft.allowOrderFiltering,
@@ -720,7 +709,11 @@ private fun FieldEditorScreen(
 
 /** The type-specific adjustable settings shared by new and existing fields. */
 @Composable
-private fun SettingsControls(field: EditDraft) {
+private fun SettingsControls(
+    field: EditDraft,
+    capitalizeNewOptions: Boolean,
+    onDeleteOption: (ChoiceOption) -> Unit,
+) {
     when (field.type) {
         FieldType.MULTILINE -> EditNumberField(
             value = field.lines,
@@ -757,29 +750,18 @@ private fun SettingsControls(field: EditDraft) {
                 title = "Make Dropdown Instead",
             )
         }
-        FieldType.DROPDOWN, FieldType.MULTIPLE -> {
-            OutlinedTextField(
-                value = field.optionsText,
-                onValueChange = { field.optionsText = it },
-                label = { Text("Options (One per Line)") },
-                modifier = Modifier.fillMaxWidth().heightIn(min = AppTheme.sizes.editorMinHeight),
-            )
-            if (field.type == FieldType.DROPDOWN) {
-                SettingSwitchRow(
-                    checked = field.topAnswerPreselected,
-                    onCheckedChange = { field.topAnswerPreselected = it },
-                    title = "Top Answer is Pre-Selected",
-                )
-            }
-            if (field.type == FieldType.MULTIPLE) {
-                CheckboxSettingRow(
-                    checked = field.allowPreselectedMultipleChoices,
-                    onCheckedChange = { field.allowPreselectedMultipleChoices = it },
-                    title = "Allow pre-selected multi-choice answers",
-                    subtext = "Put an * before a list item to make it pre-selected when opening the form. It will still deselect if you tap it a second time.",
-                )
-            }
-        }
+        FieldType.DROPDOWN, FieldType.MULTIPLE -> ChoiceOptionsEditor(
+            choices = field.choices,
+            onChoicesChange = { field.choices = it },
+            wording = ChoiceEditorWordings.formOptions,
+            preselection = if (field.type == FieldType.DROPDOWN) {
+                ChoicePreselection.SINGLE
+            } else {
+                ChoicePreselection.MULTIPLE
+            },
+            capitalizeNew = capitalizeNewOptions,
+            onDeletePermanently = onDeleteOption,
+        )
         FieldType.RATIO -> RatioFieldSettings(
             leftDigits = field.leftDigits,
             onLeftDigitsChange = { field.leftDigits = it },
@@ -894,8 +876,15 @@ private fun EditTypeDropdown(selected: FieldType, onSelected: (FieldType) -> Uni
 /** Hands out a stable id per draft so the reorderable list has unique keys. */
 private var editDraftCounter = 0L
 
-/** Mutable, Compose-observable editing state for one field. */
+/**
+ * Mutable, Compose-observable editing state for one field.
+ *
+ * [id] is the field's permanent identity: an existing field keeps the id it was
+ * saved with, and a new field gets a fresh one here. [choices] holds a Single /
+ * Multiple Choice field's options, each with its own permanent id.
+ */
 private class EditDraft(
+    val id: String = StableUuid.createNew(),
     label: String = "",
     type: FieldType = FieldType.TEXT,
     required: Boolean = false,
@@ -903,24 +892,18 @@ private class EditDraft(
     digits: String = "",
     from: String = "",
     to: String = "",
-    optionsText: String = "",
+    choices: List<ChoiceOption> = emptyList(),
     defaultNow: Boolean = false,
     allowOrderFiltering: Boolean = false,
     sortByTimestamp: Boolean = false,
     allowUnknown: Boolean = false,
     makeDropdown: Boolean = false,
-    allowPreselectedMultipleChoices: Boolean = false,
     choiceStyle: ChoiceStyle = ChoiceStyle.DROPDOWN,
-    topAnswerPreselected: Boolean = false,
     leftDigits: String = "",
     rightDigits: String = "",
     unit: String = "",
     /** True for a field that already exists in the saved schema (type locked). */
     val existing: Boolean = false,
-    /** The label this field was loaded with, for re-keying entries on rename. */
-    originalLabel: String? = null,
-    /** The options this field was loaded with, for re-keying entries on rename. */
-    originalOptions: List<String> = emptyList(),
 ) {
     var label by mutableStateOf(label)
     var type by mutableStateOf(type)
@@ -929,22 +912,16 @@ private class EditDraft(
     var digits by mutableStateOf(digits)
     var from by mutableStateOf(from)
     var to by mutableStateOf(to)
-    var optionsText by mutableStateOf(optionsText)
+    var choices by mutableStateOf(choices)
     var defaultNow by mutableStateOf(defaultNow)
     var allowOrderFiltering by mutableStateOf(allowOrderFiltering)
     var sortByTimestamp by mutableStateOf(sortByTimestamp)
     var allowUnknown by mutableStateOf(allowUnknown)
     var makeDropdown by mutableStateOf(makeDropdown)
-    var allowPreselectedMultipleChoices by mutableStateOf(allowPreselectedMultipleChoices)
     var choiceStyle by mutableStateOf(choiceStyle)
-    var topAnswerPreselected by mutableStateOf(topAnswerPreselected)
     var leftDigits by mutableStateOf(leftDigits)
     var rightDigits by mutableStateOf(rightDigits)
     var unit by mutableStateOf(unit)
-
-    // Baselines for rename detection; realigned after each save.
-    var originalLabel by mutableStateOf(originalLabel)
-    var originalOptions by mutableStateOf(originalOptions)
 
     /** Stable identity for list keys; survives reordering, unique per draft. */
     val uid: Long = editDraftCounter++
@@ -953,18 +930,17 @@ private class EditDraft(
     fun sameContentAs(o: EditDraft): Boolean =
         label == o.label && type == o.type && required == o.required &&
             lines == o.lines && digits == o.digits && from == o.from && to == o.to &&
-            optionsText == o.optionsText && defaultNow == o.defaultNow &&
+            choices == o.choices && defaultNow == o.defaultNow &&
             allowOrderFiltering == o.allowOrderFiltering &&
             sortByTimestamp == o.sortByTimestamp &&
             allowUnknown == o.allowUnknown &&
             makeDropdown == o.makeDropdown &&
-            allowPreselectedMultipleChoices == o.allowPreselectedMultipleChoices &&
             choiceStyle == o.choiceStyle &&
-            topAnswerPreselected == o.topAnswerPreselected &&
             leftDigits == o.leftDigits && rightDigits == o.rightDigits && unit == o.unit
 
-    fun optionList(): List<String> =
-        optionsText.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+    /** The options that will be saved: a row left blank is never stored. */
+    fun savedChoices(): List<ChoiceOption> =
+        choices.filter { it.label.isNotBlank() }.map { it.copy(label = it.label.trim()) }
 
     private fun effectiveFrom(): Int = from.toIntOrNull() ?: EDIT_SCALE_DEFAULT_FROM
     private fun effectiveTo(): Int = to.toIntOrNull() ?: EDIT_SCALE_DEFAULT_TO
@@ -973,7 +949,7 @@ private class EditDraft(
         if (label.trim().isEmpty()) return false
         return when (type) {
             FieldType.SCALE -> effectiveTo() >= effectiveFrom()
-            FieldType.DROPDOWN, FieldType.MULTIPLE -> optionList().isNotEmpty()
+            FieldType.DROPDOWN, FieldType.MULTIPLE -> savedChoices().activeChoices.isNotEmpty()
             FieldType.RATIO -> ratioDigitsValid()
             else -> true
         }
@@ -982,7 +958,7 @@ private class EditDraft(
     fun validationHint(): String? = when {
         label.trim().isEmpty() -> "Add a label."
         type == FieldType.SCALE && !isValid() -> "Scale To must be ≥ From."
-        (type == FieldType.DROPDOWN || type == FieldType.MULTIPLE) && optionList().isEmpty() ->
+        type.hasChoices && savedChoices().activeChoices.isEmpty() ->
             "Add at least one option."
         type == FieldType.RATIO && !ratioDigitsValid() -> RATIO_DIGITS_HINT
         else -> null
@@ -1017,12 +993,13 @@ private class EditDraft(
     }
 
     private fun optionsSummary(): String {
-        val opts = optionList()
-        return if (opts.isEmpty()) "" else " · " + opts.joinToString(", ")
+        val opts = savedChoices().activeChoices
+        return if (opts.isEmpty()) "" else " · " + opts.joinToString(", ") { it.label }
     }
 
     /** A detached duplicate so the field editor can cancel without side effects. */
     fun copy(): EditDraft = EditDraft(
+        id = id,
         label = label,
         type = type,
         required = required,
@@ -1030,21 +1007,17 @@ private class EditDraft(
         digits = digits,
         from = from,
         to = to,
-        optionsText = optionsText,
+        choices = choices,
         defaultNow = defaultNow,
         allowOrderFiltering = allowOrderFiltering,
         sortByTimestamp = sortByTimestamp,
         allowUnknown = allowUnknown,
         makeDropdown = makeDropdown,
-        allowPreselectedMultipleChoices = allowPreselectedMultipleChoices,
         choiceStyle = choiceStyle,
-        topAnswerPreselected = topAnswerPreselected,
         leftDigits = leftDigits,
         rightDigits = rightDigits,
         unit = unit,
         existing = existing,
-        originalLabel = originalLabel,
-        originalOptions = originalOptions,
     )
 
     /** Copy the editable values from [other] onto this draft (identity kept). */
@@ -1056,21 +1029,20 @@ private class EditDraft(
         digits = other.digits
         from = other.from
         to = other.to
-        optionsText = other.optionsText
+        choices = other.savedChoices()
         defaultNow = other.defaultNow
         allowOrderFiltering = other.allowOrderFiltering
         sortByTimestamp = other.sortByTimestamp
         allowUnknown = other.allowUnknown
         makeDropdown = other.makeDropdown
-        allowPreselectedMultipleChoices = other.allowPreselectedMultipleChoices
         choiceStyle = other.choiceStyle
-        topAnswerPreselected = other.topAnswerPreselected
         leftDigits = other.leftDigits
         rightDigits = other.rightDigits
         unit = other.unit
     }
 
     fun toFieldDef(): FieldDef = FieldDef(
+        id = id,
         label = label.trim(),
         type = type,
         required = required,
@@ -1078,20 +1050,19 @@ private class EditDraft(
         digits = if (type == FieldType.NUMBER) digits.toIntOrNull() else null,
         from = if (type == FieldType.SCALE) effectiveFrom() else null,
         to = if (type == FieldType.SCALE) effectiveTo() else null,
-        options = if (type == FieldType.DROPDOWN || type == FieldType.MULTIPLE) optionList() else emptyList(),
+        choices = if (type.hasChoices) savedChoices() else emptyList(),
         defaultNow = type == FieldType.DATETIME && defaultNow,
         allowOrderFiltering = type.sortEligible && allowOrderFiltering,
         allowUnknown = type == FieldType.YESNO && allowUnknown,
         makeDropdown = type == FieldType.SCALE && makeDropdown,
-        allowPreselectedMultipleChoices = type == FieldType.MULTIPLE && allowPreselectedMultipleChoices,
         choiceStyle = if (type == FieldType.DROPDOWN) choiceStyle else ChoiceStyle.DROPDOWN,
-        topAnswerPreselected = type == FieldType.DROPDOWN && topAnswerPreselected,
         leftDigits = if (type == FieldType.RATIO) RatioValues.parseDigits(leftDigits) else null,
         rightDigits = if (type == FieldType.RATIO) RatioValues.parseDigits(rightDigits) else null,
         unit = if (type == FieldType.RATIO) unit.trim() else "",
     )
 
     fun toSnapshot(): EditDraftSnapshot = EditDraftSnapshot(
+        id = id,
         label = label,
         type = type,
         required = required,
@@ -1099,21 +1070,17 @@ private class EditDraft(
         digits = digits,
         from = from,
         to = to,
-        optionsText = optionsText,
+        choices = choices,
         defaultNow = defaultNow,
         allowOrderFiltering = allowOrderFiltering,
         sortByTimestamp = sortByTimestamp,
         allowUnknown = allowUnknown,
         makeDropdown = makeDropdown,
-        allowPreselectedMultipleChoices = allowPreselectedMultipleChoices,
         choiceStyle = choiceStyle,
-        topAnswerPreselected = topAnswerPreselected,
         leftDigits = leftDigits,
         rightDigits = rightDigits,
         unit = unit,
         existing = existing,
-        originalLabel = originalLabel,
-        originalOptions = originalOptions,
     )
 }
 
@@ -1124,6 +1091,7 @@ private const val EDIT_SCALE_DEFAULT_TO = 10
 /** Plain serializable snapshot of an [EditDraft], for [rowsSaver]. */
 @Serializable
 private data class EditDraftSnapshot(
+    val id: String,
     val label: String,
     val type: FieldType,
     val required: Boolean,
@@ -1131,24 +1099,21 @@ private data class EditDraftSnapshot(
     val digits: String,
     val from: String,
     val to: String,
-    val optionsText: String,
+    val choices: List<ChoiceOption> = emptyList(),
     val defaultNow: Boolean,
     val allowOrderFiltering: Boolean = false,
     val sortByTimestamp: Boolean = false,
     val allowUnknown: Boolean = false,
     val makeDropdown: Boolean = false,
-    val allowPreselectedMultipleChoices: Boolean = false,
     val choiceStyle: ChoiceStyle = ChoiceStyle.DROPDOWN,
-    val topAnswerPreselected: Boolean = false,
     val leftDigits: String = "",
     val rightDigits: String = "",
     val unit: String = "",
     val existing: Boolean,
-    val originalLabel: String?,
-    val originalOptions: List<String>,
 )
 
 private fun EditDraftSnapshot.toEditDraft(): EditDraft = EditDraft(
+    id = id,
     label = label,
     type = type,
     required = required,
@@ -1156,25 +1121,22 @@ private fun EditDraftSnapshot.toEditDraft(): EditDraft = EditDraft(
     digits = digits,
     from = from,
     to = to,
-    optionsText = optionsText,
+    choices = choices,
     defaultNow = defaultNow,
     allowOrderFiltering = allowOrderFiltering,
     sortByTimestamp = sortByTimestamp,
     allowUnknown = allowUnknown,
     makeDropdown = makeDropdown,
-    allowPreselectedMultipleChoices = allowPreselectedMultipleChoices,
     choiceStyle = choiceStyle,
-    topAnswerPreselected = topAnswerPreselected,
     leftDigits = leftDigits,
     rightDigits = rightDigits,
     unit = unit,
     existing = existing,
-    originalLabel = originalLabel,
-    originalOptions = originalOptions,
 )
 
-/** Seed an [EditDraft] from a saved field (marked existing — type locked). */
+/** Seed an [EditDraft] from a saved field (marked existing — type locked), keeping its ids. */
 private fun draftOf(f: FieldDef, sortByTimestamp: Boolean): EditDraft = EditDraft(
+    id = f.id,
     label = f.label,
     type = f.type,
     required = f.required,
@@ -1182,39 +1144,18 @@ private fun draftOf(f: FieldDef, sortByTimestamp: Boolean): EditDraft = EditDraf
     digits = f.digits?.toString() ?: "",
     from = f.from?.toString() ?: "",
     to = f.to?.toString() ?: "",
-    optionsText = f.options.joinToString("\n"),
+    choices = f.choices,
     defaultNow = f.defaultNow,
     allowOrderFiltering = f.allowOrderFiltering,
     sortByTimestamp = sortByTimestamp,
     allowUnknown = f.allowUnknown,
     makeDropdown = f.makeDropdown,
-    allowPreselectedMultipleChoices = f.allowPreselectedMultipleChoices,
     choiceStyle = f.choiceStyle,
-    topAnswerPreselected = f.topAnswerPreselected,
     leftDigits = f.leftDigits?.toString() ?: "",
     rightDigits = f.rightDigits?.toString() ?: "",
     unit = f.unit,
     existing = true,
-    originalLabel = f.label,
-    originalOptions = f.options,
 )
-
-/**
- * Pair up options that were renamed between [old] and [new]. An option present in
- * one list but not the other is treated as removed/added; when the counts of
- * removed and added match, they pair up in order (the common case being a single
- * spelling fix). A pure reorder or a bare add/remove yields no renames, so stored
- * values are never mis-mapped.
- */
-private fun optionRenameMap(old: List<String>, new: List<String>): Map<String, String> {
-    val removed = old.filter { it !in new }
-    val added = new.filter { it !in old }
-    return if (removed.isNotEmpty() && removed.size == added.size) {
-        removed.zip(added).toMap()
-    } else {
-        emptyMap()
-    }
-}
 
 private fun FieldType.editFriendly(): String = when (this) {
     FieldType.TEXT -> "Text (one line)"

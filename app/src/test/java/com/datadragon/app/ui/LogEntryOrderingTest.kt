@@ -91,7 +91,7 @@ class LogEntryOrderingTest {
     fun timeOnlyFieldIsNeverUsedAsTheDefaultSortField() {
         val fields = listOf(field("Woke Up", FieldType.TIME))
 
-        val resolved = defaultSortField(fields, template(sortTimestampLabel = "Woke Up"))
+        val resolved = defaultSortField(fields, template(sortField = "Woke Up"))
 
         assertNull(resolved)
     }
@@ -100,7 +100,7 @@ class LogEntryOrderingTest {
     fun dateFieldCanBeTheDefaultSortField() {
         val fields = listOf(field("Woke Up", FieldType.DATE))
 
-        val resolved = defaultSortField(fields, template(sortTimestampLabel = "Woke Up"))
+        val resolved = defaultSortField(fields, template(sortField = "Woke Up"))
 
         assertEquals("Woke Up", resolved?.label)
     }
@@ -109,7 +109,7 @@ class LogEntryOrderingTest {
     fun categoriesAlwaysOfferTheAutomaticTimestamp() {
         val fields = listOf(field("Notes", FieldType.TEXT))
 
-        val categories = sortCategoriesOf(fields, template(sortTimestampLabel = null))
+        val categories = sortCategoriesOf(fields, template(sortField = null))
 
         assertEquals(listOf(AUTOMATIC_TIMESTAMP_LABEL), categories.map { it.label })
     }
@@ -122,7 +122,7 @@ class LogEntryOrderingTest {
             field("Alarm", FieldType.TIME).copy(allowOrderFiltering = true),
         )
 
-        val categories = sortCategoriesOf(fields, template(sortTimestampLabel = "Fed"))
+        val categories = sortCategoriesOf(fields, template(sortField = "Fed"))
 
         assertEquals(
             listOf(AUTOMATIC_TIMESTAMP_LABEL, "T Rex Woke Up", "Fed"),
@@ -136,7 +136,7 @@ class LogEntryOrderingTest {
             field("Woke Up", FieldType.DATETIME),
             field("Fed", FieldType.DATETIME).copy(allowOrderFiltering = true),
         )
-        val form = template(sortTimestampLabel = "Woke Up")
+        val form = template(sortField = "Woke Up")
 
         assertEquals("Woke Up", resolveCategory(fields, form, pickedLabel = null)?.label)
         assertEquals("Fed", resolveCategory(fields, form, pickedLabel = "Fed")?.label)
@@ -144,15 +144,26 @@ class LogEntryOrderingTest {
         assertEquals("Woke Up", resolveCategory(fields, form, pickedLabel = "Deleted")?.label)
     }
 
-    private fun field(label: String, type: FieldType) = FieldDef(label = label, type = type)
+    @Test
+    fun renamingTheDefaultSortFieldKeepsItTheDefault() {
+        val fields = listOf(field("Woke Up", FieldType.DATE).copy(label = "Got Up"))
 
-    private fun template(sortTimestampLabel: String?) = LogTemplate(
+        val resolved = defaultSortField(fields, template(sortField = "Woke Up"))
+
+        assertEquals("Got Up", resolved?.label)
+    }
+
+    // A field's permanent id is derived from its starting label only to keep
+    // these fixtures readable; the app never does that.
+    private fun field(label: String, type: FieldType) = FieldDef(id = "id-$label", label = label, type = type)
+
+    private fun template(sortField: String?) = LogTemplate(
         id = 1,
         uuid = "stable-id",
         name = "Mood",
         createdAt = 100,
         schemaJson = "[]",
-        sortTimestampLabel = sortTimestampLabel,
+        sortTimestampFieldId = sortField?.let { "id-$it" },
     )
 
     private fun entry(
@@ -163,6 +174,8 @@ class LogEntryOrderingTest {
         id = id,
         templateId = 1,
         createdAt = createdAt,
-        valuesJson = EntryValues.encode(values.mapValues { EntryValues.string(it.value) }),
+        valuesJson = EntryValues.encode(
+            values.entries.associate { (label, value) -> "id-$label" to EntryValues.string(value) },
+        ),
     )
 }

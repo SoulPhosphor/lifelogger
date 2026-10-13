@@ -324,12 +324,17 @@ private fun IdeaFieldControl(
             }
 
             // "Categories" is the single-choice dropdown, under the Ideas name.
-            FieldType.DROPDOWN -> DropdownField(
-                label = label,
-                options = field.options,
-                selected = textValues[field.id].orEmpty(),
-                onSelected = { textValues[field.id] = it },
-            )
+            // The stored answer is the category's permanent id. A retired
+            // category this idea already holds still shows.
+            FieldType.DROPDOWN -> {
+                val stored = textValues[field.id].orEmpty()
+                DropdownField(
+                    label = label,
+                    options = field.choices.filter { !it.retired || it.id == stored },
+                    selectedLabel = field.choices.firstOrNull { it.id == stored }?.label ?: stored,
+                    onSelected = { textValues[field.id] = it.id },
+                )
+            }
 
             FieldType.WEBPAGE -> Labeled(label) {
                 WebpageEntryField(

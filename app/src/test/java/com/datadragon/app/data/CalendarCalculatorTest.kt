@@ -13,14 +13,17 @@ import java.time.LocalDate
  */
 class CalendarCalculatorTest {
 
-    private val pain = FieldDef(label = "Pain Level", type = FieldType.NUMBER)
-    private val meds = FieldDef(label = "Took Meds", type = FieldType.YESNO, allowUnknown = true)
+    // Each fixture's permanent id is spelled like its label so the stored values
+    // and configs below stay readable; the app never derives ids from labels.
+    private val pain = FieldDef(id = "Pain Level", label = "Pain Level", type = FieldType.NUMBER)
+    private val meds = FieldDef(id = "Took Meds", label = "Took Meds", type = FieldType.YESNO, allowUnknown = true)
     private val odor = FieldDef(
+        id = "Odor",
         label = "Odor",
         type = FieldType.DROPDOWN,
-        options = listOf("Onion", "Coffee", "Smoke"),
+        choices = listOf("Onion", "Coffee", "Smoke").map { ChoiceOption(id = it, label = it) },
     )
-    private val whenField = FieldDef(label = "When", type = FieldType.DATE)
+    private val whenField = FieldDef(id = "When", label = "When", type = FieldType.DATE)
     private val fields = listOf(pain, meds, odor, whenField)
 
     private val day = LocalDate.of(2026, 9, 10)
@@ -146,19 +149,28 @@ class CalendarCalculatorTest {
     fun shortPressLinesLeadWithTheSourceLabel() {
         assertEquals(
             "Pain Level Highest: 8",
-            CalendarCalculator.shortPressLine(config(CalendarCalcRules.HIGHEST_VALUE, sourceField = "Pain Level"), 8.0),
+            CalendarCalculator.shortPressLine(config(CalendarCalcRules.HIGHEST_VALUE, sourceField = "Pain Level"), fields, 8.0),
         )
         assertEquals(
             "Pain Level Average: 5.25",
-            CalendarCalculator.shortPressLine(config(CalendarCalcRules.AVERAGE, sourceField = "Pain Level"), 5.25),
+            CalendarCalculator.shortPressLine(config(CalendarCalcRules.AVERAGE, sourceField = "Pain Level"), fields, 5.25),
         )
         assertEquals(
             "Took Meds 3 Times",
-            CalendarCalculator.shortPressLine(config(CalendarCalcRules.COUNT_YES, sourceField = "Took Meds"), 3.0),
+            CalendarCalculator.shortPressLine(config(CalendarCalcRules.COUNT_YES, sourceField = "Took Meds"), fields, 3.0),
         )
         assertEquals(
             "Log Frequency 4 Times",
-            CalendarCalculator.shortPressLine(config(CalendarCalcRules.COUNT_LOGS, logFrequency = true), 4.0),
+            CalendarCalculator.shortPressLine(config(CalendarCalcRules.COUNT_LOGS, logFrequency = true), fields, 4.0),
+        )
+    }
+
+    @Test
+    fun theSourceLabelFollowsARenameBecauseTheConfigStoresTheFieldId() {
+        val renamed = fields.map { if (it.id == "Pain Level") it.copy(label = "Pain") else it }
+        assertEquals(
+            "Pain Highest: 8",
+            CalendarCalculator.shortPressLine(config(CalendarCalcRules.HIGHEST_VALUE, sourceField = "Pain Level"), renamed, 8.0),
         )
     }
 }

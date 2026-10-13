@@ -3,7 +3,10 @@ package com.datadragon.app.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.room.withTransaction
 import com.datadragon.app.data.AppDatabase
+import com.datadragon.app.data.ChoiceDeletion
+import com.datadragon.app.data.ChoiceEdits
 import com.datadragon.app.data.IdeaFieldDef
 import com.datadragon.app.data.IdeaLog
 import com.datadragon.app.data.StableUuid
@@ -25,6 +28,7 @@ import kotlinx.serialization.json.Json
  */
 class IdeaLogEditorViewModel(app: Application) : AndroidViewModel(app) {
 
+    private val db = AppDatabase.getInstance(app)
     private val logDao = AppDatabase.getInstance(app).ideaLogDao()
     private val entryDao = AppDatabase.getInstance(app).ideaEntryDao()
     private val json = Json { ignoreUnknownKeys = true }
@@ -125,6 +129,40 @@ class IdeaLogEditorViewModel(app: Application) : AndroidViewModel(app) {
             )
             _loadedFields.value = fields
             onSaved()
+        }
+    }
+
+    /**
+     * Permanently delete category [categoryId] of Categories field [fieldId],
+     * right away and independently of the screen's Save: it leaves the saved
+     * log, and every idea that chose it is left without a category for that
+     * field (the ideas themselves and their other fields stay) — all in one
+     * transaction. A category that was never saved has nothing stored.
+     */
+    fun deleteCategoryPermanently(fieldId: String, categoryId: String) {
+        val id = editingId
+        if (id < 0) return
+        viewModelScope.launch {
+            db.withTransaction {
+                val log = logDao.getById(id) ?: return@withTransaction
+                val entries = entryDao.getForLogOnce(id)
+                val result = ChoiceDeletion.fromIdeaLog(
+                    fieldsJson = log.fieldsJson,
+                    entryValues = entries.map { it.valuesJson },
+                    fieldId = fieldId,
+                    categoryId = categoryId,
+                ) ?: return@withTransaction
+                if (result.fieldsJson != log.fieldsJson) logDao.updateFields(id, result.fieldsJson)
+                entries.forEachIndexed { index, entry ->
+                    val values = result.entryValues[index]
+                    if (values != entry.valuesJson) entryDao.update(entry.copy(valuesJson = values))
+                }
+            }
+            // Keep the saved baseline in step so the deleted category never
+            // counts as an unsaved change or comes back on Discard.
+            _loadedFields.value = _loadedFields.value.map { field ->
+                if (field.id == fieldId) field.copy(choices = ChoiceEdits.withoutId(field.choices, categoryId)) else field
+            }
         }
     }
 }

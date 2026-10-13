@@ -2,10 +2,14 @@ package com.datadragon.app.ui.screens
 
 import com.datadragon.app.data.DEFAULT_IDEA_LINES
 import com.datadragon.app.data.FieldType
+import com.datadragon.app.data.ChoiceEdits
+import com.datadragon.app.data.ChoiceOption
+import com.datadragon.app.data.IdeaFieldDef
 import com.datadragon.app.data.IdeaFieldKind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class IdeaLogEditorTest {
@@ -98,7 +102,25 @@ class IdeaLogEditorTest {
 
         field.optionsText = "Home\nWork"
         assertNull(field.validationHint())
-        assertEquals(listOf("Home", "Work"), field.toFieldDef().options)
+        assertEquals(listOf("Home", "Work"), field.toFieldDef().choices.map { it.label })
+    }
+
+    @Test
+    fun editedCategoriesKeepTheirIdsAndABlankRowIsNeverSaved() {
+        val saved = IdeaFieldDef(
+            id = "kind",
+            label = "Kind",
+            type = FieldType.DROPDOWN,
+            choices = listOf(ChoiceOption("home", "Home"), ChoiceOption("old", "Old", retired = true)),
+        )
+        val draft = saved.toDraft(sortByTimestamp = false)
+        draft.choices = ChoiceEdits.renamed(draft.choices, "home", "House ") + ChoiceOption("blank", " ")
+
+        val def = draft.toFieldDef()
+
+        assertEquals(listOf("home", "old"), def.choices.map { it.id })
+        assertEquals("House", def.choices.first().label)
+        assertTrue(def.choices.last().retired)
     }
 
     @Test

@@ -107,6 +107,12 @@ fun TagsEditor(
     stripPreselectMarker: Boolean = false,
     draft: String? = null,
     onDraftChange: ((String) -> Unit)? = null,
+    /**
+     * Checked before an item is added. Returning true means the caller has taken
+     * the item over (for example, to offer restoring a retired option), so it is
+     * not added and the line keeps its text.
+     */
+    interceptAdd: ((String) -> Boolean)? = null,
 ) {
     var ownDraft by remember { mutableStateOf("") }
     val currentDraft = draft ?: ownDraft
@@ -118,6 +124,7 @@ fun TagsEditor(
     fun addDraft() {
         val tag = currentDraft.trim()
         if (tag.isEmpty()) return
+        if (interceptAdd?.invoke(tag) == true) return
         if (OptionDuplicates.contains(tags + existingItems, tag, stripPreselectMarker)) {
             showDuplicate = true
             return

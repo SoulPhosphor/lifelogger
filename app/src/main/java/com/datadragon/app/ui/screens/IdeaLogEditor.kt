@@ -52,7 +52,13 @@ import com.datadragon.app.data.IdeaFieldDef
 import com.datadragon.app.data.IdeaFieldKind
 import com.datadragon.app.data.StableUuid
 import com.datadragon.app.data.MAX_IDEA_LINES
-import com.datadragon.app.data.OptionDuplicates
+import com.datadragon.app.data.ChoiceOption
+import com.datadragon.app.data.activeChoices
+import com.datadragon.app.data.hasDuplicateLabels
+import com.datadragon.app.ui.components.ChoiceEditorWordings
+import com.datadragon.app.ui.components.ChoiceOptionsEditor
+import com.datadragon.app.ui.components.ChoicePreselection
+import androidx.compose.ui.platform.LocalContext
 import com.datadragon.app.data.RatioValues
 import com.datadragon.app.data.SettingsRepository
 import com.datadragon.app.data.TitleCase
@@ -82,6 +88,10 @@ private val DEFAULT_FIELD_KINDS = listOf(
  *
  * [id] is the field's permanent identity — carried through an edit unchanged, so
  * renaming or reordering a field never disconnects it from its stored values.
+ *
+ * Categories are typed one per line ([optionsText]) while a log is being
+ * created. When [rowEditing] is on (Edit Idea Log), they are edited as rows
+ * ([choices]) instead, each keeping its permanent id.
  */
 class IdeaDraftField(
     val id: String = StableUuid.createNew(),
@@ -101,8 +111,9 @@ class IdeaDraftField(
     leftDigits: String = "",
     rightDigits: String = "",
     unit: String = "",
-    /** The Categories options as last saved, so a historical duplicate stays saveable. */
-    val originalOptions: List<String> = emptyList(),
+    choices: List<ChoiceOption> = emptyList(),
+    /** True on Edit Idea Log: Categories are edited as rows that keep their ids. */
+    val rowEditing: Boolean = false,
 ) {
     var label by mutableStateOf(label)
     var kind by mutableStateOf(kind)
@@ -120,20 +131,35 @@ class IdeaDraftField(
     var leftDigits by mutableStateOf(leftDigits)
     var rightDigits by mutableStateOf(rightDigits)
     var unit by mutableStateOf(unit)
+    var choices by mutableStateOf(choices)
 
     fun optionList(): List<String> =
         optionsText.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
 
+    /**
+     * The categories that will be saved. Rows keep their ids (a row left blank
+     * is never stored); typed lines become new categories with fresh ids.
+     */
+    fun categories(): List<ChoiceOption> =
+        if (rowEditing) {
+            choices.filter { it.label.isNotBlank() }.map { it.copy(label = it.label.trim()) }
+        } else {
+            optionList().map { ChoiceOption.createNew(it) }
+        }
+
+    private fun hasActiveCategory(): Boolean =
+        if (rowEditing) categories().activeChoices.isNotEmpty() else optionList().isNotEmpty()
+
     fun isValid(): Boolean = when {
         label.trim().isEmpty() -> false
-        kind == IdeaFieldKind.CATEGORIES -> optionList().isNotEmpty()
+        kind == IdeaFieldKind.CATEGORIES -> hasActiveCategory()
         kind == IdeaFieldKind.RATIOS -> ratioDigitsValid()
         else -> true
     }
 
     fun validationHint(): String? = when {
         label.trim().isEmpty() -> "Add a label."
-        kind == IdeaFieldKind.CATEGORIES && optionList().isEmpty() -> "Add at least one option."
+        kind == IdeaFieldKind.CATEGORIES && !hasActiveCategory() -> "Add at least one option."
         kind == IdeaFieldKind.RATIOS && !ratioDigitsValid() -> RATIO_DIGITS_HINT
         else -> null
     }
@@ -141,10 +167,9 @@ class IdeaDraftField(
     private fun ratioDigitsValid(): Boolean =
         RatioValues.parseDigits(leftDigits) != null && RatioValues.parseDigits(rightDigits) != null
 
-    /** True when the Categories options repeat an item (ignoring capitalization) not already saved twice. */
-    fun introducesCategoryDuplicate(): Boolean =
-        kind == IdeaFieldKind.CATEGORIES &&
-            OptionDuplicates.introducesDuplicate(originalOptions, optionList())
+    /** True when two categories share a name (ignoring capitalization). */
+    fun hasCategoryDuplicate(): Boolean =
+        kind == IdeaFieldKind.CATEGORIES && categories().hasDuplicateLabels()
 
     fun toFieldDef(): IdeaFieldDef = IdeaFieldDef(
         id = id,
@@ -152,7 +177,7 @@ class IdeaDraftField(
         type = kind.fieldType,
         required = required,
         includeInPreview = includeInPreview,
-        options = if (kind == IdeaFieldKind.CATEGORIES) optionList() else emptyList(),
+        choices = if (kind == IdeaFieldKind.CATEGORIES) categories() else emptyList(),
         lines = if (kind == IdeaFieldKind.TEXT) lines.toIntOrNull() else null,
         allowOrderFiltering = kind.fieldType.sortEligible && allowOrderFiltering,
         wordCount = kind == IdeaFieldKind.TEXT && wordCount,
@@ -183,7 +208,8 @@ class IdeaDraftField(
         leftDigits = leftDigits,
         rightDigits = rightDigits,
         unit = unit,
-        originalOptions = originalOptions,
+        choices = choices,
+        rowEditing = rowEditing,
     )
 }
 
@@ -207,7 +233,8 @@ data class IdeaDraftSnapshot(
     val leftDigits: String = "",
     val rightDigits: String = "",
     val unit: String = "",
-    val originalOptions: List<String> = emptyList(),
+    val choices: List<ChoiceOption> = emptyList(),
+    val rowEditing: Boolean = false,
 )
 
 fun IdeaDraftSnapshot.toDraft(): IdeaDraftField = IdeaDraftField(
@@ -228,17 +255,17 @@ fun IdeaDraftSnapshot.toDraft(): IdeaDraftField = IdeaDraftField(
     leftDigits = leftDigits,
     rightDigits = rightDigits,
     unit = unit,
-    originalOptions = originalOptions,
+    choices = choices,
+    rowEditing = rowEditing,
 )
 
-/** Seed a draft from a saved field, keeping its permanent id. */
+/** Seed a draft from a saved field, keeping its permanent id and its categories' ids. */
 fun IdeaFieldDef.toDraft(sortByTimestamp: Boolean): IdeaDraftField = IdeaDraftField(
     id = id,
     label = label,
     kind = IdeaFieldKind.of(type),
     required = required,
     includeInPreview = includeInPreview,
-    optionsText = options.joinToString("\n"),
     lines = lines?.toString() ?: "",
     allowOrderFiltering = allowOrderFiltering,
     sortByTimestamp = sortByTimestamp,
@@ -250,7 +277,8 @@ fun IdeaFieldDef.toDraft(sortByTimestamp: Boolean): IdeaDraftField = IdeaDraftFi
     leftDigits = leftDigits?.toString() ?: "",
     rightDigits = rightDigits?.toString() ?: "",
     unit = unit,
-    originalOptions = options,
+    choices = choices,
+    rowEditing = true,
 )
 
 /** Saves the in-progress field list so it survives a background process kill. */
@@ -324,7 +352,13 @@ fun IdeaLogEditorScaffold(
     dirty: Boolean,
     onSave: () -> Unit,
     onBack: () -> Unit,
+    /** Edit Idea Log: Categories are edited as rows that keep their permanent ids. */
+    rowEditing: Boolean = false,
+    /** Commit the permanent deletion of a category of the field with this id. */
+    onDeleteCategory: (fieldId: String, category: ChoiceOption) -> Unit = { _, _ -> },
 ) {
+    val context = LocalContext.current
+    val capitalizeNewCategories = remember { SettingsRepository(context).autoCapitalizeOptions }
     var showDiscard by rememberSaveable { mutableStateOf(false) }
     var showDuplicate by rememberSaveable { mutableStateOf(false) }
     fun attemptBack() { if (dirty) showDiscard = true else onBack() }
@@ -359,7 +393,7 @@ fun IdeaLogEditorScaffold(
                         enabled = canSave,
                         onClick = {
                             // Categories may not repeat an item, ignoring capitalization.
-                            if (fields.any { it.introducesCategoryDuplicate() }) {
+                            if (fields.any { it.hasCategoryDuplicate() }) {
                                 showDuplicate = true
                             } else {
                                 onSave()
@@ -436,6 +470,8 @@ fun IdeaLogEditorScaffold(
                         onSortChanged = { setSort(field, it) },
                         onSortDirectionChange = onSortDirectionChange,
                         onDelete = { fields.remove(field) },
+                        capitalizeNewCategories = capitalizeNewCategories,
+                        onDeleteCategory = { category -> onDeleteCategory(field.id, category) },
                         dragHandleModifier = Modifier.draggableHandle().accessibleReorder(index, fields.size) { offset ->
                             val current = fields.indexOf(field)
                             val destination = current + offset
@@ -449,7 +485,7 @@ fun IdeaLogEditorScaffold(
             }
 
             AppButton(
-                onClick = { fields.add(IdeaDraftField()) },
+                onClick = { fields.add(IdeaDraftField(rowEditing = rowEditing)) },
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Icon(Icons.Filled.Add, contentDescription = null)
@@ -529,6 +565,8 @@ private fun IdeaFieldCard(
     onSortChanged: (Boolean) -> Unit,
     onSortDirectionChange: (Boolean) -> Unit,
     onDelete: () -> Unit,
+    capitalizeNewCategories: Boolean,
+    onDeleteCategory: (ChoiceOption) -> Unit,
     dragHandleModifier: Modifier = Modifier,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -572,12 +610,23 @@ private fun IdeaFieldCard(
             })
 
             when (field.kind) {
-                IdeaFieldKind.CATEGORIES -> OutlinedTextField(
-                    value = field.optionsText,
-                    onValueChange = { field.optionsText = it },
-                    label = { Text("Options (One per Line)") },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = AppTheme.sizes.editorMinHeight),
-                )
+                IdeaFieldKind.CATEGORIES -> if (field.rowEditing) {
+                    ChoiceOptionsEditor(
+                        choices = field.choices,
+                        onChoicesChange = { field.choices = it },
+                        wording = ChoiceEditorWordings.ideaCategories,
+                        preselection = ChoicePreselection.NONE,
+                        capitalizeNew = capitalizeNewCategories,
+                        onDeletePermanently = onDeleteCategory,
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = field.optionsText,
+                        onValueChange = { field.optionsText = it },
+                        label = { Text("Options (One per Line)") },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = AppTheme.sizes.editorMinHeight),
+                    )
+                }
                 IdeaFieldKind.TEXT -> MultilineFieldSettings(field)
                 IdeaFieldKind.RATIOS -> RatioFieldSettings(
                     leftDigits = field.leftDigits,
@@ -718,7 +767,11 @@ private fun IdeaKindDropdown(selected: IdeaFieldKind, onSelected: (IdeaFieldKind
  */
 internal fun IdeaFieldDef.autoCapitalized(settings: SettingsRepository): IdeaFieldDef = copy(
     label = if (settings.autoCapitalizeLabels) TitleCase.apply(label) else label,
-    options = if (settings.autoCapitalizeOptions) options.map { TitleCase.apply(it) } else options,
+    choices = if (settings.autoCapitalizeOptions) {
+        choices.map { it.copy(label = TitleCase.apply(it.label)) }
+    } else {
+        choices
+    },
 )
 
 /** Guard so a typed line count can never exceed the accepted maximum on save. */

@@ -26,7 +26,7 @@ class CreateLogViewModel(app: Application) : AndroidViewModel(app) {
         locked: Boolean,
         allowAppendedNotes: Boolean,
         automaticTimestamping: Boolean,
-        sortTimestampLabel: String?,
+        sortTimestampFieldId: String?,
         sortNewestFirst: Boolean,
         onSaved: () -> Unit,
     ) {
@@ -41,7 +41,7 @@ class CreateLogViewModel(app: Application) : AndroidViewModel(app) {
                     locked = locked,
                     allowAppendedNotes = allowAppendedNotes,
                     automaticTimestamping = automaticTimestamping,
-                    sortTimestampLabel = sortTimestampLabel,
+                    sortTimestampFieldId = sortTimestampFieldId,
                     sortNewestFirst = sortNewestFirst,
                 )
             )

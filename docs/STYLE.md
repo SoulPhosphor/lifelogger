@@ -99,6 +99,7 @@ Because of this, adding a theme later is a change to `Theme.kt`, `Type.kt`,
 | `controlLabel` | Text inside a framed control: a button caption or a drop-down's current value |
 | `dialogOptionTitle` | The main line of a tappable option in a dialog |
 | `dialogOptionSubtitle` | The one-line explanation under a dialog option |
+| `optionEditorHelp` | The explanatory lines under an option editor's heading (starts out matching `settingDescription`) |
 
 ### Sizes that are already decided
 

@@ -45,8 +45,13 @@ data class LogTemplate(
     /** Show the otherwise-hidden automatic entry timestamp on entry cards. */
     @ColumnInfo(defaultValue = "0")
     val automaticTimestamping: Boolean = false,
-    /** Label of the one date-bearing field used for ordering, or null for createdAt. */
-    val sortTimestampLabel: String? = null,
+    /**
+     * The permanent [FieldDef.id] of the one date-bearing field used for
+     * ordering, or null for createdAt. The column keeps its original name; it
+     * held the field's label before field identities existed.
+     */
+    @ColumnInfo(name = "sortTimestampLabel")
+    val sortTimestampFieldId: String? = null,
     /** Default entry order: newest first unless the form says oldest first. */
     @ColumnInfo(defaultValue = "1")
     val sortNewestFirst: Boolean = true,

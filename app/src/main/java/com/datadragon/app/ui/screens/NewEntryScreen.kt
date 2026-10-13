@@ -116,7 +116,7 @@ fun NewEntryScreen(
     val fields by viewModel.fields.collectAsStateWithLifecycle()
     val initialValues by viewModel.initialValues.collectAsStateWithLifecycle()
     val allowAdditionsFromForm by viewModel.allowAdditionsFromForm.collectAsStateWithLifecycle()
-    // The Dropdown/Multiple field whose Add Option pop-up is open, by label.
+    // The Dropdown/Multiple field whose Add Option pop-up is open, by field id.
     var addingOptionTo by rememberSaveable { mutableStateOf<String?>(null) }
 
     val timestamp = remember {
@@ -133,9 +133,9 @@ fun NewEntryScreen(
     var notes by rememberSaveable { mutableStateOf("") }
     var validationAttempted by rememberSaveable { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
-    val fieldTargets = remember(fields.map { it.label to it.type }) {
+    val fieldTargets = remember(fields.map { it.id to it.type }) {
         fields.associate { field ->
-            field.label to FieldValidationTarget(
+            field.id to FieldValidationTarget(
                 bringIntoViewRequester = BringIntoViewRequester(),
                 focusRequester = if (field.supportsDirectFocus()) FocusRequester() else null,
             )
@@ -143,39 +143,39 @@ fun NewEntryScreen(
     }
 
     // When editing, pre-fill the form from the entry's stored values once loaded.
-    // Keyed on the fields' labels and types, not their options, so adding an
+    // Keyed on the fields' ids and types, not their options, so adding an
     // option from this form never overwrites what has already been changed.
-    LaunchedEffect(initialValues, fields.map { it.label to it.type }) {
+    LaunchedEffect(initialValues, fields.map { it.id to it.type }) {
         val values = initialValues ?: return@LaunchedEffect
         fields.forEach { field ->
             when (field.type) {
                 FieldType.MULTIPLE -> {
-                    val selected = EntryValues.selectedOptions(values, field.label)
-                    if (selected.isNotEmpty()) multiValues[field.label] = selected
+                    val selected = EntryValues.selectedOptions(values, field)
+                    if (selected.isNotEmpty()) multiValues[field.id] = selected
                 }
                 FieldType.TAGS -> {
-                    val tags = EntryValues.stringList(values, field.label)
-                    if (tags.isNotEmpty()) tagValues[field.label] = tags
+                    val tags = EntryValues.stringList(values, field)
+                    if (tags.isNotEmpty()) tagValues[field.id] = tags
                 }
-                else -> EntryValues.rawValue(values, field.label)?.let { textValues[field.label] = it }
+                else -> EntryValues.rawValue(values, field)?.let { textValues[field.id] = it }
             }
         }
         EntryValues.notes(values)?.let { notes = it }
     }
 
-    // Pre-select marked multiple-choice options, and a Single Choice field's top
-    // answer when that is turned on, for new entries only. The map
+    // Pre-select the options marked pre-selected (any number for Multiple
+    // Choice, at most one for Single Choice), for new entries only. The map
     // check prevents this initialization from restoring a choice after the user
     // has deliberately deselected every option.
     LaunchedEffect(fields, isEditing) {
         if (isEditing) return@LaunchedEffect
         fields.forEach { field ->
-            if (field.type == FieldType.MULTIPLE && multiValues[field.label] == null) {
+            if (field.type == FieldType.MULTIPLE && multiValues[field.id] == null) {
                 val preselected = field.preselectedMultipleChoices()
-                if (preselected.isNotEmpty()) multiValues[field.label] = preselected
+                if (preselected.isNotEmpty()) multiValues[field.id] = preselected
             }
-            if (field.type == FieldType.DROPDOWN && textValues[field.label] == null) {
-                field.preselectedSingleChoice()?.let { textValues[field.label] = it }
+            if (field.type == FieldType.DROPDOWN && textValues[field.id] == null) {
+                field.preselectedSingleChoice()?.let { textValues[field.id] = it }
             }
         }
     }
@@ -185,8 +185,8 @@ fun NewEntryScreen(
     LaunchedEffect(fields, isEditing) {
         if (isEditing) return@LaunchedEffect
         fields.forEach { field ->
-            if (field.type == FieldType.DATETIME && field.defaultNow && textValues[field.label] == null) {
-                textValues[field.label] = LocalDateTime.now()
+            if (field.type == FieldType.DATETIME && field.defaultNow && textValues[field.id] == null) {
+                textValues[field.id] = LocalDateTime.now()
                     .withSecond(0)
                     .withNano(0)
                     .format(EntryValues.DATETIME_STORAGE)
@@ -206,7 +206,7 @@ fun NewEntryScreen(
         baseline = collectValues(fields, textValues, multiValues, tagValues, notes)
     }
 
-    val missingRequiredLabels = missingRequiredFieldLabels(fields, textValues, multiValues, tagValues)
+    val missingRequiredIds = missingRequiredFieldIds(fields, textValues, multiValues, tagValues)
 
     val dirty = baseline != null &&
         collectValues(fields, textValues, multiValues, tagValues, notes) != baseline
@@ -227,14 +227,14 @@ fun NewEntryScreen(
                     TextButton(
                         enabled = fields.isNotEmpty(),
                         onClick = {
-                            if (missingRequiredLabels.isEmpty()) {
+                            if (missingRequiredIds.isEmpty()) {
                                 viewModel.save(
                                     values = collectValues(fields, textValues, multiValues, tagValues, notes),
                                     onSaved = onBack,
                                 )
                             } else {
                                 validationAttempted = true
-                                fieldTargets[missingRequiredLabels.first()]?.let { target ->
+                                fieldTargets[missingRequiredIds.first()]?.let { target ->
                                     coroutineScope.launch {
                                         target.focusRequester?.requestFocus()
                                         withFrameNanos { }
@@ -270,17 +270,17 @@ fun NewEntryScreen(
             )
 
             fields.forEach { field ->
-                val target = fieldTargets[field.label]
+                val target = fieldTargets[field.id]
                 EntryFieldControl(
                     field = field,
                     textValues = textValues,
                     multiValues = multiValues,
                     tagValues = tagValues,
-                    showRequiredError = validationAttempted && field.label in missingRequiredLabels,
+                    showRequiredError = validationAttempted && field.id in missingRequiredIds,
                     bringIntoViewRequester = target?.bringIntoViewRequester,
                     focusRequester = target?.focusRequester,
                     onAddOption = if (allowAdditionsFromForm) {
-                        { addingOptionTo = it.label }
+                        { addingOptionTo = it.id }
                     } else {
                         null
                     },
@@ -306,14 +306,15 @@ fun NewEntryScreen(
         )
     }
 
-    fields.firstOrNull { it.label == addingOptionTo }?.let { field ->
+    fields.firstOrNull { it.id == addingOptionTo }?.let { field ->
         AddOptionDialog(
             field = field,
             onCancel = { addingOptionTo = null },
             onConfirm = { additions ->
-                viewModel.addOptions(field.label, additions)
+                viewModel.addOptions(field.id, additions)
                 addingOptionTo = null
             },
+            onRestore = { option -> viewModel.restoreOption(field.id, option.id) },
         )
     }
 }
@@ -334,13 +335,13 @@ private fun com.datadragon.app.data.FieldDef.supportsDirectFocus(): Boolean =
  * webpage address — blank is fine when the field is optional, but text that
  * isn't an address is never storable as one.
  */
-internal fun missingRequiredFieldLabels(
+internal fun missingRequiredFieldIds(
     fields: List<com.datadragon.app.data.FieldDef>,
     textValues: Map<String, String>,
     multiValues: Map<String, Set<String>>,
     tagValues: Map<String, List<String>> = emptyMap(),
 ): List<String> = fields.mapNotNull { field ->
-    val value = textValues[field.label]
+    val value = textValues[field.id]
     val missing = when {
         field.type == FieldType.WEBPAGE ->
             if (value.isNullOrBlank()) field.required else !WebAddress.isValid(value)
@@ -354,11 +355,11 @@ internal fun missingRequiredFieldLabels(
                 field.rightDigits ?: MAX_RATIO_DIGITS,
             )
         !field.required -> false
-        field.type == FieldType.MULTIPLE -> multiValues[field.label].orEmpty().isEmpty()
-        field.type == FieldType.TAGS -> tagValues[field.label].orEmpty().isEmpty()
+        field.type == FieldType.MULTIPLE -> multiValues[field.id].orEmpty().isEmpty()
+        field.type == FieldType.TAGS -> tagValues[field.id].orEmpty().isEmpty()
         else -> value.isNullOrBlank()
     }
-    field.label.takeIf { missing }
+    field.id.takeIf { missing }
 }
 
 /**
@@ -389,19 +390,21 @@ internal fun collectValues(
     fields.forEach { field ->
         when (field.type) {
             FieldType.MULTIPLE -> {
-                // Keep the option order defined in the schema.
-                val selected = multiValues[field.label].orEmpty()
-                val ordered = field.options.filter { it in selected }
-                if (ordered.isNotEmpty()) put(field.label, EntryValues.stringArray(ordered))
+                // Store option ids in the schema's option order; an id the
+                // schema doesn't know is kept rather than dropped.
+                val selected = multiValues[field.id].orEmpty()
+                val known = field.choices.map { it.id }.filter { it in selected }
+                val ordered = known + selected.filter { it !in known }
+                if (ordered.isNotEmpty()) put(field.id, EntryValues.stringArray(ordered))
             }
             FieldType.TAGS -> {
                 // Tags keep the order they were added in.
-                val tags = tagValues[field.label].orEmpty()
-                if (tags.isNotEmpty()) put(field.label, EntryValues.stringArray(tags))
+                val tags = tagValues[field.id].orEmpty()
+                if (tags.isNotEmpty()) put(field.id, EntryValues.stringArray(tags))
             }
             else -> {
-                val value = textValues[field.label]?.trim().orEmpty()
-                if (value.isNotEmpty()) put(field.label, EntryValues.string(value))
+                val value = textValues[field.id]?.trim().orEmpty()
+                if (value.isNotEmpty()) put(field.id, EntryValues.string(value))
             }
         }
     }

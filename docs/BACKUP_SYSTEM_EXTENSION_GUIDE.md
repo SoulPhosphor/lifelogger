@@ -299,7 +299,7 @@ A rendered heat map is derived output and is not backed up. Back up:
 
 When calendars expand beyond Forms, do not attach them through a local Form row ID or a mutable label. Introduce a stable owner relationship such as owner category plus owner UUID, migrate existing Form calendars explicitly, and preserve calendar identity if calendars will be merged independently.
 
-Forms currently use field labels as stored value keys. Idea and Clicker fields already have stable IDs. Before a cross-mode calendar depends on stable Form field ownership, complete an explicit Form-field identity migration. Do not generate missing IDs only in memory.
+Form fields, Single / Multiple Choice options and Idea Categories have permanent ids (database v24, backup format 8), and entries store answers by those ids; calendars reference the source field, day-timestamp field and Count Matching option by id. Legacy label-keyed data is converted once by `FieldIdentityMigration` (database upgrade) and `BackupIdentityUpgrade` (restore of older backups). Do not generate missing IDs only in memory.
 
 ## Journal mode example
 

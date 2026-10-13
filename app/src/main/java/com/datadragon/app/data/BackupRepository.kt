@@ -295,7 +295,9 @@ class BackupRepository(
         entryDao.deleteAll()
         calendarDao.deleteAll()
         templateDao.deleteAll()
-        logs.forEach { log ->
+        // A form from a backup written before field identities is converted
+        // exactly as the database upgrade converts it, then inserted.
+        logs.map { BackupIdentityUpgrade.form(it) }.forEach { log ->
             val templateId = templateDao.insert(BackupCodec.templateOf(log).copy(id = 0))
             log.entries.forEach { entry ->
                 val entryId = entryDao.insert(
@@ -810,7 +812,8 @@ class BackupRepository(
         log.statisticsJson.ifBlank { null },
     )
 
-    private suspend fun insertForm(log: BackupLog) {
+    private suspend fun insertForm(incoming: BackupLog) {
+        val log = BackupIdentityUpgrade.form(incoming)
         val templateId = templateDao.insert(BackupCodec.templateOf(log).copy(id = 0))
         log.entries.forEach { entry ->
             val entryId = entryDao.insert(LogEntry(templateId = templateId, createdAt = entry.createdAt, updatedAt = entry.updatedAt, valuesJson = entry.valuesJson, marked = entry.marked))
@@ -831,7 +834,8 @@ class BackupRepository(
         list.items.forEach { checklistDao.insertItem(ChecklistItem(checklistId = id, text = it.text, completed = it.completed, indent = it.indent, position = it.position)) }
     }
 
-    private suspend fun insertIdeaLog(log: BackupIdeaLog) {
+    private suspend fun insertIdeaLog(incoming: BackupIdeaLog) {
+        val log = BackupIdentityUpgrade.ideaLog(incoming)
         val id = ideaLogDao.insert(IdeaLog(uuid = log.uuid, name = log.name, createdAt = log.createdAt, fieldsJson = log.fieldsJson, automaticTimestamping = log.automaticTimestamping, allowArchiving = log.allowArchiving, showEntireIdeaCard = log.showEntireIdeaCard, previewLines = log.previewLines, sortTimestampFieldId = log.sortTimestampFieldId, sortNewestFirst = log.sortNewestFirst))
         log.entries.forEach { ideaEntryDao.insert(IdeaEntry(ideaLogId = id, createdAt = it.createdAt, updatedAt = it.updatedAt, valuesJson = it.valuesJson, marked = it.marked, archived = it.archived)) }
     }
