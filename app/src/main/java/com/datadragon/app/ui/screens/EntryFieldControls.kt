@@ -63,7 +63,8 @@ import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.MAX_RATIO_DIGITS
 import com.datadragon.app.data.RatioValues
-import com.datadragon.app.data.multipleChoiceOptionValue
+import com.datadragon.app.data.ChoiceOption
+import com.datadragon.app.data.choice
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -132,8 +133,8 @@ fun EntryFieldControl(
         when (field.type) {
             FieldType.TEXT -> Labeled(label) {
                 OutlinedTextField(
-                    value = textValues[field.label].orEmpty(),
-                    onValueChange = { textValues[field.label] = it },
+                    value = textValues[field.id].orEmpty(),
+                    onValueChange = { textValues[field.id] = it },
                     singleLine = true,
                     isError = showRequiredError,
                     modifier = Modifier.fillMaxWidth().withFocusRequester(focusRequester),
@@ -143,8 +144,8 @@ fun EntryFieldControl(
             FieldType.MULTILINE -> Labeled(label) {
                 val minHeight = AppTheme.sizes.textLineHeight * (field.lines ?: 4).coerceIn(2, 12)
                 OutlinedTextField(
-                    value = textValues[field.label].orEmpty(),
-                    onValueChange = { textValues[field.label] = it },
+                    value = textValues[field.id].orEmpty(),
+                    onValueChange = { textValues[field.id] = it },
                     isError = showRequiredError,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -155,10 +156,10 @@ fun EntryFieldControl(
 
             FieldType.NUMBER -> Labeled(label) {
                 OutlinedTextField(
-                    value = textValues[field.label].orEmpty(),
+                    value = textValues[field.id].orEmpty(),
                     onValueChange = { input ->
                         val digitsOnly = input.filter { it.isDigit() }
-                        textValues[field.label] = field.digits?.let { digitsOnly.take(it) } ?: digitsOnly
+                        textValues[field.id] = field.digits?.let { digitsOnly.take(it) } ?: digitsOnly
                     },
                     singleLine = true,
                     isError = showRequiredError,
@@ -167,36 +168,38 @@ fun EntryFieldControl(
                 )
             }
 
-            FieldType.DROPDOWN -> if (field.choiceStyle == ChoiceStyle.DISPLAYED) {
-                // A saved answer that was later removed from the options still
-                // shows (and stays deselectable), as the dropdown shows it.
-                val stored = textValues[field.label].orEmpty()
-                SingleChoiceChipsField(
-                    label = label,
-                    options = if (stored.isEmpty() || stored in field.options) field.options else field.options + stored,
-                    selected = textValues[field.label].orEmpty(),
-                    onTap = { option ->
-                        textValues[field.label] =
-                            if (option == textValues[field.label]) "" else option
-                    },
-                    onAdd = onAddOption?.let { add -> { add(field) } },
-                )
-            } else {
-                DropdownField(
-                    label = label,
-                    options = field.options,
-                    selected = textValues[field.label].orEmpty(),
-                    onSelected = { textValues[field.label] = it },
-                    onAdd = onAddOption?.let { add -> { add(field) } },
-                )
+            FieldType.DROPDOWN -> {
+                // The stored answer is an option id. A retired option this entry
+                // already holds still shows (and stays deselectable).
+                val stored = textValues[field.id].orEmpty()
+                val offered = field.offeredChoices(listOf(stored))
+                if (field.choiceStyle == ChoiceStyle.DISPLAYED) {
+                    SingleChoiceChipsField(
+                        label = label,
+                        options = offered,
+                        selectedId = stored,
+                        onTap = { option ->
+                            textValues[field.id] = if (option.id == stored) "" else option.id
+                        },
+                        onAdd = onAddOption?.let { add -> { add(field) } },
+                    )
+                } else {
+                    DropdownField(
+                        label = label,
+                        options = offered,
+                        selectedLabel = field.choice(stored)?.label ?: stored,
+                        onSelected = { textValues[field.id] = it.id },
+                        onAdd = onAddOption?.let { add -> { add(field) } },
+                    )
+                }
             }
 
             FieldType.YESNO -> {
-                val raw = textValues[field.label].orEmpty()
+                val raw = textValues[field.id].orEmpty()
                 val current = coerceYesNo(raw, field.allowUnknown)
-                LaunchedEffect(field.label, raw, field.allowUnknown) {
+                LaunchedEffect(field.id, raw, field.allowUnknown) {
                     if (raw.isNotEmpty() && current != raw) {
-                        textValues[field.label] = current
+                        textValues[field.id] = current
                     }
                 }
                 YesNoField(
@@ -204,7 +207,7 @@ fun EntryFieldControl(
                     selected = current,
                     allowUnknown = field.allowUnknown,
                     onTap = { pick ->
-                        textValues[field.label] =
+                        textValues[field.id] =
                             if (pick == current && !field.required) "" else pick
                     },
                 )
@@ -216,44 +219,47 @@ fun EntryFieldControl(
                 to = field.to ?: 10,
                 makeDropdown = field.makeDropdown,
                 required = field.required,
-                selected = textValues[field.label].orEmpty(),
-                onSelected = { textValues[field.label] = it },
+                selected = textValues[field.id].orEmpty(),
+                onSelected = { textValues[field.id] = it },
             )
 
-            FieldType.MULTIPLE -> MultipleField(
-                label = label,
-                options = field.options.map(field::multipleChoiceOptionValue),
-                selected = multiValues[field.label].orEmpty(),
-                onToggle = { option ->
-                    val current = multiValues[field.label].orEmpty()
-                    multiValues[field.label] =
-                        if (option in current) current - option else current + option
-                },
-                onAdd = onAddOption?.let { add -> { add(field) } },
-            )
+            FieldType.MULTIPLE -> {
+                val selected = multiValues[field.id].orEmpty()
+                MultipleField(
+                    label = label,
+                    options = field.offeredChoices(selected),
+                    selectedIds = selected,
+                    onToggle = { option ->
+                        val current = multiValues[field.id].orEmpty()
+                        multiValues[field.id] =
+                            if (option.id in current) current - option.id else current + option.id
+                    },
+                    onAdd = onAddOption?.let { add -> { add(field) } },
+                )
+            }
 
             FieldType.DATE -> DateField(
                 label = label,
-                stored = textValues[field.label],
-                onChange = { textValues[field.label] = it },
+                stored = textValues[field.id],
+                onChange = { textValues[field.id] = it },
             )
 
             FieldType.TIME -> TimeField(
                 label = label,
-                stored = textValues[field.label],
-                onChange = { textValues[field.label] = it },
+                stored = textValues[field.id],
+                onChange = { textValues[field.id] = it },
             )
 
             FieldType.DATETIME -> DateTimeField(
                 label = label,
-                stored = textValues[field.label],
-                onChange = { textValues[field.label] = it },
+                stored = textValues[field.id],
+                onChange = { textValues[field.id] = it },
             )
 
             FieldType.TAGS -> Labeled(label) {
                 TagsEditor(
-                    tags = tagValues[field.label].orEmpty(),
-                    onTagsChange = { tagValues[field.label] = it },
+                    tags = tagValues[field.id].orEmpty(),
+                    onTagsChange = { tagValues[field.id] = it },
                     isError = showRequiredError,
                     focusRequester = focusRequester,
                 )
@@ -261,8 +267,8 @@ fun EntryFieldControl(
 
             FieldType.WEBPAGE -> Labeled(label) {
                 WebpageEntryField(
-                    value = textValues[field.label].orEmpty(),
-                    onValueChange = { textValues[field.label] = it },
+                    value = textValues[field.id].orEmpty(),
+                    onValueChange = { textValues[field.id] = it },
                     isError = showRequiredError,
                     focusRequester = focusRequester,
                 )
@@ -270,17 +276,17 @@ fun EntryFieldControl(
 
             FieldType.BLOOD_PRESSURE -> BloodPressureField(
                 label = label,
-                stored = textValues[field.label].orEmpty(),
-                onChange = { textValues[field.label] = it },
+                stored = textValues[field.id].orEmpty(),
+                onChange = { textValues[field.id] = it },
             )
 
             FieldType.RATIO -> RatioField(
                 label = label,
-                stored = textValues[field.label].orEmpty(),
+                stored = textValues[field.id].orEmpty(),
                 leftDigits = field.leftDigits ?: MAX_RATIO_DIGITS,
                 rightDigits = field.rightDigits ?: MAX_RATIO_DIGITS,
                 unit = field.unit,
-                onChange = { textValues[field.label] = it },
+                onChange = { textValues[field.id] = it },
             )
         }
     }
@@ -319,20 +325,32 @@ internal fun Labeled(
     }
 }
 
+/**
+ * The options a choice control offers on an entry: every active option in
+ * order, plus any retired option this entry already holds, so a saved answer
+ * stays visible and can still be deselected.
+ */
+internal fun FieldDef.offeredChoices(selectedIds: Collection<String>): List<ChoiceOption> =
+    choices.filter { !it.retired || it.id in selectedIds }
+
+/**
+ * A Single Choice dropdown over [options]. [selectedLabel] is the current
+ * answer's label (blank for none); picking an option hands back that option.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun DropdownField(
     label: String,
-    options: List<String>,
-    selected: String,
-    onSelected: (String) -> Unit,
+    options: List<ChoiceOption>,
+    selectedLabel: String,
+    onSelected: (ChoiceOption) -> Unit,
     onAdd: (() -> Unit)? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
     Labeled(label, onAdd) {
         ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
             OutlinedTextField(
-                value = selected,
+                value = selectedLabel,
                 onValueChange = {},
                 readOnly = true,
                 placeholder = { Text("Choose…") },
@@ -343,7 +361,7 @@ internal fun DropdownField(
             ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 options.forEach { option ->
                     DropdownMenuItem(
-                        text = { Text(option) },
+                        text = { Text(option.label) },
                         onClick = {
                             onSelected(option)
                             expanded = false
@@ -587,18 +605,18 @@ private fun ScaleDropdown(
 @Composable
 private fun MultipleField(
     label: String,
-    options: List<String>,
-    selected: Set<String>,
-    onToggle: (String) -> Unit,
+    options: List<ChoiceOption>,
+    selectedIds: Set<String>,
+    onToggle: (ChoiceOption) -> Unit,
     onAdd: (() -> Unit)? = null,
 ) {
     Labeled(label, onAdd) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.related)) {
             options.forEach { option ->
                 FilterChip(
-                    selected = option in selected,
+                    selected = option.id in selectedIds,
                     onClick = { onToggle(option) },
-                    label = { Text(option) },
+                    label = { Text(option.label) },
                 )
             }
         }
@@ -613,18 +631,18 @@ private fun MultipleField(
 @Composable
 private fun SingleChoiceChipsField(
     label: String,
-    options: List<String>,
-    selected: String,
-    onTap: (String) -> Unit,
+    options: List<ChoiceOption>,
+    selectedId: String,
+    onTap: (ChoiceOption) -> Unit,
     onAdd: (() -> Unit)? = null,
 ) {
     Labeled(label, onAdd) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.related)) {
             options.forEach { option ->
                 FilterChip(
-                    selected = option == selected,
+                    selected = option.id == selectedId,
                     onClick = { onTap(option) },
-                    label = { Text(option) },
+                    label = { Text(option.label) },
                 )
             }
         }

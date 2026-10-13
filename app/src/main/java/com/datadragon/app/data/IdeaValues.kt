@@ -19,8 +19,10 @@ import java.util.Locale
  * later rename or reorder never disconnects stored data from its field. The
  * storage forms themselves are the shared ones from [EntryValues]: a Tags field
  * is a JSON array of strings, everything else a JSON string in the same
- * machine-readable form a form entry uses. Display formatting happens here, at
- * read time, never at storage time.
+ * machine-readable form a form entry uses. A Categories answer stores the
+ * chosen category's permanent [ChoiceOption.id], so renaming a category never
+ * touches saved ideas. Display formatting happens here, at read time, never at
+ * storage time.
  */
 object IdeaValues {
 
@@ -28,9 +30,17 @@ object IdeaValues {
 
     fun decode(valuesJson: String): JsonObject = EntryValues.decode(valuesJson)
 
-    /** The raw stored string for any single-valued field, or null if absent. */
-    fun rawValue(values: JsonObject, field: IdeaFieldDef): String? =
-        (values[field.id] as? JsonPrimitive)?.contentOrNull?.ifBlank { null }
+    /**
+     * The stored string for any single-valued field, or null if absent. A
+     * Categories field returns the stored category id. A field that used to be
+     * Categories still keeps its categories, so a stored category id under it
+     * reads back as that category's name rather than an opaque id.
+     */
+    fun rawValue(values: JsonObject, field: IdeaFieldDef): String? {
+        val text = (values[field.id] as? JsonPrimitive)?.contentOrNull?.ifBlank { null } ?: return null
+        if (field.type == FieldType.DROPDOWN) return text
+        return field.choices.firstOrNull { it.id == text }?.label ?: text
+    }
 
     /** The saved tags of a Tags field, in the order they were added. */
     fun tags(values: JsonObject, field: IdeaFieldDef): List<String> =
@@ -62,8 +72,19 @@ object IdeaValues {
             EntryValues.displayDateTime(LocalDateTime.parse(it, EntryValues.DATETIME_STORAGE))
         }
         FieldType.RATIO -> rawValue(values, field)?.let { RatioValues.display(it, field.unit) }
+        // A category id the field no longer knows is shown as stored, never hidden.
+        FieldType.DROPDOWN -> rawValue(values, field)?.let { id -> field.choices.firstOrNull { it.id == id }?.label ?: id }
         else -> rawValue(values, field)
     }
+
+    /**
+     * Remove the category [categoryId] from this idea's answer to [field] — the
+     * data side of permanently deleting a category. The idea itself and every
+     * other field are untouched. Returns the input unchanged when the idea never
+     * held that category.
+     */
+    fun withoutCategory(valuesJson: String, field: IdeaFieldDef, categoryId: String): String =
+        EntryValues.withoutOption(valuesJson, field.id, categoryId)
 
     private fun reformat(raw: String?, format: (String) -> String): String? {
         val text = raw ?: return null

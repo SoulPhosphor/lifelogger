@@ -46,6 +46,12 @@ data class AppTextStyles(
     val luckyWinner: TextStyle,
     /** Weight only: inline labels continue inheriting their surrounding type size. */
     val readoutLabelWeight: FontWeight,
+    /**
+     * The small explanatory lines under an option editor's heading ("Tap to
+     * rename. Hold and drag to reorder."). Its own role so it can be restyled
+     * independently, even though it starts out matching [settingDescription].
+     */
+    val optionEditorHelp: TextStyle,
 )
 
 /**
@@ -64,6 +70,7 @@ val DefaultAppTextStyles = AppTextStyles(
     controlLabel = AppTypography.bodyLarge,
     luckyWinner = AppTypography.headlineSmall.copy(fontSize = AppTypography.headlineSmall.fontSize.value.plus(2).sp),
     readoutLabelWeight = FontWeight.Medium,
+    optionEditorHelp = AppTypography.bodySmall,
 )
 
 /** Supplied by `DataDragonTheme`; read through `AppTheme.textStyles`. */

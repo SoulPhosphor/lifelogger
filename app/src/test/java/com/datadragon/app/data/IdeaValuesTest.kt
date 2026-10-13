@@ -120,4 +120,23 @@ class IdeaValuesTest {
             IdeaValues.searchableText(values, listOf(text, tags)),
         )
     }
+
+    @Test
+    fun aFormerCategoriesFieldStillShowsCategoryNamesNotIds() {
+        val categories = IdeaFieldDef(
+            id = "kind",
+            label = "Kind",
+            type = FieldType.DROPDOWN,
+            choices = listOf(ChoiceOption("work-id", "Work")),
+        )
+        val values = IdeaValues.decode("""{"kind":"work-id"}""")
+        assertEquals("work-id", IdeaValues.rawValue(values, categories))
+        assertEquals("Work", IdeaValues.displayValue(values, categories))
+
+        val nowText = categories.copy(type = FieldType.TEXT)
+        assertEquals("Work", IdeaValues.rawValue(values, nowText))
+        assertEquals("Work", IdeaValues.displayValue(values, nowText))
+        // Ordinary text that isn't a category id is untouched.
+        assertEquals("plain", IdeaValues.rawValue(IdeaValues.decode("""{"kind":"plain"}"""), nowText))
+    }
 }

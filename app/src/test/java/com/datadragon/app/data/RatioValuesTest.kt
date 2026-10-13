@@ -43,9 +43,10 @@ class RatioValuesTest {
 
     @Test
     fun ratioFieldSurvivesAFormMarkdownRoundTrip() {
-        val field = FieldDef(label = "BP", type = FieldType.RATIO, leftDigits = 3, rightDigits = 2, unit = "mmHg")
+        val field = FieldDef(id = "bp", label = "BP", type = FieldType.RATIO, leftDigits = 3, rightDigits = 2, unit = "mmHg")
         val parsed = FormMarkdownParser.parse(FormMarkdownGenerator.generate("Log", listOf(field))).fields.single()
-        assertEquals(field, parsed)
+        // Markdown carries no ids; a parsed field is a new field with a new id.
+        assertEquals(field, parsed.copy(id = field.id))
     }
 
     @Test
@@ -56,9 +57,9 @@ class RatioValuesTest {
 
     @Test
     fun entryDisplayIncludesTheUnit() {
-        val field = FieldDef(label = "BP", type = FieldType.RATIO, leftDigits = 3, rightDigits = 3, unit = "mmHg")
+        val field = FieldDef(id = "bp", label = "BP", type = FieldType.RATIO, leftDigits = 3, rightDigits = 3, unit = "mmHg")
         val values = kotlinx.serialization.json.buildJsonObject {
-            put("BP", kotlinx.serialization.json.JsonPrimitive("120/90"))
+            put("bp", kotlinx.serialization.json.JsonPrimitive("120/90"))
         }
         assertEquals("120/90 mmHg", EntryValues.displayValue(field, values))
     }

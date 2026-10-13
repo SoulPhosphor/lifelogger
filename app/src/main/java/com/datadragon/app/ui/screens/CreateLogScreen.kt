@@ -69,7 +69,13 @@ import com.datadragon.app.ui.components.AppDialog
 import com.datadragon.app.ui.components.DialogActionButton
 import com.datadragon.app.ui.components.DialogDismissButton
 import com.datadragon.app.ui.components.DuplicateItemDialog
-import com.datadragon.app.data.introducesOptionDuplicate
+import com.datadragon.app.data.ChoiceOption
+import com.datadragon.app.data.OptionDuplicates
+import com.datadragon.app.data.StableUuid
+import com.datadragon.app.data.activeChoices
+import com.datadragon.app.data.hasChoices
+import com.datadragon.app.data.hasDuplicateLabels
+import com.datadragon.app.data.matchingLabel
 import com.datadragon.app.data.ChoiceStyle
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.FieldType
@@ -214,17 +220,26 @@ fun CreateLogScreen(
                         onClick = {
                             val fields: List<FieldDef>
                             val markdown: String
+                            // Build mode knows which field the user picked, so the
+                            // default sort keeps that field's id even when another
+                            // field shares its label.
+                            var builtSortFieldId: String? = null
                             if (mode == BuilderMode.BUILD) {
                                 // Every field here is newly created, so apply the
                                 // auto-capitalize settings before saving.
-                                fields = draftFields.filter { it.isValid() }
-                                    .map { it.toFieldDef() }
-                                    .map {
-                                        it.autoCapitalized(
+                                val built = draftFields.filter { it.isValid() }
+                                    .map { draft ->
+                                        draft to draft.toFieldDef().autoCapitalized(
                                             labels = settings.autoCapitalizeLabels,
                                             options = settings.autoCapitalizeOptions,
                                         )
                                     }
+                                fields = built.map { it.second }
+                                builtSortFieldId = built
+                                    .singleOrNull { (draft, _) -> draft.sortByTimestamp }
+                                    ?.second
+                                    ?.takeIf { it.type.sortEligible }
+                                    ?.id
                                 markdown = FormMarkdownGenerator.generate(name, fields)
                             } else {
                                 // Fix the casing of pasted markdown in place (labels
@@ -239,7 +254,7 @@ fun CreateLogScreen(
                             }
                             // A new form's options may not repeat an item (ignoring
                             // capitalization), whichever way they were entered.
-                            if (fields.any { it.introducesOptionDuplicate() }) {
+                            if (fields.any { it.choices.hasDuplicateLabels() }) {
                                 showDuplicate = true
                                 return@TextButton
                             }
@@ -248,11 +263,15 @@ fun CreateLogScreen(
                                 .singleOrNull { it.sortByTimestamp }
                                 ?.label
                                 ?.trim()
-                            val sortTimestampLabel = selectedSortLabel?.let { selected ->
-                                fields.firstOrNull {
-                                    it.type.sortEligible &&
-                                        it.label.equals(selected, ignoreCase = true)
-                                }?.label
+                            val sortTimestampFieldId = if (mode == BuilderMode.BUILD) {
+                                builtSortFieldId
+                            } else {
+                                selectedSortLabel?.let { selected ->
+                                    fields.firstOrNull {
+                                        it.type.sortEligible &&
+                                            it.label.equals(selected, ignoreCase = true)
+                                    }?.id
+                                }
                             }
                             viewModel.save(
                                 name = finalName,
@@ -261,7 +280,7 @@ fun CreateLogScreen(
                                 locked = locked,
                                 allowAppendedNotes = allowAppendedNotes,
                                 automaticTimestamping = automaticTimestamping,
-                                sortTimestampLabel = sortTimestampLabel,
+                                sortTimestampFieldId = sortTimestampFieldId,
                                 sortNewestFirst = sortNewestFirst,
                                 onSaved = onBack,
                             )
@@ -727,6 +746,14 @@ private fun FieldEditorCard(
                     )
                 }
                 FieldType.DROPDOWN, FieldType.MULTIPLE -> {
+                    if (field.type == FieldType.MULTIPLE) {
+                        Text(
+                            "Put an * before a list item to make it pre-selected when opening the form. " +
+                                "It will still deselect if you tap it a second time.",
+                            style = AppTheme.textStyles.settingDescription,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     OutlinedTextField(
                         value = field.optionsText,
                         onValueChange = { field.optionsText = it },
@@ -734,18 +761,14 @@ private fun FieldEditorCard(
                         modifier = Modifier.fillMaxWidth().heightIn(min = AppTheme.sizes.editorMinHeight),
                     )
                     if (field.type == FieldType.DROPDOWN) {
-                        SettingSwitchRow(
-                            checked = field.topAnswerPreselected,
-                            onCheckedChange = { field.topAnswerPreselected = it },
-                            title = "Top Answer is Pre-Selected",
-                        )
-                    }
-                    if (field.type == FieldType.MULTIPLE) {
-                        CheckboxSettingRow(
-                            checked = field.allowPreselectedMultipleChoices,
-                            onCheckedChange = { field.allowPreselectedMultipleChoices = it },
-                            title = "Allow pre-selected multi-choice answers",
-                            subtext = "Put an * before a list item to make it pre-selected when opening the form. It will still deselect if you tap it a second time.",
+                        Text("Pre-Selected Option", style = MaterialTheme.typography.labelLarge)
+                        OutlinedTextField(
+                            value = field.preselectedOption,
+                            onValueChange = { field.preselectedOption = it },
+                            placeholder = { Text("Optional") },
+                            singleLine = true,
+                            isError = !field.preselectedOptionValid(),
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
                 }
@@ -977,9 +1000,8 @@ private class DraftField(
     sortByTimestamp: Boolean = false,
     allowUnknown: Boolean = false,
     makeDropdown: Boolean = false,
-    allowPreselectedMultipleChoices: Boolean = false,
     choiceStyle: ChoiceStyle = ChoiceStyle.DROPDOWN,
-    topAnswerPreselected: Boolean = false,
+    preselectedOption: String = "",
     leftDigits: String = "",
     rightDigits: String = "",
     unit: String = "",
@@ -997,15 +1019,40 @@ private class DraftField(
     var sortByTimestamp by mutableStateOf(sortByTimestamp)
     var allowUnknown by mutableStateOf(allowUnknown)
     var makeDropdown by mutableStateOf(makeDropdown)
-    var allowPreselectedMultipleChoices by mutableStateOf(allowPreselectedMultipleChoices)
     var choiceStyle by mutableStateOf(choiceStyle)
-    var topAnswerPreselected by mutableStateOf(topAnswerPreselected)
+    /** Single Choice: the name of the option pre-selected on new entries (blank for none). */
+    var preselectedOption by mutableStateOf(preselectedOption)
     var leftDigits by mutableStateOf(leftDigits)
     var rightDigits by mutableStateOf(rightDigits)
     var unit by mutableStateOf(unit)
 
     fun optionList(): List<String> =
         optionsText.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+
+    /**
+     * The typed options as new [ChoiceOption]s, each with a fresh permanent id.
+     * For Multiple Choice a leading `*` marks the option as pre-selected and is
+     * not part of its name. For Single Choice the [preselectedOption] (matched
+     * ignoring capitalization) is the one pre-selected option.
+     */
+    fun choiceList(): List<ChoiceOption> {
+        val choices = optionList().map { written ->
+            val marked = type == FieldType.MULTIPLE && written.startsWith("*") &&
+                written.removePrefix("*").isNotBlank()
+            ChoiceOption.createNew(
+                label = if (marked) written.removePrefix("*").trim() else written,
+                preselected = marked,
+            )
+        }
+        if (type != FieldType.DROPDOWN || preselectedOption.isBlank()) return choices
+        val match = choices.matchingLabel(preselectedOption) ?: return choices
+        return choices.map { it.copy(preselected = it.id == match.id) }
+    }
+
+    /** A Single Choice pre-selected option must name one of the typed options (blank is fine). */
+    fun preselectedOptionValid(): Boolean =
+        type != FieldType.DROPDOWN || preselectedOption.isBlank() ||
+            optionList().any { OptionDuplicates.key(it) == OptionDuplicates.key(preselectedOption) }
 
     /** Effective scale bounds: blank boxes fall back to the 1..10 defaults. */
     private fun effectiveFrom(): Int = from.toIntOrNull() ?: SCALE_DEFAULT_FROM
@@ -1015,7 +1062,8 @@ private class DraftField(
         if (label.trim().isEmpty()) return false
         return when (type) {
             FieldType.SCALE -> effectiveTo() >= effectiveFrom()
-            FieldType.DROPDOWN, FieldType.MULTIPLE -> optionList().isNotEmpty()
+            FieldType.DROPDOWN -> optionList().isNotEmpty() && preselectedOptionValid()
+            FieldType.MULTIPLE -> optionList().isNotEmpty()
             FieldType.RATIO -> ratioDigitsValid()
             else -> true
         }
@@ -1027,6 +1075,7 @@ private class DraftField(
         type == FieldType.SCALE && !isValid() -> "Scale To must be ≥ From."
         (type == FieldType.DROPDOWN || type == FieldType.MULTIPLE) && optionList().isEmpty() ->
             "Add at least one option."
+        !preselectedOptionValid() -> "Enter an option from the list."
         type == FieldType.RATIO && !ratioDigitsValid() -> RATIO_DIGITS_HINT
         else -> null
     }
@@ -1034,7 +1083,9 @@ private class DraftField(
     private fun ratioDigitsValid(): Boolean =
         RatioValues.parseDigits(leftDigits) != null && RatioValues.parseDigits(rightDigits) != null
 
+    /** A brand-new field: it and each of its options get a fresh permanent id. */
     fun toFieldDef(): FieldDef = FieldDef(
+        id = StableUuid.createNew(),
         label = label.trim(),
         type = type,
         required = required,
@@ -1042,14 +1093,12 @@ private class DraftField(
         digits = if (type == FieldType.NUMBER) digits.toIntOrNull() else null,
         from = if (type == FieldType.SCALE) effectiveFrom() else null,
         to = if (type == FieldType.SCALE) effectiveTo() else null,
-        options = if (type == FieldType.DROPDOWN || type == FieldType.MULTIPLE) optionList() else emptyList(),
+        choices = if (type.hasChoices) choiceList() else emptyList(),
         defaultNow = type == FieldType.DATETIME && defaultNow,
         allowOrderFiltering = type.sortEligible && allowOrderFiltering,
         allowUnknown = type == FieldType.YESNO && allowUnknown,
         makeDropdown = type == FieldType.SCALE && makeDropdown,
-        allowPreselectedMultipleChoices = type == FieldType.MULTIPLE && allowPreselectedMultipleChoices,
         choiceStyle = if (type == FieldType.DROPDOWN) choiceStyle else ChoiceStyle.DROPDOWN,
-        topAnswerPreselected = type == FieldType.DROPDOWN && topAnswerPreselected,
         leftDigits = if (type == FieldType.RATIO) RatioValues.parseDigits(leftDigits) else null,
         rightDigits = if (type == FieldType.RATIO) RatioValues.parseDigits(rightDigits) else null,
         unit = if (type == FieldType.RATIO) unit.trim() else "",
@@ -1069,9 +1118,8 @@ private class DraftField(
         sortByTimestamp = sortByTimestamp,
         allowUnknown = allowUnknown,
         makeDropdown = makeDropdown,
-        allowPreselectedMultipleChoices = allowPreselectedMultipleChoices,
         choiceStyle = choiceStyle,
-        topAnswerPreselected = topAnswerPreselected,
+        preselectedOption = preselectedOption,
         leftDigits = leftDigits,
         rightDigits = rightDigits,
         unit = unit,
@@ -1101,9 +1149,8 @@ private data class DraftFieldSnapshot(
     val sortByTimestamp: Boolean = false,
     val allowUnknown: Boolean = false,
     val makeDropdown: Boolean = false,
-    val allowPreselectedMultipleChoices: Boolean = false,
     val choiceStyle: ChoiceStyle = ChoiceStyle.DROPDOWN,
-    val topAnswerPreselected: Boolean = false,
+    val preselectedOption: String = "",
     val leftDigits: String = "",
     val rightDigits: String = "",
     val unit: String = "",
@@ -1123,9 +1170,8 @@ private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
     sortByTimestamp = sortByTimestamp,
     allowUnknown = allowUnknown,
     makeDropdown = makeDropdown,
-    allowPreselectedMultipleChoices = allowPreselectedMultipleChoices,
     choiceStyle = choiceStyle,
-    topAnswerPreselected = topAnswerPreselected,
+    preselectedOption = preselectedOption,
     leftDigits = leftDigits,
     rightDigits = rightDigits,
     unit = unit,
@@ -1168,11 +1214,7 @@ private fun capitalizeMarkdown(text: String, labels: Boolean, options: Boolean):
  */
 private fun FieldDef.autoCapitalized(labels: Boolean, options: Boolean): FieldDef = copy(
     label = if (labels) TitleCase.apply(label) else label,
-    options = if (options && (type == FieldType.DROPDOWN || type == FieldType.MULTIPLE)) {
-        this.options.map { TitleCase.apply(it) }
-    } else {
-        this.options
-    },
+    choices = if (options) choices.map { it.copy(label = TitleCase.apply(it.label)) } else choices,
 )
 
 private fun FieldDef.toDraft(): DraftField = DraftField(
@@ -1183,14 +1225,21 @@ private fun FieldDef.toDraft(): DraftField = DraftField(
     digits = digits?.toString() ?: "",
     from = from?.toString() ?: "",
     to = to?.toString() ?: "",
-    optionsText = options.joinToString("\n"),
+    // Back to the creation syntax: `*` marks a pre-selected Multiple Choice
+    // option; a Single Choice default goes in Pre-Selected Option.
+    optionsText = activeChoices.joinToString("\n") { choice ->
+        if (type == FieldType.MULTIPLE && choice.preselected) "*${choice.label}" else choice.label
+    },
     defaultNow = defaultNow,
     allowOrderFiltering = allowOrderFiltering,
     allowUnknown = allowUnknown,
     makeDropdown = makeDropdown,
-    allowPreselectedMultipleChoices = allowPreselectedMultipleChoices,
     choiceStyle = choiceStyle,
-    topAnswerPreselected = topAnswerPreselected,
+    preselectedOption = if (type == FieldType.DROPDOWN) {
+        activeChoices.firstOrNull { it.preselected }?.label.orEmpty()
+    } else {
+        ""
+    },
     leftDigits = leftDigits?.toString() ?: "",
     rightDigits = rightDigits?.toString() ?: "",
     unit = unit,
@@ -1226,8 +1275,8 @@ private fun FieldDef.summary(): String {
         FieldType.TEXT -> "Single line of text"
         FieldType.MULTILINE -> "Multi-line text" + (lines?.let { " ($it lines)" } ?: "")
         FieldType.NUMBER -> "Number" + (digits?.let { " (up to $it digits)" } ?: "")
-        FieldType.DROPDOWN -> "Pick one: " + options.joinToString(", ")
-        FieldType.MULTIPLE -> "Pick several: " + options.joinToString(", ")
+        FieldType.DROPDOWN -> "Pick one: " + activeChoices.joinToString(", ") { it.label }
+        FieldType.MULTIPLE -> "Pick several: " + activeChoices.joinToString(", ") { it.label }
         FieldType.SCALE -> "Scale $from–$to" + (if (makeDropdown) " · Dropdown" else "")
         FieldType.YESNO -> if (allowUnknown) "Yes / No / Unknown" else "Yes / No"
         FieldType.DATE -> "Date"

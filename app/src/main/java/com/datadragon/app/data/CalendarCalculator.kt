@@ -21,9 +21,20 @@ import kotlin.math.floor
  */
 object CalendarCalculator {
 
-    /** The source's owner-facing label: the tracked field, or "Log Frequency". */
-    fun sourceLabel(config: CalendarConfig): String =
-        if (config.sourceLogFrequency) "Log Frequency" else config.sourceField.orEmpty()
+    /**
+     * The source's owner-facing label: the tracked field's current label, or
+     * "Log Frequency". The config stores the field's permanent id.
+     */
+    fun sourceLabel(config: CalendarConfig, fields: List<FieldDef>): String =
+        if (config.sourceLogFrequency) {
+            "Log Frequency"
+        } else {
+            fieldById(config.sourceField, fields)?.label.orEmpty()
+        }
+
+    /** The field with permanent id [id], or null. */
+    fun fieldById(id: String?, fields: List<FieldDef>): FieldDef? =
+        id?.let { wanted -> fields.firstOrNull { it.id == wanted } }
 
     /** One numeric result per day that has one, keyed by the day it falls on. */
     fun dailyValues(
@@ -32,8 +43,8 @@ object CalendarCalculator {
         entries: List<LogEntry>,
     ): Map<LocalDate, Double> {
         val rule = config.calculationRule ?: return emptyMap()
-        val sourceField = config.sourceField?.let { label -> fields.firstOrNull { it.label == label } }
-        val timestampField = config.dayTimestampField?.let { label -> fields.firstOrNull { it.label == label } }
+        val sourceField = fieldById(config.sourceField, fields)
+        val timestampField = fieldById(config.dayTimestampField, fields)
 
         val byDay = entries.groupBy { dayOf(it, timestampField) }
         val results = LinkedHashMap<LocalDate, Double>()
@@ -52,7 +63,7 @@ object CalendarCalculator {
         entries: List<LogEntry>,
         day: LocalDate,
     ): List<LogEntry> {
-        val timestampField = config.dayTimestampField?.let { label -> fields.firstOrNull { it.label == label } }
+        val timestampField = fieldById(config.dayTimestampField, fields)
         return entries.filter { dayOf(it, timestampField) == day }
     }
 
@@ -67,8 +78,8 @@ object CalendarCalculator {
     }
 
     /** The short-press line for a day's [value]: "<source> <rule result>". */
-    fun shortPressLine(config: CalendarConfig, value: Double): String {
-        val source = sourceLabel(config)
+    fun shortPressLine(config: CalendarConfig, fields: List<FieldDef>, value: Double): String {
+        val source = sourceLabel(config, fields)
         return when (config.calculationRule) {
             CalendarCalcRules.HIGHEST_VALUE -> "$source Highest: ${formatNumber(value)}"
             CalendarCalcRules.LOWEST_VALUE -> "$source Lowest: ${formatNumber(value)}"
@@ -85,7 +96,7 @@ object CalendarCalculator {
         if (timestampField == null) {
             return runCatching { OffsetDateTime.parse(entry.createdAt).toLocalDate() }.getOrNull()
         }
-        val raw = EntryValues.rawValue(EntryValues.decode(entry.valuesJson), timestampField.label)
+        val raw = EntryValues.rawValue(EntryValues.decode(entry.valuesJson), timestampField)
             ?: return null
         return runCatching {
             when (timestampField.type) {
@@ -110,7 +121,7 @@ object CalendarCalculator {
 
         return when (rule) {
             CalendarCalcRules.COUNT_ENTRIES ->
-                values.count { EntryValues.rawValue(it, sourceField.label) != null }
+                values.count { EntryValues.rawValue(it, sourceField) != null }
                     .takeIf { it > 0 }?.toDouble()
 
             CalendarCalcRules.HIGHEST_VALUE -> numericValues(values, sourceField).maxOrNull()
@@ -133,13 +144,13 @@ object CalendarCalculator {
     private fun numericValues(
         values: List<kotlinx.serialization.json.JsonObject>,
         field: FieldDef,
-    ): List<Double> = values.mapNotNull { EntryValues.rawValue(it, field.label)?.toDoubleOrNull() }
+    ): List<Double> = values.mapNotNull { EntryValues.rawValue(it, field)?.toDoubleOrNull() }
 
     private fun countResponse(
         values: List<kotlinx.serialization.json.JsonObject>,
         field: FieldDef,
         response: String,
-    ): Double? = values.count { EntryValues.rawValue(it, field.label) == response }
+    ): Double? = values.count { EntryValues.rawValue(it, field) == response }
         .takeIf { it > 0 }?.toDouble()
 
     private fun countMatching(
@@ -150,11 +161,11 @@ object CalendarCalculator {
         val count = when (field.type) {
             FieldType.DROPDOWN -> {
                 val target = config.matchOption ?: return null
-                values.count { EntryValues.rawValue(it, field.label) == target }
+                values.count { EntryValues.rawValue(it, field) == target }
             }
             FieldType.MULTIPLE -> {
                 val target = config.matchOption ?: return null
-                values.count { EntryValues.selectedOptions(it, field.label).contains(target) }
+                values.count { EntryValues.selectedOptions(it, field).contains(target) }
             }
             else -> {
                 val threshold = config.matchValue.trim().toDoubleOrNull() ?: return null

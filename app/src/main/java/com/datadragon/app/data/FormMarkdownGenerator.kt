@@ -26,11 +26,19 @@ object FormMarkdownGenerator {
                     if (field.makeDropdown) sb.append("make_dropdown: true\n")
                 }
                 FieldType.DROPDOWN, FieldType.MULTIPLE -> {
+                    // Only active options are written; retired ones stay in the
+                    // saved form but aren't part of its Markdown.
                     sb.append("options:\n")
-                    field.options.forEach { sb.append("- ").append(it).append('\n') }
+                    field.activeChoices.forEach { choice ->
+                        sb.append("- ")
+                        if (field.type == FieldType.MULTIPLE && choice.preselected) sb.append('*')
+                        sb.append(choice.label).append('\n')
+                    }
                     if (field.type == FieldType.DROPDOWN) {
                         if (field.choiceStyle == ChoiceStyle.DISPLAYED) sb.append("choice_style: displayed\n")
-                        if (field.topAnswerPreselected) sb.append("top_answer_preselected: true\n")
+                        field.activeChoices.firstOrNull { it.preselected }?.let {
+                            sb.append("preselected_option: ").append(it.label).append('\n')
+                        }
                     }
                 }
                 FieldType.RATIO -> {

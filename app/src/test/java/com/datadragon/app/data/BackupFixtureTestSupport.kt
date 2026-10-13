@@ -76,7 +76,7 @@ object BackupFixtureTestSupport {
 
         return Room.databaseBuilder(context, AppDatabase::class.java, name)
             .allowMainThreadQueries()
-            .addMigrations(AppDatabase.MIGRATION_18_19, AppDatabase.MIGRATION_19_20, AppDatabase.MIGRATION_20_21, AppDatabase.MIGRATION_21_22, AppDatabase.MIGRATION_22_23)
+            .addMigrations(AppDatabase.MIGRATION_18_19, AppDatabase.MIGRATION_19_20, AppDatabase.MIGRATION_20_21, AppDatabase.MIGRATION_21_22, AppDatabase.MIGRATION_22_23, AppDatabase.MIGRATION_23_24)
             .addCallback(AppDatabase.UUID_IDENTITY_CALLBACK)
             .addCallback(AppDatabase.BACKUP_REVISION_CALLBACK)
             .build()

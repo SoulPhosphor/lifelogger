@@ -54,6 +54,10 @@ interface IdeaLogDao {
     @Delete
     suspend fun delete(log: IdeaLog)
 
+    /** Replace only a log's field definitions (used when a category is permanently deleted). */
+    @Query("UPDATE idea_logs SET fieldsJson = :fieldsJson WHERE id = :id")
+    suspend fun updateFields(id: Long, fieldsJson: String)
+
     @Query("DELETE FROM idea_logs")
     suspend fun deleteAll()
 }

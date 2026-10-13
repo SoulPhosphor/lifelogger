@@ -9,9 +9,24 @@ import kotlinx.serialization.Serializable
  *
  * The supported types and their variables mirror docs/FORM_MARKDOWN_SPEC.md
  * exactly. Variables that don't apply to a given type stay null/empty.
+ *
+ * [id] is the field's permanent identity and the key its values are stored
+ * under in each entry, so renaming or reordering a field never disconnects it
+ * from its saved answers. It is generated once when the field is created and
+ * never changes; it is never shown to the user. It is blank only in schema JSON
+ * written before field identities existed — [FieldIdentityMigration] assigns
+ * it once and persists it; nothing generates one while decoding.
+ *
+ * A Single Choice (`dropdown`) or Multiple Choice (`multiple`) field keeps its
+ * options in [choices], each with its own permanent id; answers store those ids.
+ *
+ * The `legacy…` properties hold the pre-identity shape (option text, the
+ * Multiple Choice `*` switch, and the Single Choice "top answer" switch). They
+ * are read only by [FieldIdentityMigration] and are empty/false afterwards.
  */
 @Serializable
 data class FieldDef(
+    val id: String = "",
     val label: String,
     val type: FieldType,
     val required: Boolean = false,
@@ -22,10 +37,14 @@ data class FieldDef(
     /** scale: inclusive range bounds. */
     val from: Int? = null,
     val to: Int? = null,
-    /** dropdown / multiple: the list of choices. */
-    val options: List<String> = emptyList(),
-    /** multiple: allow options beginning with `*` to be pre-selected. */
-    val allowPreselectedMultipleChoices: Boolean = false,
+    /** dropdown / multiple: the options, active and retired, in display order. */
+    val choices: List<ChoiceOption> = emptyList(),
+    /** Legacy (pre-identity) dropdown / multiple option text. */
+    @SerialName("options")
+    val legacyOptions: List<String> = emptyList(),
+    /** Legacy multiple: options beginning with `*` were pre-selected. */
+    @SerialName("allowPreselectedMultipleChoices")
+    val legacyAllowPreselectedMultipleChoices: Boolean = false,
     /** datetime: pre-fill with the current time (`default: now`). */
     val defaultNow: Boolean = false,
     /** date / datetime: offer this label as an order-sorting category. */
@@ -36,8 +55,9 @@ data class FieldDef(
     val makeDropdown: Boolean = false,
     /** dropdown (Single Choice): show as a dropdown or as displayed chips. */
     val choiceStyle: ChoiceStyle = ChoiceStyle.DROPDOWN,
-    /** dropdown (Single Choice): pre-select the first option on new entries. */
-    val topAnswerPreselected: Boolean = false,
+    /** Legacy dropdown (Single Choice): the first option was pre-selected. */
+    @SerialName("topAnswerPreselected")
+    val legacyTopAnswerPreselected: Boolean = false,
     /** ratio: the most digits allowed on each side of the "/". */
     val leftDigits: Int? = null,
     val rightDigits: Int? = null,
@@ -52,26 +72,29 @@ enum class ChoiceStyle {
     @SerialName("displayed") DISPLAYED,
 }
 
-/** The Single Choice answer selected automatically when a new entry opens, if any. */
+/** True for the two field types that hold a fixed list of [FieldDef.choices]. */
+val FieldType.hasChoices: Boolean
+    get() = this == FieldType.DROPDOWN || this == FieldType.MULTIPLE
+
+/** The options still offered for new answers, in display order. */
+val FieldDef.activeChoices: List<ChoiceOption>
+    get() = choices.activeChoices
+
+/** The retired options, in display order. */
+val FieldDef.retiredChoices: List<ChoiceOption>
+    get() = choices.retiredChoices
+
+/** The option with permanent id [id], active or retired, or null. */
+fun FieldDef.choice(id: String): ChoiceOption? = choices.firstOrNull { it.id == id }
+
+/** The Single Choice option id selected automatically when a new entry opens, if any. */
 fun FieldDef.preselectedSingleChoice(): String? =
-    if (type == FieldType.DROPDOWN && topAnswerPreselected) options.firstOrNull() else null
+    if (type == FieldType.DROPDOWN) activeChoices.firstOrNull { it.preselected }?.id else null
 
-/**
- * Returns the value used for a multiple-choice answer. When pre-selection is
- * enabled, the leading marker is presentation-only and is not stored as part of
- * the answer value.
- */
-fun FieldDef.multipleChoiceOptionValue(option: String): String =
-    if (type == FieldType.MULTIPLE && allowPreselectedMultipleChoices && option.startsWith("*")) {
-        option.removePrefix("*").trimStart()
-    } else {
-        option
-    }
-
-/** The multiple-choice answers selected automatically when a new form opens. */
+/** The Multiple Choice option ids selected automatically when a new entry opens. */
 fun FieldDef.preselectedMultipleChoices(): Set<String> =
-    if (type == FieldType.MULTIPLE && allowPreselectedMultipleChoices) {
-        options.filter { it.startsWith("*") }.map { multipleChoiceOptionValue(it) }.toSet()
+    if (type == FieldType.MULTIPLE) {
+        activeChoices.filter { it.preselected }.map { it.id }.toSet()
     } else {
         emptySet()
     }

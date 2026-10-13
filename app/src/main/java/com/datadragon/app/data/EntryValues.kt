@@ -18,9 +18,13 @@ import java.util.Locale
 
 /**
  * Owns the shape of [LogEntry.valuesJson] and how stored values read back for
- * display. The stored JSON is an object keyed by field label:
+ * display. The stored JSON is an object keyed by each field's permanent
+ * [FieldDef.id], so renaming or reordering a field never disconnects its values:
  *
- * - `multiple` fields are stored as a JSON array of the selected option strings.
+ * - `dropdown` (Single Choice) fields store the selected option's permanent
+ *   [ChoiceOption.id] as a JSON string; `multiple` fields store a JSON array of
+ *   the selected option ids. A rename therefore never touches stored answers.
+ * - `tags` fields are stored as a JSON array of the tag strings.
  * - every other type is stored as a JSON string in a machine-readable form
  *   (`date` as `yyyy-MM-dd`, `time` as `HH:mm`, `datetime` as `yyyy-MM-dd'T'HH:mm`,
  *   `scale`/`number` as the raw number text). Display formatting (12-hour
@@ -30,7 +34,10 @@ import java.util.Locale
  * Empty optional fields are simply absent from the object.
  *
  * The free-text Notes box lives under [NOTES_KEY], a reserved key that can never
- * collide with a user-defined field label.
+ * collide with a field id.
+ *
+ * Entries written before field identities existed were keyed by label;
+ * [FieldIdentityMigration] converts them once.
  */
 object EntryValues {
 
@@ -90,30 +97,47 @@ object EntryValues {
     fun notes(values: JsonObject): String? =
         (values[NOTES_KEY] as? JsonPrimitive)?.contentOrNull?.ifBlank { null }
 
-    /** The selected option strings for a `multiple` field. */
-    fun selectedOptions(values: JsonObject, label: String): Set<String> =
-        (values[label] as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull }?.toSet()
-            ?: emptySet()
+    /** The selected option ids of a `multiple` field. */
+    fun selectedOptions(values: JsonObject, field: FieldDef): Set<String> =
+        stringList(values, field).toSet()
 
     /**
      * The saved strings of an array-valued field, in stored order. A `tags`
      * field keeps the order its tags were added in, so it reads back that way.
      */
-    fun stringList(values: JsonObject, label: String): List<String> =
-        (values[label] as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty()
+    fun stringList(values: JsonObject, field: FieldDef): List<String> =
+        (values[field.id] as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty()
 
     /** The raw stored string for any single-valued field, or null if absent. */
-    fun rawValue(values: JsonObject, label: String): String? =
-        (values[label] as? JsonPrimitive)?.contentOrNull?.ifBlank { null }
+    fun rawValue(values: JsonObject, field: FieldDef): String? =
+        (values[field.id] as? JsonPrimitive)?.contentOrNull?.ifBlank { null }
+
+    /**
+     * The labels of the options a choice field's stored value selects, in the
+     * field's current option order. An id the field no longer knows (never
+     * expected after migration) is shown as its stored text rather than hidden.
+     */
+    fun choiceLabels(field: FieldDef, raw: JsonElement): List<String> {
+        val ids = when (raw) {
+            is JsonArray -> raw.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+            is JsonPrimitive -> listOfNotNull(raw.contentOrNull?.ifBlank { null })
+            else -> emptyList()
+        }
+        val known = field.choices.filter { it.id in ids }.map { it.label }
+        val unknown = ids.filter { id -> field.choices.none { it.id == id } }
+        return known + unknown
+    }
 
     /**
      * A human-readable rendering of one field's stored value, or null when the
      * field has no value. Used by the entry list and (later) reports.
      */
     fun displayValue(field: FieldDef, values: JsonObject): String? {
-        val raw = values[field.label] ?: return null
+        val raw = values[field.id] ?: return null
         return when (field.type) {
-            FieldType.MULTIPLE, FieldType.TAGS ->
+            FieldType.DROPDOWN, FieldType.MULTIPLE ->
+                choiceLabels(field, raw).takeIf { it.isNotEmpty() }?.joinToString(", ")
+            FieldType.TAGS ->
                 (raw as? JsonArray)
                     ?.mapNotNull { it.jsonPrimitive.contentOrNull }
                     ?.takeIf { it.isNotEmpty() }
@@ -190,49 +214,32 @@ object EntryValues {
     }
 
     /**
-     * Re-key a stored value object after a form edit renamed a field label or an
-     * option, so previously-submitted data stays attached under the new spelling.
-     * The values themselves are never altered — only the keys (field labels) and
-     * the option strings that stand in for a choice are rewritten.
+     * Remove every reference to the option [optionId] from the value stored under
+     * [fieldId] — the data side of permanently deleting an option. A Single
+     * Choice answer holding it becomes unanswered (the key is dropped); a
+     * Multiple Choice answer keeps all its other selections, and is dropped only
+     * when nothing else was selected. Every other field, the Notes, and the entry
+     * itself are untouched.
      *
-     * - [labelRenames] maps an old field label to its new one; the value moves to
-     *   the new key (only if the old key is present and the new key isn't already
-     *   taken, so an unrelated field is never clobbered).
-     * - [optionRenames] is keyed by a field's *current* label (after any label
-     *   rename) and maps an old option string to its new one. A single-valued
-     *   field's stored string is replaced when it matches; a `multiple` field's
-     *   array has each matching element replaced.
-     *
-     * Returns the re-encoded JSON, or the input unchanged when nothing applied.
+     * Returns the input unchanged when the entry never referenced the option.
      */
-    fun rekey(
-        valuesJson: String,
-        labelRenames: Map<String, String>,
-        optionRenames: Map<String, Map<String, String>>,
-    ): String {
-        if (labelRenames.isEmpty() && optionRenames.isEmpty()) return valuesJson
-        val values = decode(valuesJson).toMutableMap()
-
-        labelRenames.forEach { (old, new) ->
-            if (old != new && values.containsKey(old) && !values.containsKey(new)) {
-                values[new] = values.remove(old)!!
+    fun withoutOption(valuesJson: String, fieldId: String, optionId: String): String {
+        val values = decode(valuesJson)
+        val current = values[fieldId] ?: return valuesJson
+        val updated = values.toMutableMap()
+        when (current) {
+            is JsonArray -> {
+                val kept = current.filterNot { (it as? JsonPrimitive)?.contentOrNull == optionId }
+                if (kept.size == current.size) return valuesJson
+                if (kept.isEmpty()) updated.remove(fieldId) else updated[fieldId] = JsonArray(kept)
             }
-        }
-
-        optionRenames.forEach { (label, renames) ->
-            val current = values[label] ?: return@forEach
-            values[label] = when (current) {
-                is JsonArray -> JsonArray(current.map { it.renamedOption(renames) })
-                else -> current.renamedOption(renames)
+            is JsonPrimitive -> {
+                if (current.contentOrNull != optionId) return valuesJson
+                updated.remove(fieldId)
             }
+            else -> return valuesJson
         }
-
-        return encode(values)
-    }
-
-    private fun JsonElement.renamedOption(renames: Map<String, String>): JsonElement {
-        val text = (this as? JsonPrimitive)?.contentOrNull ?: return this
-        return renames[text]?.let { JsonPrimitive(it) } ?: this
+        return encode(updated)
     }
 
     /** Convenience for callers building a value map. */

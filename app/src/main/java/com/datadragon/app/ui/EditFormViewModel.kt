@@ -3,24 +3,29 @@ package com.datadragon.app.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.room.withTransaction
 import com.datadragon.app.data.AppDatabase
 import com.datadragon.app.data.Calendar
-import com.datadragon.app.data.EntryValues
+import com.datadragon.app.data.ChoiceDeletion
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.FormMarkdownGenerator
 import com.datadragon.app.data.FormMarkdownParser
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 
 /**
  * Backs "Edit Form": loads a form's current title and fields and writes edits
- * back while preserving stored entry values.
+ * back while preserving stored entry values. Entries store answers by field and
+ * option id, so renaming or reordering never needs to touch them.
  */
 class EditFormViewModel(app: Application) : AndroidViewModel(app) {
 
+    private val db = AppDatabase.getInstance(app)
     private val dao = AppDatabase.getInstance(app).logTemplateDao()
     private val entryDao = AppDatabase.getInstance(app).logEntryDao()
     private val calendarDao = AppDatabase.getInstance(app).calendarDao()
@@ -37,8 +42,9 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
     private val _automaticTimestamping = MutableStateFlow(false)
     val automaticTimestamping: StateFlow<Boolean> = _automaticTimestamping
 
-    private val _sortTimestampLabel = MutableStateFlow<String?>(null)
-    val sortTimestampLabel: StateFlow<String?> = _sortTimestampLabel
+    /** The permanent id of the default sort field, or null for the entry time. */
+    private val _sortTimestampFieldId = MutableStateFlow<String?>(null)
+    val sortTimestampFieldId: StateFlow<String?> = _sortTimestampFieldId
 
     private val _sortNewestFirst = MutableStateFlow(true)
     val sortNewestFirst: StateFlow<Boolean> = _sortNewestFirst
@@ -65,7 +71,7 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val template = dao.getById(id)
             _automaticTimestamping.value = template?.automaticTimestamping ?: false
-            _sortTimestampLabel.value = template?.sortTimestampLabel
+            _sortTimestampFieldId.value = template?.sortTimestampFieldId
             _sortNewestFirst.value = template?.sortNewestFirst ?: true
             _integrateCalendar.value = template?.integrateCalendar ?: false
             _allowAdditionsFromForm.value = template?.allowAdditionsFromForm ?: false
@@ -78,34 +84,19 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /**
-     * Write back the edited schema. When a field's label or an option was renamed,
-     * [labelRenames] (old→new label) and [optionRenames] (current label → old→new
-     * option) re-key the already-submitted entries first, so their values stay
-     * attached under the new spelling without changing the values themselves.
-     */
+    /** Write back the edited title, schema and form settings. */
     fun save(
         name: String,
         fields: List<FieldDef>,
         automaticTimestamping: Boolean,
-        sortTimestampLabel: String?,
+        sortTimestampFieldId: String?,
         sortNewestFirst: Boolean,
         integrateCalendar: Boolean,
         allowAdditionsFromForm: Boolean,
-        labelRenames: Map<String, String> = emptyMap(),
-        optionRenames: Map<String, Map<String, String>> = emptyMap(),
         onSaved: () -> Unit,
     ) {
         if (templateId < 0) return
         viewModelScope.launch {
-            if (labelRenames.isNotEmpty() || optionRenames.isNotEmpty()) {
-                entryDao.getForTemplateOnce(templateId).forEach { entry ->
-                    val rekeyed = EntryValues.rekey(entry.valuesJson, labelRenames, optionRenames)
-                    if (rekeyed != entry.valuesJson) {
-                        entryDao.update(entry.copy(valuesJson = rekeyed))
-                    }
-                }
-            }
             val savedName = name.trim()
             val markdown = FormMarkdownGenerator.generate(savedName, fields)
             dao.updateForm(
@@ -114,7 +105,7 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
                 FormMarkdownParser.encodeFields(fields),
                 markdown,
                 automaticTimestamping,
-                sortTimestampLabel,
+                sortTimestampFieldId,
                 sortNewestFirst,
                 integrateCalendar,
                 allowAdditionsFromForm,
@@ -122,11 +113,60 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
             _name.value = savedName
             _fields.value = fields
             _automaticTimestamping.value = automaticTimestamping
-            _sortTimestampLabel.value = sortTimestampLabel
+            _sortTimestampFieldId.value = sortTimestampFieldId
             _sortNewestFirst.value = sortNewestFirst
             _integrateCalendar.value = integrateCalendar
             _allowAdditionsFromForm.value = allowAdditionsFromForm
             onSaved()
+        }
+    }
+
+    /**
+     * Permanently delete option [optionId] of field [fieldId], right away and
+     * independently of the screen's Save: it leaves the saved form, every entry
+     * loses that answer (other answers and the entries themselves stay), and a
+     * calendar counting it stops pointing at it — all in one transaction. Any
+     * other unsaved edits on the screen are left for Save or Discard as usual.
+     * An option that was never saved has nothing stored, so nothing changes.
+     */
+    fun deleteOptionPermanently(fieldId: String, optionId: String) {
+        val id = templateId
+        if (id < 0) return
+        viewModelScope.launch {
+            // Once confirmed, the deletion always runs to the end: leaving the
+            // screen (which clears this ViewModel) must not roll it back.
+            withContext(NonCancellable) {
+                db.withTransaction {
+                    val template = dao.getById(id) ?: return@withTransaction
+                    val entries = entryDao.getForTemplateOnce(id)
+                    val calendars = calendarDao.getForTemplateOnce(id)
+                    val result = ChoiceDeletion.fromForm(
+                        schemaJson = template.schemaJson,
+                        entryValues = entries.map { it.valuesJson },
+                        calendarConfigs = calendars.map { it.configJson },
+                        fieldId = fieldId,
+                        optionId = optionId,
+                    ) ?: return@withTransaction
+                    if (result.schemaJson != template.schemaJson) {
+                        val storedFields = runCatching {
+                            json.decodeFromString<List<FieldDef>>(result.schemaJson)
+                        }.getOrNull().orEmpty()
+                        dao.updateSchema(
+                            id,
+                            result.schemaJson,
+                            FormMarkdownGenerator.generate(template.name, storedFields),
+                        )
+                    }
+                    entries.forEachIndexed { index, entry ->
+                        val values = result.entryValues[index]
+                        if (values != entry.valuesJson) entryDao.update(entry.copy(valuesJson = values))
+                    }
+                    calendars.forEachIndexed { index, calendar ->
+                        val config = result.calendarConfigs[index]
+                        if (config != calendar.configJson) calendarDao.update(calendar.copy(configJson = config))
+                    }
+                }
+            }
         }
     }
 }

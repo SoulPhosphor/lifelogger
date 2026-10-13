@@ -17,7 +17,7 @@ class BackupTimestampSettingsTest {
             createdAt = 100,
             schemaJson = "[]",
             automaticTimestamping = true,
-            sortTimestampLabel = "Entry timestamp",
+            sortTimestampFieldId = "when-field-id",
             sortNewestFirst = false,
             integrateCalendar = true,
         )
@@ -25,7 +25,7 @@ class BackupTimestampSettingsTest {
         val restored = BackupCodec.templateOf(BackupCodec.logOf(source, emptyList()))
 
         assertTrue(restored.automaticTimestamping)
-        assertEquals("Entry timestamp", restored.sortTimestampLabel)
+        assertEquals("when-field-id", restored.sortTimestampFieldId)
         assertFalse(restored.sortNewestFirst)
         assertEquals("stable-id", restored.uuid)
         assertTrue(restored.integrateCalendar)
@@ -50,7 +50,7 @@ class BackupTimestampSettingsTest {
         )
 
         assertFalse(decoded.logs.single().automaticTimestamping)
-        assertNull(decoded.logs.single().sortTimestampLabel)
+        assertNull(decoded.logs.single().sortTimestampFieldId)
         assertTrue(decoded.logs.single().sortNewestFirst)
         assertFalse(decoded.logs.single().integrateCalendar)
     }

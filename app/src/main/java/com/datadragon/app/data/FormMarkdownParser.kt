@@ -39,14 +39,21 @@ object FormMarkdownParser {
         var allowUnknown = false
         var makeDropdown = false
         var choiceStyle = ChoiceStyle.DROPDOWN
+        /** Legacy `top_answer_preselected: true`: pre-select the first option. */
         var topAnswerPreselected = false
+        /** `preselected_option: <name>`: the Single Choice option pre-selected on new entries. */
+        var preselectedOption: String? = null
         var leftDigits: Int? = null
         var rightDigits: Int? = null
         var unit = ""
         val options = mutableListOf<String>()
     }
 
-    fun parse(input: String): ParseResult {
+    /**
+     * Parse [input]. Every field and option in the result receives a brand-new
+     * permanent id from [newId]; the ids are kept when the form is saved.
+     */
+    fun parse(input: String, newId: () -> String = StableUuid::createNew): ParseResult {
         val fields = mutableListOf<FieldDef>()
         val skipped = mutableListOf<String>()
         val issues = mutableListOf<String>()
@@ -60,7 +67,7 @@ object FormMarkdownParser {
             val b = builder ?: return
             builder = null
             inOptions = false
-            buildField(b, seenLabels, fields, issues)
+            buildField(b, seenLabels, fields, issues, newId)
         }
 
         input.lines().forEachIndexed { idx, raw ->
@@ -145,8 +152,10 @@ object FormMarkdownParser {
                             "displayed" -> b.choiceStyle = ChoiceStyle.DISPLAYED
                             else -> issues.add("Field \"${b.label}\": choice_style \"$value\" is not dropdown or displayed.")
                         }
+                        // Legacy syntax, still accepted when pasting older Markdown.
                         "top_answer_preselected" -> b.topAnswerPreselected =
                             value.equals("true", ignoreCase = true) || value.equals("yes", ignoreCase = true)
+                        "preselected_option" -> b.preselectedOption = value.ifEmpty { null }
                         "left_digits" -> b.leftDigits = value.toIntOrNull()
                             ?: run { issues.add("Field \"${b.label}\": left_digits \"$value\" is not a number."); null }
                         "right_digits" -> b.rightDigits = value.toIntOrNull()
@@ -181,6 +190,7 @@ object FormMarkdownParser {
         seenLabels: MutableSet<String>,
         fields: MutableList<FieldDef>,
         issues: MutableList<String>,
+        newId: () -> String,
     ) {
         val type = b.type
         if (type == null) {
@@ -222,6 +232,7 @@ object FormMarkdownParser {
 
         fields.add(
             FieldDef(
+                id = newId(),
                 label = b.label,
                 type = type,
                 required = b.required,
@@ -229,16 +240,60 @@ object FormMarkdownParser {
                 digits = b.digits.takeIf { type == FieldType.NUMBER },
                 from = b.from.takeIf { type == FieldType.SCALE },
                 to = b.to.takeIf { type == FieldType.SCALE },
-                options = if (type == FieldType.DROPDOWN || type == FieldType.MULTIPLE) b.options.toList() else emptyList(),
+                choices = if (type.hasChoices) buildChoices(b, type, issues, newId) else emptyList(),
                 defaultNow = b.defaultNow && type == FieldType.DATETIME,
                 allowUnknown = b.allowUnknown && type == FieldType.YESNO,
                 makeDropdown = b.makeDropdown && type == FieldType.SCALE,
                 choiceStyle = if (type == FieldType.DROPDOWN) b.choiceStyle else ChoiceStyle.DROPDOWN,
-                topAnswerPreselected = b.topAnswerPreselected && type == FieldType.DROPDOWN,
                 leftDigits = b.leftDigits.takeIf { type == FieldType.RATIO },
                 rightDigits = b.rightDigits.takeIf { type == FieldType.RATIO },
                 unit = if (type == FieldType.RATIO) b.unit else "",
             )
         )
+    }
+
+    /**
+     * Turn the written option lines into [ChoiceOption]s with new ids.
+     *
+     * - Multiple Choice: a leading `*` marks the option as pre-selected and is
+     *   not part of its name (a line that is only `*` stays a literal `*`).
+     * - Single Choice: `preselected_option:` names the pre-selected option and
+     *   must match one of the options; the legacy `top_answer_preselected: true`
+     *   pre-selects the first option when no `preselected_option:` is given.
+     * - A repeated option (same name, ignoring capitalization) is skipped.
+     */
+    private fun buildChoices(
+        b: Builder,
+        type: FieldType,
+        issues: MutableList<String>,
+        newId: () -> String,
+    ): List<ChoiceOption> {
+        val choices = mutableListOf<ChoiceOption>()
+        b.options.forEach { written ->
+            val marked = type == FieldType.MULTIPLE && written.startsWith("*") &&
+                written.removePrefix("*").isNotBlank()
+            val label = if (marked) written.removePrefix("*").trim() else written
+            val existing = choices.matchingLabel(label)
+            if (existing != null) {
+                if (marked) choices[choices.indexOf(existing)] = existing.copy(preselected = true)
+                issues.add("Field \"${b.label}\": duplicate option \"$label\" was skipped.")
+            } else {
+                choices += ChoiceOption(id = newId(), label = label, preselected = marked)
+            }
+        }
+        if (type == FieldType.DROPDOWN) {
+            val named = b.preselectedOption
+            if (named != null) {
+                val match = choices.matchingLabel(named)
+                if (match == null) {
+                    issues.add("Field \"${b.label}\": preselected_option \"$named\" is not one of its options.")
+                } else {
+                    return choices.map { it.copy(preselected = it.id == match.id) }
+                }
+            } else if (b.topAnswerPreselected && choices.isNotEmpty()) {
+                return choices.mapIndexed { index, choice -> choice.copy(preselected = index == 0) }
+            }
+        }
+        return choices
     }
 }

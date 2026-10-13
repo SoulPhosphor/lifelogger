@@ -38,6 +38,10 @@ interface IdeaEntryDao {
     @Query("SELECT * FROM idea_entries WHERE id = :id")
     suspend fun getById(id: Long): IdeaEntry?
 
+    /** One-shot snapshot of one log's ideas (used when a category is permanently deleted). */
+    @Query("SELECT * FROM idea_entries WHERE ideaLogId = :ideaLogId ORDER BY createdAt ASC, id ASC")
+    suspend fun getForLogOnce(ideaLogId: Long): List<IdeaEntry>
+
     @Query("SELECT * FROM idea_entries WHERE id = :id")
     fun observeById(id: Long): Flow<IdeaEntry?>
 

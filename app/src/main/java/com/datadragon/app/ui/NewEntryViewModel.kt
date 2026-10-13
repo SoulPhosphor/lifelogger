@@ -13,7 +13,10 @@ import com.datadragon.app.data.FormMarkdownParser
 import com.datadragon.app.data.OptionDuplicates
 import com.datadragon.app.data.SettingsRepository
 import com.datadragon.app.data.TitleCase
-import com.datadragon.app.data.stripsPreselectMarker
+import com.datadragon.app.data.ChoiceEdits
+import com.datadragon.app.data.ChoiceOption
+import com.datadragon.app.data.hasChoices
+import com.datadragon.app.data.matchingLabel
 import com.datadragon.app.data.LogEntry
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -73,36 +76,47 @@ class NewEntryViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * Add [additions] to the options of the Dropdown/Multiple field labelled
-     * [fieldLabel] and save them to the form right away, so they are live on this
-     * entry form and every later one. New options go after the existing ones, are
-     * auto-capitalized when that setting is on, and any that repeat an existing
-     * option (ignoring capitalization) are dropped. Stored entries are untouched.
+     * Add [additions] as new options of the Dropdown/Multiple field [fieldId] and
+     * save them to the form right away, so they are live on this entry form and
+     * every later one. Each new option gets a new permanent id and goes after the
+     * existing active options; they are auto-capitalized when that setting is on,
+     * and any that repeat an existing option — active or retired, ignoring
+     * capitalization — are dropped. Stored entries are untouched.
      */
-    fun addOptions(fieldLabel: String, additions: List<String>) {
+    fun addOptions(fieldId: String, additions: List<String>) {
         if (templateId < 0 || additions.isEmpty()) return
         val capitalize = SettingsRepository(getApplication()).autoCapitalizeOptions
+        updateField(fieldId) { field ->
+            var choices = field.choices
+            additions
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .map { if (capitalize) TitleCase.apply(it) else it }
+                .forEach { label ->
+                    if (choices.matchingLabel(label) == null) {
+                        choices = ChoiceEdits.withNew(choices, ChoiceOption.createNew(label))
+                    }
+                }
+            field.copy(choices = choices)
+        }
+    }
+
+    /**
+     * Restore the retired option [optionId] of field [fieldId] with its original
+     * id, so every answer already saved against it comes back with it.
+     */
+    fun restoreOption(fieldId: String, optionId: String) {
+        if (templateId < 0) return
+        updateField(fieldId) { field -> field.copy(choices = ChoiceEdits.restored(field.choices, optionId)) }
+    }
+
+    private fun updateField(fieldId: String, change: (FieldDef) -> FieldDef) {
         viewModelScope.launch {
             val template = templateDao.getById(templateId) ?: return@launch
             val current = runCatching { json.decodeFromString<List<FieldDef>>(template.schemaJson) }
                 .getOrNull() ?: return@launch
             val updated = current.map { field ->
-                if (field.label != fieldLabel ||
-                    (field.type != FieldType.DROPDOWN && field.type != FieldType.MULTIPLE)
-                ) {
-                    return@map field
-                }
-                val options = field.options.toMutableList()
-                additions
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-                    .map { if (capitalize) TitleCase.apply(it) else it }
-                    .forEach { option ->
-                        if (!OptionDuplicates.contains(options, option, field.stripsPreselectMarker)) {
-                            options += option
-                        }
-                    }
-                field.copy(options = options)
+                if (field.id != fieldId || !field.type.hasChoices) field else change(field)
             }
             if (updated == current) return@launch
             templateDao.updateSchema(
@@ -117,7 +131,7 @@ class NewEntryViewModel(app: Application) : AndroidViewModel(app) {
     /**
      * Persist the entry. When editing an existing entry its original `createdAt`
      * is kept and `updatedAt` is stamped; otherwise a new entry is inserted with
-     * the current time. [values] is keyed by field label plus the reserved notes
+     * the current time. [values] is keyed by field id plus the reserved notes
      * key; timestamps are ISO-8601 with offset.
      */
     fun save(values: Map<String, JsonElement>, onSaved: () -> Unit) {

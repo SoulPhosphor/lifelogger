@@ -54,14 +54,39 @@ object OptionDuplicates {
     }
 }
 
-/** Whether a leading `*` marker is ignored when comparing this field's options. */
-val FieldDef.stripsPreselectMarker: Boolean
-    get() = type == FieldType.MULTIPLE && allowPreselectedMultipleChoices
+/** True when two options share a name under the duplicate rule. */
+fun List<ChoiceOption>.hasDuplicateLabels(): Boolean =
+    map { OptionDuplicates.key(it.label) }.let { it.size != it.distinct().size }
 
 /**
- * True when this Dropdown/Multiple field's options hold a duplicate that
- * [originalOptions] did not already have. Other field types never do.
+ * The option in this list whose label is the same as [label] under the
+ * duplicate rule (trimmed, ignoring capitalization), skipping [exceptId] — the
+ * option being renamed. Active and retired options are both searched, so a name
+ * can never be reused while its retired option still exists.
  */
-fun FieldDef.introducesOptionDuplicate(originalOptions: List<String> = emptyList()): Boolean =
-    (type == FieldType.DROPDOWN || type == FieldType.MULTIPLE) &&
-        OptionDuplicates.introducesDuplicate(originalOptions, options, stripsPreselectMarker)
+fun List<ChoiceOption>.matchingLabel(label: String, exceptId: String? = null): ChoiceOption? {
+    val wanted = OptionDuplicates.key(label)
+    return firstOrNull { it.id != exceptId && OptionDuplicates.key(it.label) == wanted }
+}
+
+/**
+ * What adding or renaming to a label would collide with: nothing, an active
+ * option (refused with the duplicate notice), or a retired option (offered for
+ * restoring instead).
+ */
+sealed interface ChoiceNameCheck {
+    data object Available : ChoiceNameCheck
+    data class ActiveDuplicate(val option: ChoiceOption) : ChoiceNameCheck
+    data class RetiredDuplicate(val option: ChoiceOption) : ChoiceNameCheck
+}
+
+/** Classify [label] against this option list, ignoring the option [exceptId]. */
+fun List<ChoiceOption>.checkName(label: String, exceptId: String? = null): ChoiceNameCheck =
+    when (val match = matchingLabel(label, exceptId)) {
+        null -> ChoiceNameCheck.Available
+        else -> if (match.retired) {
+            ChoiceNameCheck.RetiredDuplicate(match)
+        } else {
+            ChoiceNameCheck.ActiveDuplicate(match)
+        }
+    }

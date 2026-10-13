@@ -60,6 +60,7 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -153,11 +154,11 @@ fun NewIdeaScreen(
         if (baseline != null) return@LaunchedEffect
         if (fields.isEmpty()) return@LaunchedEffect
         if (isEditing && initialValues == null) return@LaunchedEffect
-        baseline = collectIdeaValues(fields, textValues, tagValues)
+        baseline = collectIdeaValues(fields, textValues, tagValues, initialValues)
     }
 
     val blockingFieldIds = blockingIdeaFieldIds(fields, textValues, tagValues)
-    val dirty = baseline != null && collectIdeaValues(fields, textValues, tagValues) != baseline
+    val dirty = baseline != null && collectIdeaValues(fields, textValues, tagValues, initialValues) != baseline
     var showDiscard by rememberSaveable { mutableStateOf(false) }
     fun attemptBack() { if (dirty) showDiscard = true else onBack() }
     BackHandler { attemptBack() }
@@ -177,7 +178,7 @@ fun NewIdeaScreen(
                         onClick = {
                             if (blockingFieldIds.isEmpty()) {
                                 viewModel.save(
-                                    values = collectIdeaValues(fields, textValues, tagValues),
+                                    values = collectIdeaValues(fields, textValues, tagValues, initialValues),
                                     onSaved = onBack,
                                 )
                             } else {
@@ -324,12 +325,17 @@ private fun IdeaFieldControl(
             }
 
             // "Categories" is the single-choice dropdown, under the Ideas name.
-            FieldType.DROPDOWN -> DropdownField(
-                label = label,
-                options = field.options,
-                selected = textValues[field.id].orEmpty(),
-                onSelected = { textValues[field.id] = it },
-            )
+            // The stored answer is the category's permanent id. A retired
+            // category this idea already holds still shows.
+            FieldType.DROPDOWN -> {
+                val stored = textValues[field.id].orEmpty()
+                DropdownField(
+                    label = label,
+                    options = field.choices.filter { !it.retired || it.id == stored },
+                    selectedLabel = field.choices.firstOrNull { it.id == stored }?.label ?: stored,
+                    onSelected = { textValues[field.id] = it.id },
+                )
+            }
 
             FieldType.WEBPAGE -> Labeled(label) {
                 WebpageEntryField(
@@ -399,19 +405,37 @@ internal fun blockingIdeaFieldIds(
     field.id.takeIf { blocked }
 }
 
-/** Build the value map serialized into an idea's valuesJson, keyed by field id. */
+/**
+ * Build the value map serialized into an idea's valuesJson, keyed by field id.
+ *
+ * When editing, [stored] holds the idea's saved values: a field whose control
+ * still shows exactly what it was filled with keeps its stored value verbatim.
+ * So a field the user didn't touch is never rewritten — for example a category
+ * id kept under a field whose type was changed stays an id, not its name.
+ */
 internal fun collectIdeaValues(
     fields: List<IdeaFieldDef>,
     textValues: Map<String, String>,
     tagValues: Map<String, List<String>>,
+    stored: JsonObject? = null,
 ): Map<String, JsonElement> = buildMap {
     fields.forEach { field ->
+        val original = stored?.get(field.id)
         if (field.type == FieldType.TAGS) {
             val tags = tagValues[field.id].orEmpty()
-            if (tags.isNotEmpty()) put(field.id, EntryValues.stringArray(tags))
+            if (original != null && tags == IdeaValues.tags(stored, field)) {
+                put(field.id, original)
+            } else if (tags.isNotEmpty()) {
+                put(field.id, EntryValues.stringArray(tags))
+            }
         } else {
-            val value = textValues[field.id]?.trim().orEmpty()
-            if (value.isNotEmpty()) put(field.id, EntryValues.string(value))
+            val current = textValues[field.id]
+            if (original != null && current == IdeaValues.rawValue(stored, field)) {
+                put(field.id, original)
+            } else {
+                val value = current?.trim().orEmpty()
+                if (value.isNotEmpty()) put(field.id, EntryValues.string(value))
+            }
         }
     }
 }

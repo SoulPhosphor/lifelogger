@@ -38,21 +38,10 @@ class OptionDuplicatesTest {
     }
 
     @Test
-    fun fieldCheckAppliesOnlyToOptionFields() {
-        val dropdown = FieldDef(label = "Color", type = FieldType.DROPDOWN, options = listOf("Red", "red"))
-        assertTrue(dropdown.introducesOptionDuplicate())
-        assertFalse(dropdown.introducesOptionDuplicate(originalOptions = listOf("Red", "red")))
-
-        val multiple = FieldDef(
-            label = "Color",
-            type = FieldType.MULTIPLE,
-            options = listOf("*Red", "Red"),
-            allowPreselectedMultipleChoices = true,
-        )
-        assertTrue(multiple.introducesOptionDuplicate())
-        assertFalse(multiple.copy(allowPreselectedMultipleChoices = false).introducesOptionDuplicate())
-
-        assertFalse(FieldDef(label = "Name", type = FieldType.TEXT).introducesOptionDuplicate())
+    fun anOptionListWithARepeatedNameIsDetected() {
+        val choices = listOf(ChoiceOption("a", "Red"), ChoiceOption("b", " red", retired = true))
+        assertTrue(choices.hasDuplicateLabels())
+        assertFalse(choices.take(1).hasDuplicateLabels())
     }
 
     @Test

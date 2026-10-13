@@ -3,13 +3,19 @@ package com.datadragon.app.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.room.withTransaction
 import com.datadragon.app.data.AppDatabase
+import com.datadragon.app.data.CategoryAdoption
+import com.datadragon.app.data.ChoiceDeletion
+import com.datadragon.app.data.ChoiceEdits
 import com.datadragon.app.data.IdeaFieldDef
 import com.datadragon.app.data.IdeaLog
 import com.datadragon.app.data.StableUuid
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -25,6 +31,7 @@ import kotlinx.serialization.json.Json
  */
 class IdeaLogEditorViewModel(app: Application) : AndroidViewModel(app) {
 
+    private val db = AppDatabase.getInstance(app)
     private val logDao = AppDatabase.getInstance(app).ideaLogDao()
     private val entryDao = AppDatabase.getInstance(app).ideaEntryDao()
     private val json = Json { ignoreUnknownKeys = true }
@@ -108,23 +115,76 @@ class IdeaLogEditorViewModel(app: Application) : AndroidViewModel(app) {
                 return@launch
             }
             val savedName = name.trim()
-            logDao.updateLog(
-                id = id,
-                name = savedName,
-                fieldsJson = json.encodeToString(fields),
-                automaticTimestamping = automaticTimestamping,
-                allowArchiving = allowArchiving,
-                showEntireIdeaCard = showEntireIdeaCard,
-                previewLines = previewLines,
-                sortTimestampFieldId = sortTimestampFieldId,
-                sortNewestFirst = sortNewestFirst,
-            )
+            // A field changed to Categories has its ideas' text answers pointed
+            // at matching categories in the same transaction as the schema.
+            val savedFields = db.withTransaction {
+                val entries = entryDao.getForLogOnce(id)
+                val adopted = CategoryAdoption.adopt(
+                    previous = _loadedFields.value,
+                    fields = fields,
+                    entryValues = entries.map { it.valuesJson },
+                )
+                logDao.updateLog(
+                    id = id,
+                    name = savedName,
+                    fieldsJson = json.encodeToString(adopted.fields),
+                    automaticTimestamping = automaticTimestamping,
+                    allowArchiving = allowArchiving,
+                    showEntireIdeaCard = showEntireIdeaCard,
+                    previewLines = previewLines,
+                    sortTimestampFieldId = sortTimestampFieldId,
+                    sortNewestFirst = sortNewestFirst,
+                )
+                entries.forEachIndexed { index, entry ->
+                    val values = adopted.entryValues[index]
+                    if (values != entry.valuesJson) entryDao.update(entry.copy(valuesJson = values))
+                }
+                adopted.fields
+            }
             _loaded.value = _loaded.value?.copy(
                 name = savedName,
                 allowArchiving = allowArchiving,
             )
-            _loadedFields.value = fields
+            _loadedFields.value = savedFields
             onSaved()
+        }
+    }
+
+    /**
+     * Permanently delete category [categoryId] of Categories field [fieldId],
+     * right away and independently of the screen's Save: it leaves the saved
+     * log, and every idea that chose it is left without a category for that
+     * field (the ideas themselves and their other fields stay) — all in one
+     * transaction. A category that was never saved has nothing stored.
+     */
+    fun deleteCategoryPermanently(fieldId: String, categoryId: String) {
+        val id = editingId
+        if (id < 0) return
+        viewModelScope.launch {
+            // Once confirmed, the deletion always runs to the end: leaving the
+            // screen (which clears this ViewModel) must not roll it back.
+            withContext(NonCancellable) {
+                db.withTransaction {
+                    val log = logDao.getById(id) ?: return@withTransaction
+                    val entries = entryDao.getForLogOnce(id)
+                    val result = ChoiceDeletion.fromIdeaLog(
+                        fieldsJson = log.fieldsJson,
+                        entryValues = entries.map { it.valuesJson },
+                        fieldId = fieldId,
+                        categoryId = categoryId,
+                    ) ?: return@withTransaction
+                    if (result.fieldsJson != log.fieldsJson) logDao.updateFields(id, result.fieldsJson)
+                    entries.forEachIndexed { index, entry ->
+                        val values = result.entryValues[index]
+                        if (values != entry.valuesJson) entryDao.update(entry.copy(valuesJson = values))
+                    }
+                }
+                // Keep the saved baseline in step so the deleted category never
+                // counts as an unsaved change or comes back on Discard.
+                _loadedFields.value = _loadedFields.value.map { field ->
+                    if (field.id == fieldId) field.copy(choices = ChoiceEdits.withoutId(field.choices, categoryId)) else field
+                }
+            }
         }
     }
 }

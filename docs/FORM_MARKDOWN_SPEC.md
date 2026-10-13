@@ -34,8 +34,8 @@ lines: 4
 | `text` | A single line of text | none |
 | `multiline` | Multi-line text box | `lines` — visible height |
 | `number` | Type any number | `digits` — max number of digits allowed |
-| `dropdown` | Pick one from a list | the list of choices; `choice_style: displayed` shows chips instead of a dropdown; `top_answer_preselected: true` pre-selects the first option on new entries |
-| `multiple` | Pick several from a list | the list of choices |
+| `dropdown` | Pick one from a list | the list of choices; `choice_style: displayed` shows chips instead of a dropdown; `preselected_option: <option>` pre-selects that option on new entries |
+| `multiple` | Pick several from a list | the list of choices; a `*` before an option pre-selects it on new entries |
 | `scale` | Pick a number in a range | `from` and `to`; `make_dropdown: true` renders as a dropdown |
 | `yesno` | Yes / No radios | `allow_unknown: true` to add an Unknown radio |
 | `date` | Pick a date (month/day/year) | none |
@@ -97,8 +97,10 @@ options:
 ```
 
 A `dropdown` field may add `choice_style: displayed` (chips, one pick at a time;
-the default is `dropdown`) and `top_answer_preselected: true` (the first option
-is selected when a new entry opens):
+the default is `dropdown`) and `preselected_option:` naming one of its options
+(matched ignoring capitalization), which is selected when a new entry opens. A
+name that isn't one of the options is reported in the preview and nothing is
+pre-selected. In a `dropdown` list a leading `*` is part of the option's name.
 
 ```
 ## Category
@@ -107,8 +109,32 @@ options:
 - Option A
 - Option B
 choice_style: displayed
-top_answer_preselected: true
+preselected_option: Option B
 ```
+
+The older `top_answer_preselected: true` (pre-select the first option) is still
+accepted when pasting older Markdown; generated Markdown no longer writes it.
+
+In a `multiple` list, a `*` before an option pre-selects it when a new entry
+opens; the `*` is not part of the option's name. Any number of options may be
+marked:
+
+```
+## Tags
+type: multiple
+options:
+- *Tag 1
+- Tag 2
+```
+
+An option written twice in one list (ignoring capitalization) is skipped and
+reported in the preview.
+
+Every field and every option receives a permanent internal identity when the
+form is saved; entries store answers against those identities, so later
+renames and reordering never disconnect saved answers. Generated Markdown lists
+active options only — retired options stay with the saved form but are not
+written.
 
 ### scale
 

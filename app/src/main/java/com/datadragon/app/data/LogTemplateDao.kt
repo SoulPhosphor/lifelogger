@@ -31,9 +31,8 @@ interface LogTemplateDao {
     suspend fun rename(id: Long, name: String, formMarkdown: String)
 
     /**
-     * Replace a log's field schema (and its source Form Markdown). Used by "Edit
-     * form", which may only add fields and reorder them — never rename or delete
-     * an existing field — so stored entry values stay keyed correctly.
+     * Replace a log's field schema (and its source Form Markdown). Entry values
+     * are keyed by permanent field and option ids, so they stay attached.
      */
     @Query("UPDATE log_templates SET schemaJson = :schemaJson, formMarkdown = :formMarkdown WHERE id = :id")
     suspend fun updateSchema(id: Long, schemaJson: String, formMarkdown: String)
@@ -42,7 +41,7 @@ interface LogTemplateDao {
     @Query(
         "UPDATE log_templates SET name = :name, schemaJson = :schemaJson, " +
             "formMarkdown = :formMarkdown, automaticTimestamping = :automaticTimestamping, " +
-            "sortTimestampLabel = :sortTimestampLabel, " +
+            "sortTimestampLabel = :sortTimestampFieldId, " +
             "sortNewestFirst = :sortNewestFirst, " +
             "integrateCalendar = :integrateCalendar, " +
             "allowAdditionsFromForm = :allowAdditionsFromForm WHERE id = :id",
@@ -53,7 +52,7 @@ interface LogTemplateDao {
         schemaJson: String,
         formMarkdown: String,
         automaticTimestamping: Boolean,
-        sortTimestampLabel: String?,
+        sortTimestampFieldId: String?,
         sortNewestFirst: Boolean,
         integrateCalendar: Boolean,
         allowAdditionsFromForm: Boolean,

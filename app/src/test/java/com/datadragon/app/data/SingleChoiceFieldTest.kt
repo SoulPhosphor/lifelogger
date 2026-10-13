@@ -8,18 +8,31 @@ import org.junit.Test
 
 class SingleChoiceFieldTest {
 
-    private val field = FieldDef(label = "Color", type = FieldType.DROPDOWN, options = listOf("Red", "Blue"))
+    private val field = FieldDef(
+        id = "color",
+        label = "Color",
+        type = FieldType.DROPDOWN,
+        choices = listOf(ChoiceOption("red", "Red"), ChoiceOption("blue", "Blue")),
+    )
 
     @Test
-    fun topAnswerIsPreselectedOnlyWhenTurnedOn() {
+    fun anOptionIsPreselectedOnlyWhenMarked() {
         assertNull(field.preselectedSingleChoice())
-        assertEquals("Red", field.copy(topAnswerPreselected = true).preselectedSingleChoice())
+        val marked = field.copy(choices = ChoiceEdits.preselected(field.choices, "blue", single = true))
+        assertEquals("blue", marked.preselectedSingleChoice())
+    }
+
+    @Test
+    fun aRetiredOptionIsNeverTheDefault() {
+        val marked = field.copy(choices = ChoiceEdits.preselected(field.choices, "blue", single = true))
+        val retired = marked.copy(choices = marked.choices.map { if (it.id == "blue") it.copy(retired = true) else it })
+        assertNull(retired.preselectedSingleChoice())
     }
 
     @Test
     fun savedFieldsWithoutTheNewSettingsStayDropdownWithNothingPreselected() {
         val decoded = Json.decodeFromString<List<FieldDef>>(
-            """[{"label":"Color","type":"DROPDOWN","options":["Red","Blue"]}]""",
+            """[{"id":"color","label":"Color","type":"DROPDOWN","choices":[{"id":"red","label":"Red"}]}]""",
         ).single()
         assertEquals(ChoiceStyle.DROPDOWN, decoded.choiceStyle)
         assertNull(decoded.preselectedSingleChoice())
@@ -27,23 +40,35 @@ class SingleChoiceFieldTest {
 
     @Test
     fun settingsSurviveAnEncodeRoundTrip() {
-        val original = field.copy(choiceStyle = ChoiceStyle.DISPLAYED, topAnswerPreselected = true)
+        val original = field.copy(
+            choiceStyle = ChoiceStyle.DISPLAYED,
+            choices = ChoiceEdits.preselected(field.choices, "red", single = true),
+        )
         val decoded = Json.decodeFromString<List<FieldDef>>(FormMarkdownParser.encodeFields(listOf(original))).single()
         assertEquals(original, decoded)
     }
 
     @Test
     fun settingsSurviveAFormMarkdownRoundTrip() {
-        val original = field.copy(choiceStyle = ChoiceStyle.DISPLAYED, topAnswerPreselected = true)
+        val original = field.copy(
+            choiceStyle = ChoiceStyle.DISPLAYED,
+            choices = ChoiceEdits.preselected(field.choices, "blue", single = true),
+        )
         val parsed = FormMarkdownParser.parse(FormMarkdownGenerator.generate("Log", listOf(original))).fields.single()
-        assertEquals(original, parsed)
+        // Markdown carries names, not ids: a re-parse is a new form with new ids.
+        assertEquals(original.choiceStyle, parsed.choiceStyle)
+        assertEquals(listOf("Red", "Blue"), parsed.choices.map { it.label })
+        assertEquals(parsed.choices[1].id, parsed.preselectedSingleChoice())
     }
 
     @Test
     fun defaultSettingsAreLeftOutOfFormMarkdown() {
         val markdown = FormMarkdownGenerator.generate("Log", listOf(field))
         assertEquals(false, markdown.contains("choice_style"))
+        assertEquals(false, markdown.contains("preselected_option"))
         assertEquals(false, markdown.contains("top_answer_preselected"))
-        assertEquals(field, FormMarkdownParser.parse(markdown).fields.single())
+        val parsed = FormMarkdownParser.parse(markdown).fields.single()
+        assertEquals(listOf("Red", "Blue"), parsed.choices.map { it.label })
+        assertNull(parsed.preselectedSingleChoice())
     }
 }

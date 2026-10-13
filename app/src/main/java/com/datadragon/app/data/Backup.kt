@@ -51,7 +51,7 @@ data class BackupFile(
 
     companion object {
         const val FORMAT = "datadragon-backup"
-        const val VERSION = 7
+        const val VERSION = 8
 
         /** Version 3 is the first envelope format; it lacks the automatic-backup preferences. */
         const val FIRST_ENVELOPE_VERSION = 3
@@ -176,7 +176,12 @@ data class BackupLog(
     val locked: Boolean = true,
     val allowAppendedNotes: Boolean = false,
     val automaticTimestamping: Boolean = false,
-    val sortTimestampLabel: String? = null,
+    /**
+     * The default sort field's permanent id (its label in backups written before
+     * field identities existed; [BackupIdentityUpgrade] converts those).
+     */
+    @SerialName("sortTimestampLabel")
+    val sortTimestampFieldId: String? = null,
     val sortNewestFirst: Boolean = true,
     val integrateCalendar: Boolean = false,
     /**
@@ -527,7 +532,7 @@ object BackupCodec {
         ) { "Backup automatic backup preferences are incomplete." }
         // Preferences converted from a version-3 file lack the version-4 fields,
         // so they are re-encoded with the version that truthfully describes them.
-        val version = if (preferences != null && !preferences.hasAutomaticBackupPreferences && payload.luckyLists == null && preferences.modeEnabledLuckyList == null && !payload.hasAllowAdditionsFromForm() && !payload.hasVersion7FieldSettings()) {
+        val version = if (preferences != null && !preferences.hasAutomaticBackupPreferences && payload.luckyLists == null && preferences.modeEnabledLuckyList == null && !payload.hasAllowAdditionsFromForm() && !payload.hasVersion7FieldSettings() && !payload.hasVersion8Identities()) {
             BackupFile.FIRST_ENVELOPE_VERSION
         } else {
             BackupFile.VERSION
@@ -574,6 +579,11 @@ object BackupCodec {
         // an older reader would silently drop them, so only version 7 may carry them.
         require(envelope.version >= 7 || !envelope.payload.hasVersion7FieldSettings()) {
             "Single Choice and Ratios settings require backup version 7."
+        }
+        // Permanent field and option identities arrived in version 8; an older
+        // reader would key answers by label and lose them.
+        require(envelope.version >= 8 || !envelope.payload.hasVersion8Identities()) {
+            "Field and option identities require backup version 8."
         }
         validateManifest(envelope.includedCategories, envelope.payload)
         val canonical = canonicalPayload(envelope.payload)
@@ -649,6 +659,23 @@ object BackupCodec {
         }
     }
 
+    /**
+     * True when a form field carries a permanent id or option identities, or an
+     * Idea Categories field carries category identities — the version-8 shape.
+     */
+    private fun BackupPayload.hasVersion8Identities(): Boolean =
+        forms.orEmpty().any { declaresIdentities(it.schemaJson, fieldIdsCount = true) } ||
+            ideaLogs.orEmpty().any { declaresIdentities(it.fieldsJson, fieldIdsCount = false) }
+
+    private fun declaresIdentities(fieldsJson: String, fieldIdsCount: Boolean): Boolean {
+        val fields = runCatching { Json.parseToJsonElement(fieldsJson) }.getOrNull() as? JsonArray ?: return false
+        return fields.any { element ->
+            val field = element as? JsonObject ?: return@any false
+            val id = (field["id"] as? JsonPrimitive)?.contentOrNull
+            "choices" in field || (fieldIdsCount && !id.isNullOrBlank())
+        }
+    }
+
     private val VERSION_7_FIELD_KEYS = listOf("choiceStyle", "topAnswerPreselected", "leftDigits", "rightDigits", "unit")
 
     private fun BackupPayload.hasAllowAdditionsFromForm(): Boolean =
@@ -711,7 +738,7 @@ object BackupCodec {
             locked = template.locked,
             allowAppendedNotes = template.allowAppendedNotes,
             automaticTimestamping = template.automaticTimestamping,
-            sortTimestampLabel = template.sortTimestampLabel,
+            sortTimestampFieldId = template.sortTimestampFieldId,
             sortNewestFirst = template.sortNewestFirst,
             integrateCalendar = template.integrateCalendar,
             allowAdditionsFromForm = template.allowAdditionsFromForm.takeIf { it },
@@ -750,7 +777,7 @@ object BackupCodec {
         locked = log.locked,
         allowAppendedNotes = log.allowAppendedNotes,
         automaticTimestamping = log.automaticTimestamping,
-        sortTimestampLabel = log.sortTimestampLabel,
+        sortTimestampFieldId = log.sortTimestampFieldId,
         sortNewestFirst = log.sortNewestFirst,
         integrateCalendar = log.integrateCalendar,
         allowAdditionsFromForm = log.allowAdditionsFromForm == true,
