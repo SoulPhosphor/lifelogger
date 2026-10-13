@@ -141,4 +141,41 @@ class BackupIdentityUpgradeTest {
         assertEquals(7, decoded.version)
         assertTrue(FieldIdentityMigration.formNeedsMigration(decoded.logs.single().schemaJson))
     }
+
+    @Test
+    fun duplicateFieldOrOptionIdsInAVersion8BackupAreRejected() {
+        val duplicateFields = currentLog().copy(
+            schemaJson = FormMarkdownParser.encodeFields(listOf(pet, whenField.copy(id = pet.id))),
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            BackupRestoreValidator.validate(BackupCodec.decode(file(duplicateFields)))
+        }
+
+        val duplicateOptions = currentLog().copy(
+            schemaJson = FormMarkdownParser.encodeFields(
+                listOf(pet.copy(choices = pet.choices + ChoiceOption("dog", "Second Dog")), whenField),
+            ),
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            BackupRestoreValidator.validate(BackupCodec.decode(file(duplicateOptions)))
+        }
+
+        // The well-formed backup passes the same validation.
+        BackupRestoreValidator.validate(BackupCodec.decode(file(currentLog())))
+    }
+
+    @Test
+    fun aVersion1BackupWithLowercaseTypesRestoresReadableFields() {
+        val legacy = BackupLog(
+            uuid = "form-uuid",
+            name = "Mood",
+            createdAt = 1,
+            schemaJson = """[{"label":"Mood","type":"scale","from":1,"to":5}]""",
+            entries = listOf(BackupEntry(createdAt = "2026-01-01T10:00:00-05:00", valuesJson = """{"Mood":"4"}""")),
+        )
+        val upgraded = BackupIdentityUpgrade.form(legacy)
+        val mood = json.decodeFromString(ListSerializer(FieldDef.serializer()), upgraded.schemaJson).single()
+        assertEquals(FieldType.SCALE, mood.type)
+        assertEquals("4 / 5", EntryValues.displayValue(mood, EntryValues.decode(upgraded.entries.single().valuesJson)))
+    }
 }

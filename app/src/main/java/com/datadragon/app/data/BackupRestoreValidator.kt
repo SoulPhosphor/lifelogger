@@ -193,8 +193,9 @@ object BackupRestoreValidator {
             require(fieldType != null) { "Idea Log fields contain an unsupported field type." }
             JsonObject(element + ("type" to JsonPrimitive(fieldType.name)))
         })
-        runCatching { json.decodeFromJsonElement<List<IdeaFieldDef>>(normalized) }
+        val fields = runCatching { json.decodeFromJsonElement<List<IdeaFieldDef>>(normalized) }
             .getOrElse { throw IllegalArgumentException("Idea Log fields are invalid JSON.", it) }
+        fields.forEach { requireUniqueChoiceIds(it.choices, "Idea Category") }
     }
 
     /**
@@ -246,8 +247,18 @@ object BackupRestoreValidator {
             require(fieldType != null) { "Form schema contains an unsupported field type." }
             JsonObject(element + ("type" to JsonPrimitive(fieldType.name)))
         })
-        runCatching { json.decodeFromJsonElement<List<FieldDef>>(normalized) }
+        val fields = runCatching { json.decodeFromJsonElement<List<FieldDef>>(normalized) }
             .getOrElse { throw IllegalArgumentException("Form schema is invalid JSON.", it) }
+        // A field without an id is legacy data that is converted on restore;
+        // established ids must be unique, as must each field's option ids.
+        val fieldIds = fields.map { it.id }.filter { it.isNotBlank() }
+        require(fieldIds.size == fieldIds.distinct().size) { "Form field UUIDs must be unique." }
+        fields.forEach { requireUniqueChoiceIds(it.choices, "Form option") }
+    }
+
+    private fun requireUniqueChoiceIds(choices: List<ChoiceOption>, label: String) {
+        require(choices.none { it.id.isBlank() }) { "$label UUID is missing." }
+        require(choices.size == choices.map { it.id }.distinct().size) { "$label UUIDs must be unique." }
     }
 
     private inline fun <reified T> decode(value: String, label: String): T =

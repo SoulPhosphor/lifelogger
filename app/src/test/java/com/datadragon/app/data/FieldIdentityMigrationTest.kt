@@ -295,7 +295,7 @@ class FieldIdentityMigrationTest {
     }
 
     @Test
-    fun lowercaseTypeTokensFromOldBackupsAreUnderstoodAndKept() {
+    fun lowercaseTypeTokensFromOldBackupsAreConvertedToTheNamesTheAppReads() {
         val migrated = FieldIdentityMigration.migrateForm(
             form(
                 schema = """[{"label":"Pet","type":"dropdown","options":["Cow"]}]""",
@@ -304,9 +304,13 @@ class FieldIdentityMigrationTest {
             ids(),
         )
         val field = (Json.parseToJsonElement(migrated.schemaJson) as JsonArray).single() as JsonObject
-        assertEquals("dropdown", field["type"]!!.jsonPrimitive.content)
+        assertEquals("DROPDOWN", field["type"]!!.jsonPrimitive.content)
         assertNotNull(field["choices"])
         assertEquals(JsonPrimitive("id-1"), field["id"])
+        // The converted schema decodes the way the app reads it.
+        val pet = fields(migrated.schemaJson).single()
+        assertEquals(FieldType.DROPDOWN, pet.type)
+        assertEquals("Cow", EntryValues.displayValue(pet, EntryValues.decode(migrated.entryValues.single())))
     }
 
     @Test

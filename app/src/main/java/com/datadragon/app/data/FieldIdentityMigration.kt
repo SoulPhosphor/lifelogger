@@ -41,7 +41,9 @@ import kotlinx.serialization.json.contentOrNull
  *   field and Count Matching option are re-pointed from labels to ids.
  *
  * Keys in an entry that belong to no field (data the old label scheme had
- * already orphaned) are kept untouched rather than discarded.
+ * already orphaned) are kept untouched rather than discarded. A converted
+ * field's `type` is written as the enum name the app reads, since
+ * version-1/2 backups stored the lowercase Markdown token instead.
  */
 object FieldIdentityMigration {
 
@@ -198,8 +200,9 @@ object FieldIdentityMigration {
                 val stored = values[fieldId] ?: return@forEach
                 values[fieldId] = options.convertValue(stored)
             }
+            val type = normalizedType(field)?.let { mapOf(KEY_TYPE to it) }.orEmpty()
             JsonObject(
-                field.filterKeys { it != KEY_OPTIONS } +
+                field.filterKeys { it != KEY_OPTIONS } + type +
                     (KEY_CHOICES to json.encodeToJsonElement(choicesSerializer, options.result())),
             )
         }
@@ -317,6 +320,7 @@ object FieldIdentityMigration {
                 rebuilt[key] = value
             }
         }
+        normalizedType(original)?.let { rebuilt[KEY_TYPE] = it }
         if (choices != null) rebuilt[KEY_CHOICES] = json.encodeToJsonElement(choicesSerializer, choices)
         return JsonObject(rebuilt)
     }
@@ -353,6 +357,14 @@ object FieldIdentityMigration {
         val type = typeOf(field)
         return type == FieldType.DROPDOWN && field[KEY_CHOICES] == null && field[KEY_OPTIONS] != null
     }
+
+    /**
+     * The field's type as the stored enum name the app reads. Version-1/2
+     * backups wrote the lowercase Markdown token (`"scale"`), which the app's
+     * schema decoding doesn't accept, so a converted field is written with the
+     * name. Null when the type isn't recognized (the field is left as stored).
+     */
+    private fun normalizedType(field: JsonObject): JsonPrimitive? = typeOf(field)?.let { JsonPrimitive(it.name) }
 
     private fun typeOf(field: JsonObject): FieldType? {
         val token = stringOf(field[KEY_TYPE]) ?: return null
