@@ -510,7 +510,8 @@ private fun EditingLabel(
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
     BasicTextField(
         value = text,
-        onValueChange = onTextChange,
+        // Wrap visually, but keep each option one logical line for Markdown.
+        onValueChange = { onTextChange(it.replace(Regex("[\\r\\n]+"), " ")) },
         textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
         singleLine = false,
