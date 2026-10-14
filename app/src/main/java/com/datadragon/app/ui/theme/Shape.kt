@@ -22,6 +22,8 @@ data class AppShapes(
     val control: Shape,
     /** The outline thickness of every framed control. */
     val controlBorder: Dp,
+    /** Labels and option-editor boxes share the original outlined text-field corner. */
+    val textField: Shape,
     /** Existing treatments differ by role; do not normalize without owner approval. */
     val validation: Shape,
     val validationBorder: Dp,
@@ -31,9 +33,13 @@ data class AppShapes(
     val modeSelection: Shape,
 )
 
+/** Retains the existing Material defaults for cards, fields, and picker dialogs. */
+val AppMaterialShapes = Shapes()
+
 val DefaultAppShapes = AppShapes(
     control = RoundedCornerShape(10.dp),
     controlBorder = 1.dp,
+    textField = AppMaterialShapes.extraSmall,
     validation = RoundedCornerShape(8.dp),
     validationBorder = 2.dp,
     calendarCell = RoundedCornerShape(6.dp),
@@ -44,6 +50,3 @@ val DefaultAppShapes = AppShapes(
 
 /** Supplied by `DataDragonTheme`; read through `AppTheme.shapes`. */
 val LocalAppShapes = staticCompositionLocalOf { DefaultAppShapes }
-
-/** Retains the existing Material defaults for cards, fields, and picker dialogs. */
-val AppMaterialShapes = Shapes()

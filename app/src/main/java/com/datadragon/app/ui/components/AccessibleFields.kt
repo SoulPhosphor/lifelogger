@@ -53,6 +53,6 @@ fun AccessibleOutlinedTextField(
         keyboardActions = keyboardActions,
         singleLine = singleLine,
         minLines = minLines,
-        shape = AppTheme.shapes.control,
+        shape = AppTheme.shapes.textField,
     )
 }
