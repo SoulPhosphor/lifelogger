@@ -414,7 +414,7 @@ private fun ChoiceLabelFrame(
             .border(
                 AppTheme.shapes.controlBorder,
                 if (highlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                AppTheme.shapes.control,
+                AppTheme.shapes.textField,
             )
             .padding(horizontal = AppTheme.spacing.rowInset, vertical = AppTheme.spacing.fieldVerticalInset),
         contentAlignment = Alignment.CenterStart,
@@ -510,10 +510,11 @@ private fun EditingLabel(
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
     BasicTextField(
         value = text,
-        onValueChange = onTextChange,
+        // Wrap visually, but keep each option one logical line for Markdown.
+        onValueChange = { onTextChange(it.replace(Regex("[\\r\\n]+"), " ")) },
         textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-        singleLine = true,
+        singleLine = false,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { onDone() }),
         modifier = Modifier

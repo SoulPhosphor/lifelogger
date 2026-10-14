@@ -165,7 +165,8 @@ button** (below), which only changes one number on a card already there.
 
 - **Editing a card** — most cards are not edited directly on the card face. You
   open the **vertical ellipsis (three dots) in the card's upper-right corner**
-  and choose to edit. (Clicker cards are the exception: most values are meant to
+  and choose to edit. Form cards also open their editor when their body is
+  tapped while the form is unlocked. (Clicker cards are the exception: most values are meant to
   be changed right on the card face for speed; a few field types can only be
   changed from that edit menu.)
 - **Clicker Data Log** — one clicker grouping: a titled series of cards, each
