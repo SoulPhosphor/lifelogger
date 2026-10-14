@@ -28,6 +28,9 @@ These are the ones that keep getting broken. They are absolute.
 3. **A button is framed exactly like a drop-down box** — same outline, same
    corner. A button and a drop-down sitting next to each other look like the
    same control.
+   Outlined text fields (including form labels) and option-editor boxes also
+   share `AppTheme.shapes.control`, currently 10dp, so their corners change
+   together from the theme.
 4. **No hard-coded sizes or colors in a screen.** No `18.sp`, no
    `Color(0xFF…)`, no `RoundedCornerShape(…)` at a call site. Screens ask the
    theme for a name.

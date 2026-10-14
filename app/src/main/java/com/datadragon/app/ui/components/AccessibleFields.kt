@@ -9,11 +9,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.semantics
+import com.datadragon.app.ui.theme.AppTheme
 
 /** External field labels remain outside the outline; their names travel to the editable node. */
 val LocalAccessibleFieldLabel = staticCompositionLocalOf<String?> { null }
 
-/** Material rendering and editing behavior are preserved; only accessibility metadata is added. */
+/** Shared control corners and accessibility metadata for every outlined text field. */
 @Composable
 fun AccessibleOutlinedTextField(
     value: String,
@@ -52,5 +53,6 @@ fun AccessibleOutlinedTextField(
         keyboardActions = keyboardActions,
         singleLine = singleLine,
         minLines = minLines,
+        shape = AppTheme.shapes.control,
     )
 }

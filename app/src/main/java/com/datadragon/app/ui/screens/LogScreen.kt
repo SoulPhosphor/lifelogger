@@ -472,7 +472,11 @@ private fun EntryRow(
     val density = LocalDensity.current
     var actionsWidth by remember { mutableStateOf(0.dp) }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = editable, onClickLabel = "Edit", onClick = onEdit),
+    ) {
         Box(modifier = Modifier.fillMaxWidth()) {
             Column(
                 modifier = Modifier.fillMaxWidth().padding(start = AppTheme.spacing.screenInset, top = AppTheme.spacing.related, end = AppTheme.spacing.compact, bottom = AppTheme.spacing.screenInset),
