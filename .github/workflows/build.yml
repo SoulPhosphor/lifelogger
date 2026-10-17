@@ -5,25 +5,40 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Least privilege by default; only the release job may write.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      # Runs Gradle on JDK 21 (the JDK Android Studio ships). The app is still
+      # compiled to Java 17 bytecode (compileOptions in app/build.gradle.kts).
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+      # Also validates gradle-wrapper.jar against Gradle's published checksums.
+      # The open-source "basic" cache avoids the proprietary caching component
+      # that setup-gradle v6 uses by default.
+      - name: Set up Gradle and validate the Wrapper
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+          validate-wrappers: true
 
       - name: Check theme tokens
         run: python3 scripts/check_theme_tokens.py
+
+      - name: Verify pinned dependency versions
+        run: ./gradlew :app:verifyPinnedDependencies --stacktrace
 
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest --stacktrace
@@ -54,7 +69,7 @@ jobs:
         run: ./gradlew assembleRelease --stacktrace
 
       - name: Upload release APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: data-dragon-release-apk
           path: app/build/outputs/apk/release/*.apk
@@ -71,7 +86,7 @@ jobs:
 
     steps:
       - name: Download built APK
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: data-dragon-release-apk
           path: apk
@@ -82,7 +97,7 @@ jobs:
           cp apk/*.apk "dist/data-dragon-release-build-${{ github.run_number }}.apk"
 
       - name: Publish release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: build-${{ github.run_number }}
           name: Data Dragon build ${{ github.run_number }}
