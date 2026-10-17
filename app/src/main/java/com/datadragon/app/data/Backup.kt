@@ -158,7 +158,8 @@ data class BackupCounts(
             portablePreferences = payload.portablePreferences?.let { preferences ->
                 BASE_PORTABLE_PREFERENCE_COUNT + (preferences.clickerFollowUpShown?.size ?: 0) +
                     (if (preferences.modeEnabledLuckyList != null) 1 else 0) +
-                    if (preferences.hasAutomaticBackupPreferences) AUTOMATIC_BACKUP_PREFERENCE_COUNT else 0
+                    (if (preferences.hasAutomaticBackupPreferences) AUTOMATIC_BACKUP_PREFERENCE_COUNT else 0) +
+                    (if (preferences.dailyListAdvancedSearchEnabled != null) 1 else 0)
             } ?: 0,
         )
     }

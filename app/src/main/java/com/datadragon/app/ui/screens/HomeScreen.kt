@@ -791,6 +791,7 @@ private fun DailyListHomeBody(
             cardItems = cardItems,
             advancedSearchEnabled = advancedSearchEnabled,
             allCardItems = allCardItems,
+            hasSavedCards = cards.isNotEmpty(),
             celebrationEnabled = celebrationEnabled,
             celebrationIcon = celebrationIcon,
             celebrationVisible = { card, items ->

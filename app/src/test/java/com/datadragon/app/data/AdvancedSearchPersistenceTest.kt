@@ -70,9 +70,9 @@ class AdvancedSearchPersistenceTest {
             assertEquals(true, snapshot.payload.portablePreferences!!.dailyListAdvancedSearchEnabled)
             val incoming = BackupFile.single("2026-10-17T00:00:00Z", BackupCategory.FORMS,
                 BackupPayload(forms = listOf(BackupCodec.logOf(form(false), emptyList()))))
-            repository.restore(incoming, RestoreMode.MERGE, conflictPolicy = RestoreConflictPolicy.KEEP_CURRENT)
+            repository.restore(incoming, RestoreMode.MERGE, conflictChoices = repository.preflight(incoming, RestoreMode.MERGE).conflicts.associate { it.id to RestoreConflictChoice.KEEP_CURRENT })
             assertTrue(db.logTemplateDao().getByUuid("form")!!.advancedSearchEnabled)
-            repository.restore(incoming, RestoreMode.MERGE, conflictPolicy = RestoreConflictPolicy.USE_BACKUP)
+            repository.restore(incoming, RestoreMode.MERGE, conflictChoices = repository.preflight(incoming, RestoreMode.MERGE).conflicts.associate { it.id to RestoreConflictChoice.USE_BACKUP })
             assertFalse(db.logTemplateDao().getByUuid("form")!!.advancedSearchEnabled)
             repository.restore(snapshot, RestoreMode.REPLACE)
             assertTrue(db.logTemplateDao().getByUuid("form")!!.advancedSearchEnabled)

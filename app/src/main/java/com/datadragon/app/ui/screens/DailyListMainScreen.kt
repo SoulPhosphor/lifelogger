@@ -81,6 +81,7 @@ fun DailyListBody(
     modifier: Modifier = Modifier,
     advancedSearchEnabled: Boolean = false,
     allCardItems: Map<Long, List<DailyListItem>> = cardItems,
+    hasSavedCards: Boolean = cards.isNotEmpty(),
 ) {
     val advanced = remember(advancedSearchEnabled) { AdvancedViewState() }
     val resultCards = remember(cards, allCardItems, advanced.applied) {
@@ -141,7 +142,7 @@ fun DailyListBody(
             }
             if (cards.isEmpty() || (advanced.applied.active && resultCards.isEmpty())) {
                 item(key = "no-search-results") {
-                    Text(if (cards.isEmpty()) "No daily tasks yet." else "No search results.")
+                    Text(if (!hasSavedCards) "No daily tasks yet." else "No search results.")
                 }
             }
             items(resultCards, key = { it.id }) { card ->
