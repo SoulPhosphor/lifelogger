@@ -485,3 +485,37 @@ this screen. The same actions are available from its top bar.
 
 Truncation is always display-only. Stored text is never shortened, and Copy takes
 the whole stored text even when the visible text was cut short.
+
+## Advanced View (Forms and Daily Tasks)
+
+Advanced Search is opt-in and Off by default. Each Form stores its own setting;
+Daily Tasks uses one portable preference. Create Form offers **Enable Advanced
+Search** in the upper settings. Edit Form places it immediately above **Allow
+Additions from Form**. Daily Task Preferences places it first.
+
+When disabled, keep the existing basic sorting controls in their existing position.
+When enabled, replace those controls with one scrollable-list item headed
+**Advanced View**. The full outlined header is tappable, with a sliders icon left
+and a stroke chevron right: right when collapsed, down when expanded. Sorting lives
+inside the panel. Ordinary date sorting, including a different field or direction,
+never adds header subtext. Active searches summarize their criteria and matching
+card count. Collapsing keeps criteria, drafts and results.
+
+Search runs on **Search** or the keyboard Search action. **Partial Match** (default)
+and **Whole Words** are exclusive radio choices; **Match Case** is an unchecked
+checkbox. Matching is literal, Unicode-aware and case-insensitive by default.
+Forms offer **Search In**: **All Text Fields and Notes**, individual current text
+field labels, and **Notes**. **Filter by Saved Answer** offers fields and answers
+from the current schema, using permanent field/option IDs. Multiple Choice matches
+membership. Retired choices remain available with **(Retired)**; Yes/No and Scale
+use their predefined answers. Text and answer criteria intersect.
+
+Daily Tasks searches saved titles, tasks and sub-items, including completed and
+ordinarily hidden text. Active results show the whole day card with all saved items
+and untruncated title/task text, temporarily bypassing display preferences without
+saving changes. Dates, actions, favorite state and completion stay intact.
+
+Both modes return complete cards, preserve sorting and marked/favorite filters,
+show **No search results.** separately from their empty-collection messages, and
+provide **Clear Search** without changing sorting or records. Viewing criteria are
+temporary and reset when the screen reopens; enable settings persist.

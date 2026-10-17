@@ -752,6 +752,8 @@ private fun DailyListHomeBody(
 ) {
     val cards by dailyListViewModel.cards.collectAsStateWithLifecycle()
     val cardItems by dailyListViewModel.cardItems.collectAsStateWithLifecycle()
+    val allCardItems by dailyListViewModel.searchCardItems.collectAsStateWithLifecycle()
+    val advancedSearchEnabled by dailyListViewModel.advancedSearchEnabled.collectAsStateWithLifecycle()
     val celebrationEnabled by dailyListViewModel.celebrationEnabled.collectAsStateWithLifecycle()
     val celebrationIcon by dailyListViewModel.celebrationIcon.collectAsStateWithLifecycle()
     val newestFirst by dailyListViewModel.newestFirst.collectAsStateWithLifecycle()
@@ -787,6 +789,8 @@ private fun DailyListHomeBody(
         DailyListBody(
             cards = visibleCards,
             cardItems = cardItems,
+            advancedSearchEnabled = advancedSearchEnabled,
+            allCardItems = allCardItems,
             celebrationEnabled = celebrationEnabled,
             celebrationIcon = celebrationIcon,
             celebrationVisible = { card, items ->

@@ -89,6 +89,8 @@ class DailyListViewModel(
     private val _cardItems = MutableStateFlow<Map<Long, List<DailyListItem>>>(emptyMap())
     val cardItems: StateFlow<Map<Long, List<DailyListItem>>> = _cardItems
     private var allCardItems: Map<Long, List<DailyListItem>> = emptyMap()
+    private val _searchCardItems = MutableStateFlow<Map<Long, List<DailyListItem>>>(emptyMap())
+    val searchCardItems: StateFlow<Map<Long, List<DailyListItem>>> = _searchCardItems
 
     // --- Editor ----------------------------------------------------------------
 
@@ -116,6 +118,9 @@ class DailyListViewModel(
 
     private val _celebrationIcon = MutableStateFlow(settings.dailyListCelebrationIcon)
     val celebrationIcon: StateFlow<CelebrationIcon> = _celebrationIcon
+
+    private val _advancedSearchEnabled = MutableStateFlow(settings.dailyListAdvancedSearchEnabled)
+    val advancedSearchEnabled: StateFlow<Boolean> = _advancedSearchEnabled
 
     private val _allowTitle = MutableStateFlow(settings.dailyListAllowTitle)
     val allowTitle: StateFlow<Boolean> = _allowTitle
@@ -216,6 +221,20 @@ class DailyListViewModel(
         _autoReopen.value = value
     }
 
+    private val advancedPreferenceListener = settings.observePortableBackupChanges {
+        _advancedSearchEnabled.value = settings.dailyListAdvancedSearchEnabled
+    }
+
+    override fun onCleared() {
+        settings.stopObservingPortableBackupChanges(advancedPreferenceListener)
+        super.onCleared()
+    }
+
+    fun setAdvancedSearchEnabled(value: Boolean) {
+        settings.dailyListAdvancedSearchEnabled = value
+        _advancedSearchEnabled.value = value
+    }
+
     fun setAllowTitle(value: Boolean) {
         settings.dailyListAllowTitle = value
         _allowTitle.value = value
@@ -258,6 +277,7 @@ class DailyListViewModel(
             }
         }
         allCardItems = allItems
+        _searchCardItems.value = allItems
         _cardItems.value = result
     }
 

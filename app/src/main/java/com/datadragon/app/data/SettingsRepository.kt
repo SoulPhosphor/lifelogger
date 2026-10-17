@@ -183,6 +183,10 @@ class SettingsRepository(context: Context) {
         set(value) { editPortable({ dailyListAutoReopen != value }) { putBoolean(KEY_DL_AUTO_REOPEN, value) } }
 
     /** Offer the optional one-line per-day title in Daily List editors. */
+    var dailyListAdvancedSearchEnabled: Boolean
+        get() = prefs.getBoolean(KEY_DL_ADVANCED_SEARCH, false)
+        set(value) { editPortable({ dailyListAdvancedSearchEnabled != value }) { putBoolean(KEY_DL_ADVANCED_SEARCH, value) } }
+
     var dailyListAllowTitle: Boolean
         get() = prefs.getBoolean(KEY_DL_ALLOW_TITLE, false)
         set(value) { editPortable({ dailyListAllowTitle != value }) { putBoolean(KEY_DL_ALLOW_TITLE, value) } }
@@ -289,6 +293,7 @@ class SettingsRepository(context: Context) {
         dailyListAutoTrashKeep = dailyListAutoTrashKeepPast,
         dailyListAutoReopen = dailyListAutoReopen,
         dailyListAllowTitle = dailyListAllowTitle,
+        dailyListAdvancedSearchEnabled = dailyListAdvancedSearchEnabled.takeIf { it },
         dailyListCelebrationEnabled = dailyListCelebrationEnabled,
         dailyListCelebrationIcon = dailyListCelebrationIcon.key,
         dailyListProtectFavorited = dailyListProtectFavorited,
@@ -330,6 +335,7 @@ class SettingsRepository(context: Context) {
             .putInt(KEY_DL_AUTO_TRASH_KEEP, preferences.dailyListAutoTrashKeep)
             .putBoolean(KEY_DL_AUTO_REOPEN, preferences.dailyListAutoReopen)
             .putBoolean(KEY_DL_ALLOW_TITLE, preferences.dailyListAllowTitle)
+            .putBoolean(KEY_DL_ADVANCED_SEARCH, preferences.dailyListAdvancedSearchEnabled == true)
             .putBoolean(KEY_DL_CELEBRATION_ENABLED, preferences.dailyListCelebrationEnabled)
             .putString(KEY_DL_CELEBRATION_ICON, preferences.dailyListCelebrationIcon)
             .putBoolean(KEY_DL_PROTECT_FAVORITED, preferences.dailyListProtectFavorited)
@@ -380,6 +386,7 @@ class SettingsRepository(context: Context) {
     private const val KEY_DL_AUTO_TRASH_PAST = "daily_list_auto_trash_past"
     private const val KEY_DL_AUTO_TRASH_KEEP = "daily_list_auto_trash_keep"
     private const val KEY_DL_AUTO_REOPEN = "daily_list_auto_reopen"
+    private const val KEY_DL_ADVANCED_SEARCH = "daily_list_advanced_search"
     private const val KEY_DL_ALLOW_TITLE = "daily_list_allow_title"
     private const val KEY_DL_CELEBRATION_ENABLED = "daily_list_celebration_enabled"
     private const val KEY_DL_CELEBRATION_ICON = "daily_list_celebration_icon"

@@ -52,6 +52,9 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
     private val _integrateCalendar = MutableStateFlow(false)
     val integrateCalendar: StateFlow<Boolean> = _integrateCalendar
 
+    private val _advancedSearchEnabled = MutableStateFlow(false)
+    val advancedSearchEnabled: StateFlow<Boolean> = _advancedSearchEnabled
+
     private val _allowAdditionsFromForm = MutableStateFlow(false)
     val allowAdditionsFromForm: StateFlow<Boolean> = _allowAdditionsFromForm
 
@@ -75,6 +78,7 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
             _sortNewestFirst.value = template?.sortNewestFirst ?: true
             _integrateCalendar.value = template?.integrateCalendar ?: false
             _allowAdditionsFromForm.value = template?.allowAdditionsFromForm ?: false
+            _advancedSearchEnabled.value = template?.advancedSearchEnabled ?: false
             _fields.value = template
                 ?.let { runCatching { json.decodeFromString<List<FieldDef>>(it.schemaJson) }.getOrNull() }
                 ?: emptyList()
@@ -93,6 +97,7 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
         sortNewestFirst: Boolean,
         integrateCalendar: Boolean,
         allowAdditionsFromForm: Boolean,
+        advancedSearchEnabled: Boolean = false,
         onSaved: () -> Unit,
     ) {
         if (templateId < 0) return
@@ -109,6 +114,7 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
                 sortNewestFirst,
                 integrateCalendar,
                 allowAdditionsFromForm,
+                advancedSearchEnabled,
             )
             _name.value = savedName
             _fields.value = fields
@@ -117,6 +123,7 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
             _sortNewestFirst.value = sortNewestFirst
             _integrateCalendar.value = integrateCalendar
             _allowAdditionsFromForm.value = allowAdditionsFromForm
+            _advancedSearchEnabled.value = advancedSearchEnabled
             onSaved()
         }
     }

@@ -176,6 +176,7 @@ fun CreateLogScreen(
     // the default; it can later be unlocked one-way from the log screen.
     var locked by rememberSaveable { mutableStateOf(true) }
     var allowAppendedNotes by rememberSaveable { mutableStateOf(false) }
+    var advancedSearchEnabled by rememberSaveable { mutableStateOf(false) }
     var automaticTimestamping by rememberSaveable { mutableStateOf(false) }
     var sortNewestFirst by rememberSaveable { mutableStateOf(true) }
 
@@ -280,6 +281,7 @@ fun CreateLogScreen(
                                 locked = locked,
                                 allowAppendedNotes = allowAppendedNotes,
                                 automaticTimestamping = automaticTimestamping,
+                                advancedSearchEnabled = advancedSearchEnabled,
                                 sortTimestampFieldId = sortTimestampFieldId,
                                 sortNewestFirst = sortNewestFirst,
                                 onSaved = onBack,
@@ -310,6 +312,11 @@ fun CreateLogScreen(
                 singleLine = true,
             )
 
+            SettingSwitchRow(
+                checked = advancedSearchEnabled,
+                onCheckedChange = { advancedSearchEnabled = it },
+                title = "Enable Advanced Search",
+            )
             SettingSwitchRow(
                 checked = automaticTimestamping,
                 onCheckedChange = { automaticTimestamping = it },

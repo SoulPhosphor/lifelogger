@@ -28,6 +28,7 @@ class CreateLogViewModel(app: Application) : AndroidViewModel(app) {
         automaticTimestamping: Boolean,
         sortTimestampFieldId: String?,
         sortNewestFirst: Boolean,
+        advancedSearchEnabled: Boolean = false,
         onSaved: () -> Unit,
     ) {
         viewModelScope.launch {
@@ -43,6 +44,7 @@ class CreateLogViewModel(app: Application) : AndroidViewModel(app) {
                     automaticTimestamping = automaticTimestamping,
                     sortTimestampFieldId = sortTimestampFieldId,
                     sortNewestFirst = sortNewestFirst,
+                    advancedSearchEnabled = advancedSearchEnabled,
                 )
             )
             onSaved()

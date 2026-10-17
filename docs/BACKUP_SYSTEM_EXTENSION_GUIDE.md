@@ -362,3 +362,18 @@ Before changing persistence or adding a mode:
 6. Update the registry, format, restore, change tracking, tests, and documentation in the same feature work.
 
 A mode is not finished when it can save locally. It is finished when its data can survive a complete device failure and restore without losing identity.
+
+## Advanced Search settings (database 25, backup 9)
+
+Forms carry `advancedSearchEnabled` in `log_templates`, added by the additive
+24→25 migration with default 0. Existing table revision triggers cover updates.
+`BackupLog` carries the setting through full/manual/automatic snapshots, individual
+Form files, conflict comparison, Merge, Replace and Undo using existing parent
+boundaries. No identities or stored answers change.
+
+Daily Tasks stores `dailyListAdvancedSearchEnabled` in the explicit portable
+preference allowlist and revision tracker. Settings Replace/Undo apply it; settings
+Merge keeps current preferences. Both nullable payload fields omit their Off default
+so older checksums remain valid. Missing settings mean Off. Version 9 is required
+when either setting is declared. Temporary criteria and panel state are never backed
+up. Older supported backup files remain readable.

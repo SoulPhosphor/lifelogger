@@ -42,7 +42,7 @@ class Version7BackupTest {
     fun newFieldSettingsRoundTripAsVersion7() {
         val decoded = BackupCodec.decode(formFile(listOf(displayed, ratio)))
         assertEquals(BackupFile.VERSION, decoded.version)
-        assertEquals(8, BackupFile.VERSION)
+        assertEquals(9, BackupFile.VERSION)
         val restored = kotlinx.serialization.json.Json.decodeFromString<List<FieldDef>>(decoded.logs.single().schemaJson)
         assertEquals(listOf(displayed, ratio), restored)
     }
