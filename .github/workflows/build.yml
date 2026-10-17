@@ -28,6 +28,25 @@ jobs:
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest --stacktrace
 
+      # The Room schema is exported to app/schemas during compilation. Any
+      # difference from the committed copy means a build-tool or library change
+      # altered the stored database shape and needs a migration review.
+      - name: Verify committed Room schema is unchanged
+        if: success() || failure()
+        run: |
+          if [ -n "$(git status --porcelain app/schemas)" ]; then
+            echo "::error::Room schema export differs from the committed app/schemas files."
+            git status --porcelain app/schemas
+            git diff app/schemas
+            git ls-files --others --exclude-standard app/schemas | while read -r f; do echo "== $f"; cat "$f"; done
+            exit 1
+          fi
+
+      - name: Show generated test fixtures
+        if: failure()
+        run: |
+          for f in app/build/generated-fixtures/*; do [ -f "$f" ] && { echo "== $f"; cat "$f"; echo; echo "== end $f"; }; done; true
+
       - name: Build release APK
         run: ./gradlew assembleRelease --stacktrace
 

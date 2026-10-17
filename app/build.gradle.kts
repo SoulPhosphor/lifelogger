@@ -71,6 +71,10 @@ android {
     }
 }
 
+ksp {
+    // Committed under app/schemas; CI fails if a build changes it unexpectedly.
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
 
 dependencies {
     implementation(libs.androidx.core.ktx)
