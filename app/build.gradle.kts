@@ -106,3 +106,31 @@ dependencies {
 tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
     testLogging.exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
 }
+
+// Fails the build if a dependency silently pulls in a different version of a
+// library that decides how saved data and backups are stored (Room,
+// kotlinx-serialization), or of the Kotlin standard library, which must match
+// the Kotlin compiler. See docs/DEPENDENCY_MAINTENANCE.md.
+val verifyPinnedDependencies by tasks.registering {
+    group = "verification"
+    description = "Checks that data-critical libraries resolve to the catalog versions."
+    val pinned = mapOf(
+        "androidx.room:room-runtime" to libs.versions.room.get(),
+        "org.jetbrains.kotlinx:kotlinx-serialization-json" to libs.versions.kotlinxSerialization.get(),
+        "org.jetbrains.kotlin:kotlin-stdlib" to libs.versions.kotlin.get(),
+    )
+    val resolved = configurations.named("releaseRuntimeClasspath").map { classpath ->
+        classpath.incoming.resolutionResult.allComponents
+            .mapNotNull { it.id as? org.gradle.api.artifacts.component.ModuleComponentIdentifier }
+            .associate { "${it.group}:${it.module}" to it.version }
+    }
+    doLast {
+        val actual = resolved.get()
+        val mismatches = pinned.mapNotNull { (module, expected) ->
+            val found = actual[module]
+            if (found == expected) null else "$module: catalog $expected, resolved ${found ?: "nothing"}"
+        }
+        check(mismatches.isEmpty()) { "Pinned dependency versions changed:\n" + mismatches.joinToString("\n") }
+        pinned.forEach { (module, version) -> logger.lifecycle("$module $version") }
+    }
+}
