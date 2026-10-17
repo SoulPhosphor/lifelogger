@@ -16,6 +16,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 /**
  * The Calendar color picker's contract with its caller, which must survive
@@ -23,6 +24,8 @@ import org.robolectric.annotation.Config
  * wheel stay in sync, Okay returns an opaque #RRGGBB, and Cancel changes nothing.
  */
 @RunWith(RobolectricTestRunner::class)
+// The picker draws its wheel into a bitmap, which needs real graphics.
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34])
 class ColorPickerDialogTest {
     @get:Rule val compose = createComposeRule()
