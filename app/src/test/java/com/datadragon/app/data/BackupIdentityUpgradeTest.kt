@@ -61,7 +61,7 @@ class BackupIdentityUpgradeTest {
     @Test
     fun aCurrentBackupRoundTripsEveryIdentityUnchanged() {
         val decoded = BackupCodec.decode(file(currentLog()))
-        assertEquals(8, decoded.version)
+        assertEquals(BackupFile.VERSION, decoded.version)
         val log = decoded.logs.single()
         val fields = json.decodeFromString(ListSerializer(FieldDef.serializer()), log.schemaJson)
         assertEquals(listOf(pet, whenField), fields)

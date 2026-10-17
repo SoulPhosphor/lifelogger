@@ -179,3 +179,13 @@ styles in `ui/theme/PopupButtonStyle.kt`: Primary and Destructive. They look
 identical now and can be changed independently later. Cancel/dismiss uses Primary;
 there is no Secondary style. Screen and top-bar button appearances are preserved.
 `AppDialog` exposes these through its existing action/destructive/dismiss helpers.
+
+## Advanced View
+
+`ui/components/AdvancedView.kt` supplies the optional shared expandable summary
+bar, search controls, full-width stable dropdowns and advanced sorting controls.
+It uses the outlined theme control frame and stroke icons (`Tune`, `ChevronRight`,
+`ExpandMore`), with a full-header accessible button and expanded/collapsed semantics.
+Its `AdvancedViewState` is screen-local and survives collapse. Draft criteria only
+become applied criteria when Search runs. Legacy sorting remains unchanged when
+the feature is disabled. See UI_SPEC.md for behavior and setting placement.

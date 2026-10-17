@@ -51,7 +51,7 @@ data class BackupFile(
 
     companion object {
         const val FORMAT = "datadragon-backup"
-        const val VERSION = 8
+        const val VERSION = 9
 
         /** Version 3 is the first envelope format; it lacks the automatic-backup preferences. */
         const val FIRST_ENVELOPE_VERSION = 3
@@ -158,7 +158,8 @@ data class BackupCounts(
             portablePreferences = payload.portablePreferences?.let { preferences ->
                 BASE_PORTABLE_PREFERENCE_COUNT + (preferences.clickerFollowUpShown?.size ?: 0) +
                     (if (preferences.modeEnabledLuckyList != null) 1 else 0) +
-                    if (preferences.hasAutomaticBackupPreferences) AUTOMATIC_BACKUP_PREFERENCE_COUNT else 0
+                    (if (preferences.hasAutomaticBackupPreferences) AUTOMATIC_BACKUP_PREFERENCE_COUNT else 0) +
+                    (if (preferences.dailyListAdvancedSearchEnabled != null) 1 else 0)
             } ?: 0,
         )
     }
@@ -190,6 +191,7 @@ data class BackupLog(
      * older backups keep their checksums.
      */
     @EncodeDefault(EncodeDefault.Mode.NEVER) val allowAdditionsFromForm: Boolean? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val advancedSearchEnabled: Boolean? = null,
     val entries: List<BackupEntry> = emptyList(),
     val calendars: List<BackupCalendar> = emptyList(),
 )
@@ -367,6 +369,7 @@ data class BackupPortablePreferences(
     val dailyListAutoTrashKeep: Int = 7,
     val dailyListAutoReopen: Boolean = false,
     val dailyListAllowTitle: Boolean = false,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val dailyListAdvancedSearchEnabled: Boolean? = null,
     val dailyListCelebrationEnabled: Boolean = true,
     val dailyListCelebrationIcon: String = CelebrationIcon.CHECK_CIRCLE.key,
     val dailyListProtectFavorited: Boolean = true,
@@ -532,7 +535,7 @@ object BackupCodec {
         ) { "Backup automatic backup preferences are incomplete." }
         // Preferences converted from a version-3 file lack the version-4 fields,
         // so they are re-encoded with the version that truthfully describes them.
-        val version = if (preferences != null && !preferences.hasAutomaticBackupPreferences && payload.luckyLists == null && preferences.modeEnabledLuckyList == null && !payload.hasAllowAdditionsFromForm() && !payload.hasVersion7FieldSettings() && !payload.hasVersion8Identities()) {
+        val version = if (preferences != null && !preferences.hasAutomaticBackupPreferences && payload.luckyLists == null && preferences.modeEnabledLuckyList == null && !payload.hasAllowAdditionsFromForm() && !payload.hasVersion7FieldSettings() && !payload.hasVersion8Identities() && !payload.hasAdvancedSearchSettings()) {
             BackupFile.FIRST_ENVELOPE_VERSION
         } else {
             BackupFile.VERSION
@@ -584,6 +587,9 @@ object BackupCodec {
         // reader would key answers by label and lose them.
         require(envelope.version >= 8 || !envelope.payload.hasVersion8Identities()) {
             "Field and option identities require backup version 8."
+        }
+        require(envelope.version >= 9 || !envelope.payload.hasAdvancedSearchSettings()) {
+            "Advanced Search settings require backup version 9."
         }
         validateManifest(envelope.includedCategories, envelope.payload)
         val canonical = canonicalPayload(envelope.payload)
@@ -678,6 +684,10 @@ object BackupCodec {
 
     private val VERSION_7_FIELD_KEYS = listOf("choiceStyle", "topAnswerPreselected", "leftDigits", "rightDigits", "unit")
 
+    private fun BackupPayload.hasAdvancedSearchSettings(): Boolean =
+        forms.orEmpty().any { it.advancedSearchEnabled != null } ||
+            portablePreferences?.dailyListAdvancedSearchEnabled != null
+
     private fun BackupPayload.hasAllowAdditionsFromForm(): Boolean =
         forms.orEmpty().any { it.allowAdditionsFromForm == true }
 
@@ -685,6 +695,7 @@ object BackupCodec {
         form.copy(
             // Off is always represented as absent, so it compares and hashes the same.
             allowAdditionsFromForm = form.allowAdditionsFromForm?.takeIf { it },
+            advancedSearchEnabled = form.advancedSearchEnabled?.takeIf { it },
             entries = form.entries.map { entry ->
                 entry.copy(notes = entry.notes.sortedWith(compareBy({ it.createdAt }, { it.text })))
             }.sortedWith(compareBy({ it.createdAt }, { it.updatedAt }, { it.valuesJson })),
@@ -742,6 +753,7 @@ object BackupCodec {
             sortNewestFirst = template.sortNewestFirst,
             integrateCalendar = template.integrateCalendar,
             allowAdditionsFromForm = template.allowAdditionsFromForm.takeIf { it },
+            advancedSearchEnabled = template.advancedSearchEnabled.takeIf { it },
             entries = entries.map { entry ->
                 BackupEntry(
                     id = entry.id,
@@ -781,6 +793,7 @@ object BackupCodec {
         sortNewestFirst = log.sortNewestFirst,
         integrateCalendar = log.integrateCalendar,
         allowAdditionsFromForm = log.allowAdditionsFromForm == true,
+        advancedSearchEnabled = log.advancedSearchEnabled == true,
     )
 
     fun entriesOf(log: BackupLog): List<LogEntry> = log.entries.map {

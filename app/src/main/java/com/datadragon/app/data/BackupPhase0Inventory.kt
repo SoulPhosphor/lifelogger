@@ -61,6 +61,7 @@ object BackupPhase0Inventory {
         "daily_list_auto_trash_keep",
         "daily_list_auto_reopen",
         "daily_list_allow_title",
+        "daily_list_advanced_search",
         "daily_list_celebration_enabled",
         "daily_list_celebration_icon",
         "daily_list_protect_favorited",

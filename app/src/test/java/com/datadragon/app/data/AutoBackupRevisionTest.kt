@@ -148,6 +148,7 @@ class AutoBackupRevisionTest {
             change("daily_list_auto_trash_keep") { it.dailyListAutoTrashKeepPast = 3 },
             change("daily_list_auto_reopen") { it.dailyListAutoReopen = true },
             change("daily_list_allow_title") { it.dailyListAllowTitle = true },
+            change("daily_list_advanced_search") { it.dailyListAdvancedSearchEnabled = true },
             change("daily_list_celebration_enabled") { it.dailyListCelebrationEnabled = false },
             change("daily_list_celebration_icon") { it.dailyListCelebrationIcon = CelebrationIcon.CHEER },
             change("daily_list_protect_favorited") { it.dailyListProtectFavorited = false },

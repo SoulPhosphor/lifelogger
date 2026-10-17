@@ -44,7 +44,7 @@ interface LogTemplateDao {
             "sortTimestampLabel = :sortTimestampFieldId, " +
             "sortNewestFirst = :sortNewestFirst, " +
             "integrateCalendar = :integrateCalendar, " +
-            "allowAdditionsFromForm = :allowAdditionsFromForm WHERE id = :id",
+            "allowAdditionsFromForm = :allowAdditionsFromForm, advancedSearchEnabled = :advancedSearchEnabled WHERE id = :id",
     )
     suspend fun updateForm(
         id: Long,
@@ -56,6 +56,7 @@ interface LogTemplateDao {
         sortNewestFirst: Boolean,
         integrateCalendar: Boolean,
         allowAdditionsFromForm: Boolean,
+        advancedSearchEnabled: Boolean = false,
     )
 
     /** Templates in creation order — never resorted (docs/UI_SPEC.md §2). */

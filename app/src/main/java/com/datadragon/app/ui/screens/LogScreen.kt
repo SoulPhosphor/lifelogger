@@ -1,5 +1,10 @@
 package com.datadragon.app.ui.screens
 
+import com.datadragon.app.data.AdvancedSearch
+import com.datadragon.app.ui.components.AdvancedView
+import com.datadragon.app.ui.components.AdvancedViewState
+import com.datadragon.app.ui.components.AdvancedSorting
+import androidx.compose.foundation.layout.imePadding
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -115,7 +120,35 @@ fun LogScreen(
     // entry is marked; with nothing marked there is no star and every entry shows.
     var showMarkedOnly by remember { mutableStateOf(false) }
     val anyMarked = entries.any { it.marked }
-    val visibleEntries = if (showMarkedOnly && anyMarked) entries.filter { it.marked } else entries
+    val advancedEnabled = template?.advancedSearchEnabled == true
+    val advanced = remember(id, advancedEnabled) { AdvancedViewState() }
+    val markedEntries = if (showMarkedOnly && anyMarked) entries.filter { it.marked } else entries
+    val visibleEntries = remember(markedEntries, fields, advanced.applied) {
+        AdvancedSearch.forms(markedEntries, fields, advanced.applied)
+    }
+    val sorting: @Composable () -> Unit = {
+        if (advancedEnabled) {
+            AdvancedSorting(
+                categoryLabels = sortCategories.map { it.label },
+                selectedLabel = selectedCategory?.label,
+                newestFirst = newestFirst,
+                onSelectCategory = viewModel::selectSortCategoryLabel,
+                onSelectNewestFirst = viewModel::selectNewestFirst,
+            )
+        } else {
+            SortFilterBar(
+                categoryLabels = sortCategories.map { it.label },
+                selectedLabel = selectedCategory?.label,
+                newestFirst = newestFirst,
+                onSelectCategory = viewModel::selectSortCategoryLabel,
+                onSelectNewestFirst = viewModel::selectNewestFirst,
+            )
+        }
+    }
+    val viewControls: @Composable () -> Unit = {
+        if (advancedEnabled) AdvancedView(advanced, visibleEntries.size, fields = fields, sorting = sorting)
+        else sorting()
+    }
 
     // The file the user is saving. They choose the destination and name via the
     // system "Save to…" sheet; we write the bytes to whatever location it returns.
@@ -261,17 +294,10 @@ fun LogScreen(
         LaunchedEffect(selectedCategory?.label, newestFirst) { listState.scrollToItem(0) }
 
         // The sorting controls are always present, entries or not.
-        if (entries.isEmpty()) {
+        if (entries.isEmpty() && !advancedEnabled) {
             // With nothing to scroll there is no list to sit at the top of.
             Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-                SortFilterBar(
-                    categoryLabels = sortCategories.map { it.label },
-                    selectedLabel = selectedCategory?.label,
-                    newestFirst = newestFirst,
-                    onSelectCategory = viewModel::selectSortCategoryLabel,
-                    onSelectNewestFirst = viewModel::selectNewestFirst,
-                    modifier = Modifier.padding(horizontal = AppTheme.spacing.rowInset),
-                )
+                Column(Modifier.padding(horizontal = AppTheme.spacing.rowInset)) { viewControls() }
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
@@ -282,20 +308,17 @@ fun LogScreen(
         } else {
             LazyColumn(
                 state = listState,
-                modifier = Modifier.fillMaxSize().padding(padding),
+                modifier = Modifier.fillMaxSize().padding(padding).imePadding(),
                 contentPadding = PaddingValues(start = AppTheme.spacing.rowInset, end = AppTheme.spacing.rowInset, bottom = AppTheme.spacing.rowInset),
                 verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset),
             ) {
                 // The controls are the first thing in the list, not a fixed header,
                 // so they scroll away with the entries.
                 item(key = SORT_FILTER_BAR_KEY) {
-                    SortFilterBar(
-                        categoryLabels = sortCategories.map { it.label },
-                        selectedLabel = selectedCategory?.label,
-                        newestFirst = newestFirst,
-                        onSelectCategory = viewModel::selectSortCategoryLabel,
-                        onSelectNewestFirst = viewModel::selectNewestFirst,
-                    )
+                    viewControls()
+                }
+                if (entries.isEmpty() || (advanced.applied.active && visibleEntries.isEmpty())) {
+                    item(key = "no-search-results") { Text(if (entries.isEmpty()) "No entries yet. Tap + to add one." else "No search results.", style = MaterialTheme.typography.bodyMedium) }
                 }
                 items(visibleEntries, key = { it.id }) { entry ->
                     EntryRow(

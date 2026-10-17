@@ -143,6 +143,7 @@ fun EditFormScreen(
     val loadedSortTimestampFieldId by viewModel.sortTimestampFieldId.collectAsStateWithLifecycle()
     val loadedSortNewestFirst by viewModel.sortNewestFirst.collectAsStateWithLifecycle()
     val loadedIntegrateCalendar by viewModel.integrateCalendar.collectAsStateWithLifecycle()
+    val loadedAdvancedSearchEnabled by viewModel.advancedSearchEnabled.collectAsStateWithLifecycle()
     val loadedAllowAdditionsFromForm by viewModel.allowAdditionsFromForm.collectAsStateWithLifecycle()
     val calendars by viewModel.calendars.collectAsStateWithLifecycle()
     // The existing form title is editable alongside the field list and is saved
@@ -155,6 +156,8 @@ fun EditFormScreen(
     var savedSortNewestFirst by rememberSaveable { mutableStateOf<Boolean?>(null) }
     var integrateCalendar by rememberSaveable { mutableStateOf<Boolean?>(null) }
     var savedIntegrateCalendar by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    var advancedSearchEnabled by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    var savedAdvancedSearchEnabled by rememberSaveable { mutableStateOf<Boolean?>(null) }
     var allowAdditionsFromForm by rememberSaveable { mutableStateOf<Boolean?>(null) }
     var savedAllowAdditionsFromForm by rememberSaveable { mutableStateOf<Boolean?>(null) }
     LaunchedEffect(name) {
@@ -179,6 +182,12 @@ fun EditFormScreen(
         if (integrateCalendar == null && name != null) {
             integrateCalendar = loadedIntegrateCalendar
             savedIntegrateCalendar = loadedIntegrateCalendar
+        }
+    }
+    LaunchedEffect(name, loadedAdvancedSearchEnabled) {
+        if (advancedSearchEnabled == null && name != null) {
+            advancedSearchEnabled = loadedAdvancedSearchEnabled
+            savedAdvancedSearchEnabled = loadedAdvancedSearchEnabled
         }
     }
     LaunchedEffect(name, loadedAllowAdditionsFromForm) {
@@ -212,7 +221,7 @@ fun EditFormScreen(
     var editingIndex by rememberSaveable { mutableStateOf<Int?>(null) }
 
     val canSave = name != null && formTitle != null && automaticTimestamping != null &&
-        sortNewestFirst != null && integrateCalendar != null && allowAdditionsFromForm != null &&
+        sortNewestFirst != null && integrateCalendar != null && allowAdditionsFromForm != null && advancedSearchEnabled != null &&
         rows.all { it.isValid() }
 
     fun move(index: Int, delta: Int) {
@@ -234,6 +243,7 @@ fun EditFormScreen(
             sortNewestFirst = sortNewestFirst ?: true,
             integrateCalendar = integrateCalendar ?: false,
             allowAdditionsFromForm = allowAdditionsFromForm ?: false,
+            advancedSearchEnabled = advancedSearchEnabled ?: false,
             onSaved = {
                 formTitle = titleToSave
                 savedTitle = titleToSave
@@ -241,6 +251,7 @@ fun EditFormScreen(
                 savedSortNewestFirst = sortNewestFirst
                 savedIntegrateCalendar = integrateCalendar
                 savedAllowAdditionsFromForm = allowAdditionsFromForm
+                savedAdvancedSearchEnabled = advancedSearchEnabled
                 savedSnapshot = rows.map { it.toFieldDef() }
                 onDone()
             },
@@ -288,6 +299,7 @@ fun EditFormScreen(
     val savedSortFieldId = loadedSortTimestampFieldId
     val currentSortFieldId = rows.firstOrNull { it.sortByTimestamp }?.id
     val dirty = fieldsDirty ||
+        (savedAdvancedSearchEnabled != null && advancedSearchEnabled != savedAdvancedSearchEnabled) ||
         (savedTitle != null && formTitle != savedTitle) ||
         (savedAutomaticTimestamping != null && automaticTimestamping != savedAutomaticTimestamping) ||
         (savedSortNewestFirst != null && sortNewestFirst != savedSortNewestFirst) ||
@@ -400,6 +412,14 @@ fun EditFormScreen(
                     checked = automaticTimestamping ?: false,
                     onCheckedChange = { automaticTimestamping = it },
                     title = "Automatic Timestamping",
+                )
+            }
+
+            item(key = "advanced-search") {
+                SettingSwitchRow(
+                    checked = advancedSearchEnabled ?: false,
+                    onCheckedChange = { advancedSearchEnabled = it },
+                    title = "Enable Advanced Search",
                 )
             }
 

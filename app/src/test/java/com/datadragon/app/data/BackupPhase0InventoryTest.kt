@@ -79,10 +79,11 @@ class BackupPhase0InventoryTest {
     @Test
     fun portablePreferencesAreAnExplicitAllowlist() {
         val keys = BackupPhase0Inventory.portablePreferenceKeys
-        assertEquals(31, keys.size)
+        assertEquals(32, keys.size)
         assertTrue(keys.contains("nav_style"))
         assertTrue(keys.contains("clicker_follow_up_shown_"))
         assertTrue(keys.contains("daily_list_retention"))
+        assertTrue(keys.contains("daily_list_advanced_search"))
         assertTrue(keys.contains("mode_enabled_clicker"))
         assertFalse(keys.contains("automatic_backup_folder_uri"))
     }

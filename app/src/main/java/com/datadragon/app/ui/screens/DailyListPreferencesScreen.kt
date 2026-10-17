@@ -52,6 +52,7 @@ fun DailyListPreferencesScreen(
     onBack: () -> Unit,
     viewModel: DailyListViewModel = viewModel(),
 ) {
+    val advancedSearchEnabled by viewModel.advancedSearchEnabled.collectAsStateWithLifecycle()
     val heading by viewModel.heading.collectAsStateWithLifecycle()
     val autoRenew by viewModel.autoRenew.collectAsStateWithLifecycle()
     val showCompleted by viewModel.showCompleted.collectAsStateWithLifecycle()
@@ -82,6 +83,7 @@ fun DailyListPreferencesScreen(
             modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(AppTheme.spacing.screenInset),
             verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
         ) {
+            PreferenceToggle(advancedSearchEnabled, viewModel::setAdvancedSearchEnabled, "Enable Advanced Search")
             OutlinedTextField(
                 value = heading,
                 onValueChange = viewModel::setHeading,

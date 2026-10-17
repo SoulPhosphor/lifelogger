@@ -47,7 +47,7 @@ class LuckyListMigrationTest {
         }
         helper.close()
         val upgraded = Room.databaseBuilder(context, AppDatabase::class.java, name).allowMainThreadQueries()
-            .addMigrations(AppDatabase.MIGRATION_20_21, AppDatabase.MIGRATION_21_22, AppDatabase.MIGRATION_22_23, AppDatabase.MIGRATION_23_24)
+            .addMigrations(AppDatabase.MIGRATION_20_21, AppDatabase.MIGRATION_21_22, AppDatabase.MIGRATION_22_23, AppDatabase.MIGRATION_23_24, AppDatabase.MIGRATION_24_25)
             .addCallback(AppDatabase.UUID_IDENTITY_CALLBACK).addCallback(AppDatabase.BACKUP_REVISION_CALLBACK).build()
         try {
             assertEquals("old-list", upgraded.checklistDao().getChecklist(oldListId)!!.uuid)

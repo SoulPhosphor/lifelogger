@@ -1,5 +1,10 @@
 package com.datadragon.app.ui.screens
 
+import com.datadragon.app.data.AdvancedSearch
+import com.datadragon.app.ui.components.AdvancedView
+import com.datadragon.app.ui.components.AdvancedViewState
+import com.datadragon.app.ui.components.AdvancedSorting
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -74,11 +79,18 @@ fun DailyListBody(
     onToggleFavorite: (DailyList) -> Unit,
     onDeleteCard: (DailyList) -> Unit,
     modifier: Modifier = Modifier,
+    advancedSearchEnabled: Boolean = false,
+    allCardItems: Map<Long, List<DailyListItem>> = cardItems,
+    hasSavedCards: Boolean = cards.isNotEmpty(),
 ) {
+    val advanced = remember(advancedSearchEnabled) { AdvancedViewState() }
+    val resultCards = remember(cards, allCardItems, advanced.applied) {
+        AdvancedSearch.days(cards, allCardItems, advanced.applied)
+    }
     var deleteCandidate by remember { mutableStateOf<DailyList?>(null) }
     var sortMenuOpen by remember { mutableStateOf(false) }
 
-    if (cards.isEmpty()) {
+    if (cards.isEmpty() && !advancedSearchEnabled) {
         // Fill the whole empty area so the message sits centered both ways
         // (docs/STYLE.md §13).
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -99,12 +111,16 @@ fun DailyListBody(
         }
     } else {
         LazyColumn(
-            modifier = modifier,
+            modifier = modifier.imePadding(),
             contentPadding = PaddingValues(AppTheme.spacing.rowInset),
             verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset),
         ) {
             item(key = "dailyListSortBar") {
-                Box {
+                if (advancedSearchEnabled) {
+                    AdvancedView(advanced, resultCards.size) {
+                        AdvancedSorting(newestFirst = newestFirst, onSelectNewestFirst = onNewestFirst)
+                    }
+                } else Box {
                     SortControl(
                         label = "Sort: " + if (newestFirst) "Newest" else "Oldest",
                         onClick = { sortMenuOpen = true },
@@ -124,10 +140,16 @@ fun DailyListBody(
                     }
                 }
             }
-            items(cards, key = { it.id }) { card ->
+            if (cards.isEmpty() || (advanced.applied.active && resultCards.isEmpty())) {
+                item(key = "no-search-results") {
+                    Text(if (!hasSavedCards) "No daily tasks yet." else "No search results.")
+                }
+            }
+            items(resultCards, key = { it.id }) { card ->
                 DailyListCardRow(
                     card = card,
-                    items = cardItems[card.id].orEmpty(),
+                    items = if (advanced.applied.active) allCardItems[card.id].orEmpty() else cardItems[card.id].orEmpty(),
+                    showFullText = advanced.applied.active,
                     celebrationEnabled = celebrationEnabled,
                     celebrationIcon = celebrationIcon,
                     celebrationVisible = celebrationVisible(card, cardItems[card.id].orEmpty()),
@@ -172,6 +194,7 @@ private fun DailyListCardRow(
     onOpen: () -> Unit,
     onToggleFavorite: () -> Unit,
     onDelete: () -> Unit,
+    showFullText: Boolean = false,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
 
@@ -196,7 +219,7 @@ private fun DailyListCardRow(
                         text = card.title,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
+                        maxLines = if (showFullText) Int.MAX_VALUE else 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -225,7 +248,7 @@ private fun DailyListCardRow(
                             } else {
                                 MaterialTheme.colorScheme.onSurface
                             },
-                            maxLines = 2,
+                            maxLines = if (showFullText) Int.MAX_VALUE else 2,
                             overflow = TextOverflow.Ellipsis,
                         )
                     }

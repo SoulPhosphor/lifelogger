@@ -69,4 +69,6 @@ data class LogTemplate(
      */
     @ColumnInfo(defaultValue = "0")
     val allowAdditionsFromForm: Boolean = false,
+    @ColumnInfo(defaultValue = "0")
+    val advancedSearchEnabled: Boolean = false,
 )
