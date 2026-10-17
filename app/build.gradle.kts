@@ -1,9 +1,9 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.room)
 }
 
 val ciBuildNumber = providers.environmentVariable("GITHUB_RUN_NUMBER")
@@ -12,7 +12,7 @@ val ciBuildNumber = providers.environmentVariable("GITHUB_RUN_NUMBER")
 
 android {
     namespace = "com.datadragon.app"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.datadragon.app"
@@ -55,9 +55,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
     buildFeatures {
         compose = true
         buildConfig = true
@@ -71,9 +68,9 @@ android {
     }
 }
 
-ksp {
+room {
     // Committed under app/schemas; CI fails if a build changes it unexpectedly.
-    arg("room.schemaLocation", "$projectDir/schemas")
+    schemaDirectory("$projectDir/schemas")
 }
 
 dependencies {

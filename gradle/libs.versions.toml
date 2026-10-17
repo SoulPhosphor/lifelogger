@@ -1,13 +1,13 @@
 [versions]
-agp = "8.7.3"
-kotlin = "2.0.21"
-ksp = "2.0.21-1.0.25"
+agp = "9.3.3"
+kotlin = "2.4.21"
+ksp = "2.3.12"
 coreKtx = "1.13.1"
 lifecycleRuntimeKtx = "2.8.7"
 activityCompose = "1.9.3"
 composeBom = "2024.10.01"
 navigationCompose = "2.8.9"
-room = "2.6.1"
+room = "2.8.5"
 kotlinxSerialization = "1.7.3"
 reorderable = "2.4.3"
 colorpickerCompose = "1.1.2"
@@ -18,6 +18,10 @@ androidxTestCore = "1.6.1"
 work = "2.9.1"
 
 [libraries]
+# Not applied as a plugin: AGP 9 compiles Kotlin itself (built-in Kotlin) and
+# uses whichever Kotlin Gradle plugin is on the build classpath. Pinning it
+# here selects the Kotlin compiler version for the whole build.
+kotlin-gradle-plugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin" }
 androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -48,7 +52,7 @@ androidx-work-testing = { group = "androidx.work", name = "work-testing", versio
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+room = { id = "androidx.room", version.ref = "room" }
