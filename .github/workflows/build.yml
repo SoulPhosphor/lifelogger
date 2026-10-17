@@ -28,12 +28,15 @@ jobs:
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest --stacktrace
 
-      # The Room schema is exported to app/schemas during compilation. Any
-      # difference from the committed copy means a build-tool or library change
-      # altered the stored database shape and needs a migration review.
+      # Room writes its schema to app/schemas while generating code. The
+      # committed copy is deleted and regenerated (bypassing Gradle's caches),
+      # so any difference, or a missing file, means a build-tool or library
+      # change altered the stored database shape and needs a migration review.
       - name: Verify committed Room schema is unchanged
         if: success() || failure()
         run: |
+          rm -rf app/schemas
+          ./gradlew :app:kspDebugKotlin --rerun --stacktrace
           if [ -n "$(git status --porcelain app/schemas)" ]; then
             echo "::error::Room schema export differs from the committed app/schemas files."
             git status --porcelain app/schemas

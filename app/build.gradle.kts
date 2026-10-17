@@ -3,7 +3,6 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
-    alias(libs.plugins.room)
 }
 
 val ciBuildNumber = providers.environmentVariable("GITHUB_RUN_NUMBER")
@@ -68,9 +67,9 @@ android {
     }
 }
 
-room {
-    // Committed under app/schemas; CI fails if a build changes it unexpectedly.
-    schemaDirectory("$projectDir/schemas")
+ksp {
+    // Committed under app/schemas; CI regenerates it and fails if it changed.
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {
