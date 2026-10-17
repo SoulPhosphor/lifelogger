@@ -249,49 +249,51 @@ fun ChoiceOptionsEditor(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
             ) { index, option, _ ->
-                val isEditing = editingId == option.id
-                ActiveChoiceRow(
-                    option = option,
-                    isEditing = isEditing,
-                    preselection = preselection,
-                    gripModifier = Modifier
-                        .draggableHandle(enabled = !isEditing)
-                        .accessibleReorder(index, active.size) { offset ->
-                            val destination = index + offset
-                            if (destination in active.indices) {
-                                onChoicesChange(ChoiceEdits.movedActive(choices, option.id, destination))
-                                true
-                            } else {
-                                false
-                            }
+                ReorderableItem {
+                    val isEditing = editingId == option.id
+                    ActiveChoiceRow(
+                        option = option,
+                        isEditing = isEditing,
+                        preselection = preselection,
+                        gripModifier = Modifier
+                            .draggableHandle(enabled = !isEditing)
+                            .accessibleReorder(index, active.size) { offset ->
+                                val destination = index + offset
+                                if (destination in active.indices) {
+                                    onChoicesChange(ChoiceEdits.movedActive(choices, option.id, destination))
+                                    true
+                                } else {
+                                    false
+                                }
+                            },
+                        // Dragging is off while the row is being edited, so selecting
+                        // text or moving the cursor never reorders it.
+                        labelDragModifier = Modifier.longPressDraggableHandle(enabled = !isEditing),
+                        onTap = { if (!isEditing) startEditing(option) },
+                        onLabelChange = { onChoicesChange(ChoiceEdits.renamed(choices, option.id, it)) },
+                        onCommit = { commit(option.id) },
+                        onDone = { focusManager.clearFocus() },
+                        onRemovePreselection = {
+                            onChoicesChange(ChoiceEdits.notPreselected(settled(), option.id))
                         },
-                    // Dragging is off while the row is being edited, so selecting
-                    // text or moving the cursor never reorders it.
-                    labelDragModifier = Modifier.longPressDraggableHandle(enabled = !isEditing),
-                    onTap = { if (!isEditing) startEditing(option) },
-                    onLabelChange = { onChoicesChange(ChoiceEdits.renamed(choices, option.id, it)) },
-                    onCommit = { commit(option.id) },
-                    onDone = { focusManager.clearFocus() },
-                    onRemovePreselection = {
-                        onChoicesChange(ChoiceEdits.notPreselected(settled(), option.id))
-                    },
-                    onMakePreselected = {
-                        onChoicesChange(
-                            ChoiceEdits.preselected(
-                                settled(),
-                                option.id,
-                                single = preselection == ChoicePreselection.SINGLE,
-                            ),
-                        )
-                    },
-                    onRetire = { onChoicesChange(ChoiceEdits.retired(settled(), option.id)) },
-                    onDelete = {
-                        val base = settled()
-                        if (base != choices) onChoicesChange(base)
-                        // A just-added row that was never named is simply gone.
-                        base.firstOrNull { it.id == option.id }?.let { pendingDelete = it }
-                    },
-                )
+                        onMakePreselected = {
+                            onChoicesChange(
+                                ChoiceEdits.preselected(
+                                    settled(),
+                                    option.id,
+                                    single = preselection == ChoicePreselection.SINGLE,
+                                ),
+                            )
+                        },
+                        onRetire = { onChoicesChange(ChoiceEdits.retired(settled(), option.id)) },
+                        onDelete = {
+                            val base = settled()
+                            if (base != choices) onChoicesChange(base)
+                            // A just-added row that was never named is simply gone.
+                            base.firstOrNull { it.id == option.id }?.let { pendingDelete = it }
+                        },
+                    )
+                }
             }
         }
 

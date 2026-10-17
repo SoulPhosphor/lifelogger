@@ -1,0 +1,70 @@
+# Dependabot only opens pull requests. Nothing here merges, releases or
+# installs anything: a dependency update reaches main (and the published APK)
+# only after its PR passes CI and the owner approves the merge.
+#
+# See docs/DEPENDENCY_MAINTENANCE.md for how to review these PRs.
+version: 2
+updates:
+  # Gradle covers gradle/libs.versions.toml (libraries and plugins) and the
+  # Gradle Wrapper (gradle-wrapper.properties, gradlew, gradlew.bat and
+  # gradle-wrapper.jar).
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    # A dependency matches the first group it fits. Major versions are never
+    # grouped, so every major upgrade arrives as its own PR for a dedicated
+    # compatibility review. Security updates are not grouped either, so each
+    # one is opened as soon as GitHub reports it.
+    groups:
+      # Kotlin compiler, Compose compiler, serialization plugin and KSP must
+      # move together; Room's code generation runs on KSP.
+      kotlin-toolchain:
+        patterns:
+          - "org.jetbrains.kotlin:*"
+          - "org.jetbrains.kotlin.*"
+          - "com.google.devtools.ksp*"
+        update-types: ["minor", "patch"]
+      # The Android Gradle Plugin sets the minimum Gradle version, and Kotlin
+      # sets the newest AGP it supports (docs/DEPENDENCY_MAINTENANCE.md).
+      android-build-toolchain:
+        patterns:
+          - "com.android*"
+          - "gradle-wrapper"
+        update-types: ["minor", "patch"]
+      # Room and kotlinx-serialization decide how saved data and backups are
+      # stored and read. Review these PRs as data-safety changes.
+      persistence-and-backup-format:
+        patterns:
+          - "androidx.room*"
+          - "androidx.sqlite*"
+          - "org.jetbrains.kotlinx:kotlinx-serialization*"
+        update-types: ["minor", "patch"]
+      compose:
+        patterns:
+          - "androidx.compose*"
+        update-types: ["minor", "patch"]
+      androidx:
+        patterns:
+          - "androidx.*"
+        update-types: ["minor", "patch"]
+      other-libraries:
+        patterns:
+          - "*"
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "ci"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+        update-types: ["minor", "patch"]

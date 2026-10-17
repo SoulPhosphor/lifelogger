@@ -618,22 +618,24 @@ private fun BuildEditor(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset),
         ) { index, field, _ ->
-            FieldEditorCard(
-                field = field,
-                index = index,
-                sortNewestFirst = sortNewestFirst,
-                onSortChanged = { setSort(field, it) },
-                onSortDirectionChange = onSortDirectionChange,
-                onDelete = { onDelete(field) },
-                dragHandleModifier = Modifier.draggableHandle().accessibleReorder(index, fields.size) { offset ->
-                    val current = fields.indexOf(field)
-                    val destination = current + offset
-                    if (current >= 0 && destination in fields.indices) {
-                        onReorder(current, destination)
-                        true
-                    } else false
-                },
-            )
+            ReorderableItem {
+                FieldEditorCard(
+                    field = field,
+                    index = index,
+                    sortNewestFirst = sortNewestFirst,
+                    onSortChanged = { setSort(field, it) },
+                    onSortDirectionChange = onSortDirectionChange,
+                    onDelete = { onDelete(field) },
+                    dragHandleModifier = Modifier.draggableHandle().accessibleReorder(index, fields.size) { offset ->
+                        val current = fields.indexOf(field)
+                        val destination = current + offset
+                        if (current >= 0 && destination in fields.indices) {
+                            onReorder(current, destination)
+                            true
+                        } else false
+                    },
+                )
+            }
         }
     }
     AppButton(onClick = onAdd, modifier = Modifier.fillMaxWidth()) {

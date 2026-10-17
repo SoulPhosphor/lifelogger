@@ -70,7 +70,7 @@ This is the spine of the app. Do not redesign it.
 - **JSON:** kotlinx.serialization (for `schemaJson`, `valuesJson`, and backups)
 - **JDK:** 17
 - **minSdk:** 26 (Android 8.0 — gives `java.time` for clean ISO-8601 handling)
-- **targetSdk:** latest stable at build time
+- **targetSdk:** 35. Never raised automatically: raising it can change how the app behaves, so it changes only in a dedicated, owner-approved PR (see `docs/DEPENDENCY_MAINTENANCE.md`)
 - **Build:** single-module Gradle project with a version catalog (`libs.versions.toml`). Pin all library versions there; use the latest stable releases available at build time.
 - **CI:** GitHub Actions workflow that builds a **debug APK** and uploads it as a downloadable artifact on every push.
 

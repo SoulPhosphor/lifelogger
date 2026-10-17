@@ -36,7 +36,9 @@ class DailyListConverters {
         BackupState::class,
     ],
     version = 25,
-    exportSchema = false,
+    // Exported to app/schemas so CI can prove a Room or build-tool upgrade
+    // leaves the stored schema (and its identity hash) unchanged.
+    exportSchema = true,
 )
 @TypeConverters(DailyListConverters::class)
 abstract class AppDatabase : RoomDatabase() {

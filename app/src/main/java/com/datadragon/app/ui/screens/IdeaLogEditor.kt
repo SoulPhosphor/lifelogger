@@ -469,24 +469,26 @@ fun IdeaLogEditorScaffold(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset),
                 ) { index, field, _ ->
-                    IdeaFieldCard(
-                        field = field,
-                        index = index,
-                        sortNewestFirst = sortNewestFirst,
-                        onSortChanged = { setSort(field, it) },
-                        onSortDirectionChange = onSortDirectionChange,
-                        onDelete = { fields.remove(field) },
-                        capitalizeNewCategories = capitalizeNewCategories,
-                        onDeleteCategory = { category -> onDeleteCategory(field.id, category) },
-                        dragHandleModifier = Modifier.draggableHandle().accessibleReorder(index, fields.size) { offset ->
-                            val current = fields.indexOf(field)
-                            val destination = current + offset
-                            if (current >= 0 && destination in fields.indices) {
-                                fields.add(destination, fields.removeAt(current))
-                                true
-                            } else false
-                        },
-                    )
+                    ReorderableItem {
+                        IdeaFieldCard(
+                            field = field,
+                            index = index,
+                            sortNewestFirst = sortNewestFirst,
+                            onSortChanged = { setSort(field, it) },
+                            onSortDirectionChange = onSortDirectionChange,
+                            onDelete = { fields.remove(field) },
+                            capitalizeNewCategories = capitalizeNewCategories,
+                            onDeleteCategory = { category -> onDeleteCategory(field.id, category) },
+                            dragHandleModifier = Modifier.draggableHandle().accessibleReorder(index, fields.size) { offset ->
+                                val current = fields.indexOf(field)
+                                val destination = current + offset
+                                if (current >= 0 && destination in fields.indices) {
+                                    fields.add(destination, fields.removeAt(current))
+                                    true
+                                } else false
+                            },
+                        )
+                    }
                 }
             }
 
