@@ -50,6 +50,7 @@ class AdvancedSearchMigrationTest {
         )
 
         AppDatabase.MIGRATION_24_25.migrate(sqlite)
+        AppDatabase.MIGRATION_24_25.migrate(sqlite)
 
         sqlite.query("SELECT uuid, name, schemaJson, advancedSearchEnabled FROM log_templates").use { cursor ->
             assertTrue(cursor.moveToFirst())

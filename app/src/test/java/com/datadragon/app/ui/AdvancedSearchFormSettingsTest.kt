@@ -2,6 +2,7 @@ package com.datadragon.app.ui
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import androidx.lifecycle.ViewModelStore
 import com.datadragon.app.data.*
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -19,10 +20,11 @@ import org.robolectric.annotation.Config
 class AdvancedSearchFormSettingsTest {
     @Test fun creationAndEditingPersistTheOptInWithoutChangingIdentity() = runTest {
         Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        val store = ViewModelStore()
         try {
             val app = ApplicationProvider.getApplicationContext<Application>()
             val db = AppDatabase.getInstance(app)
-            val create = CreateLogViewModel(app)
+            val create = CreateLogViewModel(app).also { store.put("create", it) }
             val name = "Advanced test ${System.nanoTime()}"
             val saved = CompletableDeferred<Unit>()
             create.save(name, "[]", "", true, false, false, null, true,
@@ -30,7 +32,7 @@ class AdvancedSearchFormSettingsTest {
             saved.await()
             val original = db.logTemplateDao().getAllOnce().single { it.name == name }
             assertTrue(original.advancedSearchEnabled)
-            val editor = EditFormViewModel(app)
+            val editor = EditFormViewModel(app).also { store.put("edit", it) }
             editor.load(original.id)
             editor.name.first { it != null }
             assertTrue(editor.advancedSearchEnabled.value)
@@ -46,6 +48,6 @@ class AdvancedSearchFormSettingsTest {
                 onSaved = { defaultSaved.complete(Unit) })
             defaultSaved.await()
             assertFalse(db.logTemplateDao().getAllOnce().single { it.name == "$name default" }.advancedSearchEnabled)
-        } finally { Dispatchers.resetMain() }
+        } finally { store.clear(); Dispatchers.resetMain() }
     }
 }

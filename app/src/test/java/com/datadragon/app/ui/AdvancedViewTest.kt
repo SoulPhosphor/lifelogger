@@ -30,7 +30,10 @@ class AdvancedViewTest {
                 AdvancedView(state, 8) { Text("Existing Sorting") }
             }
         } }
-        compose.onNodeWithText("Advanced View").assertExists().performClick()
+        compose.onNodeWithText("Advanced View")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Collapsed"))
+            .performClick()
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Expanded"))
         compose.onNodeWithText("Existing Sorting").assertExists()
         compose.onNodeWithText("Partial Match").assertIsSelected()
         compose.onNodeWithText("Whole Words").assertIsNotSelected().performClick().assertIsSelected()

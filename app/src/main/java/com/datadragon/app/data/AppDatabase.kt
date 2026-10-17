@@ -578,7 +578,14 @@ abstract class AppDatabase : RoomDatabase() {
         /** v25 adds an opt-in viewing setting; existing records and identities stay intact. */
         internal val MIGRATION_24_25 = object : Migration(24, 25) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE log_templates ADD COLUMN advancedSearchEnabled INTEGER NOT NULL DEFAULT 0")
+                val hasColumn = db.query("PRAGMA table_info(log_templates)").use { cursor ->
+                    val nameIndex = cursor.getColumnIndexOrThrow("name")
+                    generateSequence { if (cursor.moveToNext()) cursor.getString(nameIndex) else null }
+                        .any { it == "advancedSearchEnabled" }
+                }
+                if (!hasColumn) {
+                    db.execSQL("ALTER TABLE log_templates ADD COLUMN advancedSearchEnabled INTEGER NOT NULL DEFAULT 0")
+                }
             }
         }
 
