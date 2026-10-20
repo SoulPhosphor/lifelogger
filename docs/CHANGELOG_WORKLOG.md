@@ -14,8 +14,9 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 - **Identity**: items are ordinary `ChoiceOption`s with permanent ids. Rows store
   the option id (`{"item", "first", "second"}`, numbers as JSON numbers), so
   renames never disconnect saved rows. Deleting an option removes only the rows
-  that picked it. No database or backup format change: the schema and entry
-  values are the existing JSON columns.
+  that picked it. Form entries use the existing JSON entry-values column.
+  Backups that hold Comparison content are written as backup version 10 (up
+  from 9); the database moves from v25 to v26 for the Clicker toggle below.
 - **Settings**: Item / First / Second Column Label and Total Label (blank shows
   Item, Expected, Actual, Total Difference grayed in the box), Max Digits
   (Optional, counts digits only), Only Allow Whole Numbers (on by default). No
