@@ -72,6 +72,25 @@ class ClickerComparisonTest {
     }
 
     @Test
+    fun aNumberTypedBeforeAnItemIsKeptAsADraftButNeverCounted() {
+        val def = field.comparisonDef()
+        val stored = ClickerComparison.stored(def, listOf(ComparisonRow("", "7", ""), ComparisonRow("turkey", "3", "4")))!!
+        val values = ClickerValues.decode(ClickerValues.encode(mapOf(field.id to stored)))
+        val rows = ClickerComparison.rows(values, field.id)
+        // The draft survives leaving the card, so the typed number isn't lost.
+        assertEquals(listOf(ComparisonRow("", "7", ""), ComparisonRow("turkey", "3", "4")), rows)
+        // Only the answer counts in text and statistics.
+        assertEquals("Turkey Dinner: Planned 3, Actual 4, Δ 1; Total Difference: 1", ComparisonValues.display(def, rows))
+        val card = ClickerCard(clickerLogId = 1, uuid = "c", createdAt = 0, valuesJson = ClickerValues.encode(mapOf(field.id to stored)))
+        val stats = ClickerStatisticsCalculator.calculate(
+            ClickerStatisticsConfig(), listOf(field), listOf(card), ClickerStatisticsRange.AllTime,
+            java.time.LocalDate.of(2026, 10, 20), java.time.ZoneOffset.UTC,
+        ).single().comparison!!
+        assertEquals(0, stats.totalDifference!!.compareTo(java.math.BigDecimal.ONE))
+        assertEquals(1, stats.timesDifferent)
+    }
+
+    @Test
     fun deletingAnItemDropsOnlyItsRows() {
         val stored = ClickerComparison.stored(
             field.comparisonDef(),

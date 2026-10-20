@@ -683,7 +683,7 @@ private fun FieldReadout(
     modifier: Modifier = Modifier.fillMaxWidth().padding(top = AppTheme.spacing.related),
 ) {
     if (field.type == FieldType.COMPARISON) {
-        ComparisonReadout(field = field, rows = ComparisonValues.rows(values, field), modifier = modifier)
+        ComparisonReadout(field = field, rows = ComparisonValues.answers(ComparisonValues.rows(values, field)), modifier = modifier)
     } else if (field.type == FieldType.WEBPAGE) {
         Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
             LabelledValue(

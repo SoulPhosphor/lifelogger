@@ -222,7 +222,10 @@ object ClickerStatisticsCalculator {
      */
     private fun comparisonStatistics(field: ClickerField, values: List<Map<String, String>>): ClickerComparisonStatistics {
         val def = field.comparisonDef()
-        val cards = values.map { ComparisonValues.withStartingNumbers(def, ClickerComparison.rows(it, field.id)) }
+        // Draft rows (a number but no item yet) are not answers and never count.
+        val cards = values.map {
+            ComparisonValues.withStartingNumbers(def, ComparisonValues.answers(ClickerComparison.rows(it, field.id)))
+        }
         // A card's Total Difference is null when it has no completed row.
         val totals = cards.mapNotNull(ComparisonValues::total)
         val sum = totals.takeIf { it.isNotEmpty() }?.fold(BigDecimal.ZERO) { acc, total -> acc.add(total) }

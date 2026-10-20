@@ -22,11 +22,13 @@ object ClickerComparison {
             .let(ComparisonValues::decode)
 
     /**
-     * The stored text for [rows] of [field], or null when no row has an item.
-     * With clicker counting an item's untouched Starting Number is its value.
+     * The stored text for [rows] of [field], or null when there is nothing to
+     * keep. With clicker counting an item's untouched Starting Number is its
+     * value. A row with a number but no item yet is kept as a draft, since the
+     * card face saves as it changes; it is never counted as an answer.
      */
     fun stored(field: FieldDef, rows: List<ComparisonRow>): String? =
-        ComparisonValues.encode(ComparisonValues.withStartingNumbers(field, rows))?.toString()
+        ComparisonValues.encode(ComparisonValues.withStartingNumbers(field, rows), keepDrafts = true)?.toString()
 
     /** [valuesJson] with every row that picked [optionId] in field [fieldId] removed. */
     fun withoutOption(valuesJson: String, fieldId: String, optionId: String): String {

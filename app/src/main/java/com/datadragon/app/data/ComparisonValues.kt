@@ -162,12 +162,17 @@ object ComparisonValues {
     fun needsItem(row: ComparisonRow): Boolean =
         row.item.isBlank() && (parse(row.first) != null || parse(row.second) != null)
 
-    /** The stored form of [rows], or null when there is nothing to store. */
-    fun encode(rows: List<ComparisonRow>): JsonElement? {
-        val stored = rows.filter { it.item.isNotBlank() }.map { row ->
+    /**
+     * The stored form of [rows], or null when there is nothing to store. Only rows
+     * with an item are answers. [keepDrafts] also keeps a row that has a number
+     * but no item yet (a Clicker card saves as it changes, with no Save to hold
+     * it back), stored without an `item`; such a row never counts as an answer.
+     */
+    fun encode(rows: List<ComparisonRow>, keepDrafts: Boolean = false): JsonElement? {
+        val stored = rows.filter { it.item.isNotBlank() || (keepDrafts && needsItem(it)) }.map { row ->
             JsonObject(
                 buildMap {
-                    put(KEY_ITEM, JsonPrimitive(row.item))
+                    if (row.item.isNotBlank()) put(KEY_ITEM, JsonPrimitive(row.item))
                     parse(row.first)?.let { put(KEY_FIRST, JsonPrimitive(it)) }
                     parse(row.second)?.let { put(KEY_SECOND, JsonPrimitive(it)) }
                 },
@@ -183,10 +188,14 @@ object ComparisonValues {
     fun decode(raw: JsonElement?): List<ComparisonRow> =
         (raw as? JsonArray)?.mapNotNull { element ->
             val row = element as? JsonObject ?: return@mapNotNull null
-            val item = (row[KEY_ITEM] as? JsonPrimitive)?.contentOrNull?.ifBlank { null }
-                ?: return@mapNotNull null
+            val item = (row[KEY_ITEM] as? JsonPrimitive)?.contentOrNull.orEmpty()
             ComparisonRow(item = item, first = numberText(row[KEY_FIRST]), second = numberText(row[KEY_SECOND]))
+                // A row without an item is kept only as a draft holding a number.
+                .takeIf { it.item.isNotBlank() || needsItem(it) }
         }.orEmpty()
+
+    /** The rows that are answers: those with an item. Draft rows are left out. */
+    fun answers(rows: List<ComparisonRow>): List<ComparisonRow> = rows.filter { it.item.isNotBlank() }
 
     private fun numberText(element: JsonElement?): String {
         val content = (element as? JsonPrimitive)?.contentOrNull ?: return ""
@@ -210,8 +219,8 @@ object ComparisonValues {
      * rows joined by "; ", then the total. Null when nothing was saved.
      */
     fun display(field: FieldDef, stored: List<ComparisonRow>): String? {
-        if (stored.isEmpty()) return null
-        val rows = withStartingNumbers(field, stored)
+        val rows = withStartingNumbers(field, answers(stored))
+        if (rows.isEmpty()) return null
         val parts = rows.map { row ->
             val numbers = listOfNotNull(
                 parse(row.first)?.let { "${field.comparisonFirstLabel} ${format(it)}" },
