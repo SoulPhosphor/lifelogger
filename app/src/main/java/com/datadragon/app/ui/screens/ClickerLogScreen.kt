@@ -34,6 +34,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import com.datadragon.app.ui.components.AccessibleOutlinedTextField as OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -134,6 +136,12 @@ fun ClickerLogScreen(
     var confirmDeleteLog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    // One notice at a time: a repeat while it is still showing is ignored.
+    fun showNotice(message: String) {
+        if (snackbarHostState.currentSnackbarData?.visuals?.message == message) return
+        scope.launch { snackbarHostState.showSnackbar(message) }
+    }
 
     // Export, the same flow as Forms: the shared format dialog, then the system
     // "Save to…" sheet. The checkbox chooses whether Follow-Up Notes go along.
@@ -185,6 +193,7 @@ fun ClickerLogScreen(
     LaunchedEffect(newestFirst) { listState.scrollToItem(0) }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(log?.title ?: "Clicker Data") },
@@ -298,6 +307,13 @@ fun ClickerLogScreen(
                         onSetFollowUp = { raw -> viewModel.setValue(card, ClickerValues.FOLLOW_UP_KEY, raw) },
                         onStep = { field -> viewModel.step(card, field) },
                         onSetValue = { field, raw -> viewModel.setValue(card, field.id, raw) },
+                        comparison = ClickerComparisonActions(
+                            allowAdditions = log?.allowAdditionsFromForm ?: false,
+                            onRowsChange = { field, rows -> viewModel.setComparison(card, field, rows) },
+                            onAddOptions = viewModel::addComparisonOptions,
+                            onRestoreOption = viewModel::restoreComparisonOption,
+                            onNotice = { showNotice(it) },
+                        ),
                         onEditCard = { onEditCard(card.id) },
                         onDeleteCard = { viewModel.deleteCard(card) },
                     )
@@ -397,6 +413,7 @@ private fun ClickerCardView(
     onSetFollowUp: (String) -> Unit,
     onStep: (ClickerField) -> Unit,
     onSetValue: (ClickerField, String) -> Unit,
+    comparison: ClickerComparisonActions,
     onEditCard: () -> Unit,
     onDeleteCard: () -> Unit,
 ) {
@@ -437,6 +454,7 @@ private fun ClickerCardView(
                         values = values,
                         onStep = { onStep(field) },
                         onSetValue = { raw -> onSetValue(field, raw) },
+                        comparison = comparison,
                     )
                 }
             }
@@ -464,8 +482,16 @@ private fun ClickerFieldFace(
     values: Map<String, String>,
     onStep: () -> Unit,
     onSetValue: (String) -> Unit,
+    comparison: ClickerComparisonActions,
 ) {
     when (field.type) {
+        // Edited right on the card face and saved as it changes, like the trackers.
+        ClickerFieldType.COMPARISON -> ClickerComparisonEditor(
+            field = field,
+            stored = values,
+            actions = comparison,
+            onRowsChange = { rows -> comparison.onRowsChange(field, rows) },
+        )
         ClickerFieldType.CLICK_TRACKER -> {
             val value = ClickerValues.number(values, field.id) ?: field.startingNumber
             Row(verticalAlignment = Alignment.CenterVertically) {

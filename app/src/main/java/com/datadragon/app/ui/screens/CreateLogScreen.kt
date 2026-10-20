@@ -73,7 +73,10 @@ import com.datadragon.app.data.ChoiceOption
 import com.datadragon.app.data.OptionDuplicates
 import com.datadragon.app.data.StableUuid
 import com.datadragon.app.data.activeChoices
-import com.datadragon.app.data.hasChoices
+import com.datadragon.app.data.hasOptionList
+import com.datadragon.app.data.ComparisonValues
+import com.datadragon.app.data.ClickerIncrementDirection
+import androidx.compose.ui.focus.onFocusChanged
 import com.datadragon.app.data.hasDuplicateLabels
 import com.datadragon.app.data.matchingLabel
 import com.datadragon.app.data.ChoiceStyle
@@ -109,6 +112,7 @@ tags           — type a tag and add it; each becomes a removable chip
 webpage        — a web address, with a button that opens it
 blood_pressure — Two 3-Digit Boxes Separated by "/" (Systolic / Diastolic)
 ratio          — two numbers separated by "/". Set "left_digits" and "right_digits" (1 to 10). Add "unit" for a unit of measurement
+comparison     — rows of an item from a list with two numbers and their difference. Needs "options:". Set "digits" for max digits. Add "whole_numbers: false" to allow decimals
 
 Any field can add "required" to prevent saving without it."""
 
@@ -524,6 +528,121 @@ internal fun RatioFieldSettings(
     )
 }
 
+/** The editable Comparison settings held by both form builders' field drafts. */
+internal interface ComparisonSettingsDraft {
+    var itemLabel: String
+    var firstLabel: String
+    var secondLabel: String
+    var totalLabel: String
+    var digits: String
+    var wholeNumbersOnly: Boolean
+    var clickerCounting: Boolean
+    var clickerButtonLabel: String
+    var clickerStartingNumber: String
+    var clickerIncrement: String
+    var clickerDirection: ClickerIncrementDirection
+}
+
+/**
+ * A Comparison field's settings: the captions (each box shows its default,
+ * grayed, until something is typed over it), with "Use Clicker Style Counting"
+ * above the second column's caption — when it is on, the Clicker card's Click
+ * Tracker settings sit under that caption — then the optional digit limit and
+ * whether typed numbers are whole numbers only.
+ *
+ * [minimumDigits] is the most digits a saved number already has: Max Digits
+ * can't go below it, says so while it is typed lower, and goes back to it when
+ * the box is left.
+ */
+@Composable
+internal fun ComparisonFieldSettings(field: ComparisonSettingsDraft, minimumDigits: Int? = null) {
+    CaptionSetting("Item Column Label", field.itemLabel, { field.itemLabel = it }, ComparisonValues.DEFAULT_ITEM_LABEL)
+    CaptionSetting("First Column Label", field.firstLabel, { field.firstLabel = it }, ComparisonValues.DEFAULT_FIRST_LABEL)
+    SettingSwitchRow(
+        checked = field.clickerCounting,
+        onCheckedChange = { field.clickerCounting = it },
+        title = "Use Clicker Style Counting",
+    )
+    CaptionSetting("Second Column Label", field.secondLabel, { field.secondLabel = it }, ComparisonValues.DEFAULT_SECOND_LABEL)
+    if (field.clickerCounting) {
+        CaptionSetting("Button Label", field.clickerButtonLabel, { field.clickerButtonLabel = it }, ComparisonValues.DEFAULT_BUTTON_LABEL)
+        CaptionSetting(
+            title = "Starting Number",
+            value = field.clickerStartingNumber,
+            onChange = { input -> field.clickerStartingNumber = input.filter { it.isDigit() }.take(STARTING_NUMBER_DIGITS) },
+            default = "0",
+            number = true,
+        )
+        DirectionRow(selected = field.clickerDirection, onSelected = { field.clickerDirection = it })
+        CaptionSetting(
+            title = "In Increments Of",
+            value = field.clickerIncrement,
+            onChange = { input -> field.clickerIncrement = input.filter { it.isDigit() }.take(INCREMENT_DIGITS) },
+            default = "1",
+            number = true,
+        )
+    }
+    CaptionSetting("Total Label", field.totalLabel, { field.totalLabel = it }, ComparisonValues.DEFAULT_TOTAL_LABEL)
+    var maxDigitsFocused by remember { mutableStateOf(false) }
+    OutlinedTextField(
+        value = field.digits,
+        onValueChange = { input ->
+            // Nothing above the largest Max Digits is accepted; the box keeps what it had.
+            val digits = input.filter { it.isDigit() }.take(2)
+            if ((digits.toIntOrNull() ?: 0) <= ComparisonValues.MAX_DIGITS) field.digits = digits
+        },
+        label = { Text("Max Digits (Optional)") },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        modifier = Modifier.onFocusChanged { state ->
+            if (maxDigitsFocused && !state.isFocused) field.digits = digitsAtLeast(field.digits, minimumDigits)
+            maxDigitsFocused = state.isFocused
+        },
+    )
+    if (minimumDigits != null && digitsAtLeast(field.digits, minimumDigits) != field.digits) {
+        Text(
+            "Data already includes a value of $minimumDigits number places. You can not go below that.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+    SettingSwitchRow(
+        checked = field.wholeNumbersOnly,
+        onCheckedChange = { field.wholeNumbersOnly = it },
+        title = "Only Allow Whole Numbers",
+    )
+}
+
+/**
+ * A typed Max Digits value raised to [minimum] when it is below it. Blank (no
+ * limit) and values at or above [minimum] are kept as typed.
+ */
+internal fun digitsAtLeast(digits: String, minimum: Int?): String {
+    val typed = digits.toIntOrNull() ?: return digits
+    return if (minimum != null && typed < minimum) minimum.toString() else digits
+}
+
+/** One caption box: its label above, its default shown grayed inside while blank. */
+@Composable
+private fun CaptionSetting(
+    title: String,
+    value: String,
+    onChange: (String) -> Unit,
+    default: String,
+    number: Boolean = false,
+) {
+    Labeled(title) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onChange,
+            placeholder = { Text(default) },
+            singleLine = true,
+            keyboardOptions = if (number) KeyboardOptions(keyboardType = KeyboardType.Number) else KeyboardOptions.Default,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
 /** One "Number of Digits" setting: the title on the left, a short digits box on the right. */
 @Composable
 private fun RatioDigitsRow(title: String, value: String, onChange: (String) -> Unit) {
@@ -789,6 +908,15 @@ private fun FieldEditorCard(
                     unit = field.unit,
                     onUnitChange = { field.unit = it },
                 )
+                FieldType.COMPARISON -> {
+                    OutlinedTextField(
+                        value = field.optionsText,
+                        onValueChange = { field.optionsText = it },
+                        label = { Text("Options (One per Line)") },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = AppTheme.sizes.editorMinHeight),
+                    )
+                    ComparisonFieldSettings(field)
+                }
                 FieldType.DATETIME -> CheckboxSettingRow(
                     checked = field.defaultNow,
                     onCheckedChange = { field.defaultNow = it },
@@ -820,11 +948,14 @@ private fun FieldEditorCard(
                     )
                 }
             }
-            SettingSwitchRow(
-                checked = field.required,
-                onCheckedChange = { field.required = it },
-                title = "Required",
-            )
+            // A Comparison field is never required.
+            if (field.type != FieldType.COMPARISON) {
+                SettingSwitchRow(
+                    checked = field.required,
+                    onCheckedChange = { field.required = it },
+                    title = "Required",
+                )
+            }
             if (field.type == FieldType.DROPDOWN) {
                 ChoiceStyleRadios(
                     style = field.choiceStyle,
@@ -1014,12 +1145,22 @@ private class DraftField(
     leftDigits: String = "",
     rightDigits: String = "",
     unit: String = "",
-) {
+    itemLabel: String = "",
+    firstLabel: String = "",
+    secondLabel: String = "",
+    totalLabel: String = "",
+    wholeNumbersOnly: Boolean = true,
+    clickerCounting: Boolean = false,
+    clickerButtonLabel: String = "",
+    clickerStartingNumber: String = "",
+    clickerIncrement: String = "",
+    clickerDirection: ClickerIncrementDirection = ClickerIncrementDirection.ADD,
+) : ComparisonSettingsDraft {
     var label by mutableStateOf(label)
     var type by mutableStateOf(type)
     var required by mutableStateOf(required)
     var lines by mutableStateOf(lines)
-    var digits by mutableStateOf(digits)
+    override var digits by mutableStateOf(digits)
     var from by mutableStateOf(from)
     var to by mutableStateOf(to)
     var optionsText by mutableStateOf(optionsText)
@@ -1034,6 +1175,16 @@ private class DraftField(
     var leftDigits by mutableStateOf(leftDigits)
     var rightDigits by mutableStateOf(rightDigits)
     var unit by mutableStateOf(unit)
+    override var itemLabel by mutableStateOf(itemLabel)
+    override var firstLabel by mutableStateOf(firstLabel)
+    override var secondLabel by mutableStateOf(secondLabel)
+    override var totalLabel by mutableStateOf(totalLabel)
+    override var wholeNumbersOnly by mutableStateOf(wholeNumbersOnly)
+    override var clickerCounting by mutableStateOf(clickerCounting)
+    override var clickerButtonLabel by mutableStateOf(clickerButtonLabel)
+    override var clickerStartingNumber by mutableStateOf(clickerStartingNumber)
+    override var clickerIncrement by mutableStateOf(clickerIncrement)
+    override var clickerDirection by mutableStateOf(clickerDirection)
 
     fun optionList(): List<String> =
         optionsText.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
@@ -1072,7 +1223,7 @@ private class DraftField(
         return when (type) {
             FieldType.SCALE -> effectiveTo() >= effectiveFrom()
             FieldType.DROPDOWN -> optionList().isNotEmpty() && preselectedOptionValid()
-            FieldType.MULTIPLE -> optionList().isNotEmpty()
+            FieldType.MULTIPLE, FieldType.COMPARISON -> optionList().isNotEmpty()
             FieldType.RATIO -> ratioDigitsValid()
             else -> true
         }
@@ -1082,7 +1233,7 @@ private class DraftField(
     fun validationHint(): String? = when {
         label.trim().isEmpty() -> "Add a label."
         type == FieldType.SCALE && !isValid() -> "Scale To must be ≥ From."
-        (type == FieldType.DROPDOWN || type == FieldType.MULTIPLE) && optionList().isEmpty() ->
+        type.hasOptionList && optionList().isEmpty() ->
             "Add at least one option."
         !preselectedOptionValid() -> "Enter an option from the list."
         type == FieldType.RATIO && !ratioDigitsValid() -> RATIO_DIGITS_HINT
@@ -1097,12 +1248,16 @@ private class DraftField(
         id = StableUuid.createNew(),
         label = label.trim(),
         type = type,
-        required = required,
+        required = required && type != FieldType.COMPARISON,
         lines = if (type == FieldType.MULTILINE) lines.toIntOrNull() else null,
-        digits = if (type == FieldType.NUMBER) digits.toIntOrNull() else null,
+        digits = when (type) {
+            FieldType.NUMBER -> digits.toIntOrNull()
+            FieldType.COMPARISON -> ComparisonValues.parseMaxDigits(digits)
+            else -> null
+        },
         from = if (type == FieldType.SCALE) effectiveFrom() else null,
         to = if (type == FieldType.SCALE) effectiveTo() else null,
-        choices = if (type.hasChoices) choiceList() else emptyList(),
+        choices = if (type.hasOptionList) choiceList() else emptyList(),
         defaultNow = type == FieldType.DATETIME && defaultNow,
         allowOrderFiltering = type.sortEligible && allowOrderFiltering,
         allowUnknown = type == FieldType.YESNO && allowUnknown,
@@ -1111,6 +1266,16 @@ private class DraftField(
         leftDigits = if (type == FieldType.RATIO) RatioValues.parseDigits(leftDigits) else null,
         rightDigits = if (type == FieldType.RATIO) RatioValues.parseDigits(rightDigits) else null,
         unit = if (type == FieldType.RATIO) unit.trim() else "",
+        itemLabel = if (type == FieldType.COMPARISON) itemLabel.trim() else "",
+        firstLabel = if (type == FieldType.COMPARISON) firstLabel.trim() else "",
+        secondLabel = if (type == FieldType.COMPARISON) secondLabel.trim() else "",
+        totalLabel = if (type == FieldType.COMPARISON) totalLabel.trim() else "",
+        wholeNumbersOnly = type != FieldType.COMPARISON || wholeNumbersOnly,
+        clickerCounting = type == FieldType.COMPARISON && clickerCounting,
+        clickerButtonLabel = if (type == FieldType.COMPARISON) clickerButtonLabel.trim() else "",
+        clickerStartingNumber = if (type == FieldType.COMPARISON) clickerStartingNumber.toIntOrNull() ?: 0 else 0,
+        clickerIncrement = if (type == FieldType.COMPARISON) clickerIncrement.toIntOrNull()?.takeIf { it > 0 } ?: 1 else 1,
+        clickerDirection = if (type == FieldType.COMPARISON) clickerDirection else ClickerIncrementDirection.ADD,
     )
 
     fun toSnapshot(): DraftFieldSnapshot = DraftFieldSnapshot(
@@ -1132,6 +1297,16 @@ private class DraftField(
         leftDigits = leftDigits,
         rightDigits = rightDigits,
         unit = unit,
+        itemLabel = itemLabel,
+        firstLabel = firstLabel,
+        secondLabel = secondLabel,
+        totalLabel = totalLabel,
+        wholeNumbersOnly = wholeNumbersOnly,
+        clickerCounting = clickerCounting,
+        clickerButtonLabel = clickerButtonLabel,
+        clickerStartingNumber = clickerStartingNumber,
+        clickerIncrement = clickerIncrement,
+        clickerDirection = clickerDirection,
     )
 }
 
@@ -1163,6 +1338,16 @@ private data class DraftFieldSnapshot(
     val leftDigits: String = "",
     val rightDigits: String = "",
     val unit: String = "",
+    val itemLabel: String = "",
+    val firstLabel: String = "",
+    val secondLabel: String = "",
+    val totalLabel: String = "",
+    val wholeNumbersOnly: Boolean = true,
+    val clickerCounting: Boolean = false,
+    val clickerButtonLabel: String = "",
+    val clickerStartingNumber: String = "",
+    val clickerIncrement: String = "",
+    val clickerDirection: ClickerIncrementDirection = ClickerIncrementDirection.ADD,
 )
 
 private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
@@ -1184,6 +1369,16 @@ private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
     leftDigits = leftDigits,
     rightDigits = rightDigits,
     unit = unit,
+    itemLabel = itemLabel,
+    firstLabel = firstLabel,
+    secondLabel = secondLabel,
+    totalLabel = totalLabel,
+    wholeNumbersOnly = wholeNumbersOnly,
+    clickerCounting = clickerCounting,
+    clickerButtonLabel = clickerButtonLabel,
+    clickerStartingNumber = clickerStartingNumber,
+    clickerIncrement = clickerIncrement,
+    clickerDirection = clickerDirection,
 )
 
 /**
@@ -1252,6 +1447,16 @@ private fun FieldDef.toDraft(): DraftField = DraftField(
     leftDigits = leftDigits?.toString() ?: "",
     rightDigits = rightDigits?.toString() ?: "",
     unit = unit,
+    itemLabel = itemLabel,
+    firstLabel = firstLabel,
+    secondLabel = secondLabel,
+    totalLabel = totalLabel,
+    wholeNumbersOnly = wholeNumbersOnly,
+    clickerCounting = clickerCounting,
+    clickerButtonLabel = clickerButtonLabel,
+    clickerStartingNumber = clickerStartingNumber.takeIf { it != 0 }?.toString() ?: "",
+    clickerIncrement = clickerIncrement.takeIf { it != 1 }?.toString() ?: "",
+    clickerDirection = clickerDirection,
 )
 
 /** The first single-`#` line of [text], used as the log name when the box is empty. */
@@ -1276,6 +1481,7 @@ private fun FieldType.friendly(): String = when (this) {
     FieldType.WEBPAGE -> "Webpages"
     FieldType.BLOOD_PRESSURE -> "Blood Pressure"
     FieldType.RATIO -> "Ratios"
+    FieldType.COMPARISON -> "Comparison"
 }
 
 /** A short human-readable description of a parsed field for the preview. */
@@ -1295,6 +1501,7 @@ private fun FieldDef.summary(): String {
         FieldType.WEBPAGE -> "Webpage address"
         FieldType.BLOOD_PRESSURE -> "Blood pressure (###/###)"
         FieldType.RATIO -> "Ratios"
+        FieldType.COMPARISON -> "Compare: " + activeChoices.joinToString(", ") { it.label }
     }
     return if (required) "$base · required" else base
 }

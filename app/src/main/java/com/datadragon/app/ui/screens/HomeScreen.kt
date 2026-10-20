@@ -325,7 +325,7 @@ fun HomeScreen(
     // Offer to recover a list left unfinished when the app was last killed. The
     // draft was written for crash safety but never saved, so it's hidden from Home
     // until the user chooses. Recover opens it in the editor (still a draft);
-    // Discard deletes it. Tapping outside keeps it for next time.
+    // Okay deletes it. Tapping outside keeps it for next time.
     pendingDraft?.let { draft ->
         AppDialog(
             onDismissRequest = { viewModel.clearPendingDraft() },
@@ -333,7 +333,7 @@ fun HomeScreen(
             body = "You have a list that wasn't saved. Recover it to keep editing, " +
                 "or discard it.",
             dismissButton = {
-                DialogDestructiveButton("Discard") { viewModel.discardPendingDraft() }
+                DialogDestructiveButton("Okay") { viewModel.discardPendingDraft() }
             },
             confirmButton = {
                 DialogActionButton("Recover") {

@@ -25,7 +25,10 @@ data class ClickerField(
      * Tracker, "Okay" for a Write-In auto-increment button).
      */
     val buttonLabel: String = "",
-    /** Click Tracker: the value a fresh card's count starts at (up to 5 digits). */
+    /**
+     * Click Tracker, and Comparison with [useClickerCounting]: the value a fresh
+     * card's count (a Comparison row's second column) starts at (up to 5 digits).
+     */
     val startingNumber: Int = 0,
     /**
      * Click Tracker, and Write-In when [autoIncrement] is on: whether the button
@@ -37,10 +40,47 @@ data class ClickerField(
      * button press changes the value (up to 4 digits).
      */
     val incrementAmount: Int = 1,
-    /** Write-In Number: the maximum number of digits the value may have. */
+    /** Write-In Number and Comparison: the maximum number of digits a typed value may have. */
     val maxDigits: Int? = null,
     /** Write-In Number: offer a card-face button that steps the value. */
     val autoIncrement: Boolean = false,
+    /** Comparison: the items, active and retired, each with a permanent id ([FieldDef.choices]). */
+    val choices: List<ChoiceOption> = emptyList(),
+    /** Comparison: the column and total captions; blank shows the default. */
+    val itemLabel: String = "",
+    val firstLabel: String = "",
+    val secondLabel: String = "",
+    val totalLabel: String = "",
+    /** Comparison: the typed number columns take whole numbers only. */
+    val wholeNumbersOnly: Boolean = true,
+    /**
+     * Comparison: the second column counts with this field's button, set by
+     * [buttonLabel], [startingNumber], [incrementDirection] and [incrementAmount].
+     */
+    val useClickerCounting: Boolean = false,
+)
+
+/**
+ * A Comparison field as the shared Comparison controls and values read it. The
+ * Clicker field keeps its own id, label and items; its Click Tracker settings
+ * double as the Comparison's clicker counting settings.
+ */
+fun ClickerField.comparisonDef(): FieldDef = FieldDef(
+    id = id,
+    label = label,
+    type = FieldType.COMPARISON,
+    digits = maxDigits,
+    choices = choices,
+    itemLabel = itemLabel,
+    firstLabel = firstLabel,
+    secondLabel = secondLabel,
+    totalLabel = totalLabel,
+    wholeNumbersOnly = wholeNumbersOnly,
+    clickerCounting = useClickerCounting,
+    clickerButtonLabel = buttonLabel,
+    clickerStartingNumber = startingNumber,
+    clickerIncrement = incrementAmount,
+    clickerDirection = incrementDirection,
 )
 
 /**
@@ -59,7 +99,8 @@ enum class ClickerFieldType(val token: String) {
     TIME("time"),
     DATE_TIME("date_time"),
     TEXT("text"),
-    MULTITEXT("multitext");
+    MULTITEXT("multitext"),
+    COMPARISON("comparison");
 
     companion object {
         fun fromToken(token: String): ClickerFieldType? =
@@ -86,6 +127,6 @@ enum class ClickerIncrementDirection(val token: String) {
 val ClickerFieldType.editOnlyFromCardMenu: Boolean
     get() = when (this) {
         ClickerFieldType.CLICK_TRACKER, ClickerFieldType.WRITE_IN_NUMBER,
-        ClickerFieldType.TEXT, ClickerFieldType.MULTITEXT -> false
+        ClickerFieldType.TEXT, ClickerFieldType.MULTITEXT, ClickerFieldType.COMPARISON -> false
         ClickerFieldType.DATE, ClickerFieldType.TIME, ClickerFieldType.DATE_TIME -> true
     }

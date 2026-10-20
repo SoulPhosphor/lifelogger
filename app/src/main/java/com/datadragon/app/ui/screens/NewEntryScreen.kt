@@ -21,6 +21,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import com.datadragon.app.ui.components.AccessibleOutlinedTextField as OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -40,6 +42,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.datadragon.app.data.ComparisonRow
+import com.datadragon.app.data.ComparisonValues
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.preselectedMultipleChoices
@@ -88,6 +92,14 @@ private val tagValuesSaver = Saver<SnapshotStateMap<String, List<String>>, Strin
     },
 )
 
+private val comparisonValuesSaver = Saver<SnapshotStateMap<String, List<ComparisonRow>>, String>(
+    save = { map -> Json.encodeToString(map.toMap()) },
+    restore = { text ->
+        val decoded: Map<String, List<ComparisonRow>> = Json.decodeFromString(text)
+        mutableStateMapOf<String, List<ComparisonRow>>().apply { putAll(decoded) }
+    },
+)
+
 private val baselineSaver = Saver<Map<String, JsonElement>?, String>(
     save = { it?.let(EntryValues::encode) ?: "" },
     restore = { text -> if (text.isEmpty()) null else EntryValues.decode(text) },
@@ -116,7 +128,7 @@ fun NewEntryScreen(
     val fields by viewModel.fields.collectAsStateWithLifecycle()
     val initialValues by viewModel.initialValues.collectAsStateWithLifecycle()
     val allowAdditionsFromForm by viewModel.allowAdditionsFromForm.collectAsStateWithLifecycle()
-    // The Dropdown/Multiple field whose Add Option pop-up is open, by field id.
+    // The Dropdown/Multiple/Comparison field whose Add Option pop-up is open, by field id.
     var addingOptionTo by rememberSaveable { mutableStateOf<String?>(null) }
 
     val timestamp = remember {
@@ -130,9 +142,16 @@ fun NewEntryScreen(
     val textValues = rememberSaveable(saver = textValuesSaver) { mutableStateMapOf() }
     val multiValues = rememberSaveable(saver = multiValuesSaver) { mutableStateMapOf() }
     val tagValues = rememberSaveable(saver = tagValuesSaver) { mutableStateMapOf() }
+    val comparisonValues = rememberSaveable(saver = comparisonValuesSaver) { mutableStateMapOf() }
     var notes by rememberSaveable { mutableStateOf("") }
     var validationAttempted by rememberSaveable { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    // One notice at a time: a repeat while it is still showing is ignored.
+    fun showNotice(message: String) {
+        if (snackbarHostState.currentSnackbarData?.visuals?.message == message) return
+        coroutineScope.launch { snackbarHostState.showSnackbar(message) }
+    }
     val fieldTargets = remember(fields.map { it.id to it.type }) {
         fields.associate { field ->
             field.id to FieldValidationTarget(
@@ -156,6 +175,10 @@ fun NewEntryScreen(
                 FieldType.TAGS -> {
                     val tags = EntryValues.stringList(values, field)
                     if (tags.isNotEmpty()) tagValues[field.id] = tags
+                }
+                FieldType.COMPARISON -> {
+                    val rows = ComparisonValues.rows(values, field)
+                    if (rows.isNotEmpty()) comparisonValues[field.id] = rows
                 }
                 else -> EntryValues.rawValue(values, field)?.let { textValues[field.id] = it }
             }
@@ -203,18 +226,23 @@ fun NewEntryScreen(
         if (baseline != null) return@LaunchedEffect
         if (fields.isEmpty()) return@LaunchedEffect
         if (isEditing && initialValues == null) return@LaunchedEffect
-        baseline = collectValues(fields, textValues, multiValues, tagValues, notes)
+        baseline = collectValues(fields, textValues, multiValues, tagValues, comparisonValues, notes)
     }
 
-    val missingRequiredIds = missingRequiredFieldIds(fields, textValues, multiValues, tagValues)
+    val missingRequiredIds = missingRequiredFieldIds(fields, textValues, multiValues, tagValues, comparisonValues)
 
-    val dirty = baseline != null &&
-        collectValues(fields, textValues, multiValues, tagValues, notes) != baseline
+    // A Comparison row with a number but no item isn't stored, so it is checked
+    // directly: leaving would otherwise lose the typed number without a warning.
+    val dirty = baseline != null && (
+        collectValues(fields, textValues, multiValues, tagValues, comparisonValues, notes) != baseline ||
+            comparisonValues.values.any { rows -> rows.any(ComparisonValues::needsItem) }
+        )
     var showDiscard by rememberSaveable { mutableStateOf(false) }
     fun attemptBack() { if (dirty) showDiscard = true else onBack() }
     BackHandler { attemptBack() }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(if (isEditing) "Edit Entry" else "New Entry") },
@@ -229,7 +257,7 @@ fun NewEntryScreen(
                         onClick = {
                             if (missingRequiredIds.isEmpty()) {
                                 viewModel.save(
-                                    values = collectValues(fields, textValues, multiValues, tagValues, notes),
+                                    values = collectValues(fields, textValues, multiValues, tagValues, comparisonValues, notes),
                                     onSaved = onBack,
                                 )
                             } else {
@@ -276,6 +304,7 @@ fun NewEntryScreen(
                     textValues = textValues,
                     multiValues = multiValues,
                     tagValues = tagValues,
+                    comparisonValues = comparisonValues,
                     showRequiredError = validationAttempted && field.id in missingRequiredIds,
                     bringIntoViewRequester = target?.bringIntoViewRequester,
                     focusRequester = target?.focusRequester,
@@ -284,6 +313,7 @@ fun NewEntryScreen(
                     } else {
                         null
                     },
+                    onNotice = { showNotice(it) },
                 )
             }
 
@@ -311,12 +341,27 @@ fun NewEntryScreen(
             field = field,
             onCancel = { addingOptionTo = null },
             onConfirm = { additions ->
-                viewModel.addOptions(field.id, additions)
+                viewModel.addOptions(field.id, additions) { added ->
+                    if (field.type == FieldType.COMPARISON) placeComparisonItems(comparisonValues, field.id, added)
+                }
                 addingOptionTo = null
             },
-            onRestore = { option -> viewModel.restoreOption(field.id, option.id) },
+            onRestore = { option ->
+                viewModel.restoreOption(field.id, option.id) {
+                    if (field.type == FieldType.COMPARISON) placeComparisonItems(comparisonValues, field.id, listOf(option.id))
+                }
+            },
         )
     }
+}
+
+/** Put items just added to a Comparison field into its rows ([ComparisonValues.placeItems]). */
+private fun placeComparisonItems(
+    comparisonValues: SnapshotStateMap<String, List<ComparisonRow>>,
+    fieldId: String,
+    itemIds: List<String>,
+) {
+    comparisonValues[fieldId] = ComparisonValues.placeItems(comparisonValues[fieldId] ?: listOf(ComparisonRow()), itemIds)
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -333,16 +378,20 @@ private fun com.datadragon.app.data.FieldDef.supportsDirectFocus(): Boolean =
  * Fields that block Save, in visible form order: a required field with nothing
  * submitted, plus any `webpage` field holding something that isn't a valid
  * webpage address — blank is fine when the field is optional, but text that
- * isn't an address is never storable as one.
+ * isn't an address is never storable as one — and any `comparison` field with
+ * a row that has a number but no item.
  */
 internal fun missingRequiredFieldIds(
     fields: List<com.datadragon.app.data.FieldDef>,
     textValues: Map<String, String>,
     multiValues: Map<String, Set<String>>,
     tagValues: Map<String, List<String>> = emptyMap(),
+    comparisonValues: Map<String, List<ComparisonRow>> = emptyMap(),
 ): List<String> = fields.mapNotNull { field ->
     val value = textValues[field.id]
     val missing = when {
+        field.type == FieldType.COMPARISON ->
+            comparisonValues[field.id].orEmpty().any(ComparisonValues::needsItem)
         field.type == FieldType.WEBPAGE ->
             if (value.isNullOrBlank()) field.required else !WebAddress.isValid(value)
         field.type == FieldType.BLOOD_PRESSURE ->
@@ -385,6 +434,7 @@ internal fun collectValues(
     textValues: Map<String, String>,
     multiValues: Map<String, Set<String>>,
     tagValues: Map<String, List<String>>,
+    comparisonValues: Map<String, List<ComparisonRow>>,
     notes: String,
 ): Map<String, JsonElement> = buildMap {
     fields.forEach { field ->
@@ -401,6 +451,12 @@ internal fun collectValues(
                 // Tags keep the order they were added in.
                 val tags = tagValues[field.id].orEmpty()
                 if (tags.isNotEmpty()) put(field.id, EntryValues.stringArray(tags))
+            }
+            FieldType.COMPARISON -> {
+                // Rows keep the order they were entered in; a row with no item isn't stored.
+                // With clicker counting, an item's untouched Starting Number is its value.
+                val rows = ComparisonValues.withStartingNumbers(field, comparisonValues[field.id].orEmpty())
+                ComparisonValues.encode(rows)?.let { put(field.id, it) }
             }
             else -> {
                 val value = textValues[field.id]?.trim().orEmpty()

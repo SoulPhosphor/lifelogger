@@ -47,6 +47,13 @@ import com.datadragon.app.data.ClickerCard
 import com.datadragon.app.data.ClickerField
 import com.datadragon.app.data.ClickerFieldType
 import com.datadragon.app.data.ClickerValues
+import com.datadragon.app.data.ClickerComparison
+import com.datadragon.app.data.ComparisonValues
+import com.datadragon.app.data.comparisonDef
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import com.datadragon.app.ui.ClickerCardEditViewModel
 import com.datadragon.app.ui.theme.AppTheme
 import com.datadragon.app.ui.components.PopupButton
@@ -85,16 +92,36 @@ fun ClickerCardEditScreen(
     var displayTime by remember { mutableStateOf<String?>(null) }
     var original by remember { mutableStateOf<ClickerCard?>(null) }
     var allowFollowUp by remember { mutableStateOf(false) }
+    var allowAdditionsFromForm by remember { mutableStateOf(false) }
+    // Comparison fields with a row that has a number but no item; they block Save.
+    val comparisonBlocked = remember { mutableStateMapOf<String, Boolean>() }
+    // Which fields already held such a draft when the card was opened (saved from
+    // the card face): they still block Save, but alone don't count as an edit.
+    val draftsAtOpen = remember { mutableStateMapOf<String, Boolean>() }
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    // One notice at a time: a repeat while it is still showing is ignored.
+    fun showNotice(message: String) {
+        if (snackbarHostState.currentSnackbarData?.visuals?.message == message) return
+        scope.launch { snackbarHostState.showSnackbar(message) }
+    }
 
     LaunchedEffect(cardId) {
         val card = viewModel.loadCard(cardId)
         if (card != null) {
             original = card
-            allowFollowUp = viewModel.loadLog(card.clickerLogId)?.allowFollowUp ?: false
+            val log = viewModel.loadLog(card.clickerLogId)
+            allowFollowUp = log?.allowFollowUp ?: false
+            allowAdditionsFromForm = log?.allowAdditionsFromForm ?: false
             fields.clear()
             fields.addAll(viewModel.loadFields(card.clickerLogId))
             values.clear()
             values.putAll(ClickerValues.decode(card.valuesJson))
+            fields.filter { it.type == ClickerFieldType.COMPARISON }.forEach { field ->
+                val blocked = ClickerComparison.rows(values, field.id).any(ComparisonValues::needsItem)
+                comparisonBlocked[field.id] = blocked
+                draftsAtOpen[field.id] = blocked
+            }
             displayDate = card.displayDate
             displayTime = card.displayTime
         }
@@ -105,7 +132,9 @@ fun ClickerCardEditScreen(
     // compares equal to one that was never filled in.
     val current = original
     val dirty = current != null && (
-        displayDate != current.displayDate ||
+        // A new Comparison draft (a number but no item) counts as an edit.
+        comparisonBlocked.any { (id, blocked) -> blocked && draftsAtOpen[id] != true } ||
+            displayDate != current.displayDate ||
             displayTime != current.displayTime ||
             values.filterValues { it.isNotEmpty() } != ClickerValues.decode(current.valuesJson).filterValues { it.isNotEmpty() }
         )
@@ -113,7 +142,45 @@ fun ClickerCardEditScreen(
     fun attemptBack() { if (dirty) showDiscard = true else onBack() }
     BackHandler { attemptBack() }
 
+    val comparison = ClickerComparisonActions(
+        allowAdditions = allowAdditionsFromForm,
+        onRowsChange = { field, rows ->
+            comparisonBlocked[field.id] = rows.any(ComparisonValues::needsItem)
+            val stored = ClickerComparison.stored(field.comparisonDef(), rows)
+            if (stored == null) values.remove(field.id) else values[field.id] = stored
+        },
+        onAddOptions = { fieldId, additions, onAdded ->
+            val logId = original?.clickerLogId
+            if (logId != null) {
+                viewModel.addComparisonOptions(logId, fieldId, additions) { added ->
+                    // Show the new items before the rows name them.
+                    scope.launch {
+                        val reloaded = viewModel.loadFields(logId)
+                        fields.clear()
+                        fields.addAll(reloaded)
+                        onAdded(added)
+                    }
+                }
+            }
+        },
+        onRestoreOption = { fieldId, optionId, onDone ->
+            val logId = original?.clickerLogId
+            if (logId != null) {
+                viewModel.restoreComparisonOption(logId, fieldId, optionId) {
+                    scope.launch {
+                        val reloaded = viewModel.loadFields(logId)
+                        fields.clear()
+                        fields.addAll(reloaded)
+                        onDone()
+                    }
+                }
+            }
+        },
+        onNotice = { showNotice(it) },
+    )
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Edit Card") },
@@ -126,7 +193,7 @@ fun ClickerCardEditScreen(
                     TextButton(
                         enabled = current != null,
                         onClick = {
-                            if (current != null) {
+                            if (current != null && comparisonBlocked.values.none { it }) {
                                 viewModel.save(
                                     card = current.copy(
                                         displayDate = displayDate,
@@ -198,6 +265,12 @@ fun ClickerCardEditScreen(
                             modifier = Modifier.fillMaxWidth().heightIn(min = AppTheme.sizes.notesMinHeight),
                         )
                     }
+                    ClickerFieldType.COMPARISON -> ClickerComparisonEditor(
+                        field = field,
+                        stored = values,
+                        actions = comparison,
+                        onRowsChange = { rows -> comparison.onRowsChange(field, rows) },
+                    )
                 }
             }
 

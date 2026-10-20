@@ -40,7 +40,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.datadragon.app.data.ChoiceEdits
+import com.datadragon.app.data.ChoiceOption
 import com.datadragon.app.data.ClickerField
+import com.datadragon.app.data.SettingsRepository
+import com.datadragon.app.data.activeChoices
+import com.datadragon.app.data.hasDuplicateLabels
+import com.datadragon.app.ui.components.ChoiceEditorWordings
+import com.datadragon.app.ui.components.ChoiceOptionsEditor
+import com.datadragon.app.ui.components.ChoicePreselection
+import com.datadragon.app.ui.components.DuplicateItemDialog
 import com.datadragon.app.data.ClickerFieldType
 import com.datadragon.app.data.ClickerIncrementDirection
 import com.datadragon.app.data.StableUuid
@@ -54,8 +63,8 @@ import com.datadragon.app.ui.theme.AppTheme
 private const val EDIT_ONLY_NOTE =
     "These can only be changed by directly editing the clicker card using the dropdown ellipses."
 
-private const val STARTING_NUMBER_DIGITS = 5
-private const val INCREMENT_DIGITS = 4
+internal const val STARTING_NUMBER_DIGITS = 5
+internal const val INCREMENT_DIGITS = 4
 private const val MAX_DIGITS_DIGITS = 2
 
 /** A mutable draft of one tracker/field while the log is being set up. */
@@ -69,7 +78,14 @@ private class ClickerDraftField(
     incrementAmount: String = "",
     maxDigits: String = "",
     autoIncrement: Boolean = false,
-) {
+    choices: List<ChoiceOption> = emptyList(),
+    itemLabel: String = "",
+    firstLabel: String = "",
+    secondLabel: String = "",
+    totalLabel: String = "",
+    wholeNumbersOnly: Boolean = true,
+    useClickerCounting: Boolean = false,
+) : ComparisonSettingsDraft {
     var type by mutableStateOf(type)
     var label by mutableStateOf(label)
     var buttonLabel by mutableStateOf(buttonLabel)
@@ -78,6 +94,37 @@ private class ClickerDraftField(
     var incrementAmount by mutableStateOf(incrementAmount)
     var maxDigits by mutableStateOf(maxDigits)
     var autoIncrement by mutableStateOf(autoIncrement)
+    var choices by mutableStateOf(choices)
+    override var itemLabel by mutableStateOf(itemLabel)
+    override var firstLabel by mutableStateOf(firstLabel)
+    override var secondLabel by mutableStateOf(secondLabel)
+    override var totalLabel by mutableStateOf(totalLabel)
+    override var wholeNumbersOnly by mutableStateOf(wholeNumbersOnly)
+    override var clickerCounting by mutableStateOf(useClickerCounting)
+
+    // A Comparison field's clicker counting reuses this field's Click Tracker settings.
+    override var digits: String
+        get() = maxDigits
+        set(value) { maxDigits = value }
+    override var clickerButtonLabel: String
+        get() = buttonLabel
+        set(value) { buttonLabel = value }
+    override var clickerStartingNumber: String
+        get() = startingNumber
+        set(value) { startingNumber = value }
+    override var clickerIncrement: String
+        get() = incrementAmount
+        set(value) { incrementAmount = value }
+    override var clickerDirection: ClickerIncrementDirection
+        get() = incrementDirection
+        set(value) { incrementDirection = value }
+
+    /** The Comparison items that will be saved: a row left blank is never stored. */
+    fun savedChoices(): List<ChoiceOption> =
+        choices.filter { it.label.isNotBlank() }.map { it.copy(label = it.label.trim()) }
+
+    /** A Comparison field needs at least one active item; every other type is ready once labeled. */
+    fun hasItems(): Boolean = type != ClickerFieldType.COMPARISON || savedChoices().activeChoices.isNotEmpty()
 
     fun toField(): ClickerField = ClickerField(
         id = id,
@@ -87,8 +134,19 @@ private class ClickerDraftField(
         startingNumber = startingNumber.toIntOrNull() ?: 0,
         incrementDirection = incrementDirection,
         incrementAmount = (incrementAmount.toIntOrNull() ?: 1).coerceAtLeast(1),
-        maxDigits = maxDigits.toIntOrNull(),
+        maxDigits = if (type == ClickerFieldType.COMPARISON) {
+            maxDigits.toIntOrNull()?.takeIf { it > 0 }
+        } else {
+            maxDigits.toIntOrNull()
+        },
         autoIncrement = autoIncrement,
+        choices = if (type == ClickerFieldType.COMPARISON) savedChoices() else emptyList(),
+        itemLabel = if (type == ClickerFieldType.COMPARISON) itemLabel.trim() else "",
+        firstLabel = if (type == ClickerFieldType.COMPARISON) firstLabel.trim() else "",
+        secondLabel = if (type == ClickerFieldType.COMPARISON) secondLabel.trim() else "",
+        totalLabel = if (type == ClickerFieldType.COMPARISON) totalLabel.trim() else "",
+        wholeNumbersOnly = type != ClickerFieldType.COMPARISON || wholeNumbersOnly,
+        useClickerCounting = type == ClickerFieldType.COMPARISON && clickerCounting,
     )
 }
 
@@ -102,6 +160,24 @@ private fun ClickerField.toDraft(): ClickerDraftField = ClickerDraftField(
     incrementAmount = if (incrementAmount != 1) incrementAmount.toString() else "",
     maxDigits = maxDigits?.toString() ?: "",
     autoIncrement = autoIncrement,
+    choices = choices,
+    itemLabel = itemLabel,
+    firstLabel = firstLabel,
+    secondLabel = secondLabel,
+    totalLabel = totalLabel,
+    wholeNumbersOnly = wholeNumbersOnly,
+    useClickerCounting = useClickerCounting,
+)
+
+/** Everything Clicker setup saves, to tell whether an existing log has unsaved edits. */
+private data class ClickerSetupSnapshot(
+    val title: String,
+    val displayOnlyClickerDateTime: Boolean,
+    val autoDateStamp: Boolean,
+    val autoTimeStamp: Boolean,
+    val allowFollowUp: Boolean,
+    val allowAdditionsFromForm: Boolean,
+    val fields: List<ClickerField>,
 )
 
 /** The user-facing name of each field type, in Title Case. */
@@ -113,6 +189,7 @@ private fun ClickerFieldType.displayName(): String = when (this) {
     ClickerFieldType.DATE_TIME -> "Date & Time"
     ClickerFieldType.TEXT -> "Text"
     ClickerFieldType.MULTITEXT -> "Multitext"
+    ClickerFieldType.COMPARISON -> "Comparison"
 }
 
 /** Keep only digits, capped at [maxLen] characters. */
@@ -131,8 +208,16 @@ fun ClickerSetupScreen(
     var autoDateStamp by rememberSaveable { mutableStateOf(true) }
     var autoTimeStamp by rememberSaveable { mutableStateOf(false) }
     var allowFollowUp by rememberSaveable { mutableStateOf(false) }
+    var allowAdditionsFromForm by rememberSaveable { mutableStateOf(false) }
     val fields = remember { mutableStateListOf<ClickerDraftField>() }
     var loaded by remember { mutableStateOf(existingLogId == null) }
+    // Per Comparison field, the most digits a saved number already has.
+    var savedComparisonDigits by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    var showDuplicate by remember { mutableStateOf(false) }
+    // The setup as last loaded, so leaving an existing log with unsaved edits warns.
+    var savedSetup by remember { mutableStateOf<ClickerSetupSnapshot?>(null) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val capitalizeNewOptions = remember { SettingsRepository(context).autoCapitalizeOptions }
 
     // Seed the editor from an existing log the first time it opens (edit mode).
     androidx.compose.runtime.LaunchedEffect(existingLogId) {
@@ -144,17 +229,32 @@ fun ClickerSetupScreen(
                 autoDateStamp = log.autoDateStamp
                 autoTimeStamp = log.autoTimeStamp
                 allowFollowUp = log.allowFollowUp
+                allowAdditionsFromForm = log.allowAdditionsFromForm
+                savedComparisonDigits = viewModel.savedComparisonDigits(existingLogId)
                 fields.clear()
                 fields.addAll(viewModel.decodeFields(log.fieldsJson).map { it.toDraft() })
             }
             loaded = true
+            savedSetup = ClickerSetupSnapshot(
+                title, displayOnlyClickerDateTime, autoDateStamp, autoTimeStamp, allowFollowUp,
+                allowAdditionsFromForm, fields.map { it.toField() },
+            )
         }
     }
 
-    val canSave = title.isNotBlank() && fields.isNotEmpty() && fields.all { it.label.isNotBlank() }
-    val dirty = title.isNotBlank() || fields.isNotEmpty()
+    val canSave = title.isNotBlank() && fields.isNotEmpty() && fields.all { it.label.isNotBlank() && it.hasItems() }
+    val dirty = if (existingLogId == null) {
+        title.isNotBlank() || fields.isNotEmpty()
+    } else {
+        savedSetup?.let { saved ->
+            saved != ClickerSetupSnapshot(
+                title, displayOnlyClickerDateTime, autoDateStamp, autoTimeStamp, allowFollowUp,
+                allowAdditionsFromForm, fields.map { it.toField() },
+            )
+        } ?: false
+    }
     var showDiscard by rememberSaveable { mutableStateOf(false) }
-    fun attemptBack() { if (dirty && existingLogId == null) showDiscard = true else onBack() }
+    fun attemptBack() { if (dirty) showDiscard = true else onBack() }
     BackHandler { attemptBack() }
 
     Scaffold(
@@ -170,6 +270,15 @@ fun ClickerSetupScreen(
                     TextButton(
                         enabled = canSave,
                         onClick = {
+                            // Refuse an item list that repeats an item.
+                            if (fields.any { it.savedChoices().hasDuplicateLabels() }) {
+                                showDuplicate = true
+                                return@TextButton
+                            }
+                            // Max Digits never drops below what saved numbers already use.
+                            fields.filter { it.type == ClickerFieldType.COMPARISON }.forEach { field ->
+                                field.maxDigits = digitsAtLeast(field.maxDigits, savedComparisonDigits[field.id])
+                            }
                             viewModel.save(
                                 existingId = existingLogId,
                                 title = title.trim(),
@@ -177,6 +286,7 @@ fun ClickerSetupScreen(
                                 autoDateStamp = autoDateStamp,
                                 autoTimeStamp = autoTimeStamp,
                                 allowFollowUp = allowFollowUp,
+                                allowAdditionsFromForm = allowAdditionsFromForm,
                                 fields = fields.map { it.toField() },
                                 onSaved = onBack,
                             )
@@ -227,6 +337,11 @@ fun ClickerSetupScreen(
                 checked = allowFollowUp,
                 onCheckedChange = { allowFollowUp = it },
             )
+            ToggleRow(
+                title = "Allow Additions from Form",
+                checked = allowAdditionsFromForm,
+                onCheckedChange = { allowAdditionsFromForm = it },
+            )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = AppTheme.spacing.related))
 
@@ -242,6 +357,20 @@ fun ClickerSetupScreen(
                 ClickerFieldEditor(
                     field = field,
                     onRemove = { fields.remove(field) },
+                    capitalizeNewOptions = capitalizeNewOptions,
+                    minimumDigits = savedComparisonDigits[field.id],
+                    onDeleteOption = { option ->
+                        // Committed at once for a saved log, like a form's option, so
+                        // it leaves the saved baseline too and doesn't count as unsaved.
+                        existingLogId?.let { viewModel.deleteComparisonOptionPermanently(it, field.id, option.id) }
+                        savedSetup = savedSetup?.let { saved ->
+                            saved.copy(
+                                fields = saved.fields.map {
+                                    if (it.id == field.id) it.copy(choices = ChoiceEdits.withoutId(it.choices, option.id)) else it
+                                },
+                            )
+                        }
+                    },
                 )
             }
 
@@ -249,6 +378,10 @@ fun ClickerSetupScreen(
                 fields.add(ClickerDraftField(id = StableUuid.createNew(), type = type))
             })
         }
+    }
+
+    if (showDuplicate) {
+        DuplicateItemDialog(onDismiss = { showDuplicate = false })
     }
 
     if (showDiscard) {
@@ -263,7 +396,7 @@ fun ClickerSetupScreen(
 @Composable
 private fun ToggleRow(
     title: String,
-    subtitle: String,
+    subtitle: String? = null,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
@@ -276,11 +409,13 @@ private fun ToggleRow(
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(title, style = AppTheme.textStyles.settingTitle)
-            Text(
-                subtitle,
-                style = AppTheme.textStyles.settingDescription,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            subtitle?.let {
+                Text(
+                    it,
+                    style = AppTheme.textStyles.settingDescription,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         Spacer(Modifier.width(AppTheme.spacing.rowInset))
         Switch(checked = checked, onCheckedChange = null, modifier = Modifier.sizeIn(minWidth = AppTheme.sizes.minimumTouchTarget, minHeight = AppTheme.sizes.minimumTouchTarget))
@@ -312,6 +447,9 @@ private fun AddFieldButton(onAdd: (ClickerFieldType) -> Unit) {
 private fun ClickerFieldEditor(
     field: ClickerDraftField,
     onRemove: () -> Unit,
+    capitalizeNewOptions: Boolean,
+    minimumDigits: Int?,
+    onDeleteOption: (ChoiceOption) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -417,6 +555,25 @@ private fun ClickerFieldEditor(
                     }
                 }
             }
+            // The same item editor and settings as a form's Comparison field.
+            ClickerFieldType.COMPARISON -> {
+                ChoiceOptionsEditor(
+                    choices = field.choices,
+                    onChoicesChange = { field.choices = it },
+                    wording = ChoiceEditorWordings.formOptions,
+                    preselection = ChoicePreselection.NONE,
+                    capitalizeNew = capitalizeNewOptions,
+                    onDeletePermanently = onDeleteOption,
+                )
+                ComparisonFieldSettings(field, minimumDigits)
+                if (!field.hasItems()) {
+                    Text(
+                        "Add at least one option.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
             else -> {
                 if (field.type.editOnlyFromCardMenu) {
                     Text(
@@ -434,7 +591,7 @@ private fun ClickerFieldEditor(
 
 /** The "Add / Subtract" chooser for a stepping button. */
 @Composable
-private fun DirectionRow(
+internal fun DirectionRow(
     selected: ClickerIncrementDirection,
     onSelected: (ClickerIncrementDirection) -> Unit,
 ) {

@@ -51,7 +51,14 @@ data class BackupFile(
 
     companion object {
         const val FORMAT = "datadragon-backup"
-        const val VERSION = 9
+        const val VERSION = 10
+
+        /**
+         * The version before Comparison fields. A decoded version-9 file that
+         * carries nothing newer is re-encoded as version 9, so it still reads in
+         * the releases that wrote it.
+         */
+        const val PRE_COMPARISON_VERSION = 9
 
         /** Version 3 is the first envelope format; it lacks the automatic-backup preferences. */
         const val FIRST_ENVELOPE_VERSION = 3
@@ -322,6 +329,13 @@ data class BackupClickerLog(
      */
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val statisticsJson: String? = null,
+    /**
+     * "Allow Additions from Form" ([ClickerLog.allowAdditionsFromForm]). Written
+     * only when on (null means off), so a log without it encodes exactly as
+     * before and older backups keep their checksums.
+     */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val allowAdditionsFromForm: Boolean? = null,
 )
 
 @Serializable
@@ -535,10 +549,14 @@ object BackupCodec {
         ) { "Backup automatic backup preferences are incomplete." }
         // Preferences converted from a version-3 file lack the version-4 fields,
         // so they are re-encoded with the version that truthfully describes them.
-        val version = if (preferences != null && !preferences.hasAutomaticBackupPreferences && payload.luckyLists == null && preferences.modeEnabledLuckyList == null && !payload.hasAllowAdditionsFromForm() && !payload.hasVersion7FieldSettings() && !payload.hasVersion8Identities() && !payload.hasAdvancedSearchSettings()) {
+        val version = if (preferences != null && !preferences.hasAutomaticBackupPreferences && payload.luckyLists == null && preferences.modeEnabledLuckyList == null && !payload.hasAllowAdditionsFromForm() && !payload.hasVersion7FieldSettings() && !payload.hasVersion8Identities() && !payload.hasAdvancedSearchSettings() && !payload.hasVersion10Comparison()) {
             BackupFile.FIRST_ENVELOPE_VERSION
-        } else {
+        } else if (payload.hasVersion10Comparison()) {
             BackupFile.VERSION
+        } else {
+            // A new backup is the current version; a decoded older one keeps the
+            // version that truthfully describes it (never below 9, as before).
+            backup.version.coerceIn(BackupFile.PRE_COMPARISON_VERSION, BackupFile.VERSION)
         }
         return BackupEnvelopeV3(
             format = BackupFile.FORMAT,
@@ -590,6 +608,11 @@ object BackupCodec {
         }
         require(envelope.version >= 9 || !envelope.payload.hasAdvancedSearchSettings()) {
             "Advanced Search settings require backup version 9."
+        }
+        // Comparison fields and the Clicker New Option setting arrived in version
+        // 10; an older reader would drop or reject them.
+        require(envelope.version >= 10 || !envelope.payload.hasVersion10Comparison()) {
+            "Comparison fields require backup version 10."
         }
         validateManifest(envelope.includedCategories, envelope.payload)
         val canonical = canonicalPayload(envelope.payload)
@@ -687,6 +710,22 @@ object BackupCodec {
     private fun BackupPayload.hasAdvancedSearchSettings(): Boolean =
         forms.orEmpty().any { it.advancedSearchEnabled != null } ||
             portablePreferences?.dailyListAdvancedSearchEnabled != null
+
+    /**
+     * True when a form or Clicker Data Log has a Comparison field, or a Clicker
+     * Data Log turns on Allow Additions from Form — the version-10 content.
+     */
+    private fun BackupPayload.hasVersion10Comparison(): Boolean =
+        forms.orEmpty().any { declaresComparison(it.schemaJson) } ||
+            clickerData.orEmpty().any { it.allowAdditionsFromForm != null || declaresComparison(it.fieldsJson) }
+
+    private fun declaresComparison(fieldsJson: String): Boolean {
+        val fields = runCatching { Json.parseToJsonElement(fieldsJson) }.getOrNull() as? JsonArray ?: return false
+        return fields.any { element ->
+            val token = ((element as? JsonObject)?.get("type") as? JsonPrimitive)?.contentOrNull
+            token?.trim()?.lowercase() == FieldType.COMPARISON.token
+        }
+    }
 
     private fun BackupPayload.hasAllowAdditionsFromForm(): Boolean =
         forms.orEmpty().any { it.allowAdditionsFromForm == true }
@@ -915,6 +954,7 @@ object BackupCodec {
             autoDateStamp = log.autoDateStamp,
             autoTimeStamp = log.autoTimeStamp,
             allowFollowUp = log.allowFollowUp,
+            allowAdditionsFromForm = log.allowAdditionsFromForm.takeIf { it },
             cards = cards.map { card ->
                 val valuesJson = if (includeFollowUps) {
                     card.valuesJson

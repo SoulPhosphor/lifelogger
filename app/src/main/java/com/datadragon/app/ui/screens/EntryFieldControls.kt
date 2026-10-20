@@ -58,6 +58,7 @@ import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.ui.components.TagsEditor
 import com.datadragon.app.ui.components.WebpageEntryField
 import com.datadragon.app.data.ChoiceStyle
+import com.datadragon.app.data.ComparisonRow
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.FieldType
@@ -98,8 +99,9 @@ private fun FieldDef.displayLabel(): String = if (required) "$label *" else labe
  * Renders one generated entry control for [field], reading and writing into the
  * shared form state. Single-valued fields live in [textValues]; `multiple`
  * fields live in [multiValues]; `tags` fields live in [tagValues], which keeps a
- * list rather than a set so tags stay in the order they were added. Storage
- * forms follow [EntryValues].
+ * list rather than a set so tags stay in the order they were added;
+ * `comparison` fields live in [comparisonValues], where a field with no entry
+ * shows one blank row. Storage forms follow [EntryValues].
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -108,11 +110,14 @@ fun EntryFieldControl(
     textValues: SnapshotStateMap<String, String>,
     multiValues: SnapshotStateMap<String, Set<String>>,
     tagValues: SnapshotStateMap<String, List<String>>,
+    comparisonValues: SnapshotStateMap<String, List<ComparisonRow>>,
     showRequiredError: Boolean = false,
     bringIntoViewRequester: BringIntoViewRequester? = null,
     focusRequester: FocusRequester? = null,
-    /** Set when the form allows additions: opens Add Option for a Dropdown/Multiple field. */
+    /** Set when the form allows additions: opens Add Option for a Dropdown/Multiple/Comparison field. */
     onAddOption: ((FieldDef) -> Unit)? = null,
+    /** Shows a short message to the user, such as a refused decimal point. */
+    onNotice: (String) -> Unit = {},
 ) {
     val label = field.displayLabel()
     val targetModifier = bringIntoViewRequester?.let {
@@ -128,7 +133,13 @@ fun EntryFieldControl(
         Modifier
     }
     Column(modifier = targetModifier.then(validationModifier).semantics {
-        if (showRequiredError) error("${field.label}: This field is required.")
+        if (showRequiredError) {
+            if (field.type == FieldType.COMPARISON) {
+                error("${field.label}: Choose an item for each row with numbers.")
+            } else {
+                error("${field.label}: This field is required.")
+            }
+        }
     }) {
         when (field.type) {
             FieldType.TEXT -> Labeled(label) {
@@ -287,6 +298,16 @@ fun EntryFieldControl(
                 rightDigits = field.rightDigits ?: MAX_RATIO_DIGITS,
                 unit = field.unit,
                 onChange = { textValues[field.id] = it },
+            )
+
+            // No title of its own: the column captions head the table.
+            FieldType.COMPARISON -> ComparisonField(
+                field = field,
+                rows = comparisonValues[field.id] ?: listOf(ComparisonRow()),
+                onRowsChange = { comparisonValues[field.id] = it },
+                showError = showRequiredError,
+                onNewOption = onAddOption?.let { add -> { add(field) } },
+                onNotice = onNotice,
             )
         }
     }

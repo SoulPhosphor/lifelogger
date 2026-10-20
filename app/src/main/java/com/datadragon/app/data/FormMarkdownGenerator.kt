@@ -41,6 +41,23 @@ object FormMarkdownGenerator {
                         }
                     }
                 }
+                FieldType.COMPARISON -> {
+                    sb.append("options:\n")
+                    field.activeChoices.forEach { choice -> sb.append("- ").append(choice.label).append('\n') }
+                    field.digits?.let { sb.append("digits: ").append(it).append('\n') }
+                    if (!field.wholeNumbersOnly) sb.append("whole_numbers: false\n")
+                    if (field.itemLabel.isNotBlank()) sb.append("item_label: ").append(field.itemLabel.trim()).append('\n')
+                    if (field.firstLabel.isNotBlank()) sb.append("first_label: ").append(field.firstLabel.trim()).append('\n')
+                    if (field.secondLabel.isNotBlank()) sb.append("second_label: ").append(field.secondLabel.trim()).append('\n')
+                    if (field.totalLabel.isNotBlank()) sb.append("total_label: ").append(field.totalLabel.trim()).append('\n')
+                    if (field.clickerCounting) sb.append("clicker_counting: true\n")
+                    if (field.clickerButtonLabel.isNotBlank()) {
+                        sb.append("button_label: ").append(field.clickerButtonLabel.trim()).append('\n')
+                    }
+                    if (field.clickerStartingNumber != 0) sb.append("starting_number: ").append(field.clickerStartingNumber).append('\n')
+                    if (field.clickerIncrement != 1) sb.append("increment: ").append(field.clickerIncrement).append('\n')
+                    if (field.clickerDirection == ClickerIncrementDirection.SUBTRACT) sb.append("direction: subtract\n")
+                }
                 FieldType.RATIO -> {
                     field.leftDigits?.let { sb.append("left_digits: ").append(it).append('\n') }
                     field.rightDigits?.let { sb.append("right_digits: ").append(it).append('\n') }

@@ -45,8 +45,9 @@ lines: 4
 | `webpage` | A web address, with a button that opens it in the browser | none |
 | `blood_pressure` | Two 3-digit boxes separated by `/` (systolic / diastolic) | none |
 | `ratio` | Two number boxes separated by `/`, followed by an optional unit | `left_digits` and `right_digits` — max digits on each side (1 to 10, both required); `unit` — unit of measurement (optional) |
+| `comparison` | Rows of an item picked from a list plus two numbers, with each row's difference and a total | the list of items; `digits` — max digits per number (optional); `whole_numbers: false` allows a decimal point; `item_label`, `first_label`, `second_label`, `total_label` rename the captions (defaults Item, Expected, Actual, Total Difference); `clicker_counting: true` counts the second column with a button, set by `button_label` (default Add), `starting_number` (default 0), `increment` (default 1) and `direction: subtract` |
 
-Any field may also add `required` (the user must fill it before saving). Fields are optional by default.
+Any field may also add `required` (the user must fill it before saving). Fields are optional by default. A `comparison` field is never required; `required` is ignored on it.
 
 ### Scale rendering
 
@@ -169,6 +170,40 @@ Stored as the two numbers joined by `/` (e.g. `120/80`) and displayed with the
 unit after it (`Blood Pressure Reading: 120/80 mmHg`). Each box takes up to its
 digit count, fewer is fine. Both boxes must be filled, or (when optional) both
 left blank.
+
+### comparison
+
+```
+## Meals
+type: comparison
+options:
+- Turkey Dinner
+- Ham Dinner
+digits: 3
+whole_numbers: false
+first_label: Expected
+second_label: Actual
+```
+
+The entry form shows a table: an item drop-down, the two number boxes, the
+difference (second minus first, shown as Δ) and a remove X on each row, then the
+total of the differences under it. An item can be picked in only one row.
+Numbers may be negative; with `whole_numbers: false` they may also carry one
+decimal point. `digits` counts digits only, never the point or the minus sign.
+Either number may be left blank, so a row can be filled in at different times;
+a row with a number but no item blocks Save. A row's difference and the total
+count only rows that have both numbers.
+
+With `clicker_counting: true` the second column has no typed box: it shows its
+value and a button that adds (or, with `direction: subtract`, subtracts)
+`increment` each press. A row's value begins at `starting_number`, which counts
+as entered as soon as the row has an item, with no press needed — starting 5 in
+steps of 2 gives 5, 7, 9, 11. `digits` and `whole_numbers` then apply to the
+first column only. Switching counting on or off never changes saved numbers.
+
+Stored as a JSON array of rows, each `{"item": <option id>, "first": <number>,
+"second": <number>}`, with a blank number left out. The item is the option's
+permanent id, so renaming an option never disconnects saved rows.
 
 ### yesno
 

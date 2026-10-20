@@ -4,6 +4,49 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-10-20 — Comparison form field
+
+- **New field type**: Comparison (`comparison`). Each row picks an item from the
+  field's options and takes two numbers; the row shows the difference (second −
+  first, Δ) and a Total Difference line sums every row that has both numbers.
+  Either number may be left blank so a row can be filled in over time. An item
+  can be picked in one row only; a row with a number but no item blocks Save.
+- **Identity**: items are ordinary `ChoiceOption`s with permanent ids. Rows store
+  the option id (`{"item", "first", "second"}`, numbers as JSON numbers), so
+  renames never disconnect saved rows. Deleting an option removes only the rows
+  that picked it. Form entries use the existing JSON entry-values column.
+  Backups that hold Comparison content are written as backup version 10 (up
+  from 9); the database moves from v25 to v26 for the Clicker toggle below.
+- **Settings**: Item / First / Second Column Label and Total Label (blank shows
+  Item, Expected, Actual, Total Difference grayed in the box), Max Digits
+  (Optional, counts digits only), Only Allow Whole Numbers (on by default). No
+  Required toggle.
+- **Entry form**: Add Item (disabled as "No Items Left" when every item is in
+  use) and, when Allow Additions from Form is on, New Option, which reuses the
+  Add Option pop-up and drops each new item into the last row if it has no item
+  yet, otherwise into a new row. Rows sit on one line when the width allows and
+  wrap to two lines otherwise.
+- **Use Clicker Style Counting** (off by default), above Second Column Label:
+  the second column becomes a value with a tracker button, set by the Clicker
+  card's Button Label, Starting Number, Direction and In Increments Of. The
+  Starting Number counts as soon as a row has an item. Switching it on or off
+  keeps every saved number. Max Digits can't go below the longest saved
+  number. Typing a decimal point into a whole-number box shows a notice.
+- **Clicker Data Logs** can hold Comparison fields too, set up with the same
+  item editor and settings and shown the same way on the card face (edited
+  there, saved as it changes) and on the card's Edit screen. Rows are kept as
+  the same JSON row text inside the card's values, by item id. A new "Allow
+  Additions from Form" toggle in Clicker setup (database v25 → v26, additive
+  `MIGRATION_25_26`, off by default; backed up only when on) shows New Option.
+- **Clicker Statistics for Comparison fields**: Greatest Total Difference,
+  Least Total Difference, Average Total Difference and Total Difference come
+  from each card's Total Difference (cards with no completed row are left out;
+  a missing number is never zero). "Times [First] Was Different Than [Second]"
+  counts cards with at least one completed row whose numbers differ, so totals
+  that cancel to zero still count. Number tracker statistics are unchanged.
+
+---
+
 ## 2026-10-13 — Permanent field and option identities; option row editor
 
 - **Identity**: every Form field and every Single / Multiple Choice option has a

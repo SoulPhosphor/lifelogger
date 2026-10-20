@@ -235,8 +235,10 @@ object BackupRestoreValidator {
             }
             JsonObject(normalizedElement)
         })
-        runCatching { json.decodeFromJsonElement<List<ClickerField>>(normalized) }
+        val fields = runCatching { json.decodeFromJsonElement<List<ClickerField>>(normalized) }
             .getOrElse { throw IllegalArgumentException("Clicker fields are invalid JSON.", it) }
+        // Comparison items are matched to card rows by id, so each needs a unique one.
+        fields.forEach { requireUniqueChoiceIds(it.choices, "Clicker Comparison item") }
     }
 
     /**
