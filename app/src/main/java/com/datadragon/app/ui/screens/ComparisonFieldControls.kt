@@ -359,8 +359,9 @@ private fun ComparisonNumberBox(
             onChange(ComparisonValues.acceptInput(input, value, field.wholeNumbersOnly, field.digits))
         },
         singleLine = true,
+        // Signed keyboards, so the minus sign is offered where the keyboard supports it.
         keyboardOptions = KeyboardOptions(
-            keyboardType = if (field.wholeNumbersOnly) KeyboardType.Number else KeyboardType.Decimal,
+            keyboardType = if (field.wholeNumbersOnly) KeyboardType.NumberSigned else KeyboardType.DecimalSigned,
         ),
         accessibleLabel = accessibleLabel,
         modifier = modifier,
