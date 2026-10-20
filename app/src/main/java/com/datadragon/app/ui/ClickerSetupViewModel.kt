@@ -58,10 +58,16 @@ class ClickerSetupViewModel(app: Application) : AndroidViewModel(app) {
                 db.withTransaction {
                     val log = dao.getLog(logId) ?: return@withTransaction
                     ClickerComparison.withoutOptionInLog(log, fieldId, optionId)?.let { dao.updateLog(it) }
+                    var cardsChanged = false
                     dao.getCardsForLog(logId).forEach { card ->
                         val updated = ClickerComparison.withoutOption(card.valuesJson, fieldId, optionId)
-                        if (updated != card.valuesJson) dao.updateCard(card.copy(valuesJson = updated))
+                        if (updated != card.valuesJson) {
+                            dao.updateCard(card.copy(valuesJson = updated))
+                            cardsChanged = true
+                        }
                     }
+                    // Card content changed, so the log's Last Saved moves too.
+                    if (cardsChanged) dao.touchModified(logId, System.currentTimeMillis())
                 }
             }
         }

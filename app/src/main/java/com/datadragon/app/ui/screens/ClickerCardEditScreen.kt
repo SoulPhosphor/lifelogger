@@ -95,6 +95,9 @@ fun ClickerCardEditScreen(
     var allowAdditionsFromForm by remember { mutableStateOf(false) }
     // Comparison fields with a row that has a number but no item; they block Save.
     val comparisonBlocked = remember { mutableStateMapOf<String, Boolean>() }
+    // Which fields already held such a draft when the card was opened (saved from
+    // the card face): they still block Save, but alone don't count as an edit.
+    val draftsAtOpen = remember { mutableStateMapOf<String, Boolean>() }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     // One notice at a time: a repeat while it is still showing is ignored.
@@ -114,6 +117,11 @@ fun ClickerCardEditScreen(
             fields.addAll(viewModel.loadFields(card.clickerLogId))
             values.clear()
             values.putAll(ClickerValues.decode(card.valuesJson))
+            fields.filter { it.type == ClickerFieldType.COMPARISON }.forEach { field ->
+                val blocked = ClickerComparison.rows(values, field.id).any(ComparisonValues::needsItem)
+                comparisonBlocked[field.id] = blocked
+                draftsAtOpen[field.id] = blocked
+            }
             displayDate = card.displayDate
             displayTime = card.displayTime
         }
@@ -124,8 +132,8 @@ fun ClickerCardEditScreen(
     // compares equal to one that was never filled in.
     val current = original
     val dirty = current != null && (
-        // A Comparison row with a number but no item isn't in the values yet.
-        comparisonBlocked.values.any { it } ||
+        // A new Comparison draft (a number but no item) counts as an edit.
+        comparisonBlocked.any { (id, blocked) -> blocked && draftsAtOpen[id] != true } ||
             displayDate != current.displayDate ||
             displayTime != current.displayTime ||
             values.filterValues { it.isNotEmpty() } != ClickerValues.decode(current.valuesJson).filterValues { it.isNotEmpty() }
