@@ -6,7 +6,10 @@ import androidx.lifecycle.viewModelScope
 import com.datadragon.app.data.AppDatabase
 import com.datadragon.app.data.ClickerCard
 import com.datadragon.app.data.ClickerCardOrder
+import com.datadragon.app.data.ClickerComparison
 import com.datadragon.app.data.ClickerField
+import com.datadragon.app.data.ComparisonRow
+import com.datadragon.app.data.comparisonDef
 import com.datadragon.app.data.ClickerFieldType
 import com.datadragon.app.data.ClickerIncrementDirection
 import com.datadragon.app.data.ClickerLog
@@ -147,6 +150,35 @@ class ClickerLogViewModel(app: Application) : AndroidViewModel(app) {
                 if (field.incrementDirection == ClickerIncrementDirection.ADD) field.incrementAmount
                 else -field.incrementAmount
             values[field.id] = (currentValue + delta).toString()
+        }
+    }
+
+    /**
+     * Save a Comparison field's rows from the card face. A row with no item is
+     * not stored; with clicker counting an item's untouched Starting Number is.
+     */
+    fun setComparison(card: ClickerCard, field: ClickerField, rows: List<ComparisonRow>) {
+        val stored = ClickerComparison.stored(field.comparisonDef(), rows)
+        mutate(card.id) { values ->
+            if (stored == null) values.remove(field.id) else values[field.id] = stored
+        }
+    }
+
+    /** Add items to a Comparison field from a card (New Option); [onAdded] gets their ids. */
+    fun addComparisonOptions(fieldId: String, additions: List<String>, onAdded: (List<String>) -> Unit) {
+        val id = logId.value ?: return
+        viewModelScope.launch {
+            val added = ClickerComparison.addOptions(dao, id, fieldId, additions, settings.autoCapitalizeOptions)
+            onAdded(added)
+        }
+    }
+
+    /** Restore a retired Comparison item with its original id; [onDone] runs once it is back. */
+    fun restoreComparisonOption(fieldId: String, optionId: String, onDone: () -> Unit) {
+        val id = logId.value ?: return
+        viewModelScope.launch {
+            ClickerComparison.restoreOption(dao, id, fieldId, optionId)
+            onDone()
         }
     }
 

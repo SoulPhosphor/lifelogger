@@ -34,6 +34,7 @@ import androidx.room.PrimaryKey
  *   at the top of each card. The real creation instant is always kept in
  *   [ClickerCard.createdAt] regardless, so cards can be ordered either way.
  * - [allowFollowUp]: cards may carry follow-up notes, added from the edit menu.
+ * - [allowAdditionsFromForm]: Comparison fields offer New Option on the cards.
  *
  * [statisticsJson] holds the Statistics Designer choices (a
  * [ClickerStatisticsConfig]); blank means every default.
@@ -56,6 +57,12 @@ data class ClickerLog(
     val allowFollowUp: Boolean = false,
     @ColumnInfo(defaultValue = "")
     val statisticsJson: String = "",
+    /**
+     * "Allow Additions from Form": when on, each Comparison field on this log's
+     * cards shows New Option, which adds items to the field. Off by default.
+     */
+    @ColumnInfo(defaultValue = "0")
+    val allowAdditionsFromForm: Boolean = false,
 )
 
 /**

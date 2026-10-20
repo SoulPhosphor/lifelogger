@@ -322,6 +322,13 @@ data class BackupClickerLog(
      */
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val statisticsJson: String? = null,
+    /**
+     * "Allow Additions from Form" ([ClickerLog.allowAdditionsFromForm]). Written
+     * only when on (null means off), so a log without it encodes exactly as
+     * before and older backups keep their checksums.
+     */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val allowAdditionsFromForm: Boolean? = null,
 )
 
 @Serializable
@@ -689,7 +696,8 @@ object BackupCodec {
             portablePreferences?.dailyListAdvancedSearchEnabled != null
 
     private fun BackupPayload.hasAllowAdditionsFromForm(): Boolean =
-        forms.orEmpty().any { it.allowAdditionsFromForm == true }
+        forms.orEmpty().any { it.allowAdditionsFromForm == true } ||
+            clickerData.orEmpty().any { it.allowAdditionsFromForm == true }
 
     private fun canonicalForms(forms: List<BackupLog>): List<BackupLog> = forms.map { form ->
         form.copy(
@@ -915,6 +923,7 @@ object BackupCodec {
             autoDateStamp = log.autoDateStamp,
             autoTimeStamp = log.autoTimeStamp,
             allowFollowUp = log.allowFollowUp,
+            allowAdditionsFromForm = log.allowAdditionsFromForm.takeIf { it },
             cards = cards.map { card ->
                 val valuesJson = if (includeFollowUps) {
                     card.valuesJson

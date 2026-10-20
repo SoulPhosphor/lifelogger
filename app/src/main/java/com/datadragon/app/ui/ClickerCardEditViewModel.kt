@@ -5,7 +5,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.datadragon.app.data.AppDatabase
 import com.datadragon.app.data.ClickerCard
+import com.datadragon.app.data.ClickerComparison
 import com.datadragon.app.data.ClickerField
+import com.datadragon.app.data.SettingsRepository
 import com.datadragon.app.data.ClickerLog
 import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
@@ -26,6 +28,22 @@ class ClickerCardEditViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun decodeFields(fieldsJson: String): List<ClickerField> =
         runCatching { json.decodeFromString<List<ClickerField>>(fieldsJson) }.getOrDefault(emptyList())
+
+    /** Add items to a Comparison field of log [logId] (New Option); [onAdded] gets their ids. */
+    fun addComparisonOptions(logId: Long, fieldId: String, additions: List<String>, onAdded: (List<String>) -> Unit) {
+        viewModelScope.launch {
+            val capitalize = SettingsRepository(getApplication()).autoCapitalizeOptions
+            onAdded(ClickerComparison.addOptions(dao, logId, fieldId, additions, capitalize))
+        }
+    }
+
+    /** Restore a retired Comparison item with its original id; [onDone] runs once it is back. */
+    fun restoreComparisonOption(logId: Long, fieldId: String, optionId: String, onDone: () -> Unit) {
+        viewModelScope.launch {
+            ClickerComparison.restoreOption(dao, logId, fieldId, optionId)
+            onDone()
+        }
+    }
 
     fun save(card: ClickerCard, onSaved: () -> Unit) {
         viewModelScope.launch {

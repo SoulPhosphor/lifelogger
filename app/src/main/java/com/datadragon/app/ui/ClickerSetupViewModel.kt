@@ -4,7 +4,12 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.datadragon.app.data.AppDatabase
+import androidx.room.withTransaction
+import com.datadragon.app.data.ClickerComparison
 import com.datadragon.app.data.ClickerField
+import com.datadragon.app.data.ClickerFieldType
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import com.datadragon.app.data.ClickerLog
 import com.datadragon.app.data.StableUuid
 import kotlinx.coroutines.launch
@@ -21,11 +26,46 @@ import kotlinx.serialization.json.Json
  */
 class ClickerSetupViewModel(app: Application) : AndroidViewModel(app) {
 
+    private val db = AppDatabase.getInstance(app)
     private val dao = AppDatabase.getInstance(app).clickerDao()
     private val json = Json { ignoreUnknownKeys = true }
 
     /** The existing log to edit, or null when creating a new one. */
     suspend fun load(id: Long): ClickerLog? = dao.getLog(id)
+
+    /**
+     * Per Comparison field id of log [id], the most digits any number saved on
+     * its cards has — the lowest that field's Max Digits may be set to.
+     */
+    suspend fun savedComparisonDigits(id: Long): Map<String, Int> {
+        val log = dao.getLog(id) ?: return emptyMap()
+        val cards = dao.getCardsForLog(id)
+        return decodeFields(log.fieldsJson)
+            .filter { it.type == ClickerFieldType.COMPARISON }
+            .mapNotNull { field -> ClickerComparison.savedDigits(cards, field.id)?.let { field.id to it } }
+            .toMap()
+    }
+
+    /**
+     * Permanently delete item [optionId] of Comparison field [fieldId] in log
+     * [logId]: it leaves the saved setup, and every card loses only the rows
+     * that picked it. Committed at once, apart from the setup's own Save, and
+     * always run to the end once started.
+     */
+    fun deleteComparisonOptionPermanently(logId: Long, fieldId: String, optionId: String) {
+        viewModelScope.launch {
+            withContext(NonCancellable) {
+                db.withTransaction {
+                    val log = dao.getLog(logId) ?: return@withTransaction
+                    ClickerComparison.withoutOptionInLog(log, fieldId, optionId)?.let { dao.updateLog(it) }
+                    dao.getCardsForLog(logId).forEach { card ->
+                        val updated = ClickerComparison.withoutOption(card.valuesJson, fieldId, optionId)
+                        if (updated != card.valuesJson) dao.updateCard(card.copy(valuesJson = updated))
+                    }
+                }
+            }
+        }
+    }
 
     /** Parse a log's stored field definitions. */
     fun decodeFields(fieldsJson: String): List<ClickerField> =
@@ -43,6 +83,7 @@ class ClickerSetupViewModel(app: Application) : AndroidViewModel(app) {
         autoDateStamp: Boolean,
         autoTimeStamp: Boolean,
         allowFollowUp: Boolean,
+        allowAdditionsFromForm: Boolean,
         fields: List<ClickerField>,
         onSaved: () -> Unit,
     ) {
@@ -61,6 +102,7 @@ class ClickerSetupViewModel(app: Application) : AndroidViewModel(app) {
                         autoDateStamp = autoDateStamp,
                         autoTimeStamp = autoTimeStamp,
                         allowFollowUp = allowFollowUp,
+                        allowAdditionsFromForm = allowAdditionsFromForm,
                     ),
                 )
             } else {
@@ -73,6 +115,7 @@ class ClickerSetupViewModel(app: Application) : AndroidViewModel(app) {
                         autoDateStamp = autoDateStamp,
                         autoTimeStamp = autoTimeStamp,
                         allowFollowUp = allowFollowUp,
+                        allowAdditionsFromForm = allowAdditionsFromForm,
                         lastAccessedAt = now,
                     ),
                 )

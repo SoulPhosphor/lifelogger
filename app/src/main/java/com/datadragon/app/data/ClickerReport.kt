@@ -143,10 +143,12 @@ object ClickerReport {
                 if (log.autoTimeStamp) add(visibleTime(log, card)?.format(EntryValues.TIME_STORAGE) ?: "")
                 fields.forEach { field ->
                     add(
-                        if (field.type == ClickerFieldType.CLICK_TRACKER) {
-                            (ClickerValues.number(values, field.id) ?: field.startingNumber).toString()
-                        } else {
-                            values[field.id] ?: ""
+                        when (field.type) {
+                            ClickerFieldType.CLICK_TRACKER ->
+                                (ClickerValues.number(values, field.id) ?: field.startingNumber).toString()
+                            // The same one-line text as a form's Comparison column.
+                            ClickerFieldType.COMPARISON -> displayValue(field, values).orEmpty()
+                            else -> values[field.id] ?: ""
                         },
                     )
                 }
@@ -177,6 +179,10 @@ object ClickerReport {
     internal fun displayValue(field: ClickerField, values: Map<String, String>): String? {
         if (field.type == ClickerFieldType.CLICK_TRACKER) {
             return (ClickerValues.number(values, field.id) ?: field.startingNumber).toString()
+        }
+        if (field.type == ClickerFieldType.COMPARISON) {
+            val def = field.comparisonDef()
+            return ComparisonValues.display(def, ClickerComparison.rows(values, field.id))
         }
         val raw = values[field.id]?.takeIf { it.isNotBlank() } ?: return null
         return when (field.type) {

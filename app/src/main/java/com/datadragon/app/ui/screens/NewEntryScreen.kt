@@ -351,27 +351,13 @@ fun NewEntryScreen(
     }
 }
 
-/**
- * Put items just added to a Comparison field into its rows: each fills the
- * last row when that row has no item yet, and otherwise goes into a new row
- * at the end. An item some row already holds is left where it is.
- */
+/** Put items just added to a Comparison field into its rows ([ComparisonValues.placeItems]). */
 private fun placeComparisonItems(
     comparisonValues: SnapshotStateMap<String, List<ComparisonRow>>,
     fieldId: String,
     itemIds: List<String>,
 ) {
-    var rows = comparisonValues[fieldId] ?: listOf(ComparisonRow())
-    itemIds.forEach { id ->
-        if (rows.any { it.item == id }) return@forEach
-        val last = rows.lastOrNull()
-        rows = if (last != null && last.item.isBlank()) {
-            rows.dropLast(1) + last.copy(item = id)
-        } else {
-            rows + ComparisonRow(item = id)
-        }
-    }
-    comparisonValues[fieldId] = rows
+    comparisonValues[fieldId] = ComparisonValues.placeItems(comparisonValues[fieldId] ?: listOf(ComparisonRow()), itemIds)
 }
 
 @OptIn(ExperimentalFoundationApi::class)

@@ -129,6 +129,25 @@ object ComparisonValues {
         return row.copy(second = next.toPlainString())
     }
 
+    /**
+     * [rows] with items just added to the field placed into them: each fills the
+     * last row when that row has no item yet, and otherwise goes into a new row
+     * at the end. An item some row already holds is left where it is.
+     */
+    fun placeItems(rows: List<ComparisonRow>, itemIds: List<String>): List<ComparisonRow> {
+        var placed = rows
+        itemIds.forEach { id ->
+            if (placed.any { it.item == id }) return@forEach
+            val last = placed.lastOrNull()
+            placed = if (last != null && last.item.isBlank()) {
+                placed.dropLast(1) + last.copy(item = id)
+            } else {
+                placed + ComparisonRow(item = id)
+            }
+        }
+        return placed
+    }
+
     /** True when the row holds nothing at all. */
     fun isBlank(row: ComparisonRow): Boolean =
         row.item.isBlank() && parse(row.first) == null && parse(row.second) == null

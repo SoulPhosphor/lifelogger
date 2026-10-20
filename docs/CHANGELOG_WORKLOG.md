@@ -31,6 +31,13 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
   Starting Number counts as soon as a row has an item. Switching it on or off
   keeps every saved number. Max Digits can't go below the longest saved
   number. Typing a decimal point into a whole-number box shows a notice.
+- **Clicker Data Logs** can hold Comparison fields too, set up with the same
+  item editor and settings and shown the same way on the card face (edited
+  there, saved as it changes) and on the card's Edit screen. Rows are kept as
+  the same JSON row text inside the card's values, by item id. A new "Allow
+  Additions from Form" toggle in Clicker setup (database v25 → v26, additive
+  `MIGRATION_25_26`, off by default; backed up only when on) shows New Option.
+  Clicker Statistics leave Comparison out for now.
 
 ---
 

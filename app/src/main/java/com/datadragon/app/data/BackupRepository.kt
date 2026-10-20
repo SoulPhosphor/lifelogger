@@ -140,6 +140,7 @@ class BackupRepository(
                 autoTimeStamp = log.autoTimeStamp,
                 allowFollowUp = log.allowFollowUp,
                 statisticsJson = log.statisticsJson.ifBlank { null },
+                allowAdditionsFromForm = log.allowAdditionsFromForm.takeIf { it },
                 cards = clickerCards[log.id].orEmpty().map { card ->
                     BackupClickerCard(
                         uuid = card.uuid,
@@ -810,6 +811,7 @@ class BackupRepository(
         log.displayOnlyClickerDateTime, log.autoDateStamp, log.autoTimeStamp, log.allowFollowUp,
         clickerDao.getCardsForLog(log.id).map { BackupClickerCard(it.uuid, it.createdAt, it.displayDate, it.displayTime, it.valuesJson) }.sortedWith(compareBy({ it.createdAt }, { it.uuid })),
         log.statisticsJson.ifBlank { null },
+        log.allowAdditionsFromForm.takeIf { it },
     )
 
     private suspend fun insertForm(incoming: BackupLog) {
@@ -852,7 +854,7 @@ class BackupRepository(
     }
 
     private suspend fun insertClickerLog(log: BackupClickerLog) {
-        val id = clickerDao.insertLog(ClickerLog(uuid = log.uuid, title = log.title, createdAt = log.createdAt, lastAccessedAt = log.lastAccessedAt, lastModifiedAt = log.lastModifiedAt, fieldsJson = log.fieldsJson, displayOnlyClickerDateTime = log.displayOnlyClickerDateTime, autoDateStamp = log.autoDateStamp, autoTimeStamp = log.autoTimeStamp, allowFollowUp = log.allowFollowUp, statisticsJson = log.statisticsJson.orEmpty()))
+        val id = clickerDao.insertLog(ClickerLog(uuid = log.uuid, title = log.title, createdAt = log.createdAt, lastAccessedAt = log.lastAccessedAt, lastModifiedAt = log.lastModifiedAt, fieldsJson = log.fieldsJson, displayOnlyClickerDateTime = log.displayOnlyClickerDateTime, autoDateStamp = log.autoDateStamp, autoTimeStamp = log.autoTimeStamp, allowFollowUp = log.allowFollowUp, statisticsJson = log.statisticsJson.orEmpty(), allowAdditionsFromForm = log.allowAdditionsFromForm == true))
         log.cards.forEach { clickerDao.insertCard(ClickerCard(clickerLogId = id, uuid = it.uuid, createdAt = it.createdAt, displayDate = it.displayDate, displayTime = it.displayTime, valuesJson = it.valuesJson)) }
     }
 
