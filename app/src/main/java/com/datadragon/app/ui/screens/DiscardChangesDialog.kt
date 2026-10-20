@@ -6,7 +6,7 @@ import com.datadragon.app.ui.components.DialogDestructiveButton
 import com.datadragon.app.ui.components.DialogDismissButton
 
 /**
- * Confirmation shown when leaving a screen that has unsaved input. "Discard"
+ * Confirmation shown when leaving a screen that has unsaved input. "Okay"
  * throws the unsaved changes away and leaves; "Cancel" stays on the screen.
  * Shared by the new-list editor and the form screens so the warning reads the
  * same everywhere.
@@ -21,6 +21,6 @@ fun DiscardChangesDialog(
         title = "Discard Changes?",
         body = "You've made changes that haven't been saved. Discard them?",
         dismissButton = { DialogDismissButton("Cancel", onClick = onDismiss) },
-        confirmButton = { DialogDestructiveButton("Discard", onClick = onConfirm) },
+        confirmButton = { DialogDestructiveButton("Okay", onClick = onConfirm) },
     )
 }

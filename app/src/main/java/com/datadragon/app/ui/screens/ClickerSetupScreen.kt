@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.datadragon.app.data.ChoiceEdits
 import com.datadragon.app.data.ChoiceOption
 import com.datadragon.app.data.ClickerField
 import com.datadragon.app.data.SettingsRepository
@@ -168,6 +169,17 @@ private fun ClickerField.toDraft(): ClickerDraftField = ClickerDraftField(
     useClickerCounting = useClickerCounting,
 )
 
+/** Everything Clicker setup saves, to tell whether an existing log has unsaved edits. */
+private data class ClickerSetupSnapshot(
+    val title: String,
+    val displayOnlyClickerDateTime: Boolean,
+    val autoDateStamp: Boolean,
+    val autoTimeStamp: Boolean,
+    val allowFollowUp: Boolean,
+    val allowAdditionsFromForm: Boolean,
+    val fields: List<ClickerField>,
+)
+
 /** The user-facing name of each field type, in Title Case. */
 private fun ClickerFieldType.displayName(): String = when (this) {
     ClickerFieldType.CLICK_TRACKER -> "Click Tracker"
@@ -202,6 +214,8 @@ fun ClickerSetupScreen(
     // Per Comparison field, the most digits a saved number already has.
     var savedComparisonDigits by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
     var showDuplicate by remember { mutableStateOf(false) }
+    // The setup as last loaded, so leaving an existing log with unsaved edits warns.
+    var savedSetup by remember { mutableStateOf<ClickerSetupSnapshot?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val capitalizeNewOptions = remember { SettingsRepository(context).autoCapitalizeOptions }
 
@@ -221,13 +235,26 @@ fun ClickerSetupScreen(
                 fields.addAll(viewModel.decodeFields(log.fieldsJson).map { it.toDraft() })
             }
             loaded = true
+            savedSetup = ClickerSetupSnapshot(
+                title, displayOnlyClickerDateTime, autoDateStamp, autoTimeStamp, allowFollowUp,
+                allowAdditionsFromForm, fields.map { it.toField() },
+            )
         }
     }
 
     val canSave = title.isNotBlank() && fields.isNotEmpty() && fields.all { it.label.isNotBlank() && it.hasItems() }
-    val dirty = title.isNotBlank() || fields.isNotEmpty()
+    val dirty = if (existingLogId == null) {
+        title.isNotBlank() || fields.isNotEmpty()
+    } else {
+        savedSetup?.let { saved ->
+            saved != ClickerSetupSnapshot(
+                title, displayOnlyClickerDateTime, autoDateStamp, autoTimeStamp, allowFollowUp,
+                allowAdditionsFromForm, fields.map { it.toField() },
+            )
+        } ?: false
+    }
     var showDiscard by rememberSaveable { mutableStateOf(false) }
-    fun attemptBack() { if (dirty && existingLogId == null) showDiscard = true else onBack() }
+    fun attemptBack() { if (dirty) showDiscard = true else onBack() }
     BackHandler { attemptBack() }
 
     Scaffold(
@@ -333,8 +360,16 @@ fun ClickerSetupScreen(
                     capitalizeNewOptions = capitalizeNewOptions,
                     minimumDigits = savedComparisonDigits[field.id],
                     onDeleteOption = { option ->
-                        // Committed at once for a saved log, like a form's option.
+                        // Committed at once for a saved log, like a form's option, so
+                        // it leaves the saved baseline too and doesn't count as unsaved.
                         existingLogId?.let { viewModel.deleteComparisonOptionPermanently(it, field.id, option.id) }
+                        savedSetup = savedSetup?.let { saved ->
+                            saved.copy(
+                                fields = saved.fields.map {
+                                    if (it.id == field.id) it.copy(choices = ChoiceEdits.withoutId(it.choices, option.id)) else it
+                                },
+                            )
+                        }
                     },
                 )
             }
