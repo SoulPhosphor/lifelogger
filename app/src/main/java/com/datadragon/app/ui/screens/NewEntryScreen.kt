@@ -21,6 +21,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import com.datadragon.app.ui.components.AccessibleOutlinedTextField as OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -144,6 +146,12 @@ fun NewEntryScreen(
     var notes by rememberSaveable { mutableStateOf("") }
     var validationAttempted by rememberSaveable { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    // One notice at a time: a repeat while it is still showing is ignored.
+    fun showNotice(message: String) {
+        if (snackbarHostState.currentSnackbarData?.visuals?.message == message) return
+        coroutineScope.launch { snackbarHostState.showSnackbar(message) }
+    }
     val fieldTargets = remember(fields.map { it.id to it.type }) {
         fields.associate { field ->
             field.id to FieldValidationTarget(
@@ -230,6 +238,7 @@ fun NewEntryScreen(
     BackHandler { attemptBack() }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(if (isEditing) "Edit Entry" else "New Entry") },
@@ -300,6 +309,7 @@ fun NewEntryScreen(
                     } else {
                         null
                     },
+                    onNotice = { showNotice(it) },
                 )
             }
 
@@ -454,7 +464,9 @@ internal fun collectValues(
             }
             FieldType.COMPARISON -> {
                 // Rows keep the order they were entered in; a row with no item isn't stored.
-                ComparisonValues.encode(comparisonValues[field.id].orEmpty())?.let { put(field.id, it) }
+                // With clicker counting, an item's untouched Starting Number is its value.
+                val rows = ComparisonValues.withStartingNumbers(field, comparisonValues[field.id].orEmpty())
+                ComparisonValues.encode(rows)?.let { put(field.id, it) }
             }
             else -> {
                 val value = textValues[field.id]?.trim().orEmpty()

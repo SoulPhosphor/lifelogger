@@ -8,6 +8,8 @@ import com.datadragon.app.data.AppDatabase
 import com.datadragon.app.data.Calendar
 import com.datadragon.app.data.ChoiceDeletion
 import com.datadragon.app.data.FieldDef
+import com.datadragon.app.data.FieldType
+import com.datadragon.app.data.savedComparisonDigits
 import com.datadragon.app.data.FormMarkdownGenerator
 import com.datadragon.app.data.FormMarkdownParser
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -58,6 +60,13 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
     private val _allowAdditionsFromForm = MutableStateFlow(false)
     val allowAdditionsFromForm: StateFlow<Boolean> = _allowAdditionsFromForm
 
+    /**
+     * Per Comparison field id, the most digits any saved number of that field
+     * has — the lowest its Max Digits may be set to.
+     */
+    private val _savedComparisonDigits = MutableStateFlow<Map<String, Int>>(emptyMap())
+    val savedComparisonDigits: StateFlow<Map<String, Int>> = _savedComparisonDigits
+
     /** This form's configured calendars, listed at the bottom of Edit Form. */
     private val _calendars = MutableStateFlow<List<Calendar>>(emptyList())
     val calendars: StateFlow<List<Calendar>> = _calendars
@@ -82,6 +91,13 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
             _fields.value = template
                 ?.let { runCatching { json.decodeFromString<List<FieldDef>>(it.schemaJson) }.getOrNull() }
                 ?: emptyList()
+            val comparisons = _fields.value.filter { it.type == FieldType.COMPARISON }
+            if (comparisons.isNotEmpty()) {
+                val entryValues = entryDao.getForTemplateOnce(id).map { it.valuesJson }
+                _savedComparisonDigits.value = comparisons
+                    .mapNotNull { field -> field.savedComparisonDigits(entryValues)?.let { field.id to it } }
+                    .toMap()
+            }
             // Name is the screen's loaded sentinel, so publish it after the
             // settings and fields it gates have been populated.
             _name.value = template?.name

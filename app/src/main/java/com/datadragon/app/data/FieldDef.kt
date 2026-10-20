@@ -69,8 +69,22 @@ data class FieldDef(
     val firstLabel: String = "",
     val secondLabel: String = "",
     val totalLabel: String = "",
-    /** comparison: the two number columns take whole numbers only. */
+    /** comparison: the typed number columns take whole numbers only. */
     val wholeNumbersOnly: Boolean = true,
+    /**
+     * comparison: the second column counts with a tracker button instead of a
+     * typed box ("Use Clicker Style Counting"). Switching it never touches saved
+     * rows: both columns keep their stored numbers either way.
+     */
+    val clickerCounting: Boolean = false,
+    /** comparison clicker counting: the button caption; blank shows "Add". */
+    val clickerButtonLabel: String = "",
+    /** comparison clicker counting: the value a row's second column starts at. */
+    val clickerStartingNumber: Int = 0,
+    /** comparison clicker counting: how much each press changes the value. */
+    val clickerIncrement: Int = 1,
+    /** comparison clicker counting: whether a press adds or subtracts. */
+    val clickerDirection: ClickerIncrementDirection = ClickerIncrementDirection.ADD,
 )
 
 /** How a Single Choice (`dropdown`) field presents its options on the entry form. */

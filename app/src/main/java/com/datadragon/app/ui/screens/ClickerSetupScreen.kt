@@ -54,8 +54,8 @@ import com.datadragon.app.ui.theme.AppTheme
 private const val EDIT_ONLY_NOTE =
     "These can only be changed by directly editing the clicker card using the dropdown ellipses."
 
-private const val STARTING_NUMBER_DIGITS = 5
-private const val INCREMENT_DIGITS = 4
+internal const val STARTING_NUMBER_DIGITS = 5
+internal const val INCREMENT_DIGITS = 4
 private const val MAX_DIGITS_DIGITS = 2
 
 /** A mutable draft of one tracker/field while the log is being set up. */
@@ -434,7 +434,7 @@ private fun ClickerFieldEditor(
 
 /** The "Add / Subtract" chooser for a stepping button. */
 @Composable
-private fun DirectionRow(
+internal fun DirectionRow(
     selected: ClickerIncrementDirection,
     onSelected: (ClickerIncrementDirection) -> Unit,
 ) {

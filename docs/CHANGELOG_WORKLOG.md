@@ -25,6 +25,12 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
   Add Option pop-up and drops each new item into the last row if it has no item
   yet, otherwise into a new row. Rows sit on one line when the width allows and
   wrap to two lines otherwise.
+- **Use Clicker Style Counting** (off by default), above Second Column Label:
+  the second column becomes a value with a tracker button, set by the Clicker
+  card's Button Label, Starting Number, Direction and In Increments Of. The
+  Starting Number counts as soon as a row has an item. Switching it on or off
+  keeps every saved number. Max Digits can't go below the longest saved
+  number. Typing a decimal point into a whole-number box shows a notice.
 
 ---
 

@@ -73,6 +73,7 @@ import com.datadragon.app.ui.components.ChoiceEditorWordings
 import com.datadragon.app.ui.components.ChoiceOptionsEditor
 import com.datadragon.app.ui.components.ChoicePreselection
 import com.datadragon.app.data.ChoiceStyle
+import com.datadragon.app.data.ClickerIncrementDirection
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.RatioValues
 import com.datadragon.app.data.FieldType
@@ -146,6 +147,7 @@ fun EditFormScreen(
     val loadedAdvancedSearchEnabled by viewModel.advancedSearchEnabled.collectAsStateWithLifecycle()
     val loadedAllowAdditionsFromForm by viewModel.allowAdditionsFromForm.collectAsStateWithLifecycle()
     val calendars by viewModel.calendars.collectAsStateWithLifecycle()
+    val savedComparisonDigits by viewModel.savedComparisonDigits.collectAsStateWithLifecycle()
     // The existing form title is editable alongside the field list and is saved
     // by this screen's existing Save action.
     var formTitle by rememberSaveable { mutableStateOf<String?>(null) }
@@ -291,6 +293,7 @@ fun EditFormScreen(
                 if (!draft.existing && draft.label.isBlank()) rows.removeAt(openIndex)
                 editingIndex = null
             },
+            minimumDigits = savedComparisonDigits[draft.id],
         )
         return
     }
@@ -568,6 +571,8 @@ private fun FieldEditorScreen(
     onSave: () -> Unit,
     onDeleteOption: (ChoiceOption) -> Unit,
     onCancel: () -> Unit,
+    /** Comparison: the most digits a saved number of this field has, or null. */
+    minimumDigits: Int?,
 ) {
     val draft = remember(source) { source.copy() }
     val context = LocalContext.current
@@ -601,6 +606,10 @@ private fun FieldEditorScreen(
                             if (draft.toFieldDef().choices.hasDuplicateLabels()) {
                                 showDuplicate = true
                                 return@TextButton
+                            }
+                            // Max Digits never drops below what saved numbers already use.
+                            if (draft.type == FieldType.COMPARISON) {
+                                draft.digits = digitsAtLeast(draft.digits, minimumDigits)
                             }
                             source.applyFrom(draft)
                             if (source.sortByTimestamp) onSortSelected()
@@ -659,6 +668,7 @@ private fun FieldEditorScreen(
                 field = draft,
                 capitalizeNewOptions = settings.autoCapitalizeOptions,
                 onDeleteOption = onDeleteOption,
+                minimumDigits = minimumDigits,
             )
             if (draft.type.sortEligible) {
                 CheckboxSettingRow(
@@ -735,6 +745,7 @@ private fun SettingsControls(
     field: EditDraft,
     capitalizeNewOptions: Boolean,
     onDeleteOption: (ChoiceOption) -> Unit,
+    minimumDigits: Int?,
 ) {
     when (field.type) {
         FieldType.MULTILINE -> EditNumberField(
@@ -793,20 +804,7 @@ private fun SettingsControls(
                 capitalizeNew = capitalizeNewOptions,
                 onDeletePermanently = onDeleteOption,
             )
-            ComparisonFieldSettings(
-                itemLabel = field.itemLabel,
-                onItemLabelChange = { field.itemLabel = it },
-                firstLabel = field.firstLabel,
-                onFirstLabelChange = { field.firstLabel = it },
-                secondLabel = field.secondLabel,
-                onSecondLabelChange = { field.secondLabel = it },
-                totalLabel = field.totalLabel,
-                onTotalLabelChange = { field.totalLabel = it },
-                digits = field.digits,
-                onDigitsChange = { field.digits = it },
-                wholeNumbersOnly = field.wholeNumbersOnly,
-                onWholeNumbersOnlyChange = { field.wholeNumbersOnly = it },
-            )
+            ComparisonFieldSettings(field, minimumDigits)
         }
         FieldType.RATIO -> RatioFieldSettings(
             leftDigits = field.leftDigits,
@@ -953,14 +951,19 @@ private class EditDraft(
     secondLabel: String = "",
     totalLabel: String = "",
     wholeNumbersOnly: Boolean = true,
+    clickerCounting: Boolean = false,
+    clickerButtonLabel: String = "",
+    clickerStartingNumber: String = "",
+    clickerIncrement: String = "",
+    clickerDirection: ClickerIncrementDirection = ClickerIncrementDirection.ADD,
     /** True for a field that already exists in the saved schema (type locked). */
     val existing: Boolean = false,
-) {
+) : ComparisonSettingsDraft {
     var label by mutableStateOf(label)
     var type by mutableStateOf(type)
     var required by mutableStateOf(required)
     var lines by mutableStateOf(lines)
-    var digits by mutableStateOf(digits)
+    override var digits by mutableStateOf(digits)
     var from by mutableStateOf(from)
     var to by mutableStateOf(to)
     var choices by mutableStateOf(choices)
@@ -973,11 +976,16 @@ private class EditDraft(
     var leftDigits by mutableStateOf(leftDigits)
     var rightDigits by mutableStateOf(rightDigits)
     var unit by mutableStateOf(unit)
-    var itemLabel by mutableStateOf(itemLabel)
-    var firstLabel by mutableStateOf(firstLabel)
-    var secondLabel by mutableStateOf(secondLabel)
-    var totalLabel by mutableStateOf(totalLabel)
-    var wholeNumbersOnly by mutableStateOf(wholeNumbersOnly)
+    override var itemLabel by mutableStateOf(itemLabel)
+    override var firstLabel by mutableStateOf(firstLabel)
+    override var secondLabel by mutableStateOf(secondLabel)
+    override var totalLabel by mutableStateOf(totalLabel)
+    override var wholeNumbersOnly by mutableStateOf(wholeNumbersOnly)
+    override var clickerCounting by mutableStateOf(clickerCounting)
+    override var clickerButtonLabel by mutableStateOf(clickerButtonLabel)
+    override var clickerStartingNumber by mutableStateOf(clickerStartingNumber)
+    override var clickerIncrement by mutableStateOf(clickerIncrement)
+    override var clickerDirection by mutableStateOf(clickerDirection)
 
     /** Stable identity for list keys; survives reordering, unique per draft. */
     val uid: Long = editDraftCounter++
@@ -995,7 +1003,9 @@ private class EditDraft(
             leftDigits == o.leftDigits && rightDigits == o.rightDigits && unit == o.unit &&
             itemLabel == o.itemLabel && firstLabel == o.firstLabel &&
             secondLabel == o.secondLabel && totalLabel == o.totalLabel &&
-            wholeNumbersOnly == o.wholeNumbersOnly
+            wholeNumbersOnly == o.wholeNumbersOnly && clickerCounting == o.clickerCounting &&
+            clickerButtonLabel == o.clickerButtonLabel && clickerStartingNumber == o.clickerStartingNumber &&
+            clickerIncrement == o.clickerIncrement && clickerDirection == o.clickerDirection
 
     /** The options that will be saved: a row left blank is never stored. */
     fun savedChoices(): List<ChoiceOption> =
@@ -1082,6 +1092,11 @@ private class EditDraft(
         secondLabel = secondLabel,
         totalLabel = totalLabel,
         wholeNumbersOnly = wholeNumbersOnly,
+        clickerCounting = clickerCounting,
+        clickerButtonLabel = clickerButtonLabel,
+        clickerStartingNumber = clickerStartingNumber,
+        clickerIncrement = clickerIncrement,
+        clickerDirection = clickerDirection,
         existing = existing,
     )
 
@@ -1109,6 +1124,11 @@ private class EditDraft(
         secondLabel = other.secondLabel
         totalLabel = other.totalLabel
         wholeNumbersOnly = other.wholeNumbersOnly
+        clickerCounting = other.clickerCounting
+        clickerButtonLabel = other.clickerButtonLabel
+        clickerStartingNumber = other.clickerStartingNumber
+        clickerIncrement = other.clickerIncrement
+        clickerDirection = other.clickerDirection
     }
 
     fun toFieldDef(): FieldDef = FieldDef(
@@ -1138,6 +1158,11 @@ private class EditDraft(
         secondLabel = if (type == FieldType.COMPARISON) secondLabel.trim() else "",
         totalLabel = if (type == FieldType.COMPARISON) totalLabel.trim() else "",
         wholeNumbersOnly = type != FieldType.COMPARISON || wholeNumbersOnly,
+        clickerCounting = type == FieldType.COMPARISON && clickerCounting,
+        clickerButtonLabel = if (type == FieldType.COMPARISON) clickerButtonLabel.trim() else "",
+        clickerStartingNumber = if (type == FieldType.COMPARISON) clickerStartingNumber.toIntOrNull() ?: 0 else 0,
+        clickerIncrement = if (type == FieldType.COMPARISON) clickerIncrement.toIntOrNull()?.takeIf { it > 0 } ?: 1 else 1,
+        clickerDirection = if (type == FieldType.COMPARISON) clickerDirection else ClickerIncrementDirection.ADD,
     )
 
     fun toSnapshot(): EditDraftSnapshot = EditDraftSnapshot(
@@ -1164,6 +1189,11 @@ private class EditDraft(
         secondLabel = secondLabel,
         totalLabel = totalLabel,
         wholeNumbersOnly = wholeNumbersOnly,
+        clickerCounting = clickerCounting,
+        clickerButtonLabel = clickerButtonLabel,
+        clickerStartingNumber = clickerStartingNumber,
+        clickerIncrement = clickerIncrement,
+        clickerDirection = clickerDirection,
         existing = existing,
     )
 }
@@ -1198,6 +1228,11 @@ private data class EditDraftSnapshot(
     val secondLabel: String = "",
     val totalLabel: String = "",
     val wholeNumbersOnly: Boolean = true,
+    val clickerCounting: Boolean = false,
+    val clickerButtonLabel: String = "",
+    val clickerStartingNumber: String = "",
+    val clickerIncrement: String = "",
+    val clickerDirection: ClickerIncrementDirection = ClickerIncrementDirection.ADD,
     val existing: Boolean,
 )
 
@@ -1225,6 +1260,11 @@ private fun EditDraftSnapshot.toEditDraft(): EditDraft = EditDraft(
     secondLabel = secondLabel,
     totalLabel = totalLabel,
     wholeNumbersOnly = wholeNumbersOnly,
+    clickerCounting = clickerCounting,
+    clickerButtonLabel = clickerButtonLabel,
+    clickerStartingNumber = clickerStartingNumber,
+    clickerIncrement = clickerIncrement,
+    clickerDirection = clickerDirection,
     existing = existing,
 )
 
@@ -1253,6 +1293,11 @@ private fun draftOf(f: FieldDef, sortByTimestamp: Boolean): EditDraft = EditDraf
     secondLabel = f.secondLabel,
     totalLabel = f.totalLabel,
     wholeNumbersOnly = f.wholeNumbersOnly,
+    clickerCounting = f.clickerCounting,
+    clickerButtonLabel = f.clickerButtonLabel,
+    clickerStartingNumber = f.clickerStartingNumber.takeIf { it != 0 }?.toString() ?: "",
+    clickerIncrement = f.clickerIncrement.takeIf { it != 1 }?.toString() ?: "",
+    clickerDirection = f.clickerDirection,
     existing = true,
 )
 

@@ -116,6 +116,8 @@ fun EntryFieldControl(
     focusRequester: FocusRequester? = null,
     /** Set when the form allows additions: opens Add Option for a Dropdown/Multiple/Comparison field. */
     onAddOption: ((FieldDef) -> Unit)? = null,
+    /** Shows a short message to the user, such as a refused decimal point. */
+    onNotice: (String) -> Unit = {},
 ) {
     val label = field.displayLabel()
     val targetModifier = bringIntoViewRequester?.let {
@@ -305,6 +307,7 @@ fun EntryFieldControl(
                 onRowsChange = { comparisonValues[field.id] = it },
                 showError = showRequiredError,
                 onNewOption = onAddOption?.let { add -> { add(field) } },
+                onNotice = onNotice,
             )
         }
     }

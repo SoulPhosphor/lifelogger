@@ -35,6 +35,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -49,6 +51,7 @@ import com.datadragon.app.data.ComparisonValues
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.activeChoices
 import com.datadragon.app.data.choice
+import com.datadragon.app.data.comparisonButtonLabel
 import com.datadragon.app.data.comparisonFirstLabel
 import com.datadragon.app.data.comparisonItemLabel
 import com.datadragon.app.data.comparisonSecondLabel
@@ -74,8 +77,13 @@ private const val MIN_NUMBER_CHARS = 3
  * — and the drop-down takes the rest of the line. When the line is too narrow
  * for that, every row wraps to two lines: the drop-down, then the numbers.
  *
+ * With clicker style counting, the second column is a number with the field's
+ * button beside it instead of a typed box: each press steps the number from the
+ * Starting Number, which already counts once the row has an item.
+ *
  * [onNewOption] is set only when the form allows additions; it opens the Add
- * Option pop-up, whose new items the caller places into the rows.
+ * Option pop-up, whose new items the caller places into the rows. [onNotice]
+ * shows a short message, such as a refused decimal point.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -85,12 +93,14 @@ internal fun ComparisonField(
     onRowsChange: (List<ComparisonRow>) -> Unit,
     showError: Boolean,
     onNewOption: (() -> Unit)?,
+    onNotice: (String) -> Unit,
 ) {
     val widths = measureComparisonWidths(field, rows, readout = false)
+    val counted = ComparisonValues.withStartingNumbers(field, rows)
     val chosen = rows.map { it.item }.filter { it.isNotBlank() }.toSet()
     // A blank row is waiting for one of the unused items, so it counts against them.
     val canAddItem = field.activeChoices.count { it.id !in chosen } > rows.count { it.item.isBlank() }
-    val total = ComparisonValues.total(rows)?.let(ComparisonValues::format).orEmpty()
+    val total = ComparisonValues.total(counted)?.let(ComparisonValues::format).orEmpty()
 
     fun update(index: Int, change: (ComparisonRow) -> ComparisonRow) =
         onRowsChange(rows.mapIndexed { i, row -> if (i == index) change(row) else row })
@@ -105,11 +115,13 @@ internal fun ComparisonField(
                 ComparisonEditRow(
                     field = field,
                     row = row,
+                    difference = ComparisonValues.difference(counted[index])?.let(ComparisonValues::format).orEmpty(),
                     options = field.offeredChoices(listOf(row.item)).filter { it.id !in otherChoices },
                     widths = widths,
                     oneLine = oneLine,
                     showError = showError && ComparisonValues.needsItem(row),
                     onChange = { changed -> update(index) { changed } },
+                    onNotice = onNotice,
                     onRemove = { onRowsChange(rows.filterIndexed { i, _ -> i != index }) },
                 )
             }
@@ -193,11 +205,13 @@ private fun ComparisonHeader(field: FieldDef, widths: ComparisonWidths, oneLine:
 private fun ComparisonEditRow(
     field: FieldDef,
     row: ComparisonRow,
+    difference: String,
     options: List<ChoiceOption>,
     widths: ComparisonWidths,
     oneLine: Boolean,
     showError: Boolean,
     onChange: (ComparisonRow) -> Unit,
+    onNotice: (String) -> Unit,
     onRemove: () -> Unit,
 ) {
     val itemName = field.choice(row.item)?.label ?: row.item.ifBlank { null }
@@ -218,17 +232,29 @@ private fun ComparisonEditRow(
             value = row.first,
             accessibleLabel = "$numberLabel: ${field.comparisonFirstLabel}",
             onChange = { onChange(row.copy(first = it)) },
+            onNotice = onNotice,
             modifier = Modifier.width(widths.first),
         )
-        ComparisonNumberBox(
-            field = field,
-            value = row.second,
-            accessibleLabel = "$numberLabel: ${field.comparisonSecondLabel}",
-            onChange = { onChange(row.copy(second = it)) },
-            modifier = Modifier.width(widths.second),
-        )
+        if (field.clickerCounting) {
+            ComparisonClickerCell(
+                value = ComparisonValues.format(ComparisonValues.clickerValue(field, row)),
+                buttonLabel = field.comparisonButtonLabel,
+                accessibleLabel = "$numberLabel: ${field.comparisonSecondLabel}",
+                onPress = { onChange(ComparisonValues.clickerPressed(field, row)) },
+                modifier = Modifier.width(widths.second),
+            )
+        } else {
+            ComparisonNumberBox(
+                field = field,
+                value = row.second,
+                accessibleLabel = "$numberLabel: ${field.comparisonSecondLabel}",
+                onChange = { onChange(row.copy(second = it)) },
+                onNotice = onNotice,
+                modifier = Modifier.width(widths.second),
+            )
+        }
         Text(
-            ComparisonValues.difference(row)?.let(ComparisonValues::format).orEmpty(),
+            difference,
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.width(widths.difference),
         )
@@ -319,11 +345,15 @@ private fun ComparisonNumberBox(
     value: String,
     accessibleLabel: String,
     onChange: (String) -> Unit,
+    onNotice: (String) -> Unit,
     modifier: Modifier,
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = { input ->
+            if (ComparisonValues.refusesDecimalPoint(input, value, field.wholeNumbersOnly)) {
+                onNotice(ComparisonValues.WHOLE_NUMBERS_ONLY_NOTICE)
+            }
             onChange(ComparisonValues.acceptInput(input, value, field.wholeNumbersOnly, field.digits))
         },
         singleLine = true,
@@ -336,6 +366,34 @@ private fun ComparisonNumberBox(
 }
 
 /**
+ * The second column under clicker style counting: the current value, then the
+ * field's button, which steps it by the increment. There is no typed box.
+ */
+@Composable
+private fun ComparisonClickerCell(
+    value: String,
+    buttonLabel: String,
+    accessibleLabel: String,
+    onPress: () -> Unit,
+    modifier: Modifier,
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.compact),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.semantics { contentDescription = "$accessibleLabel: $value" },
+        )
+        AppButton(onClick = onPress) {
+            Text(buttonLabel, maxLines = 1, softWrap = false)
+        }
+    }
+}
+
+/**
  * A saved Comparison answer on an entry card: the same columns as the entry
  * form (item, the two numbers, Δ) and the total underneath, read-only.
  */
@@ -345,7 +403,8 @@ internal fun ComparisonReadout(
     rows: List<ComparisonRow>,
     modifier: Modifier = Modifier,
 ) {
-    val widths = measureComparisonWidths(field, rows, readout = true)
+    val counted = ComparisonValues.withStartingNumbers(field, rows)
+    val widths = measureComparisonWidths(field, counted, readout = true)
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     val labelWeight = AppTheme.textStyles.readoutLabelWeight
     val valueStyle = MaterialTheme.typography.bodyLarge
@@ -358,7 +417,7 @@ internal fun ComparisonReadout(
             difference = ComparisonValues.DIFFERENCE_LABEL,
             header = true,
         )
-        rows.forEach { row ->
+        counted.forEach { row ->
             ComparisonReadoutLine(
                 widths = widths,
                 item = field.choice(row.item)?.label ?: row.item,
@@ -368,7 +427,7 @@ internal fun ComparisonReadout(
                 header = false,
             )
         }
-        ComparisonValues.total(rows)?.let { total ->
+        ComparisonValues.total(counted)?.let { total ->
             Text(
                 text = buildAnnotatedString {
                     withStyle(SpanStyle(color = labelColor, fontWeight = labelWeight)) {
@@ -451,6 +510,12 @@ private fun measureComparisonWidths(field: FieldDef, rows: List<ComparisonRow>, 
     fun longestWord(caption: String): Dp =
         caption.split(' ').filter { it.isNotEmpty() }.maxOfOrNull { width(it, captionStyle) } ?: Dp(0f)
     fun shown(text: String): String = ComparisonValues.parse(text)?.let(ComparisonValues::format).orEmpty()
+    fun clickerColumn(caption: String): Dp {
+        val shown = rows.map { ComparisonValues.format(ComparisonValues.clickerValue(field, it)) }
+        val value = shown.maxOfOrNull { width(it, numberStyle) } ?: Dp(0f)
+        val button = width(field.comparisonButtonLabel, AppTheme.textStyles.controlLabel) + AppTheme.spacing.rowInset * 2
+        return maxOf(value + AppTheme.spacing.compact + button, longestWord(caption))
+    }
     fun column(caption: String, values: List<String>): Dp {
         val content = if (readout) {
             values.map(::shown).maxOfOrNull { width(it, numberStyle) } ?: Dp(0f)
@@ -464,11 +529,16 @@ private fun measureComparisonWidths(field: FieldDef, rows: List<ComparisonRow>, 
         return maxOf(content, longestWord(caption))
     }
 
-    val differences = rows.mapNotNull(ComparisonValues::difference).map(ComparisonValues::format) +
-        listOfNotNull(ComparisonValues.total(rows)?.let(ComparisonValues::format).takeIf { !readout })
+    val counted = ComparisonValues.withStartingNumbers(field, rows)
+    val differences = counted.mapNotNull(ComparisonValues::difference).map(ComparisonValues::format) +
+        listOfNotNull(ComparisonValues.total(counted)?.let(ComparisonValues::format).takeIf { !readout })
     return ComparisonWidths(
         first = column(field.comparisonFirstLabel, rows.map { it.first }),
-        second = column(field.comparisonSecondLabel, rows.map { it.second }),
+        second = if (field.clickerCounting && !readout) {
+            clickerColumn(field.comparisonSecondLabel)
+        } else {
+            column(field.comparisonSecondLabel, rows.map { it.second })
+        },
         difference = maxOf(
             width(ComparisonValues.DIFFERENCE_LABEL, captionStyle),
             differences.maxOfOrNull { width(it, numberStyle) } ?: Dp(0f),

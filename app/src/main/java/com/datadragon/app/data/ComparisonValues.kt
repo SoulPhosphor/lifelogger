@@ -27,6 +27,12 @@ data class ComparisonRow(
  * renaming an option never disconnects a saved row; a number left blank is
  * absent from its row. Each row's difference (second − first) and the total are
  * worked out when shown, never stored.
+ *
+ * With clicker style counting ([FieldDef.clickerCounting]) the second column is
+ * stepped by a button. Its Starting Number is a real value as soon as the row
+ * has an item — no press is needed — so [withStartingNumbers] fills it in before
+ * a row is shown, totalled or stored. A row with no item yet (the placeholder
+ * "Choose Item" row) only shows the Starting Number; it is never stored.
  */
 object ComparisonValues {
 
@@ -35,6 +41,10 @@ object ComparisonValues {
     const val DEFAULT_SECOND_LABEL = "Actual"
     const val DEFAULT_TOTAL_LABEL = "Total Difference"
     const val DIFFERENCE_LABEL = "Δ"
+    const val DEFAULT_BUTTON_LABEL = "Add"
+
+    /** Shown when a decimal point is typed into a whole-number box. */
+    const val WHOLE_NUMBERS_ONLY_NOTICE = "When only whole numbers is selected. Decimal points are not allowed."
 
     private const val KEY_ITEM = "item"
     private const val KEY_FIRST = "first"
@@ -80,6 +90,44 @@ object ComparisonValues {
     /** A number as shown: plain digits, no exponent, no trailing zeros after the point. */
     fun format(value: BigDecimal): String =
         if (value.signum() == 0) "0" else value.stripTrailingZeros().toPlainString()
+
+    /** True when [input] tried to add a decimal point that a whole-number box refuses. */
+    fun refusesDecimalPoint(input: String, previous: String, wholeNumbersOnly: Boolean): Boolean =
+        wholeNumbersOnly && input.count { it == '.' || it == ',' } > previous.count { it == '.' }
+
+    /**
+     * [rows] as they count for [field]: with clicker style counting, a row that
+     * has an item but no second number yet holds the Starting Number. Rows
+     * without an item, and fields that type both numbers, are unchanged.
+     */
+    fun withStartingNumbers(field: FieldDef, rows: List<ComparisonRow>): List<ComparisonRow> =
+        if (!field.clickerCounting) {
+            rows
+        } else {
+            rows.map { row ->
+                if (row.item.isNotBlank() && parse(row.second) == null) {
+                    row.copy(second = field.clickerStartingNumber.toString())
+                } else {
+                    row
+                }
+            }
+        }
+
+    /** The second-column value a clicker row shows: its number, or the Starting Number. */
+    fun clickerValue(field: FieldDef, row: ComparisonRow): BigDecimal =
+        parse(row.second) ?: BigDecimal(field.clickerStartingNumber)
+
+    /** [row] after one press of its clicker button: the shown value plus or minus the increment. */
+    fun clickerPressed(field: FieldDef, row: ComparisonRow): ComparisonRow {
+        val step = BigDecimal(field.clickerIncrement)
+        val current = clickerValue(field, row)
+        val next = if (field.clickerDirection == ClickerIncrementDirection.SUBTRACT) {
+            current.subtract(step)
+        } else {
+            current.add(step)
+        }
+        return row.copy(second = next.toPlainString())
+    }
 
     /** True when the row holds nothing at all. */
     fun isBlank(row: ComparisonRow): Boolean =
@@ -136,8 +184,9 @@ object ComparisonValues {
      * text (reports, exports): each row as "Item: Expected 3, Actual 1, Δ -2",
      * rows joined by "; ", then the total. Null when nothing was saved.
      */
-    fun display(field: FieldDef, rows: List<ComparisonRow>): String? {
-        if (rows.isEmpty()) return null
+    fun display(field: FieldDef, stored: List<ComparisonRow>): String? {
+        if (stored.isEmpty()) return null
+        val rows = withStartingNumbers(field, stored)
         val parts = rows.map { row ->
             val numbers = listOfNotNull(
                 parse(row.first)?.let { "${field.comparisonFirstLabel} ${format(it)}" },
@@ -161,3 +210,17 @@ val FieldDef.comparisonSecondLabel: String
     get() = secondLabel.ifBlank { ComparisonValues.DEFAULT_SECOND_LABEL }
 val FieldDef.comparisonTotalLabel: String
     get() = totalLabel.ifBlank { ComparisonValues.DEFAULT_TOTAL_LABEL }
+val FieldDef.comparisonButtonLabel: String
+    get() = clickerButtonLabel.ifBlank { ComparisonValues.DEFAULT_BUTTON_LABEL }
+
+/**
+ * The most digits any saved number of a Comparison field has, across both
+ * columns of every entry in [entryValues] — the lowest Max Digits it may be
+ * given. Null when nothing is saved.
+ */
+fun FieldDef.savedComparisonDigits(entryValues: List<String>): Int? =
+    entryValues
+        .flatMap { ComparisonValues.rows(EntryValues.decode(it), this) }
+        .flatMap { listOf(it.first, it.second) }
+        .maxOfOrNull { number -> number.count(Char::isDigit) }
+        ?.takeIf { it > 0 }

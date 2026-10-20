@@ -75,6 +75,8 @@ import com.datadragon.app.data.StableUuid
 import com.datadragon.app.data.activeChoices
 import com.datadragon.app.data.hasOptionList
 import com.datadragon.app.data.ComparisonValues
+import com.datadragon.app.data.ClickerIncrementDirection
+import androidx.compose.ui.focus.onFocusChanged
 import com.datadragon.app.data.hasDuplicateLabels
 import com.datadragon.app.data.matchingLabel
 import com.datadragon.app.data.ChoiceStyle
@@ -526,56 +528,115 @@ internal fun RatioFieldSettings(
     )
 }
 
+/** The editable Comparison settings held by both form builders' field drafts. */
+internal interface ComparisonSettingsDraft {
+    var itemLabel: String
+    var firstLabel: String
+    var secondLabel: String
+    var totalLabel: String
+    var digits: String
+    var wholeNumbersOnly: Boolean
+    var clickerCounting: Boolean
+    var clickerButtonLabel: String
+    var clickerStartingNumber: String
+    var clickerIncrement: String
+    var clickerDirection: ClickerIncrementDirection
+}
+
 /**
- * A Comparison field's settings: the four captions (each box shows its default,
- * grayed, until something is typed over it), the optional digit limit for the
- * number boxes, and whether they take whole numbers only.
+ * A Comparison field's settings: the captions (each box shows its default,
+ * grayed, until something is typed over it), with "Use Clicker Style Counting"
+ * above the second column's caption — when it is on, the Clicker card's Click
+ * Tracker settings sit under that caption — then the optional digit limit and
+ * whether typed numbers are whole numbers only.
+ *
+ * [minimumDigits] is the most digits a saved number already has: Max Digits
+ * can't go below it, says so while it is typed lower, and goes back to it when
+ * the box is left.
  */
 @Composable
-internal fun ComparisonFieldSettings(
-    itemLabel: String,
-    onItemLabelChange: (String) -> Unit,
-    firstLabel: String,
-    onFirstLabelChange: (String) -> Unit,
-    secondLabel: String,
-    onSecondLabelChange: (String) -> Unit,
-    totalLabel: String,
-    onTotalLabelChange: (String) -> Unit,
-    digits: String,
-    onDigitsChange: (String) -> Unit,
-    wholeNumbersOnly: Boolean,
-    onWholeNumbersOnlyChange: (Boolean) -> Unit,
-) {
-    CaptionSetting("Item Column Label", itemLabel, onItemLabelChange, ComparisonValues.DEFAULT_ITEM_LABEL)
-    CaptionSetting("First Column Label", firstLabel, onFirstLabelChange, ComparisonValues.DEFAULT_FIRST_LABEL)
-    CaptionSetting("Second Column Label", secondLabel, onSecondLabelChange, ComparisonValues.DEFAULT_SECOND_LABEL)
-    CaptionSetting("Total Label", totalLabel, onTotalLabelChange, ComparisonValues.DEFAULT_TOTAL_LABEL)
+internal fun ComparisonFieldSettings(field: ComparisonSettingsDraft, minimumDigits: Int? = null) {
+    CaptionSetting("Item Column Label", field.itemLabel, { field.itemLabel = it }, ComparisonValues.DEFAULT_ITEM_LABEL)
+    CaptionSetting("First Column Label", field.firstLabel, { field.firstLabel = it }, ComparisonValues.DEFAULT_FIRST_LABEL)
+    SettingSwitchRow(
+        checked = field.clickerCounting,
+        onCheckedChange = { field.clickerCounting = it },
+        title = "Use Clicker Style Counting",
+    )
+    CaptionSetting("Second Column Label", field.secondLabel, { field.secondLabel = it }, ComparisonValues.DEFAULT_SECOND_LABEL)
+    if (field.clickerCounting) {
+        CaptionSetting("Button Label", field.clickerButtonLabel, { field.clickerButtonLabel = it }, ComparisonValues.DEFAULT_BUTTON_LABEL)
+        CaptionSetting(
+            title = "Starting Number",
+            value = field.clickerStartingNumber,
+            onChange = { input -> field.clickerStartingNumber = input.filter { it.isDigit() }.take(STARTING_NUMBER_DIGITS) },
+            default = "0",
+            number = true,
+        )
+        DirectionRow(selected = field.clickerDirection, onSelected = { field.clickerDirection = it })
+        CaptionSetting(
+            title = "In Increments Of",
+            value = field.clickerIncrement,
+            onChange = { input -> field.clickerIncrement = input.filter { it.isDigit() }.take(INCREMENT_DIGITS) },
+            default = "1",
+            number = true,
+        )
+    }
+    CaptionSetting("Total Label", field.totalLabel, { field.totalLabel = it }, ComparisonValues.DEFAULT_TOTAL_LABEL)
+    var maxDigitsFocused by remember { mutableStateOf(false) }
     OutlinedTextField(
-        value = digits,
-        onValueChange = { input -> onDigitsChange(input.filter { it.isDigit() }) },
+        value = field.digits,
+        onValueChange = { input -> field.digits = input.filter { it.isDigit() } },
         label = { Text("Max Digits (Optional)") },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        modifier = Modifier.onFocusChanged { state ->
+            if (maxDigitsFocused && !state.isFocused) field.digits = digitsAtLeast(field.digits, minimumDigits)
+            maxDigitsFocused = state.isFocused
+        },
     )
+    if (minimumDigits != null && digitsAtLeast(field.digits, minimumDigits) != field.digits) {
+        Text(
+            "Data already includes a value of $minimumDigits number places. You can not go below that.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
     SettingSwitchRow(
-        checked = wholeNumbersOnly,
-        onCheckedChange = onWholeNumbersOnlyChange,
+        checked = field.wholeNumbersOnly,
+        onCheckedChange = { field.wholeNumbersOnly = it },
         title = "Only Allow Whole Numbers",
     )
 }
 
+/**
+ * A typed Max Digits value raised to [minimum] when it is below it. Blank (no
+ * limit) and values at or above [minimum] are kept as typed.
+ */
+internal fun digitsAtLeast(digits: String, minimum: Int?): String {
+    val typed = digits.toIntOrNull() ?: return digits
+    return if (minimum != null && typed < minimum) minimum.toString() else digits
+}
+
 /** One caption box: its label above, its default shown grayed inside while blank. */
 @Composable
-private fun CaptionSetting(title: String, value: String, onChange: (String) -> Unit, default: String) {
-    Text(title, style = MaterialTheme.typography.labelLarge)
-    OutlinedTextField(
-        value = value,
-        onValueChange = onChange,
-        placeholder = { Text(default) },
-        singleLine = true,
-        accessibleLabel = title,
-        modifier = Modifier.fillMaxWidth(),
-    )
+private fun CaptionSetting(
+    title: String,
+    value: String,
+    onChange: (String) -> Unit,
+    default: String,
+    number: Boolean = false,
+) {
+    Labeled(title) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onChange,
+            placeholder = { Text(default) },
+            singleLine = true,
+            keyboardOptions = if (number) KeyboardOptions(keyboardType = KeyboardType.Number) else KeyboardOptions.Default,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
 }
 
 /** One "Number of Digits" setting: the title on the left, a short digits box on the right. */
@@ -850,20 +911,7 @@ private fun FieldEditorCard(
                         label = { Text("Options (One per Line)") },
                         modifier = Modifier.fillMaxWidth().heightIn(min = AppTheme.sizes.editorMinHeight),
                     )
-                    ComparisonFieldSettings(
-                        itemLabel = field.itemLabel,
-                        onItemLabelChange = { field.itemLabel = it },
-                        firstLabel = field.firstLabel,
-                        onFirstLabelChange = { field.firstLabel = it },
-                        secondLabel = field.secondLabel,
-                        onSecondLabelChange = { field.secondLabel = it },
-                        totalLabel = field.totalLabel,
-                        onTotalLabelChange = { field.totalLabel = it },
-                        digits = field.digits,
-                        onDigitsChange = { field.digits = it },
-                        wholeNumbersOnly = field.wholeNumbersOnly,
-                        onWholeNumbersOnlyChange = { field.wholeNumbersOnly = it },
-                    )
+                    ComparisonFieldSettings(field)
                 }
                 FieldType.DATETIME -> CheckboxSettingRow(
                     checked = field.defaultNow,
@@ -1098,12 +1146,17 @@ private class DraftField(
     secondLabel: String = "",
     totalLabel: String = "",
     wholeNumbersOnly: Boolean = true,
-) {
+    clickerCounting: Boolean = false,
+    clickerButtonLabel: String = "",
+    clickerStartingNumber: String = "",
+    clickerIncrement: String = "",
+    clickerDirection: ClickerIncrementDirection = ClickerIncrementDirection.ADD,
+) : ComparisonSettingsDraft {
     var label by mutableStateOf(label)
     var type by mutableStateOf(type)
     var required by mutableStateOf(required)
     var lines by mutableStateOf(lines)
-    var digits by mutableStateOf(digits)
+    override var digits by mutableStateOf(digits)
     var from by mutableStateOf(from)
     var to by mutableStateOf(to)
     var optionsText by mutableStateOf(optionsText)
@@ -1118,11 +1171,16 @@ private class DraftField(
     var leftDigits by mutableStateOf(leftDigits)
     var rightDigits by mutableStateOf(rightDigits)
     var unit by mutableStateOf(unit)
-    var itemLabel by mutableStateOf(itemLabel)
-    var firstLabel by mutableStateOf(firstLabel)
-    var secondLabel by mutableStateOf(secondLabel)
-    var totalLabel by mutableStateOf(totalLabel)
-    var wholeNumbersOnly by mutableStateOf(wholeNumbersOnly)
+    override var itemLabel by mutableStateOf(itemLabel)
+    override var firstLabel by mutableStateOf(firstLabel)
+    override var secondLabel by mutableStateOf(secondLabel)
+    override var totalLabel by mutableStateOf(totalLabel)
+    override var wholeNumbersOnly by mutableStateOf(wholeNumbersOnly)
+    override var clickerCounting by mutableStateOf(clickerCounting)
+    override var clickerButtonLabel by mutableStateOf(clickerButtonLabel)
+    override var clickerStartingNumber by mutableStateOf(clickerStartingNumber)
+    override var clickerIncrement by mutableStateOf(clickerIncrement)
+    override var clickerDirection by mutableStateOf(clickerDirection)
 
     fun optionList(): List<String> =
         optionsText.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
@@ -1209,6 +1267,11 @@ private class DraftField(
         secondLabel = if (type == FieldType.COMPARISON) secondLabel.trim() else "",
         totalLabel = if (type == FieldType.COMPARISON) totalLabel.trim() else "",
         wholeNumbersOnly = type != FieldType.COMPARISON || wholeNumbersOnly,
+        clickerCounting = type == FieldType.COMPARISON && clickerCounting,
+        clickerButtonLabel = if (type == FieldType.COMPARISON) clickerButtonLabel.trim() else "",
+        clickerStartingNumber = if (type == FieldType.COMPARISON) clickerStartingNumber.toIntOrNull() ?: 0 else 0,
+        clickerIncrement = if (type == FieldType.COMPARISON) clickerIncrement.toIntOrNull()?.takeIf { it > 0 } ?: 1 else 1,
+        clickerDirection = if (type == FieldType.COMPARISON) clickerDirection else ClickerIncrementDirection.ADD,
     )
 
     fun toSnapshot(): DraftFieldSnapshot = DraftFieldSnapshot(
@@ -1235,6 +1298,11 @@ private class DraftField(
         secondLabel = secondLabel,
         totalLabel = totalLabel,
         wholeNumbersOnly = wholeNumbersOnly,
+        clickerCounting = clickerCounting,
+        clickerButtonLabel = clickerButtonLabel,
+        clickerStartingNumber = clickerStartingNumber,
+        clickerIncrement = clickerIncrement,
+        clickerDirection = clickerDirection,
     )
 }
 
@@ -1271,6 +1339,11 @@ private data class DraftFieldSnapshot(
     val secondLabel: String = "",
     val totalLabel: String = "",
     val wholeNumbersOnly: Boolean = true,
+    val clickerCounting: Boolean = false,
+    val clickerButtonLabel: String = "",
+    val clickerStartingNumber: String = "",
+    val clickerIncrement: String = "",
+    val clickerDirection: ClickerIncrementDirection = ClickerIncrementDirection.ADD,
 )
 
 private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
@@ -1297,6 +1370,11 @@ private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
     secondLabel = secondLabel,
     totalLabel = totalLabel,
     wholeNumbersOnly = wholeNumbersOnly,
+    clickerCounting = clickerCounting,
+    clickerButtonLabel = clickerButtonLabel,
+    clickerStartingNumber = clickerStartingNumber,
+    clickerIncrement = clickerIncrement,
+    clickerDirection = clickerDirection,
 )
 
 /**
@@ -1370,6 +1448,11 @@ private fun FieldDef.toDraft(): DraftField = DraftField(
     secondLabel = secondLabel,
     totalLabel = totalLabel,
     wholeNumbersOnly = wholeNumbersOnly,
+    clickerCounting = clickerCounting,
+    clickerButtonLabel = clickerButtonLabel,
+    clickerStartingNumber = clickerStartingNumber.takeIf { it != 0 }?.toString() ?: "",
+    clickerIncrement = clickerIncrement.takeIf { it != 1 }?.toString() ?: "",
+    clickerDirection = clickerDirection,
 )
 
 /** The first single-`#` line of [text], used as the log name when the box is empty. */

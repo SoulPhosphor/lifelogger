@@ -187,6 +187,87 @@ class ComparisonValuesTest {
         assertEquals(field.choices.map { it.label }, again.choices.map { it.label })
     }
 
+    private val counted = meals.copy(clickerCounting = true, clickerStartingNumber = 5, clickerIncrement = 2)
+
+    @Test
+    fun clickerPressesStepFromTheStartingNumber() {
+        var row = ComparisonRow("turkey")
+        val shown = mutableListOf(ComparisonValues.format(ComparisonValues.clickerValue(counted, row)))
+        repeat(3) {
+            row = ComparisonValues.clickerPressed(counted, row)
+            shown += row.second
+        }
+        assertEquals(listOf("5", "7", "9", "11"), shown)
+    }
+
+    @Test
+    fun subtractingClickerPressesGoBelowZero() {
+        val field = counted.copy(clickerDirection = ClickerIncrementDirection.SUBTRACT)
+        var row = ComparisonRow("turkey")
+        val shown = mutableListOf(ComparisonValues.format(ComparisonValues.clickerValue(field, row)))
+        repeat(3) {
+            row = ComparisonValues.clickerPressed(field, row)
+            shown += row.second
+        }
+        assertEquals(listOf("5", "3", "1", "-1"), shown)
+    }
+
+    @Test
+    fun theStartingNumberCountsOnceARowHasAnItemWithoutAPress() {
+        val rows = ComparisonValues.withStartingNumbers(counted, listOf(ComparisonRow("turkey", "3", ""), ComparisonRow()))
+        assertEquals(ComparisonRow("turkey", "3", "5"), rows[0])
+        // The placeholder row has no item, so its Starting Number is not a value.
+        assertEquals(ComparisonRow(), rows[1])
+        assertEquals("2", ComparisonValues.format(ComparisonValues.difference(rows[0])!!))
+        val stored = ComparisonValues.encode(rows)!! as JsonArray
+        assertEquals(1, stored.size)
+        assertEquals("5", (stored[0] as JsonObject)["second"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun typedFieldsNeverGainAStartingNumber() {
+        val rows = listOf(ComparisonRow("turkey", "3", ""))
+        assertEquals(rows, ComparisonValues.withStartingNumbers(meals.copy(clickerStartingNumber = 5), rows))
+    }
+
+    @Test
+    fun switchingCountingOnOrOffKeepsTheSavedNumbers() {
+        val stored = EntryValues.decode(
+            EntryValues.encode(mapOf("meals" to ComparisonValues.encode(listOf(ComparisonRow("turkey", "3", "300")))!!)),
+        )
+        assertEquals(ComparisonValues.rows(stored, meals), ComparisonValues.rows(stored, counted))
+        assertEquals("300", ComparisonValues.rows(stored, counted).single().second)
+    }
+
+    @Test
+    fun maxDigitsCannotGoBelowTheLongestSavedNumber() {
+        val entries = listOf(
+            EntryValues.encode(mapOf("meals" to ComparisonValues.encode(listOf(ComparisonRow("turkey", "-3.5", "300")))!!)),
+            EntryValues.encode(mapOf("meals" to ComparisonValues.encode(listOf(ComparisonRow("ham", "12", "")))!!)),
+        )
+        assertEquals(3, meals.savedComparisonDigits(entries))
+        assertNull(meals.savedComparisonDigits(emptyList()))
+    }
+
+    @Test
+    fun aDecimalPointInAWholeNumberBoxIsReported() {
+        assertTrue(ComparisonValues.refusesDecimalPoint("3.", "3", wholeNumbersOnly = true))
+        assertTrue(ComparisonValues.refusesDecimalPoint("3,", "3", wholeNumbersOnly = true))
+        assertFalse(ComparisonValues.refusesDecimalPoint("3.", "3", wholeNumbersOnly = false))
+        assertFalse(ComparisonValues.refusesDecimalPoint("34", "3", wholeNumbersOnly = true))
+    }
+
+    @Test
+    fun clickerSettingsRoundTripThroughFormMarkdown() {
+        val field = counted.copy(clickerButtonLabel = "Ate One", clickerDirection = ClickerIncrementDirection.SUBTRACT)
+        val again = FormMarkdownParser.parse(FormMarkdownGenerator.generate("Food", listOf(field))).fields.single()
+        assertTrue(again.clickerCounting)
+        assertEquals("Ate One", again.clickerButtonLabel)
+        assertEquals(5, again.clickerStartingNumber)
+        assertEquals(2, again.clickerIncrement)
+        assertEquals(ClickerIncrementDirection.SUBTRACT, again.clickerDirection)
+    }
+
     @Test
     fun blankCaptionsShowTheDefaults() {
         assertEquals("Item", meals.comparisonItemLabel)
@@ -194,6 +275,8 @@ class ComparisonValuesTest {
         assertEquals("Actual", meals.comparisonSecondLabel)
         assertEquals("Total Difference", meals.comparisonTotalLabel)
         assertTrue(meals.wholeNumbersOnly)
+        assertFalse(meals.clickerCounting)
+        assertEquals("Add", meals.comparisonButtonLabel)
     }
 
     @Test

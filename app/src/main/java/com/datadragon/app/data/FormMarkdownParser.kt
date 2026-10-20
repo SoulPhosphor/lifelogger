@@ -51,6 +51,11 @@ object FormMarkdownParser {
         var secondLabel = ""
         var totalLabel = ""
         var wholeNumbersOnly = true
+        var clickerCounting = false
+        var clickerButtonLabel = ""
+        var clickerStartingNumber = 0
+        var clickerIncrement = 1
+        var clickerDirection = ClickerIncrementDirection.ADD
         val options = mutableListOf<String>()
     }
 
@@ -172,6 +177,18 @@ object FormMarkdownParser {
                         "total_label" -> b.totalLabel = value
                         "whole_numbers" -> b.wholeNumbersOnly =
                             !(value.equals("false", ignoreCase = true) || value.equals("no", ignoreCase = true))
+                        "clicker_counting" -> b.clickerCounting =
+                            value.equals("true", ignoreCase = true) || value.equals("yes", ignoreCase = true)
+                        "button_label" -> b.clickerButtonLabel = value
+                        "starting_number" -> b.clickerStartingNumber = value.toIntOrNull()
+                            ?: run { issues.add("Field \"${b.label}\": starting_number \"$value\" is not a number."); 0 }
+                        "increment" -> b.clickerIncrement = value.toIntOrNull()?.takeIf { it > 0 }
+                            ?: run { issues.add("Field \"${b.label}\": increment \"$value\" is not a number above 0."); 1 }
+                        "direction" -> when (value.lowercase()) {
+                            "add" -> b.clickerDirection = ClickerIncrementDirection.ADD
+                            "subtract" -> b.clickerDirection = ClickerIncrementDirection.SUBTRACT
+                            else -> issues.add("Field \"${b.label}\": direction \"$value\" is not add or subtract.")
+                        }
                         "options" -> {
                             inOptions = true
                             if (value.isNotEmpty()) {
@@ -265,6 +282,11 @@ object FormMarkdownParser {
                 secondLabel = if (type == FieldType.COMPARISON) b.secondLabel else "",
                 totalLabel = if (type == FieldType.COMPARISON) b.totalLabel else "",
                 wholeNumbersOnly = type != FieldType.COMPARISON || b.wholeNumbersOnly,
+                clickerCounting = type == FieldType.COMPARISON && b.clickerCounting,
+                clickerButtonLabel = if (type == FieldType.COMPARISON) b.clickerButtonLabel else "",
+                clickerStartingNumber = if (type == FieldType.COMPARISON) b.clickerStartingNumber else 0,
+                clickerIncrement = if (type == FieldType.COMPARISON) b.clickerIncrement else 1,
+                clickerDirection = if (type == FieldType.COMPARISON) b.clickerDirection else ClickerIncrementDirection.ADD,
             )
         )
     }
