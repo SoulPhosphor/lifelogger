@@ -301,4 +301,15 @@ class ComparisonValuesTest {
         assertFalse(decoded.wholeNumbersOnly)
         assertEquals("Planned", decoded.firstLabel)
     }
+
+    @Test
+    fun `a stored number too long to spell out is skipped`() {
+        val raw = json.parseToJsonElement(
+            """[{"item": "turkey", "first": 1e100000000, "second": 1e-100000000}, {"item": "ham", "first": 2.5e3}]""",
+        )
+
+        val rows = ComparisonValues.decode(raw)
+
+        assertEquals(listOf(ComparisonRow("turkey"), ComparisonRow("ham", first = "2500")), rows)
+    }
 }

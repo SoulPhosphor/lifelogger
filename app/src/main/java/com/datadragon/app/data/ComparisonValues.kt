@@ -197,9 +197,20 @@ object ComparisonValues {
     /** The rows that are answers: those with an item. Draft rows are left out. */
     fun answers(rows: List<ComparisonRow>): List<ComparisonRow> = rows.filter { it.item.isNotBlank() }
 
+    /**
+     * The longest plain number a stored value may spell out. Nothing the app
+     * writes comes close; a compact literal like `1e100000000` from a damaged
+     * file would otherwise expand to millions of digits when read.
+     */
+    private const val MAX_STORED_LENGTH = 1000
+
     private fun numberText(element: JsonElement?): String {
         val content = (element as? JsonPrimitive)?.contentOrNull ?: return ""
-        return runCatching { BigDecimal(content).toPlainString() }.getOrDefault(content)
+        val number = runCatching { BigDecimal(content) }.getOrNull() ?: return content
+        val integerDigits = number.precision() - number.scale()
+        // Too long to spell out: unreadable, so the number is skipped.
+        if (integerDigits > MAX_STORED_LENGTH || number.scale() > MAX_STORED_LENGTH) return ""
+        return number.toPlainString()
     }
 
     /**
