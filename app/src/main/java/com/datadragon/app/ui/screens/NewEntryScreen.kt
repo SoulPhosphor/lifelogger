@@ -231,8 +231,12 @@ fun NewEntryScreen(
 
     val missingRequiredIds = missingRequiredFieldIds(fields, textValues, multiValues, tagValues, comparisonValues)
 
-    val dirty = baseline != null &&
-        collectValues(fields, textValues, multiValues, tagValues, comparisonValues, notes) != baseline
+    // A Comparison row with a number but no item isn't stored, so it is checked
+    // directly: leaving would otherwise lose the typed number without a warning.
+    val dirty = baseline != null && (
+        collectValues(fields, textValues, multiValues, tagValues, comparisonValues, notes) != baseline ||
+            comparisonValues.values.any { rows -> rows.any(ComparisonValues::needsItem) }
+        )
     var showDiscard by rememberSaveable { mutableStateOf(false) }
     fun attemptBack() { if (dirty) showDiscard = true else onBack() }
     BackHandler { attemptBack() }

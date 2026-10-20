@@ -124,7 +124,9 @@ fun ClickerCardEditScreen(
     // compares equal to one that was never filled in.
     val current = original
     val dirty = current != null && (
-        displayDate != current.displayDate ||
+        // A Comparison row with a number but no item isn't in the values yet.
+        comparisonBlocked.values.any { it } ||
+            displayDate != current.displayDate ||
             displayTime != current.displayTime ||
             values.filterValues { it.isNotEmpty() } != ClickerValues.decode(current.valuesJson).filterValues { it.isNotEmpty() }
         )
