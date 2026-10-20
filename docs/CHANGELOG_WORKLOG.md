@@ -4,6 +4,30 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-10-20 — Comparison form field
+
+- **New field type**: Comparison (`comparison`). Each row picks an item from the
+  field's options and takes two numbers; the row shows the difference (second −
+  first, Δ) and a Total Difference line sums every row that has both numbers.
+  Either number may be left blank so a row can be filled in over time. An item
+  can be picked in one row only; a row with a number but no item blocks Save.
+- **Identity**: items are ordinary `ChoiceOption`s with permanent ids. Rows store
+  the option id (`{"item", "first", "second"}`, numbers as JSON numbers), so
+  renames never disconnect saved rows. Deleting an option removes only the rows
+  that picked it. No database or backup format change: the schema and entry
+  values are the existing JSON columns.
+- **Settings**: Item / First / Second Column Label and Total Label (blank shows
+  Item, Expected, Actual, Total Difference grayed in the box), Max Digits
+  (Optional, counts digits only), Only Allow Whole Numbers (on by default). No
+  Required toggle.
+- **Entry form**: Add Item (disabled as "No Items Left" when every item is in
+  use) and, when Allow Additions from Form is on, New Option, which reuses the
+  Add Option pop-up and drops each new item into the last row if it has no item
+  yet, otherwise into a new row. Rows sit on one line when the width allows and
+  wrap to two lines otherwise.
+
+---
+
 ## 2026-10-13 — Permanent field and option identities; option row editor
 
 - **Identity**: every Form field and every Single / Multiple Choice option has a

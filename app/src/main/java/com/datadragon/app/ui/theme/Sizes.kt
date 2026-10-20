@@ -35,6 +35,14 @@ data class AppSizes(
     val statisticsNumberWidth: Dp,
     val numberWidth: Dp,
     val clickerNumberWidth: Dp,
+    /**
+     * Material's fixed text inset on each side inside an outlined text field.
+     * It doesn't change the field; it is the padding added when a box is sized
+     * to fit its contents (the Comparison number boxes).
+     */
+    val fieldContentInset: Dp,
+    /** The narrowest a Comparison row's item drop-down may get before the row wraps to two lines. */
+    val comparisonItemMinWidth: Dp,
     /** Minimums only: text fields remain free to grow with their contents. */
     val editorMinHeight: Dp,
     val notesMinHeight: Dp,
@@ -65,6 +73,8 @@ val DefaultAppSizes = AppSizes(
     statisticsNumberWidth = 88.dp,
     numberWidth = 96.dp,
     clickerNumberWidth = 120.dp,
+    fieldContentInset = 16.dp,
+    comparisonItemMinWidth = 128.dp,
     editorMinHeight = 96.dp,
     notesMinHeight = 120.dp,
     followUpMinHeight = 144.dp,

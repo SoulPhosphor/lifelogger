@@ -46,6 +46,11 @@ object FormMarkdownParser {
         var leftDigits: Int? = null
         var rightDigits: Int? = null
         var unit = ""
+        var itemLabel = ""
+        var firstLabel = ""
+        var secondLabel = ""
+        var totalLabel = ""
+        var wholeNumbersOnly = true
         val options = mutableListOf<String>()
     }
 
@@ -161,6 +166,12 @@ object FormMarkdownParser {
                         "right_digits" -> b.rightDigits = value.toIntOrNull()
                             ?: run { issues.add("Field \"${b.label}\": right_digits \"$value\" is not a number."); null }
                         "unit" -> b.unit = value
+                        "item_label" -> b.itemLabel = value
+                        "first_label" -> b.firstLabel = value
+                        "second_label" -> b.secondLabel = value
+                        "total_label" -> b.totalLabel = value
+                        "whole_numbers" -> b.wholeNumbersOnly =
+                            !(value.equals("false", ignoreCase = true) || value.equals("no", ignoreCase = true))
                         "options" -> {
                             inOptions = true
                             if (value.isNotEmpty()) {
@@ -221,7 +232,7 @@ object FormMarkdownParser {
                     return
                 }
             }
-            FieldType.DROPDOWN, FieldType.MULTIPLE -> {
+            FieldType.DROPDOWN, FieldType.MULTIPLE, FieldType.COMPARISON -> {
                 if (b.options.isEmpty()) {
                     issues.add("Field \"${b.label}\" (${type.token}) has no options; skipped.")
                     return
@@ -235,12 +246,13 @@ object FormMarkdownParser {
                 id = newId(),
                 label = b.label,
                 type = type,
-                required = b.required,
+                // A Comparison field is never required.
+                required = b.required && type != FieldType.COMPARISON,
                 lines = b.lines.takeIf { type == FieldType.MULTILINE },
-                digits = b.digits.takeIf { type == FieldType.NUMBER },
+                digits = b.digits.takeIf { type == FieldType.NUMBER || type == FieldType.COMPARISON },
                 from = b.from.takeIf { type == FieldType.SCALE },
                 to = b.to.takeIf { type == FieldType.SCALE },
-                choices = if (type.hasChoices) buildChoices(b, type, issues, newId) else emptyList(),
+                choices = if (type.hasOptionList) buildChoices(b, type, issues, newId) else emptyList(),
                 defaultNow = b.defaultNow && type == FieldType.DATETIME,
                 allowUnknown = b.allowUnknown && type == FieldType.YESNO,
                 makeDropdown = b.makeDropdown && type == FieldType.SCALE,
@@ -248,6 +260,11 @@ object FormMarkdownParser {
                 leftDigits = b.leftDigits.takeIf { type == FieldType.RATIO },
                 rightDigits = b.rightDigits.takeIf { type == FieldType.RATIO },
                 unit = if (type == FieldType.RATIO) b.unit else "",
+                itemLabel = if (type == FieldType.COMPARISON) b.itemLabel else "",
+                firstLabel = if (type == FieldType.COMPARISON) b.firstLabel else "",
+                secondLabel = if (type == FieldType.COMPARISON) b.secondLabel else "",
+                totalLabel = if (type == FieldType.COMPARISON) b.totalLabel else "",
+                wholeNumbersOnly = type != FieldType.COMPARISON || b.wholeNumbersOnly,
             )
         )
     }

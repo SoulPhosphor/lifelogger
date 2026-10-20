@@ -70,6 +70,7 @@ import com.datadragon.app.ui.components.DialogDismissButton
 import com.datadragon.app.ui.components.SortFilterBar
 import com.datadragon.app.ui.components.WebpageOpenButton
 import com.datadragon.app.ui.components.ExportFormatOption
+import com.datadragon.app.data.ComparisonValues
 import com.datadragon.app.data.EntryNote
 import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.FieldDef
@@ -79,6 +80,7 @@ import com.datadragon.app.export.ExportContent
 import com.datadragon.app.export.LogExport
 import com.datadragon.app.ui.LogViewModel
 import com.datadragon.app.ui.theme.AppTheme
+import kotlinx.serialization.json.JsonObject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -512,6 +514,7 @@ private fun EntryRow(
                     FieldReadout(
                         field = hoisted.first,
                         value = hoisted.second,
+                        values = values,
                         modifier = Modifier.fillMaxWidth().padding(end = actionsWidth),
                     )
                 } else {
@@ -558,7 +561,7 @@ private fun EntryRow(
 
                 // One label-over-value block per remaining field that has a value.
                 remaining.forEach { (field, value) ->
-                    FieldReadout(field = field, value = value)
+                    FieldReadout(field = field, value = value, values = values)
                 }
                 notes?.let { NotesReadout(it) }
             }
@@ -670,14 +673,18 @@ private fun FollowUpNote(note: EntryNote, onClick: () -> Unit) {
  *
  * A `webpage` field gets a small open-in-browser button beside its address. Only
  * that button navigates — tapping the card itself never leaves for the browser.
+ * A `comparison` field is shown as its table instead, read from [values].
  */
 @Composable
 private fun FieldReadout(
     field: FieldDef,
     value: String,
+    values: JsonObject,
     modifier: Modifier = Modifier.fillMaxWidth().padding(top = AppTheme.spacing.related),
 ) {
-    if (field.type == FieldType.WEBPAGE) {
+    if (field.type == FieldType.COMPARISON) {
+        ComparisonReadout(field = field, rows = ComparisonValues.rows(values, field), modifier = modifier)
+    } else if (field.type == FieldType.WEBPAGE) {
         Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
             LabelledValue(
                 label = field.label,

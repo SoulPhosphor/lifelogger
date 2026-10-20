@@ -17,8 +17,9 @@ import kotlinx.serialization.Serializable
  * written before field identities existed — [FieldIdentityMigration] assigns
  * it once and persists it; nothing generates one while decoding.
  *
- * A Single Choice (`dropdown`) or Multiple Choice (`multiple`) field keeps its
- * options in [choices], each with its own permanent id; answers store those ids.
+ * A Single Choice (`dropdown`), Multiple Choice (`multiple`) or Comparison
+ * (`comparison`) field keeps its options in [choices], each with its own
+ * permanent id; answers store those ids.
  *
  * The `legacy…` properties hold the pre-identity shape (option text, the
  * Multiple Choice `*` switch, and the Single Choice "top answer" switch). They
@@ -32,12 +33,12 @@ data class FieldDef(
     val required: Boolean = false,
     /** multiline: visible height. */
     val lines: Int? = null,
-    /** number: max digits allowed. */
+    /** number / comparison: max digits allowed. */
     val digits: Int? = null,
     /** scale: inclusive range bounds. */
     val from: Int? = null,
     val to: Int? = null,
-    /** dropdown / multiple: the options, active and retired, in display order. */
+    /** dropdown / multiple / comparison: the options, active and retired, in display order. */
     val choices: List<ChoiceOption> = emptyList(),
     /** Legacy (pre-identity) dropdown / multiple option text. */
     @SerialName("options")
@@ -63,6 +64,13 @@ data class FieldDef(
     val rightDigits: Int? = null,
     /** ratio: the unit of measurement shown after the value (blank for none). */
     val unit: String = "",
+    /** comparison: the column and total captions; blank shows the default. */
+    val itemLabel: String = "",
+    val firstLabel: String = "",
+    val secondLabel: String = "",
+    val totalLabel: String = "",
+    /** comparison: the two number columns take whole numbers only. */
+    val wholeNumbersOnly: Boolean = true,
 )
 
 /** How a Single Choice (`dropdown`) field presents its options on the entry form. */
@@ -75,6 +83,13 @@ enum class ChoiceStyle {
 /** True for the two field types that hold a fixed list of [FieldDef.choices]. */
 val FieldType.hasChoices: Boolean
     get() = this == FieldType.DROPDOWN || this == FieldType.MULTIPLE
+
+/**
+ * True for every field type whose items live in [FieldDef.choices] with
+ * permanent ids: the two choice types plus Comparison, whose rows pick items.
+ */
+val FieldType.hasOptionList: Boolean
+    get() = hasChoices || this == FieldType.COMPARISON
 
 /** The options still offered for new answers, in display order. */
 val FieldDef.activeChoices: List<ChoiceOption>
@@ -118,7 +133,8 @@ enum class FieldType(val token: String) {
     RATIO("ratio"),
     TAGS("tags"),
     WEBPAGE("webpage"),
-    BLOOD_PRESSURE("blood_pressure");
+    BLOOD_PRESSURE("blood_pressure"),
+    COMPARISON("comparison");
 
     companion object {
         fun fromToken(token: String): FieldType? =

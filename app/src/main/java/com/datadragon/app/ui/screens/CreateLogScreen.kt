@@ -73,7 +73,8 @@ import com.datadragon.app.data.ChoiceOption
 import com.datadragon.app.data.OptionDuplicates
 import com.datadragon.app.data.StableUuid
 import com.datadragon.app.data.activeChoices
-import com.datadragon.app.data.hasChoices
+import com.datadragon.app.data.hasOptionList
+import com.datadragon.app.data.ComparisonValues
 import com.datadragon.app.data.hasDuplicateLabels
 import com.datadragon.app.data.matchingLabel
 import com.datadragon.app.data.ChoiceStyle
@@ -109,6 +110,7 @@ tags           — type a tag and add it; each becomes a removable chip
 webpage        — a web address, with a button that opens it
 blood_pressure — Two 3-Digit Boxes Separated by "/" (Systolic / Diastolic)
 ratio          — two numbers separated by "/". Set "left_digits" and "right_digits" (1 to 10). Add "unit" for a unit of measurement
+comparison     — rows of an item from a list with two numbers and their difference. Needs "options:". Set "digits" for max digits. Add "whole_numbers: false" to allow decimals
 
 Any field can add "required" to prevent saving without it."""
 
@@ -524,6 +526,58 @@ internal fun RatioFieldSettings(
     )
 }
 
+/**
+ * A Comparison field's settings: the four captions (each box shows its default,
+ * grayed, until something is typed over it), the optional digit limit for the
+ * number boxes, and whether they take whole numbers only.
+ */
+@Composable
+internal fun ComparisonFieldSettings(
+    itemLabel: String,
+    onItemLabelChange: (String) -> Unit,
+    firstLabel: String,
+    onFirstLabelChange: (String) -> Unit,
+    secondLabel: String,
+    onSecondLabelChange: (String) -> Unit,
+    totalLabel: String,
+    onTotalLabelChange: (String) -> Unit,
+    digits: String,
+    onDigitsChange: (String) -> Unit,
+    wholeNumbersOnly: Boolean,
+    onWholeNumbersOnlyChange: (Boolean) -> Unit,
+) {
+    CaptionSetting("Item Column Label", itemLabel, onItemLabelChange, ComparisonValues.DEFAULT_ITEM_LABEL)
+    CaptionSetting("First Column Label", firstLabel, onFirstLabelChange, ComparisonValues.DEFAULT_FIRST_LABEL)
+    CaptionSetting("Second Column Label", secondLabel, onSecondLabelChange, ComparisonValues.DEFAULT_SECOND_LABEL)
+    CaptionSetting("Total Label", totalLabel, onTotalLabelChange, ComparisonValues.DEFAULT_TOTAL_LABEL)
+    OutlinedTextField(
+        value = digits,
+        onValueChange = { input -> onDigitsChange(input.filter { it.isDigit() }) },
+        label = { Text("Max Digits (Optional)") },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+    )
+    SettingSwitchRow(
+        checked = wholeNumbersOnly,
+        onCheckedChange = onWholeNumbersOnlyChange,
+        title = "Only Allow Whole Numbers",
+    )
+}
+
+/** One caption box: its label above, its default shown grayed inside while blank. */
+@Composable
+private fun CaptionSetting(title: String, value: String, onChange: (String) -> Unit, default: String) {
+    Text(title, style = MaterialTheme.typography.labelLarge)
+    OutlinedTextField(
+        value = value,
+        onValueChange = onChange,
+        placeholder = { Text(default) },
+        singleLine = true,
+        accessibleLabel = title,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
 /** One "Number of Digits" setting: the title on the left, a short digits box on the right. */
 @Composable
 private fun RatioDigitsRow(title: String, value: String, onChange: (String) -> Unit) {
@@ -789,6 +843,28 @@ private fun FieldEditorCard(
                     unit = field.unit,
                     onUnitChange = { field.unit = it },
                 )
+                FieldType.COMPARISON -> {
+                    OutlinedTextField(
+                        value = field.optionsText,
+                        onValueChange = { field.optionsText = it },
+                        label = { Text("Options (One per Line)") },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = AppTheme.sizes.editorMinHeight),
+                    )
+                    ComparisonFieldSettings(
+                        itemLabel = field.itemLabel,
+                        onItemLabelChange = { field.itemLabel = it },
+                        firstLabel = field.firstLabel,
+                        onFirstLabelChange = { field.firstLabel = it },
+                        secondLabel = field.secondLabel,
+                        onSecondLabelChange = { field.secondLabel = it },
+                        totalLabel = field.totalLabel,
+                        onTotalLabelChange = { field.totalLabel = it },
+                        digits = field.digits,
+                        onDigitsChange = { field.digits = it },
+                        wholeNumbersOnly = field.wholeNumbersOnly,
+                        onWholeNumbersOnlyChange = { field.wholeNumbersOnly = it },
+                    )
+                }
                 FieldType.DATETIME -> CheckboxSettingRow(
                     checked = field.defaultNow,
                     onCheckedChange = { field.defaultNow = it },
@@ -820,11 +896,14 @@ private fun FieldEditorCard(
                     )
                 }
             }
-            SettingSwitchRow(
-                checked = field.required,
-                onCheckedChange = { field.required = it },
-                title = "Required",
-            )
+            // A Comparison field is never required.
+            if (field.type != FieldType.COMPARISON) {
+                SettingSwitchRow(
+                    checked = field.required,
+                    onCheckedChange = { field.required = it },
+                    title = "Required",
+                )
+            }
             if (field.type == FieldType.DROPDOWN) {
                 ChoiceStyleRadios(
                     style = field.choiceStyle,
@@ -1014,6 +1093,11 @@ private class DraftField(
     leftDigits: String = "",
     rightDigits: String = "",
     unit: String = "",
+    itemLabel: String = "",
+    firstLabel: String = "",
+    secondLabel: String = "",
+    totalLabel: String = "",
+    wholeNumbersOnly: Boolean = true,
 ) {
     var label by mutableStateOf(label)
     var type by mutableStateOf(type)
@@ -1034,6 +1118,11 @@ private class DraftField(
     var leftDigits by mutableStateOf(leftDigits)
     var rightDigits by mutableStateOf(rightDigits)
     var unit by mutableStateOf(unit)
+    var itemLabel by mutableStateOf(itemLabel)
+    var firstLabel by mutableStateOf(firstLabel)
+    var secondLabel by mutableStateOf(secondLabel)
+    var totalLabel by mutableStateOf(totalLabel)
+    var wholeNumbersOnly by mutableStateOf(wholeNumbersOnly)
 
     fun optionList(): List<String> =
         optionsText.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
@@ -1072,7 +1161,7 @@ private class DraftField(
         return when (type) {
             FieldType.SCALE -> effectiveTo() >= effectiveFrom()
             FieldType.DROPDOWN -> optionList().isNotEmpty() && preselectedOptionValid()
-            FieldType.MULTIPLE -> optionList().isNotEmpty()
+            FieldType.MULTIPLE, FieldType.COMPARISON -> optionList().isNotEmpty()
             FieldType.RATIO -> ratioDigitsValid()
             else -> true
         }
@@ -1082,7 +1171,7 @@ private class DraftField(
     fun validationHint(): String? = when {
         label.trim().isEmpty() -> "Add a label."
         type == FieldType.SCALE && !isValid() -> "Scale To must be ≥ From."
-        (type == FieldType.DROPDOWN || type == FieldType.MULTIPLE) && optionList().isEmpty() ->
+        type.hasOptionList && optionList().isEmpty() ->
             "Add at least one option."
         !preselectedOptionValid() -> "Enter an option from the list."
         type == FieldType.RATIO && !ratioDigitsValid() -> RATIO_DIGITS_HINT
@@ -1097,12 +1186,16 @@ private class DraftField(
         id = StableUuid.createNew(),
         label = label.trim(),
         type = type,
-        required = required,
+        required = required && type != FieldType.COMPARISON,
         lines = if (type == FieldType.MULTILINE) lines.toIntOrNull() else null,
-        digits = if (type == FieldType.NUMBER) digits.toIntOrNull() else null,
+        digits = when (type) {
+            FieldType.NUMBER -> digits.toIntOrNull()
+            FieldType.COMPARISON -> digits.toIntOrNull()?.takeIf { it > 0 }
+            else -> null
+        },
         from = if (type == FieldType.SCALE) effectiveFrom() else null,
         to = if (type == FieldType.SCALE) effectiveTo() else null,
-        choices = if (type.hasChoices) choiceList() else emptyList(),
+        choices = if (type.hasOptionList) choiceList() else emptyList(),
         defaultNow = type == FieldType.DATETIME && defaultNow,
         allowOrderFiltering = type.sortEligible && allowOrderFiltering,
         allowUnknown = type == FieldType.YESNO && allowUnknown,
@@ -1111,6 +1204,11 @@ private class DraftField(
         leftDigits = if (type == FieldType.RATIO) RatioValues.parseDigits(leftDigits) else null,
         rightDigits = if (type == FieldType.RATIO) RatioValues.parseDigits(rightDigits) else null,
         unit = if (type == FieldType.RATIO) unit.trim() else "",
+        itemLabel = if (type == FieldType.COMPARISON) itemLabel.trim() else "",
+        firstLabel = if (type == FieldType.COMPARISON) firstLabel.trim() else "",
+        secondLabel = if (type == FieldType.COMPARISON) secondLabel.trim() else "",
+        totalLabel = if (type == FieldType.COMPARISON) totalLabel.trim() else "",
+        wholeNumbersOnly = type != FieldType.COMPARISON || wholeNumbersOnly,
     )
 
     fun toSnapshot(): DraftFieldSnapshot = DraftFieldSnapshot(
@@ -1132,6 +1230,11 @@ private class DraftField(
         leftDigits = leftDigits,
         rightDigits = rightDigits,
         unit = unit,
+        itemLabel = itemLabel,
+        firstLabel = firstLabel,
+        secondLabel = secondLabel,
+        totalLabel = totalLabel,
+        wholeNumbersOnly = wholeNumbersOnly,
     )
 }
 
@@ -1163,6 +1266,11 @@ private data class DraftFieldSnapshot(
     val leftDigits: String = "",
     val rightDigits: String = "",
     val unit: String = "",
+    val itemLabel: String = "",
+    val firstLabel: String = "",
+    val secondLabel: String = "",
+    val totalLabel: String = "",
+    val wholeNumbersOnly: Boolean = true,
 )
 
 private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
@@ -1184,6 +1292,11 @@ private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
     leftDigits = leftDigits,
     rightDigits = rightDigits,
     unit = unit,
+    itemLabel = itemLabel,
+    firstLabel = firstLabel,
+    secondLabel = secondLabel,
+    totalLabel = totalLabel,
+    wholeNumbersOnly = wholeNumbersOnly,
 )
 
 /**
@@ -1252,6 +1365,11 @@ private fun FieldDef.toDraft(): DraftField = DraftField(
     leftDigits = leftDigits?.toString() ?: "",
     rightDigits = rightDigits?.toString() ?: "",
     unit = unit,
+    itemLabel = itemLabel,
+    firstLabel = firstLabel,
+    secondLabel = secondLabel,
+    totalLabel = totalLabel,
+    wholeNumbersOnly = wholeNumbersOnly,
 )
 
 /** The first single-`#` line of [text], used as the log name when the box is empty. */
@@ -1276,6 +1394,7 @@ private fun FieldType.friendly(): String = when (this) {
     FieldType.WEBPAGE -> "Webpages"
     FieldType.BLOOD_PRESSURE -> "Blood Pressure"
     FieldType.RATIO -> "Ratios"
+    FieldType.COMPARISON -> "Comparison"
 }
 
 /** A short human-readable description of a parsed field for the preview. */
@@ -1295,6 +1414,7 @@ private fun FieldDef.summary(): String {
         FieldType.WEBPAGE -> "Webpage address"
         FieldType.BLOOD_PRESSURE -> "Blood pressure (###/###)"
         FieldType.RATIO -> "Ratios"
+        FieldType.COMPARISON -> "Compare: " + activeChoices.joinToString(", ") { it.label }
     }
     return if (required) "$base · required" else base
 }

@@ -15,7 +15,7 @@ import com.datadragon.app.data.SettingsRepository
 import com.datadragon.app.data.TitleCase
 import com.datadragon.app.data.ChoiceEdits
 import com.datadragon.app.data.ChoiceOption
-import com.datadragon.app.data.hasChoices
+import com.datadragon.app.data.hasOptionList
 import com.datadragon.app.data.matchingLabel
 import com.datadragon.app.data.LogEntry
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -47,7 +47,10 @@ class NewEntryViewModel(app: Application) : AndroidViewModel(app) {
     private val _logName = MutableStateFlow<String?>(null)
     val logName: StateFlow<String?> = _logName
 
-    /** The form's "Allow Additions from Form" setting: shows "+" on Dropdown/Multiple fields. */
+    /**
+     * The form's "Allow Additions from Form" setting: shows "+" on Dropdown/Multiple
+     * fields and New Option on Comparison fields.
+     */
     private val _allowAdditionsFromForm = MutableStateFlow(false)
     val allowAdditionsFromForm: StateFlow<Boolean> = _allowAdditionsFromForm
 
@@ -76,17 +79,19 @@ class NewEntryViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * Add [additions] as new options of the Dropdown/Multiple field [fieldId] and
-     * save them to the form right away, so they are live on this entry form and
-     * every later one. Each new option gets a new permanent id and goes after the
-     * existing active options; they are auto-capitalized when that setting is on,
-     * and any that repeat an existing option — active or retired, ignoring
-     * capitalization — are dropped. Stored entries are untouched.
+     * Add [additions] as new options of the Dropdown/Multiple/Comparison field
+     * [fieldId] and save them to the form right away, so they are live on this
+     * entry form and every later one. Each new option gets a new permanent id and
+     * goes after the existing active options; they are auto-capitalized when that
+     * setting is on, and any that repeat an existing option — active or retired,
+     * ignoring capitalization — are dropped. Stored entries are untouched.
+     * [onAdded] then receives the new options' ids, in order.
      */
-    fun addOptions(fieldId: String, additions: List<String>) {
+    fun addOptions(fieldId: String, additions: List<String>, onAdded: (List<String>) -> Unit = {}) {
         if (templateId < 0 || additions.isEmpty()) return
         val capitalize = SettingsRepository(getApplication()).autoCapitalizeOptions
-        updateField(fieldId) { field ->
+        val added = mutableListOf<String>()
+        updateField(fieldId, onDone = { onAdded(added) }) { field ->
             var choices = field.choices
             additions
                 .map { it.trim() }
@@ -94,7 +99,9 @@ class NewEntryViewModel(app: Application) : AndroidViewModel(app) {
                 .map { if (capitalize) TitleCase.apply(it) else it }
                 .forEach { label ->
                     if (choices.matchingLabel(label) == null) {
-                        choices = ChoiceEdits.withNew(choices, ChoiceOption.createNew(label))
+                        val option = ChoiceOption.createNew(label)
+                        choices = ChoiceEdits.withNew(choices, option)
+                        added += option.id
                     }
                 }
             field.copy(choices = choices)
@@ -103,20 +110,22 @@ class NewEntryViewModel(app: Application) : AndroidViewModel(app) {
 
     /**
      * Restore the retired option [optionId] of field [fieldId] with its original
-     * id, so every answer already saved against it comes back with it.
+     * id, so every answer already saved against it comes back with it. [onDone]
+     * runs once the form holds it again.
      */
-    fun restoreOption(fieldId: String, optionId: String) {
+    fun restoreOption(fieldId: String, optionId: String, onDone: () -> Unit = {}) {
         if (templateId < 0) return
-        updateField(fieldId) { field -> field.copy(choices = ChoiceEdits.restored(field.choices, optionId)) }
+        updateField(fieldId, onDone) { field -> field.copy(choices = ChoiceEdits.restored(field.choices, optionId)) }
     }
 
-    private fun updateField(fieldId: String, change: (FieldDef) -> FieldDef) {
+    /** Apply [change] to field [fieldId] and save the form; [onDone] runs once it is saved. */
+    private fun updateField(fieldId: String, onDone: () -> Unit = {}, change: (FieldDef) -> FieldDef) {
         viewModelScope.launch {
             val template = templateDao.getById(templateId) ?: return@launch
             val current = runCatching { json.decodeFromString<List<FieldDef>>(template.schemaJson) }
                 .getOrNull() ?: return@launch
             val updated = current.map { field ->
-                if (field.id != fieldId || !field.type.hasChoices) field else change(field)
+                if (field.id != fieldId || !field.type.hasOptionList) field else change(field)
             }
             if (updated == current) return@launch
             templateDao.updateSchema(
@@ -125,6 +134,7 @@ class NewEntryViewModel(app: Application) : AndroidViewModel(app) {
                 FormMarkdownGenerator.generate(template.name, updated),
             )
             _fields.value = updated
+            onDone()
         }
     }
 

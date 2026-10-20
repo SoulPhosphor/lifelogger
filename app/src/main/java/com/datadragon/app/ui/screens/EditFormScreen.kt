@@ -67,7 +67,7 @@ import com.datadragon.app.data.ChoiceEdits
 import com.datadragon.app.data.ChoiceOption
 import com.datadragon.app.data.StableUuid
 import com.datadragon.app.data.activeChoices
-import com.datadragon.app.data.hasChoices
+import com.datadragon.app.data.hasOptionList
 import com.datadragon.app.data.hasDuplicateLabels
 import com.datadragon.app.ui.components.ChoiceEditorWordings
 import com.datadragon.app.ui.components.ChoiceOptionsEditor
@@ -424,8 +424,9 @@ fun EditFormScreen(
             }
 
             item(key = "allow-additions-from-form") {
-                // Lets a Dropdown or Multiple field gain options from the entry
-                // form itself (the "+" beside the field's title there).
+                // Lets a Dropdown, Multiple or Comparison field gain options from
+                // the entry form itself (the "+" beside a choice field's title
+                // there, or a Comparison field's New Option button).
                 SettingSwitchRow(
                     checked = allowAdditionsFromForm ?: false,
                     onCheckedChange = { allowAdditionsFromForm = it },
@@ -680,7 +681,8 @@ private fun FieldEditorScreen(
                     )
                 }
             }
-            RequiredRow(draft)
+            // A Comparison field is never required.
+            if (draft.type != FieldType.COMPARISON) RequiredRow(draft)
             if (draft.type == FieldType.DROPDOWN) {
                 ChoiceStyleRadios(
                     style = draft.choiceStyle,
@@ -782,6 +784,30 @@ private fun SettingsControls(
             capitalizeNew = capitalizeNewOptions,
             onDeletePermanently = onDeleteOption,
         )
+        FieldType.COMPARISON -> {
+            ChoiceOptionsEditor(
+                choices = field.choices,
+                onChoicesChange = { field.choices = it },
+                wording = ChoiceEditorWordings.formOptions,
+                preselection = ChoicePreselection.NONE,
+                capitalizeNew = capitalizeNewOptions,
+                onDeletePermanently = onDeleteOption,
+            )
+            ComparisonFieldSettings(
+                itemLabel = field.itemLabel,
+                onItemLabelChange = { field.itemLabel = it },
+                firstLabel = field.firstLabel,
+                onFirstLabelChange = { field.firstLabel = it },
+                secondLabel = field.secondLabel,
+                onSecondLabelChange = { field.secondLabel = it },
+                totalLabel = field.totalLabel,
+                onTotalLabelChange = { field.totalLabel = it },
+                digits = field.digits,
+                onDigitsChange = { field.digits = it },
+                wholeNumbersOnly = field.wholeNumbersOnly,
+                onWholeNumbersOnlyChange = { field.wholeNumbersOnly = it },
+            )
+        }
         FieldType.RATIO -> RatioFieldSettings(
             leftDigits = field.leftDigits,
             onLeftDigitsChange = { field.leftDigits = it },
@@ -922,6 +948,11 @@ private class EditDraft(
     leftDigits: String = "",
     rightDigits: String = "",
     unit: String = "",
+    itemLabel: String = "",
+    firstLabel: String = "",
+    secondLabel: String = "",
+    totalLabel: String = "",
+    wholeNumbersOnly: Boolean = true,
     /** True for a field that already exists in the saved schema (type locked). */
     val existing: Boolean = false,
 ) {
@@ -942,6 +973,11 @@ private class EditDraft(
     var leftDigits by mutableStateOf(leftDigits)
     var rightDigits by mutableStateOf(rightDigits)
     var unit by mutableStateOf(unit)
+    var itemLabel by mutableStateOf(itemLabel)
+    var firstLabel by mutableStateOf(firstLabel)
+    var secondLabel by mutableStateOf(secondLabel)
+    var totalLabel by mutableStateOf(totalLabel)
+    var wholeNumbersOnly by mutableStateOf(wholeNumbersOnly)
 
     /** Stable identity for list keys; survives reordering, unique per draft. */
     val uid: Long = editDraftCounter++
@@ -956,7 +992,10 @@ private class EditDraft(
             allowUnknown == o.allowUnknown &&
             makeDropdown == o.makeDropdown &&
             choiceStyle == o.choiceStyle &&
-            leftDigits == o.leftDigits && rightDigits == o.rightDigits && unit == o.unit
+            leftDigits == o.leftDigits && rightDigits == o.rightDigits && unit == o.unit &&
+            itemLabel == o.itemLabel && firstLabel == o.firstLabel &&
+            secondLabel == o.secondLabel && totalLabel == o.totalLabel &&
+            wholeNumbersOnly == o.wholeNumbersOnly
 
     /** The options that will be saved: a row left blank is never stored. */
     fun savedChoices(): List<ChoiceOption> =
@@ -969,7 +1008,7 @@ private class EditDraft(
         if (label.trim().isEmpty()) return false
         return when (type) {
             FieldType.SCALE -> effectiveTo() >= effectiveFrom()
-            FieldType.DROPDOWN, FieldType.MULTIPLE -> savedChoices().activeChoices.isNotEmpty()
+            FieldType.DROPDOWN, FieldType.MULTIPLE, FieldType.COMPARISON -> savedChoices().activeChoices.isNotEmpty()
             FieldType.RATIO -> ratioDigitsValid()
             else -> true
         }
@@ -978,7 +1017,7 @@ private class EditDraft(
     fun validationHint(): String? = when {
         label.trim().isEmpty() -> "Add a label."
         type == FieldType.SCALE && !isValid() -> "Scale To must be ≥ From."
-        type.hasChoices && savedChoices().activeChoices.isEmpty() ->
+        type.hasOptionList && savedChoices().activeChoices.isEmpty() ->
             "Add at least one option."
         type == FieldType.RATIO && !ratioDigitsValid() -> RATIO_DIGITS_HINT
         else -> null
@@ -1008,6 +1047,7 @@ private class EditDraft(
             FieldType.WEBPAGE -> "Webpage address"
             FieldType.BLOOD_PRESSURE -> "Blood pressure (###/###)"
             FieldType.RATIO -> "Ratios"
+            FieldType.COMPARISON -> "Comparison" + optionsSummary()
         }
         return if (required) "$base · required" else base
     }
@@ -1037,6 +1077,11 @@ private class EditDraft(
         leftDigits = leftDigits,
         rightDigits = rightDigits,
         unit = unit,
+        itemLabel = itemLabel,
+        firstLabel = firstLabel,
+        secondLabel = secondLabel,
+        totalLabel = totalLabel,
+        wholeNumbersOnly = wholeNumbersOnly,
         existing = existing,
     )
 
@@ -1059,18 +1104,27 @@ private class EditDraft(
         leftDigits = other.leftDigits
         rightDigits = other.rightDigits
         unit = other.unit
+        itemLabel = other.itemLabel
+        firstLabel = other.firstLabel
+        secondLabel = other.secondLabel
+        totalLabel = other.totalLabel
+        wholeNumbersOnly = other.wholeNumbersOnly
     }
 
     fun toFieldDef(): FieldDef = FieldDef(
         id = id,
         label = label.trim(),
         type = type,
-        required = required,
+        required = required && type != FieldType.COMPARISON,
         lines = if (type == FieldType.MULTILINE) lines.toIntOrNull() else null,
-        digits = if (type == FieldType.NUMBER) digits.toIntOrNull() else null,
+        digits = when (type) {
+            FieldType.NUMBER -> digits.toIntOrNull()
+            FieldType.COMPARISON -> digits.toIntOrNull()?.takeIf { it > 0 }
+            else -> null
+        },
         from = if (type == FieldType.SCALE) effectiveFrom() else null,
         to = if (type == FieldType.SCALE) effectiveTo() else null,
-        choices = if (type.hasChoices) savedChoices() else emptyList(),
+        choices = if (type.hasOptionList) savedChoices() else emptyList(),
         defaultNow = type == FieldType.DATETIME && defaultNow,
         allowOrderFiltering = type.sortEligible && allowOrderFiltering,
         allowUnknown = type == FieldType.YESNO && allowUnknown,
@@ -1079,6 +1133,11 @@ private class EditDraft(
         leftDigits = if (type == FieldType.RATIO) RatioValues.parseDigits(leftDigits) else null,
         rightDigits = if (type == FieldType.RATIO) RatioValues.parseDigits(rightDigits) else null,
         unit = if (type == FieldType.RATIO) unit.trim() else "",
+        itemLabel = if (type == FieldType.COMPARISON) itemLabel.trim() else "",
+        firstLabel = if (type == FieldType.COMPARISON) firstLabel.trim() else "",
+        secondLabel = if (type == FieldType.COMPARISON) secondLabel.trim() else "",
+        totalLabel = if (type == FieldType.COMPARISON) totalLabel.trim() else "",
+        wholeNumbersOnly = type != FieldType.COMPARISON || wholeNumbersOnly,
     )
 
     fun toSnapshot(): EditDraftSnapshot = EditDraftSnapshot(
@@ -1100,6 +1159,11 @@ private class EditDraft(
         leftDigits = leftDigits,
         rightDigits = rightDigits,
         unit = unit,
+        itemLabel = itemLabel,
+        firstLabel = firstLabel,
+        secondLabel = secondLabel,
+        totalLabel = totalLabel,
+        wholeNumbersOnly = wholeNumbersOnly,
         existing = existing,
     )
 }
@@ -1129,6 +1193,11 @@ private data class EditDraftSnapshot(
     val leftDigits: String = "",
     val rightDigits: String = "",
     val unit: String = "",
+    val itemLabel: String = "",
+    val firstLabel: String = "",
+    val secondLabel: String = "",
+    val totalLabel: String = "",
+    val wholeNumbersOnly: Boolean = true,
     val existing: Boolean,
 )
 
@@ -1151,6 +1220,11 @@ private fun EditDraftSnapshot.toEditDraft(): EditDraft = EditDraft(
     leftDigits = leftDigits,
     rightDigits = rightDigits,
     unit = unit,
+    itemLabel = itemLabel,
+    firstLabel = firstLabel,
+    secondLabel = secondLabel,
+    totalLabel = totalLabel,
+    wholeNumbersOnly = wholeNumbersOnly,
     existing = existing,
 )
 
@@ -1174,6 +1248,11 @@ private fun draftOf(f: FieldDef, sortByTimestamp: Boolean): EditDraft = EditDraf
     leftDigits = f.leftDigits?.toString() ?: "",
     rightDigits = f.rightDigits?.toString() ?: "",
     unit = f.unit,
+    itemLabel = f.itemLabel,
+    firstLabel = f.firstLabel,
+    secondLabel = f.secondLabel,
+    totalLabel = f.totalLabel,
+    wholeNumbersOnly = f.wholeNumbersOnly,
     existing = true,
 )
 
@@ -1192,4 +1271,5 @@ private fun FieldType.editFriendly(): String = when (this) {
     FieldType.WEBPAGE -> "Webpages"
     FieldType.BLOOD_PRESSURE -> "Blood Pressure"
     FieldType.RATIO -> "Ratios"
+    FieldType.COMPARISON -> "Comparison"
 }
