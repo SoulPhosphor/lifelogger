@@ -1,5 +1,7 @@
 package com.datadragon.app.data
 
+import java.math.BigDecimal
+import java.math.MathContext
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -52,6 +54,21 @@ object ClickerStats {
     const val DEFAULT_VALUE_CHANGED = "default_value_changed"
 
     val all: List<String> = listOf(HIGHEST_VALUE, LOWEST_VALUE, AVERAGE, TOTAL, DEFAULT_VALUE_CHANGED)
+
+    // A Comparison field's statistics, worked out from each card's Total Difference.
+    const val GREATEST_TOTAL_DIFFERENCE = "greatest_total_difference"
+    const val LEAST_TOTAL_DIFFERENCE = "least_total_difference"
+    const val AVERAGE_TOTAL_DIFFERENCE = "average_total_difference"
+    const val TOTAL_DIFFERENCE = "total_difference"
+    const val TIMES_DIFFERENT = "times_different"
+
+    val comparison: List<String> = listOf(
+        GREATEST_TOTAL_DIFFERENCE, LEAST_TOTAL_DIFFERENCE, AVERAGE_TOTAL_DIFFERENCE, TOTAL_DIFFERENCE, TIMES_DIFFERENT,
+    )
+
+    /** The statistics [field] offers, in display order. */
+    fun forField(field: ClickerField): List<String> =
+        if (field.type == ClickerFieldType.COMPARISON) comparison else all
 }
 
 /** The ranges the Statistics page can show. */
@@ -104,6 +121,25 @@ data class ClickerTrackerStatistics(
     val defaultChangedCount: Int,
     /** Every log in the range. */
     val logCount: Int,
+    /** A Comparison field's statistics; null for a number tracker. */
+    val comparison: ClickerComparisonStatistics? = null,
+)
+
+/**
+ * One Comparison field's statistics for the chosen range. A card counts only
+ * when it has at least one completed row (both numbers present; a missing
+ * number is never taken as zero). The first four come from each counted
+ * card's Total Difference; [timesDifferent] looks at the rows themselves, so a
+ * card whose differences cancel out to zero still counts when any row differs.
+ */
+data class ClickerComparisonStatistics(
+    /** Null when no card in the range has a completed row. */
+    val greatestTotalDifference: BigDecimal?,
+    val leastTotalDifference: BigDecimal?,
+    val averageTotalDifference: BigDecimal?,
+    val totalDifference: BigDecimal?,
+    /** Cards with at least one completed row whose two numbers differ. */
+    val timesDifferent: Int,
 )
 
 /**
@@ -126,9 +162,16 @@ data class ClickerTrackerStatistics(
  */
 object ClickerStatisticsCalculator {
 
-    /** The number trackers, in setup order — the only fields with statistics. */
+    /** The number trackers, in setup order. */
     fun numericFields(fields: List<ClickerField>): List<ClickerField> =
         fields.filter { it.type == ClickerFieldType.CLICK_TRACKER || it.type == ClickerFieldType.WRITE_IN_NUMBER }
+
+    /** The fields with statistics — the number trackers and Comparison fields — in setup order. */
+    fun statisticFields(fields: List<ClickerField>): List<ClickerField> =
+        fields.filter {
+            it.type == ClickerFieldType.CLICK_TRACKER || it.type == ClickerFieldType.WRITE_IN_NUMBER ||
+                it.type == ClickerFieldType.COMPARISON
+        }
 
     /** The Date and Date & Time fields, Date fields first, each in setup order. */
     fun dateFields(fields: List<ClickerField>): List<ClickerField> =
@@ -146,7 +189,19 @@ object ClickerStatisticsCalculator {
         val inRange = cards
             .map { card -> card to ClickerValues.decode(card.valuesJson) }
             .filter { (card, values) -> inRange(dayOf(card, values, dateField, zone), range, config.excludeToday, today) }
-        return numericFields(fields).map { field ->
+        return statisticFields(fields).map { field ->
+            if (field.type == ClickerFieldType.COMPARISON) {
+                return@map ClickerTrackerStatistics(
+                    field = field,
+                    highest = null,
+                    lowest = null,
+                    average = null,
+                    total = null,
+                    defaultChangedCount = 0,
+                    logCount = inRange.size,
+                    comparison = comparisonStatistics(field, inRange.map { (_, values) -> values }),
+                )
+            }
             val numbers = inRange.mapNotNull { (_, values) -> valueOf(field, values) }
             ClickerTrackerStatistics(
                 field = field,
@@ -158,6 +213,28 @@ object ClickerStatisticsCalculator {
                 logCount = inRange.size,
             )
         }
+    }
+
+    /**
+     * [field]'s Comparison statistics over the cards' [values]. Rows count as
+     * they do on the card: with clicker counting, a row with an item holds its
+     * Starting Number until pressed.
+     */
+    private fun comparisonStatistics(field: ClickerField, values: List<Map<String, String>>): ClickerComparisonStatistics {
+        val def = field.comparisonDef()
+        val cards = values.map { ComparisonValues.withStartingNumbers(def, ClickerComparison.rows(it, field.id)) }
+        // A card's Total Difference is null when it has no completed row.
+        val totals = cards.mapNotNull(ComparisonValues::total)
+        val sum = totals.takeIf { it.isNotEmpty() }?.fold(BigDecimal.ZERO) { acc, total -> acc.add(total) }
+        return ClickerComparisonStatistics(
+            greatestTotalDifference = totals.maxOrNull(),
+            leastTotalDifference = totals.minOrNull(),
+            averageTotalDifference = sum?.divide(BigDecimal(totals.size), MathContext.DECIMAL64),
+            totalDifference = sum,
+            timesDifferent = cards.count { rows ->
+                rows.any { row -> ComparisonValues.difference(row)?.let { it.signum() != 0 } == true }
+            },
+        )
     }
 
     private fun valueOf(field: ClickerField, values: Map<String, String>): Int? {

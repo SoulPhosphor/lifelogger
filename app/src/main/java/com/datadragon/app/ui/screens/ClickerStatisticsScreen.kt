@@ -48,7 +48,13 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.datadragon.app.data.ClickerComparisonStatistics
 import com.datadragon.app.data.ClickerField
+import com.datadragon.app.data.ComparisonValues
+import com.datadragon.app.data.TitleCase
+import com.datadragon.app.data.comparisonDef
+import com.datadragon.app.data.comparisonFirstLabel
+import com.datadragon.app.data.comparisonSecondLabel
 import com.datadragon.app.data.ClickerStatisticsCalculator
 import com.datadragon.app.data.ClickerStatisticsConfig
 import com.datadragon.app.data.ClickerStatisticsRange
@@ -67,14 +73,31 @@ private const val NO_VALUE = "—"
 /** The Custom Date Range box accepts digits only; this just keeps the number parseable. */
 private const val CUSTOM_DAYS_MAX_DIGITS = 9
 
-/** The designer's name for each statistic, in display order. */
-private fun statName(stat: String): String = when (stat) {
+/** The designer's name for each statistic of [field], in display order. */
+private fun statName(stat: String, field: ClickerField): String = when (stat) {
     ClickerStats.HIGHEST_VALUE -> "Highest Value"
     ClickerStats.LOWEST_VALUE -> "Lowest Value"
     ClickerStats.AVERAGE -> "Average"
     ClickerStats.TOTAL -> "Total"
     ClickerStats.DEFAULT_VALUE_CHANGED -> "Default value changed"
+    ClickerStats.GREATEST_TOTAL_DIFFERENCE -> "Greatest Total Difference"
+    ClickerStats.LEAST_TOTAL_DIFFERENCE -> "Least Total Difference"
+    ClickerStats.AVERAGE_TOTAL_DIFFERENCE -> "Average Total Difference"
+    ClickerStats.TOTAL_DIFFERENCE -> "Total Difference"
+    ClickerStats.TIMES_DIFFERENT -> field.comparisonDef().let { def ->
+        "Times ${TitleCase.apply(def.comparisonFirstLabel)} Was Different Than ${TitleCase.apply(def.comparisonSecondLabel)}"
+    }
     else -> stat
+}
+
+/** A Comparison statistic's value as the page shows it, or null when the range has none. */
+private fun comparisonValue(stat: String, stats: ClickerComparisonStatistics): String? = when (stat) {
+    ClickerStats.GREATEST_TOTAL_DIFFERENCE -> stats.greatestTotalDifference?.let(ComparisonValues::format)
+    ClickerStats.LEAST_TOTAL_DIFFERENCE -> stats.leastTotalDifference?.let(ComparisonValues::format)
+    ClickerStats.AVERAGE_TOTAL_DIFFERENCE ->
+        stats.averageTotalDifference?.setScale(1, RoundingMode.HALF_UP)?.toPlainString()
+    ClickerStats.TOTAL_DIFFERENCE -> stats.totalDifference?.let(ComparisonValues::format)
+    else -> stats.timesDifferent.toString()
 }
 
 /** One chip on the Statistics page. [key] survives rotation; [range] drives the math. */
@@ -120,7 +143,7 @@ fun ClickerStatisticsScreen(
     // A range turned off in the designer falls back to the default, All Time.
     val selected = chips.firstOrNull { it.key == selectedKey } ?: chips.first()
     val statistics = ClickerStatisticsCalculator.calculate(config, fields, cards, selected.range, LocalDate.now())
-        .filter { stats -> ClickerStats.all.any { config.isEnabled(stats.field.id, it) } }
+        .filter { stats -> ClickerStats.forField(stats.field).any { config.isEnabled(stats.field.id, it) } }
 
     Scaffold(
         topBar = {
@@ -179,9 +202,14 @@ fun ClickerStatisticsScreen(
 private fun TrackerStatistics(stats: ClickerTrackerStatistics, config: ClickerStatisticsConfig) {
     Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related)) {
         Text(stats.field.label, style = AppTheme.textStyles.sectionHeader)
-        ClickerStats.all.filter { config.isEnabled(stats.field.id, it) }.forEach { stat ->
-            when (stat) {
-                ClickerStats.DEFAULT_VALUE_CHANGED -> Text(
+        val comparison = stats.comparison
+        ClickerStats.forField(stats.field).filter { config.isEnabled(stats.field.id, it) }.forEach { stat ->
+            when {
+                comparison != null -> Row(modifier = Modifier.fillMaxWidth()) {
+                    Text(statName(stat, stats.field), style = AppTheme.textStyles.settingTitle, modifier = Modifier.weight(1f))
+                    Text(comparisonValue(stat, comparison) ?: NO_VALUE, style = AppTheme.textStyles.settingTitle)
+                }
+                stat == ClickerStats.DEFAULT_VALUE_CHANGED -> Text(
                     defaultChangedLine(stats),
                     style = AppTheme.textStyles.settingTitle,
                 )
@@ -193,7 +221,7 @@ private fun TrackerStatistics(stats: ClickerTrackerStatistics, config: ClickerSt
                         else -> stats.total?.toString()
                     }
                     Row(modifier = Modifier.fillMaxWidth()) {
-                        Text(statName(stat), style = AppTheme.textStyles.settingTitle, modifier = Modifier.weight(1f))
+                        Text(statName(stat, stats.field), style = AppTheme.textStyles.settingTitle, modifier = Modifier.weight(1f))
                         Text(value ?: NO_VALUE, style = AppTheme.textStyles.settingTitle)
                     }
                 }
@@ -219,7 +247,7 @@ fun ClickerStatisticsDesignerScreen(
     val fields by viewModel.fields.collectAsStateWithLifecycle()
     val config by viewModel.config.collectAsStateWithLifecycle()
 
-    val trackers = ClickerStatisticsCalculator.numericFields(fields)
+    val trackers = ClickerStatisticsCalculator.statisticFields(fields)
     val dateFields = ClickerStatisticsCalculator.dateFields(fields)
     val cards by viewModel.cards.collectAsStateWithLifecycle()
     // The designer has no range of its own, so its "X of X" shows All Time, the
@@ -292,29 +320,30 @@ fun ClickerStatisticsDesignerScreen(
             HorizontalDivider()
             Text("Statistics", style = AppTheme.textStyles.sectionHeader)
             if (trackers.isNotEmpty()) {
-                val allOn = trackers.all { t -> ClickerStats.all.all { config.isEnabled(t.id, it) } }
-                val allOff = trackers.all { t -> ClickerStats.all.none { config.isEnabled(t.id, it) } }
+                val allOn = trackers.all { t -> ClickerStats.forField(t).all { config.isEnabled(t.id, it) } }
+                val allOff = trackers.all { t -> ClickerStats.forField(t).none { config.isEnabled(t.id, it) } }
                 TriStateRow(
                     label = "Select All",
                     state = toggleState(allOn, allOff),
                     onClick = { viewModel.update { it.withStats(trackers, on = !allOn) } },
                 )
                 trackers.forEach { tracker ->
-                    val on = ClickerStats.all.filter { config.isEnabled(tracker.id, it) }
+                    val offered = ClickerStats.forField(tracker)
+                    val on = offered.filter { config.isEnabled(tracker.id, it) }
                     TriStateRow(
                         label = tracker.label,
-                        state = toggleState(on.size == ClickerStats.all.size, on.isEmpty()),
+                        state = toggleState(on.size == offered.size, on.isEmpty()),
                         onClick = {
-                            val turnOn = on.size != ClickerStats.all.size
+                            val turnOn = on.size != offered.size
                             viewModel.update { it.withStats(listOf(tracker), on = turnOn) }
                         },
                     )
-                    ClickerStats.all.forEach { stat ->
+                    offered.forEach { stat ->
                         CheckRow(
                             label = if (stat == ClickerStats.DEFAULT_VALUE_CHANGED) {
                                 defaultChangedLine(allTime[tracker.id])
                             } else {
-                                statName(stat)
+                                statName(stat, tracker)
                             },
                             checked = stat in on,
                             modifier = Modifier.padding(start = AppTheme.spacing.listIndent),
@@ -336,7 +365,7 @@ private fun toggleState(allOn: Boolean, allOff: Boolean): ToggleableState = when
 private fun ClickerStatisticsConfig.withStats(trackers: List<ClickerField>, on: Boolean): ClickerStatisticsConfig =
     copy(
         disabledStats = disabledStats.toMutableMap().apply {
-            trackers.forEach { t -> if (on) remove(t.id) else put(t.id, ClickerStats.all) }
+            trackers.forEach { t -> if (on) remove(t.id) else put(t.id, ClickerStats.forField(t)) }
         },
     )
 

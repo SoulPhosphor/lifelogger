@@ -37,7 +37,12 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
   the same JSON row text inside the card's values, by item id. A new "Allow
   Additions from Form" toggle in Clicker setup (database v25 → v26, additive
   `MIGRATION_25_26`, off by default; backed up only when on) shows New Option.
-  Clicker Statistics leave Comparison out for now.
+- **Clicker Statistics for Comparison fields**: Greatest Total Difference,
+  Least Total Difference, Average Total Difference and Total Difference come
+  from each card's Total Difference (cards with no completed row are left out;
+  a missing number is never zero). "Times [First] Was Different Than [Second]"
+  counts cards with at least one completed row whose numbers differ, so totals
+  that cancel to zero still count. Number tracker statistics are unchanged.
 
 ---
 
