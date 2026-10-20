@@ -586,7 +586,11 @@ internal fun ComparisonFieldSettings(field: ComparisonSettingsDraft, minimumDigi
     var maxDigitsFocused by remember { mutableStateOf(false) }
     OutlinedTextField(
         value = field.digits,
-        onValueChange = { input -> field.digits = input.filter { it.isDigit() } },
+        onValueChange = { input ->
+            // Nothing above the largest Max Digits is accepted; the box keeps what it had.
+            val digits = input.filter { it.isDigit() }.take(2)
+            if ((digits.toIntOrNull() ?: 0) <= ComparisonValues.MAX_DIGITS) field.digits = digits
+        },
         label = { Text("Max Digits (Optional)") },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -1248,7 +1252,7 @@ private class DraftField(
         lines = if (type == FieldType.MULTILINE) lines.toIntOrNull() else null,
         digits = when (type) {
             FieldType.NUMBER -> digits.toIntOrNull()
-            FieldType.COMPARISON -> digits.toIntOrNull()?.takeIf { it > 0 }
+            FieldType.COMPARISON -> ComparisonValues.parseMaxDigits(digits)
             else -> null
         },
         from = if (type == FieldType.SCALE) effectiveFrom() else null,

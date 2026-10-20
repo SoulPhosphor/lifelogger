@@ -43,6 +43,12 @@ object ComparisonValues {
     const val DIFFERENCE_LABEL = "Δ"
     const val DEFAULT_BUTTON_LABEL = "Add"
 
+    /** The largest Max Digits a Comparison field accepts. */
+    const val MAX_DIGITS = 15
+
+    /** A Max Digits setting, or null when it is outside 1..[MAX_DIGITS]. */
+    fun parseMaxDigits(text: String): Int? = text.toIntOrNull()?.takeIf { it in 1..MAX_DIGITS }
+
     /** Shown when a decimal point is typed into a whole-number box. */
     const val WHOLE_NUMBERS_ONLY_NOTICE = "When only whole numbers is selected. Decimal points are not allowed."
 

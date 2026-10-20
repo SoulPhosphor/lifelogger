@@ -249,7 +249,19 @@ object FormMarkdownParser {
                     return
                 }
             }
-            FieldType.DROPDOWN, FieldType.MULTIPLE, FieldType.COMPARISON -> {
+            FieldType.COMPARISON -> {
+                if (b.options.isEmpty()) {
+                    issues.add("Field \"${b.label}\" (${type.token}) has no options; skipped.")
+                    return
+                }
+                b.digits?.let { digits ->
+                    if (digits !in 1..ComparisonValues.MAX_DIGITS) {
+                        issues.add("Field \"${b.label}\" (comparison): digits must be from 1 to ${ComparisonValues.MAX_DIGITS}; ignored.")
+                        b.digits = null
+                    }
+                }
+            }
+            FieldType.DROPDOWN, FieldType.MULTIPLE -> {
                 if (b.options.isEmpty()) {
                     issues.add("Field \"${b.label}\" (${type.token}) has no options; skipped.")
                     return

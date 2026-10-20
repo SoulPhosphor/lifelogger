@@ -269,6 +269,18 @@ class ComparisonValuesTest {
     }
 
     @Test
+    fun maxDigitsAboveTheLargestIsRefused() {
+        assertEquals(15, ComparisonValues.parseMaxDigits("15"))
+        assertNull(ComparisonValues.parseMaxDigits("100000000"))
+        assertNull(ComparisonValues.parseMaxDigits("0"))
+        val result = FormMarkdownParser.parse(
+            "## Meals\ntype: comparison\noptions:\n- Turkey\ndigits: 100000000\n",
+        )
+        assertNull(result.fields.single().digits)
+        assertTrue(result.issues.any { "digits must be from 1 to 15" in it })
+    }
+
+    @Test
     fun blankCaptionsShowTheDefaults() {
         assertEquals("Item", meals.comparisonItemLabel)
         assertEquals("Expected", meals.comparisonFirstLabel)

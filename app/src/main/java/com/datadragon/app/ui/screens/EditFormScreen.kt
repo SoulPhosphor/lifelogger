@@ -1139,6 +1139,7 @@ private class EditDraft(
         lines = if (type == FieldType.MULTILINE) lines.toIntOrNull() else null,
         digits = when (type) {
             FieldType.NUMBER -> digits.toIntOrNull()
+            // The box caps what can be typed; only saved data's own floor goes higher.
             FieldType.COMPARISON -> digits.toIntOrNull()?.takeIf { it > 0 }
             else -> null
         },

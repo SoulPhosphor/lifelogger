@@ -524,7 +524,10 @@ private fun measureComparisonWidths(field: FieldDef, rows: List<ComparisonRow>, 
             values.map(::shown).maxOfOrNull { width(it, numberStyle) } ?: Dp(0f)
         } else {
             val typed = values.maxOfOrNull { it.length } ?: 0
-            val chars = field.digits?.let { digits ->
+            // Sized from the digit limit (never more than the largest Max Digits,
+            // whatever a stored setting says) or from what has been typed.
+            val limit = field.digits?.coerceIn(1, ComparisonValues.MAX_DIGITS)
+            val chars = limit?.let { digits ->
                 maxOf(digits + (if (field.wholeNumbersOnly) 0 else 1) + 1, typed)
             } ?: maxOf(MIN_NUMBER_CHARS, typed)
             width("0".repeat(chars), numberStyle) + inset * 2
