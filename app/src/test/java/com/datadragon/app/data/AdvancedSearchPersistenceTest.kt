@@ -51,10 +51,10 @@ class AdvancedSearchPersistenceTest {
         assertTrue(BackupCodec.templateOf(BackupCodec.decode(encoded).logs.single()).advancedSearchEnabled)
         assertEquals("form", BackupCodec.decode(encoded).logs.single().uuid)
         assertThrows(IllegalArgumentException::class.java) {
-            BackupCodec.decode(encoded.replace("\"version\": 9", "\"version\": 8"))
+            BackupCodec.decode(encoded.replace("\"version\": ${BackupFile.VERSION}", "\"version\": 8"))
         }
         val legacyCompatible = BackupCodec.encode(file.copy(payload = BackupPayload(forms = listOf(log.copy(advancedSearchEnabled = null)))))
-        val version8 = legacyCompatible.replace("\"version\": 9", "\"version\": 8")
+        val version8 = legacyCompatible.replace("\"version\": ${BackupFile.VERSION}", "\"version\": 8")
         assertFalse(BackupCodec.templateOf(BackupCodec.decode(version8).logs.single()).advancedSearchEnabled)
     }
 
