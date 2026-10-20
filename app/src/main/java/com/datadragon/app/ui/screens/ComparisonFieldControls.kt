@@ -201,6 +201,7 @@ private fun ComparisonHeader(field: FieldDef, widths: ComparisonWidths, oneLine:
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ComparisonEditRow(
     field: FieldDef,
@@ -276,12 +277,13 @@ private fun ComparisonEditRow(
     } else {
         Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related)) {
             dropdown(Modifier.fillMaxWidth())
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(widths.gap),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                numbers()
-                Spacer(Modifier.weight(1f))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Very long numbers wrap rather than run off the card.
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(widths.gap),
+                    verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
+                    modifier = Modifier.weight(1f),
+                ) { numbers() }
                 remove()
             }
         }
