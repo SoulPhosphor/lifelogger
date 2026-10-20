@@ -503,6 +503,9 @@ private fun measureComparisonWidths(field: FieldDef, rows: List<ComparisonRow>, 
     val gap = AppTheme.spacing.related
     val remove = if (readout) Dp(0f) else AppTheme.sizes.minimumTouchTarget
     val itemMinimum = AppTheme.sizes.comparisonItemMinWidth
+    val buttonStyle = AppTheme.textStyles.controlLabel
+    val buttonInset = AppTheme.spacing.rowInset
+    val buttonGap = AppTheme.spacing.compact
 
     fun width(text: String, style: TextStyle): Dp = with(density) {
         measurer.measure(text = text, style = style, softWrap = false, maxLines = 1).size.width.toDp()
@@ -513,8 +516,8 @@ private fun measureComparisonWidths(field: FieldDef, rows: List<ComparisonRow>, 
     fun clickerColumn(caption: String): Dp {
         val shown = rows.map { ComparisonValues.format(ComparisonValues.clickerValue(field, it)) }
         val value = shown.maxOfOrNull { width(it, numberStyle) } ?: Dp(0f)
-        val button = width(field.comparisonButtonLabel, AppTheme.textStyles.controlLabel) + AppTheme.spacing.rowInset * 2
-        return maxOf(value + AppTheme.spacing.compact + button, longestWord(caption))
+        val button = width(field.comparisonButtonLabel, buttonStyle) + buttonInset * 2
+        return maxOf(value + buttonGap + button, longestWord(caption))
     }
     fun column(caption: String, values: List<String>): Dp {
         val content = if (readout) {
