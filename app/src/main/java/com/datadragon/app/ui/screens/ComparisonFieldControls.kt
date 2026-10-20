@@ -408,43 +408,52 @@ internal fun ComparisonReadout(
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     val labelWeight = AppTheme.textStyles.readoutLabelWeight
     val valueStyle = MaterialTheme.typography.bodyLarge
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.compact)) {
-        ComparisonReadoutLine(
-            widths = widths,
-            item = field.comparisonItemLabel,
-            first = field.comparisonFirstLabel,
-            second = field.comparisonSecondLabel,
-            difference = ComparisonValues.DIFFERENCE_LABEL,
-            header = true,
-        )
-        counted.forEach { row ->
+    // Like the entry form, each line wraps to two (the item, then its numbers)
+    // when the columns can't all fit beside the item.
+    BoxWithConstraints(modifier = modifier) {
+        val oneLine = maxWidth >= widths.oneLineMinimum
+        Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.compact)) {
             ComparisonReadoutLine(
                 widths = widths,
-                item = field.choice(row.item)?.label ?: row.item,
-                first = ComparisonValues.parse(row.first)?.let(ComparisonValues::format).orEmpty(),
-                second = ComparisonValues.parse(row.second)?.let(ComparisonValues::format).orEmpty(),
-                difference = ComparisonValues.difference(row)?.let(ComparisonValues::format).orEmpty(),
-                header = false,
+                oneLine = oneLine,
+                item = field.comparisonItemLabel,
+                first = field.comparisonFirstLabel,
+                second = field.comparisonSecondLabel,
+                difference = ComparisonValues.DIFFERENCE_LABEL,
+                header = true,
             )
-        }
-        ComparisonValues.total(counted)?.let { total ->
-            Text(
-                text = buildAnnotatedString {
-                    withStyle(SpanStyle(color = labelColor, fontWeight = labelWeight)) {
-                        append("${field.comparisonTotalLabel}: ")
-                    }
-                    append(ComparisonValues.format(total))
-                },
-                style = valueStyle,
-            )
+            counted.forEach { row ->
+                ComparisonReadoutLine(
+                    widths = widths,
+                    oneLine = oneLine,
+                    item = field.choice(row.item)?.label ?: row.item,
+                    first = ComparisonValues.parse(row.first)?.let(ComparisonValues::format).orEmpty(),
+                    second = ComparisonValues.parse(row.second)?.let(ComparisonValues::format).orEmpty(),
+                    difference = ComparisonValues.difference(row)?.let(ComparisonValues::format).orEmpty(),
+                    header = false,
+                )
+            }
+            ComparisonValues.total(counted)?.let { total ->
+                Text(
+                    text = buildAnnotatedString {
+                        withStyle(SpanStyle(color = labelColor, fontWeight = labelWeight)) {
+                            append("${field.comparisonTotalLabel}: ")
+                        }
+                        append(ComparisonValues.format(total))
+                    },
+                    style = valueStyle,
+                )
+            }
         }
     }
 }
 
 /** One line of a saved Comparison table; the header line uses the muted readout label look. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ComparisonReadoutLine(
     widths: ComparisonWidths,
+    oneLine: Boolean,
     item: String,
     first: String,
     second: String,
@@ -460,11 +469,22 @@ private fun ComparisonReadoutLine(
     } else {
         valueStyle
     }
-    Row(horizontalArrangement = Arrangement.spacedBy(widths.gap)) {
-        Text(item, style = style, modifier = Modifier.weight(1f))
+    val numbers: @Composable () -> Unit = {
         Text(first, style = style, modifier = Modifier.width(widths.first))
         Text(second, style = style, modifier = Modifier.width(widths.second))
         Text(difference, style = style, modifier = Modifier.width(widths.difference))
+    }
+    if (oneLine) {
+        Row(horizontalArrangement = Arrangement.spacedBy(widths.gap)) {
+            Text(item, style = style, modifier = Modifier.weight(1f))
+            numbers()
+        }
+    } else {
+        Column {
+            Text(item, style = style)
+            // Very long numbers wrap rather than run off the card.
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(widths.gap)) { numbers() }
+        }
     }
 }
 
