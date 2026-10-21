@@ -64,7 +64,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.ui.components.ExportFormatDialog
 import com.datadragon.app.ui.components.AppDialog
-import com.datadragon.app.ui.components.DialogActionButton
 import com.datadragon.app.ui.components.DialogDestructiveButton
 import com.datadragon.app.ui.components.DialogDismissButton
 import com.datadragon.app.ui.components.SortFilterBar
@@ -112,7 +111,6 @@ fun LogScreen(
     var confirmDeleteLog by remember { mutableStateOf(false) }
     var showFormatChooser by remember { mutableStateOf(false) }
     var entryToDelete by remember { mutableStateOf<LogEntry?>(null) }
-    var showUnlock by remember { mutableStateOf(false) }
     var gearMenuOpen by remember { mutableStateOf(false) }
     // Export dialog: whether to include follow-up notes.
     var includeFollowUps by remember { mutableStateOf(true) }
@@ -194,7 +192,7 @@ fun LogScreen(
                 },
                 navigationIcon = {
                     // Left cluster: back, then a gear menu holding the log-level
-                    // actions (edit form, export, follow-up notes, unlock, delete).
+                    // actions (edit form, export, follow-up notes, delete).
                     Row {
                         IconButton(onClick = { attemptBack() }) {
                             Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
@@ -238,15 +236,6 @@ fun LogScreen(
                                         viewModel.setAllowAppendedNotes(!allowAppendedNotes)
                                     },
                                 )
-                                if (locked) {
-                                    DropdownMenuItem(
-                                        text = { Text("Unlock Log") },
-                                        onClick = {
-                                            gearMenuOpen = false
-                                            showUnlock = true
-                                        },
-                                    )
-                                }
                                 DropdownMenuItem(
                                     text = { Text("Delete Log") },
                                     onClick = {
@@ -426,22 +415,6 @@ fun LogScreen(
                 DialogDestructiveButton("Delete Entry") {
                     entryToDelete = null
                     viewModel.deleteEntry(entry)
-                }
-            },
-        )
-    }
-
-    if (showUnlock) {
-        AppDialog(
-            onDismissRequest = { showUnlock = false },
-            title = "Unlock this log?",
-            body = "Unlocking lets you edit its entries. This is permanent — once " +
-                "unlocked, the log can never be re-locked.",
-            dismissButton = { DialogDismissButton("Cancel") { showUnlock = false } },
-            confirmButton = {
-                DialogActionButton("Unlock") {
-                    showUnlock = false
-                    viewModel.unlockLog()
                 }
             },
         )

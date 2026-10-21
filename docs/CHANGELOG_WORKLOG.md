@@ -4,6 +4,36 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-10-21 — Reversible form locking and timestamp conversion
+
+- **Locked Log is reversible.** It is shown on the create screen (now off by
+  default) and in Edit Form, and can be turned on and off as often as wanted.
+  Subtitle: "Prevent saved entries from being edited while this is enabled." The
+  old one-way gear-menu **Unlock Log** action and its warning dialog are removed.
+  Existing forms keep their current locked/unlocked state and become freely
+  lockable and unlockable.
+- **Never Allow Form Unlocking** (create screen only, default off, under Locked
+  Log): when on, the form is created locked and stays locked permanently; Edit
+  Form shows Locked Log on and disabled. Stored as `log_templates.neverAllowUnlocking`
+  (database v26 → v27, additive, every existing form gets off). The DAO's
+  `setLocked` refuses to unlock such a form.
+- **Convert Time Stamps to Date and Time Field** (Edit Form checkbox, unchecked):
+  shown only for a form with at least one saved entry, Automatic Timestamping
+  off, and a Date & Time field. On Save it copies each entry's automatic
+  timestamp (date, hour, minute) into the Date & Time field wherever that field
+  is empty; existing values and the entries' own timestamps are untouched. With
+  more than one Date & Time field, a Destination Field picker chooses the field.
+  It works on locked forms, is a one-time action (cleared after Save), and
+  nothing is converted if the edit is discarded.
+- **Entry edits re-check the saved lock** before writing, from both the entry
+  form and the follow-up note screen.
+- **Backup format 11** carries Never Allow Form Unlocking (written only when on).
+  Older backups restore it as off; their saved locked state is kept as before,
+  and a missing locked state keeps the existing restore default. A restored
+  permanently locked form is always locked.
+
+---
+
 ## 2026-10-20 — Comparison form field
 
 - **New field type**: Comparison (`comparison`). Each row picks an item from the

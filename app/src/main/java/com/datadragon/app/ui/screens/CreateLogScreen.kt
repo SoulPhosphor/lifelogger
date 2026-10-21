@@ -176,9 +176,11 @@ fun CreateLogScreen(
     var name by rememberSaveable { mutableStateOf("") }
     var mode by rememberSaveable(stateSaver = builderModeSaver) { mutableStateOf(BuilderMode.BUILD) }
 
-    // Per-log behavior, chosen once at creation. Locked (create-once entries) is
-    // the default; it can later be unlocked one-way from the log screen.
-    var locked by rememberSaveable { mutableStateOf(true) }
+    // Per-log behavior. Locked Log starts off and can be turned on and off later
+    // from Edit Form; Never Allow Form Unlocking is chosen only here and makes
+    // the form permanently locked.
+    var locked by rememberSaveable { mutableStateOf(false) }
+    var neverAllowUnlocking by rememberSaveable { mutableStateOf(false) }
     var allowAppendedNotes by rememberSaveable { mutableStateOf(false) }
     var advancedSearchEnabled by rememberSaveable { mutableStateOf(false) }
     var automaticTimestamping by rememberSaveable { mutableStateOf(false) }
@@ -283,6 +285,7 @@ fun CreateLogScreen(
                                 schemaJson = FormMarkdownParser.encodeFields(fields),
                                 formMarkdown = markdown,
                                 locked = locked,
+                                neverAllowUnlocking = neverAllowUnlocking,
                                 allowAppendedNotes = allowAppendedNotes,
                                 automaticTimestamping = automaticTimestamping,
                                 advancedSearchEnabled = advancedSearchEnabled,
@@ -330,8 +333,19 @@ fun CreateLogScreen(
                 checked = locked,
                 onCheckedChange = { locked = it },
                 title = "Locked Log",
-                subtitle = "Entries can't be edited after saving. You can unlock it " +
-                    "later, but only once — it can never be re-locked.",
+                subtitle = "Prevent saved entries from being edited while this is enabled.",
+                // Never Allow Form Unlocking holds the lock on.
+                enabled = !neverAllowUnlocking,
+            )
+            SettingSwitchRow(
+                checked = neverAllowUnlocking,
+                onCheckedChange = {
+                    neverAllowUnlocking = it
+                    if (it) locked = true
+                },
+                title = "Never Allow Form Unlocking",
+                subtitle = "This option is only available on form creation. If toggled off " +
+                    "you will always be able to turn locking on and off.",
             )
             SettingSwitchRow(
                 checked = allowAppendedNotes,
@@ -415,11 +429,12 @@ internal fun SettingSwitchRow(
     onCheckedChange: (Boolean) -> Unit,
     title: String,
     subtitle: String? = null,
+    enabled: Boolean = true,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
+            .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange)
             .padding(vertical = AppTheme.spacing.related),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -434,7 +449,7 @@ internal fun SettingSwitchRow(
             }
         }
         Spacer(Modifier.width(AppTheme.spacing.rowInset))
-        Switch(checked = checked, onCheckedChange = null, modifier = Modifier.sizeIn(minWidth = AppTheme.sizes.minimumTouchTarget, minHeight = AppTheme.sizes.minimumTouchTarget))
+        Switch(checked = checked, onCheckedChange = null, enabled = enabled, modifier = Modifier.sizeIn(minWidth = AppTheme.sizes.minimumTouchTarget, minHeight = AppTheme.sizes.minimumTouchTarget))
     }
 }
 

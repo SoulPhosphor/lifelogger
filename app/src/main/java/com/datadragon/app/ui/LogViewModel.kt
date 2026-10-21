@@ -177,19 +177,6 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /**
-     * One-way unlock: a locked log becomes editable. It can never be re-locked,
-     * so a log still showing as locked has never been editable.
-     */
-    fun unlockLog() {
-        val current = _template.value ?: return
-        if (!current.locked) return
-        viewModelScope.launch {
-            templateDao.unlock(current.id)
-            _template.value = current.copy(locked = false)
-        }
-    }
-
     /** Turn follow-up notes on/off for this log (toggleable any time). */
     fun setAllowAppendedNotes(allow: Boolean) {
         val current = _template.value ?: return

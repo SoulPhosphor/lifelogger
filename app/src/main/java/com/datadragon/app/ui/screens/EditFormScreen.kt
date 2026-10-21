@@ -59,6 +59,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.R
 import com.datadragon.app.ui.components.AppButton
+import com.datadragon.app.ui.components.AppDropdownRow
 import com.datadragon.app.ui.components.AppDialog
 import com.datadragon.app.ui.components.DialogActionButton
 import com.datadragon.app.ui.components.DialogDismissButton
@@ -146,6 +147,9 @@ fun EditFormScreen(
     val loadedIntegrateCalendar by viewModel.integrateCalendar.collectAsStateWithLifecycle()
     val loadedAdvancedSearchEnabled by viewModel.advancedSearchEnabled.collectAsStateWithLifecycle()
     val loadedAllowAdditionsFromForm by viewModel.allowAdditionsFromForm.collectAsStateWithLifecycle()
+    val loadedLocked by viewModel.locked.collectAsStateWithLifecycle()
+    val neverAllowUnlocking by viewModel.neverAllowUnlocking.collectAsStateWithLifecycle()
+    val hasEntries by viewModel.hasEntries.collectAsStateWithLifecycle()
     val calendars by viewModel.calendars.collectAsStateWithLifecycle()
     val savedComparisonDigits by viewModel.savedComparisonDigits.collectAsStateWithLifecycle()
     // The existing form title is editable alongside the field list and is saved
@@ -162,6 +166,13 @@ fun EditFormScreen(
     var savedAdvancedSearchEnabled by rememberSaveable { mutableStateOf<Boolean?>(null) }
     var allowAdditionsFromForm by rememberSaveable { mutableStateOf<Boolean?>(null) }
     var savedAllowAdditionsFromForm by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    var locked by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    var savedLocked by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    // One-time "Convert Time Stamps to Date and Time Field": an instruction for
+    // the next Save only, never a stored setting. It is cleared once saved, and
+    // leaving without saving converts nothing.
+    var convertTimestamps by rememberSaveable { mutableStateOf(false) }
+    var convertFieldId by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(name) {
         if (formTitle == null && name != null) {
             formTitle = name
@@ -190,6 +201,12 @@ fun EditFormScreen(
         if (advancedSearchEnabled == null && name != null) {
             advancedSearchEnabled = loadedAdvancedSearchEnabled
             savedAdvancedSearchEnabled = loadedAdvancedSearchEnabled
+        }
+    }
+    LaunchedEffect(name, loadedLocked) {
+        if (locked == null && name != null) {
+            locked = loadedLocked
+            savedLocked = loadedLocked
         }
     }
     LaunchedEffect(name, loadedAllowAdditionsFromForm) {
@@ -224,7 +241,15 @@ fun EditFormScreen(
 
     val canSave = name != null && formTitle != null && automaticTimestamping != null &&
         sortNewestFirst != null && integrateCalendar != null && allowAdditionsFromForm != null && advancedSearchEnabled != null &&
-        rows.all { it.isValid() }
+        locked != null && rows.all { it.isValid() }
+
+    // The conversion is offered only for a form with saved entries, Automatic
+    // Timestamping off, and at least one Date & Time field. With one such field
+    // it is the destination; with several, the picker chooses (first by default).
+    val dateTimeRows = rows.filter { it.type == FieldType.DATETIME }
+    val showConvertTimestamps = hasEntries && automaticTimestamping == false && dateTimeRows.isNotEmpty()
+    val convertTarget = dateTimeRows.firstOrNull { it.id == convertFieldId } ?: dateTimeRows.firstOrNull()
+    val pendingConversionFieldId = if (showConvertTimestamps && convertTimestamps) convertTarget?.id else null
 
     fun move(index: Int, delta: Int) {
         val target = index + delta
@@ -246,6 +271,8 @@ fun EditFormScreen(
             integrateCalendar = integrateCalendar ?: false,
             allowAdditionsFromForm = allowAdditionsFromForm ?: false,
             advancedSearchEnabled = advancedSearchEnabled ?: false,
+            locked = locked ?: false,
+            convertTimestampsToFieldId = pendingConversionFieldId,
             onSaved = {
                 formTitle = titleToSave
                 savedTitle = titleToSave
@@ -254,6 +281,8 @@ fun EditFormScreen(
                 savedIntegrateCalendar = integrateCalendar
                 savedAllowAdditionsFromForm = allowAdditionsFromForm
                 savedAdvancedSearchEnabled = advancedSearchEnabled
+                savedLocked = locked
+                convertTimestamps = false
                 savedSnapshot = rows.map { it.toFieldDef() }
                 onDone()
             },
@@ -308,6 +337,8 @@ fun EditFormScreen(
         (savedSortNewestFirst != null && sortNewestFirst != savedSortNewestFirst) ||
         (savedIntegrateCalendar != null && integrateCalendar != savedIntegrateCalendar) ||
         (savedAllowAdditionsFromForm != null && allowAdditionsFromForm != savedAllowAdditionsFromForm) ||
+        (savedLocked != null && locked != savedLocked) ||
+        pendingConversionFieldId != null ||
         (seeded && currentSortFieldId != savedSortFieldId)
     var showDiscard by rememberSaveable { mutableStateOf(false) }
     fun attemptBack() { if (dirty) showDiscard = true else onBack() }
@@ -435,6 +466,39 @@ fun EditFormScreen(
                     onCheckedChange = { allowAdditionsFromForm = it },
                     title = "Allow Additions from Form",
                 )
+            }
+
+            item(key = "locked-log") {
+                // Always shown. A form created with Never Allow Form Unlocking
+                // shows it on and disabled, so its status is visible.
+                SettingSwitchRow(
+                    checked = neverAllowUnlocking || locked == true,
+                    onCheckedChange = { locked = it },
+                    title = "Locked Log",
+                    subtitle = "Prevent saved entries from being edited while this is enabled.",
+                    enabled = !neverAllowUnlocking,
+                )
+            }
+
+            if (showConvertTimestamps) {
+                item(key = "convert-timestamps") {
+                    CheckboxSettingRow(
+                        checked = convertTimestamps,
+                        onCheckedChange = { convertTimestamps = it },
+                        title = "Convert Time Stamps to Date and Time Field",
+                    )
+                }
+                if (convertTimestamps && dateTimeRows.size > 1 && convertTarget != null) {
+                    item(key = "convert-timestamps-field") {
+                        AppDropdownRow(
+                            label = "Destination Field",
+                            options = dateTimeRows,
+                            selected = convertTarget,
+                            onSelected = { convertFieldId = it.id },
+                            optionLabel = { it.label.trim() },
+                        )
+                    }
+                }
             }
 
             item(key = "header") {

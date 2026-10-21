@@ -5,9 +5,9 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 
 /**
- * Backups carrying Comparison content are version 10, so an older release
- * rejects them as newer instead of failing their checksum; a version-9 file
- * without it re-encodes as version 9.
+ * Backups carrying Comparison content are version 10 or later, so an older
+ * release rejects them as newer instead of failing their checksum; a version-9
+ * file without it re-encodes as version 9, and a version-10 file as version 10.
  */
 class ComparisonBackupVersionTest {
 
@@ -44,8 +44,8 @@ class ComparisonBackupVersionTest {
     @Test
     fun aComparisonFieldNeedsVersion10() {
         val text = formFile(listOf(comparison))
-        assertEquals(10, BackupCodec.decode(text).version)
-        val asVersion9 = text.replace("\"version\": 10", "\"version\": 9")
+        assertEquals(BackupFile.VERSION, BackupCodec.decode(text).version)
+        val asVersion9 = text.replace("\"version\": ${BackupFile.VERSION}", "\"version\": 9")
         assertThrows(IllegalArgumentException::class.java) { BackupCodec.decode(asVersion9) }
     }
 
@@ -56,9 +56,9 @@ class ComparisonBackupVersionTest {
         val withSetting = ClickerLog(uuid = "b", title = "B", createdAt = 1, lastAccessedAt = 1, fieldsJson = "[]", allowAdditionsFromForm = true)
         listOf(withField, withSetting).forEach { log ->
             val text = clickerFile(log)
-            assertEquals(10, BackupCodec.decode(text).version)
+            assertEquals(BackupFile.VERSION, BackupCodec.decode(text).version)
             assertThrows(IllegalArgumentException::class.java) {
-                BackupCodec.decode(text.replace("\"version\": 10", "\"version\": 9"))
+                BackupCodec.decode(text.replace("\"version\": ${BackupFile.VERSION}", "\"version\": 9"))
             }
         }
     }
@@ -66,9 +66,18 @@ class ComparisonBackupVersionTest {
     @Test
     fun aVersion9FileWithoutComparisonReEncodesAsVersion9() {
         val text = formFile(listOf(FieldDef(id = "note", label = "Note", type = FieldType.TEXT)))
-            .replace("\"version\": 10", "\"version\": 9")
+            .replace("\"version\": ${BackupFile.VERSION}", "\"version\": 9")
         val decoded = BackupCodec.decode(text)
         assertEquals(9, decoded.version)
+        assertEquals(text, BackupCodec.encode(decoded))
+    }
+
+    @Test
+    fun aVersion10ComparisonFileReEncodesAsVersion10() {
+        val text = formFile(listOf(comparison))
+            .replace("\"version\": ${BackupFile.VERSION}", "\"version\": 10")
+        val decoded = BackupCodec.decode(text)
+        assertEquals(10, decoded.version)
         assertEquals(text, BackupCodec.encode(decoded))
     }
 }

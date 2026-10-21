@@ -377,3 +377,12 @@ Merge keeps current preferences. Both nullable payload fields omit their Off def
 so older checksums remain valid. Missing settings mean Off. Version 9 is required
 when either setting is declared. Temporary criteria and panel state are never backed
 up. Older supported backup files remain readable.
+
+## Never Allow Form Unlocking (database 27, backup 11)
+
+Forms carry `neverAllowUnlocking` in `log_templates`, added by the additive
+26→27 migration with default 0. Existing table revision triggers cover updates.
+`BackupLog` carries it as a nullable field that is written only when on, so a
+form without it encodes exactly as before. Version 11 is required when it is
+declared. Missing means off. `templateOf` restores a form that has it as locked.
+The existing `locked` field and its legacy default are unchanged.
