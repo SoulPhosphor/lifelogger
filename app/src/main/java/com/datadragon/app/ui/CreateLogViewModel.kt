@@ -24,12 +24,12 @@ class CreateLogViewModel(app: Application) : AndroidViewModel(app) {
         schemaJson: String,
         formMarkdown: String,
         locked: Boolean,
-        neverAllowUnlocking: Boolean = false,
         allowAppendedNotes: Boolean,
         automaticTimestamping: Boolean,
         sortTimestampFieldId: String?,
         sortNewestFirst: Boolean,
         advancedSearchEnabled: Boolean = false,
+        neverAllowUnlocking: Boolean = false,
         onSaved: () -> Unit,
     ) {
         viewModelScope.launch {

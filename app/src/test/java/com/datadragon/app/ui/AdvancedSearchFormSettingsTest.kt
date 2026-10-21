@@ -38,7 +38,7 @@ class AdvancedSearchFormSettingsTest {
             assertTrue(editor.advancedSearchEnabled.value)
             val edited = CompletableDeferred<Unit>()
             editor.save(name, emptyList(), false, null, true, false, false,
-                advancedSearchEnabled = false, onSaved = { edited.complete(Unit) })
+                advancedSearchEnabled = false, locked = true, onSaved = { edited.complete(Unit) })
             edited.await()
             val restored = db.logTemplateDao().getById(original.id)!!
             assertFalse(restored.advancedSearchEnabled)

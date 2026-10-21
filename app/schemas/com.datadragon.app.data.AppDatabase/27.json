@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 27,
-    "identityHash": "624aa039180e95918ebb3a9431b57f04",
+    "identityHash": "0bcd92d082ef6654a18763f5437697a1",
     "entities": [
       {
         "tableName": "log_templates",
@@ -1098,7 +1098,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '624aa039180e95918ebb3a9431b57f04')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0bcd92d082ef6654a18763f5437697a1')"
     ]
   }
 }
