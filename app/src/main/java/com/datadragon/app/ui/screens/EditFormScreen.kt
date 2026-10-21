@@ -256,9 +256,14 @@ fun EditFormScreen(
     // Persist the current schema and form settings.
     fun persist(onDone: () -> Unit) {
         val titleToSave = formTitle.orEmpty().trim()
+        // An Auto Fill source that was removed or changed type saves as the
+        // timestamp, matching what its drop-down shows; the rows take the same
+        // value so the saved baseline matches.
+        val fieldsToSave = rows.map { it.toFieldDef() }.withValidAutoFill()
+        rows.zip(fieldsToSave).forEach { (row, field) -> field.autoFillSource?.let { row.autoFillSource = it } }
         viewModel.save(
             name = titleToSave,
-            fields = rows.map { it.toFieldDef() },
+            fields = fieldsToSave,
             automaticTimestamping = automaticTimestamping ?: false,
             sortTimestampFieldId = rows.firstOrNull { it.sortByTimestamp }?.id,
             sortNewestFirst = sortNewestFirst ?: true,

@@ -141,6 +141,17 @@ class AutoFillTest {
     }
 
     @Test
+    fun aFieldLabeledTimestampRoundTripsAsThatField() {
+        val stampField = FieldDef(id = "ts", label = "Timestamp", type = FieldType.DATETIME)
+        val fields = listOf(stampField, clock.copy(autoFillSource = "ts"), day.copy(autoFillSource = AutoFill.TIMESTAMP))
+        val markdown = FormMarkdownGenerator.generate("Times", fields)
+        assertTrue(markdown.contains("auto_fill_field: Timestamp"))
+        val parsed = FormMarkdownParser.parse(markdown).fields
+        assertEquals(parsed[0].id, parsed[1].autoFillSource)
+        assertEquals(AutoFill.TIMESTAMP, parsed[2].autoFillSource)
+    }
+
+    @Test
     fun formMarkdownIgnoresAnUnsuitableSource() {
         val result = FormMarkdownParser.parse("## Note\ntype: text\n\n## Day\ntype: date\nauto_fill: Note\n")
         assertNull(result.fields.single { it.label == "Day" }.autoFillSource)
