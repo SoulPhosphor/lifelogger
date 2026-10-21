@@ -36,12 +36,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.datadragon.app.data.AutoFill
 import com.datadragon.app.data.ComparisonRow
 import com.datadragon.app.data.ComparisonValues
 import com.datadragon.app.data.EntryValues
@@ -199,6 +201,36 @@ fun NewEntryScreen(
             }
             if (field.type == FieldType.DROPDOWN && textValues[field.id] == null) {
                 field.preselectedSingleChoice()?.let { textValues[field.id] = it }
+            }
+        }
+    }
+
+    // Auto Fill (new entries only): a Date, Time or Date & Time field set to
+    // auto-fill opens already filled in, from this entry's timestamp or from its
+    // source field, and keeps following that field as it changes. Its value can
+    // still be changed by hand; [autoFilled] remembers what was filled last, so
+    // a value the user entered is never overwritten.
+    val autoFilled = rememberSaveable(saver = textValuesSaver) { mutableStateMapOf() }
+    LaunchedEffect(fields, isEditing) {
+        if (isEditing) return@LaunchedEffect
+        val order = AutoFill.fillOrder(fields)
+        if (order.isEmpty()) return@LaunchedEffect
+        val openedAt = LocalDateTime.now()
+        snapshotFlow { fields.map { textValues[it.id] } }.collect {
+            order.forEach { target ->
+                val source = AutoFill.sourceOf(target, fields) ?: return@forEach
+                val sourceField = fields.firstOrNull { it.id == source }
+                val filled = AutoFill.value(target.type, sourceField?.type, sourceField?.let { textValues[it.id] }, openedAt)
+                val current = textValues[target.id]
+                if (current == null || current == autoFilled[target.id]) {
+                    if (filled == null) {
+                        textValues.remove(target.id)
+                        autoFilled.remove(target.id)
+                    } else {
+                        textValues[target.id] = filled
+                        autoFilled[target.id] = filled
+                    }
+                }
             }
         }
     }

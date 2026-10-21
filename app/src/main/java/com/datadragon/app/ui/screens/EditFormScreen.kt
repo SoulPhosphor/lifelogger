@@ -59,7 +59,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datadragon.app.R
 import com.datadragon.app.ui.components.AppButton
-import com.datadragon.app.ui.components.AppDropdownRow
 import com.datadragon.app.ui.components.AppDialog
 import com.datadragon.app.ui.components.DialogActionButton
 import com.datadragon.app.ui.components.DialogDismissButton
@@ -77,6 +76,8 @@ import com.datadragon.app.data.ChoiceStyle
 import com.datadragon.app.data.ClickerIncrementDirection
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.RatioValues
+import com.datadragon.app.data.AutoFill
+import com.datadragon.app.data.AutoFill.autoFillable
 import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.sortEligible
 import com.datadragon.app.data.SettingsRepository
@@ -168,11 +169,6 @@ fun EditFormScreen(
     var savedAllowAdditionsFromForm by rememberSaveable { mutableStateOf<Boolean?>(null) }
     var locked by rememberSaveable { mutableStateOf<Boolean?>(null) }
     var savedLocked by rememberSaveable { mutableStateOf<Boolean?>(null) }
-    // One-time "Convert Time Stamps to Date and Time Field": an instruction for
-    // the next Save only, never a stored setting. It is cleared once saved, and
-    // leaving without saving converts nothing.
-    var convertTimestamps by rememberSaveable { mutableStateOf(false) }
-    var convertFieldId by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(name) {
         if (formTitle == null && name != null) {
             formTitle = name
@@ -243,13 +239,11 @@ fun EditFormScreen(
         sortNewestFirst != null && integrateCalendar != null && allowAdditionsFromForm != null && advancedSearchEnabled != null &&
         locked != null && rows.all { it.isValid() }
 
-    // The conversion is offered only for a form with saved entries, Automatic
-    // Timestamping off, and at least one Date & Time field. With one such field
-    // it is the destination; with several, the picker chooses (first by default).
-    val dateTimeRows = rows.filter { it.type == FieldType.DATETIME }
-    val showConvertTimestamps = hasEntries && automaticTimestamping == false && dateTimeRows.isNotEmpty()
-    val convertTarget = dateTimeRows.firstOrNull { it.id == convertFieldId } ?: dateTimeRows.firstOrNull()
-    val pendingConversionFieldId = if (showConvertTimestamps && convertTimestamps) convertTarget?.id else null
+    // Fields whose "Convert Field to Dropdown Values One Time" is on: an
+    // instruction for the next Save only, never a stored setting. It is cleared
+    // once saved, and leaving without saving converts nothing.
+    fun pendingConversionIds(): Set<String> =
+        if (hasEntries) rows.filter { it.convertsOnSave() }.map { it.id }.toSet() else emptySet()
 
     fun move(index: Int, delta: Int) {
         val target = index + delta
@@ -272,7 +266,7 @@ fun EditFormScreen(
             allowAdditionsFromForm = allowAdditionsFromForm ?: false,
             advancedSearchEnabled = advancedSearchEnabled ?: false,
             locked = locked ?: false,
-            convertTimestampsToFieldId = pendingConversionFieldId,
+            convertFieldIds = pendingConversionIds(),
             onSaved = {
                 formTitle = titleToSave
                 savedTitle = titleToSave
@@ -282,7 +276,7 @@ fun EditFormScreen(
                 savedAllowAdditionsFromForm = allowAdditionsFromForm
                 savedAdvancedSearchEnabled = advancedSearchEnabled
                 savedLocked = locked
-                convertTimestamps = false
+                rows.forEach { it.convertOnce = false }
                 savedSnapshot = rows.map { it.toFieldDef() }
                 onDone()
             },
@@ -323,6 +317,8 @@ fun EditFormScreen(
                 editingIndex = null
             },
             minimumDigits = savedComparisonDigits[draft.id],
+            otherFields = rows.filter { it !== draft }.map { it.toFieldDef() },
+            hasEntries = hasEntries,
         )
         return
     }
@@ -338,7 +334,7 @@ fun EditFormScreen(
         (savedIntegrateCalendar != null && integrateCalendar != savedIntegrateCalendar) ||
         (savedAllowAdditionsFromForm != null && allowAdditionsFromForm != savedAllowAdditionsFromForm) ||
         (savedLocked != null && locked != savedLocked) ||
-        pendingConversionFieldId != null ||
+        pendingConversionIds().isNotEmpty() ||
         (seeded && currentSortFieldId != savedSortFieldId)
     var showDiscard by rememberSaveable { mutableStateOf(false) }
     fun attemptBack() { if (dirty) showDiscard = true else onBack() }
@@ -480,27 +476,6 @@ fun EditFormScreen(
                 )
             }
 
-            if (showConvertTimestamps) {
-                item(key = "convert-timestamps") {
-                    CheckboxSettingRow(
-                        checked = convertTimestamps,
-                        onCheckedChange = { convertTimestamps = it },
-                        title = "Convert Time Stamps to Date and Time Field",
-                    )
-                }
-                if (convertTimestamps && dateTimeRows.size > 1 && convertTarget != null) {
-                    item(key = "convert-timestamps-field") {
-                        AppDropdownRow(
-                            label = "Destination Field",
-                            options = dateTimeRows,
-                            selected = convertTarget,
-                            onSelected = { convertFieldId = it.id },
-                            optionLabel = { it.label.trim() },
-                        )
-                    }
-                }
-            }
-
             item(key = "header") {
                 Text(
                     "Tap a field to edit its label, options, and settings. Add new fields " +
@@ -637,6 +612,10 @@ private fun FieldEditorScreen(
     onCancel: () -> Unit,
     /** Comparison: the most digits a saved number of this field has, or null. */
     minimumDigits: Int?,
+    /** The form's other fields, for the Auto Fill drop-down. */
+    otherFields: List<FieldDef>,
+    /** Whether the form has saved entries (offers the one-time conversion). */
+    hasEntries: Boolean,
 ) {
     val draft = remember(source) { source.copy() }
     val context = LocalContext.current
@@ -675,6 +654,10 @@ private fun FieldEditorScreen(
                             if (draft.type == FieldType.COMPARISON) {
                                 draft.digits = digitsAtLeast(draft.digits, minimumDigits)
                             }
+                            draft.autoFillSource = validAutoFillSource(
+                                draft.autoFillSource,
+                                AutoFill.sourceFields(draft.toFieldDef(), otherFields),
+                            )
                             source.applyFrom(draft)
                             if (source.sortByTimestamp) onSortSelected()
                             onSortDirectionChange(newestFirst)
@@ -734,6 +717,24 @@ private fun FieldEditorScreen(
                 onDeleteOption = onDeleteOption,
                 minimumDigits = minimumDigits,
             )
+            if (draft.type.autoFillable) {
+                AutoFillSettings(
+                    checked = draft.autoFill,
+                    onCheckedChange = { draft.autoFill = it },
+                    source = draft.autoFillSource,
+                    onSourceChange = { draft.autoFillSource = it },
+                    sourceFields = AutoFill.sourceFields(draft.toFieldDef(), otherFields),
+                )
+                // Offered once the form has entries: fills them from the
+                // selected source on Save, only where this field is empty.
+                if (draft.autoFill && hasEntries) {
+                    SettingSwitchRow(
+                        checked = draft.convertOnce,
+                        onCheckedChange = { draft.convertOnce = it },
+                        title = "Convert Field to Dropdown Values One Time",
+                    )
+                }
+            }
             if (draft.type.sortEligible) {
                 CheckboxSettingRow(
                     checked = draft.allowOrderFiltering,
@@ -1020,6 +1021,9 @@ private class EditDraft(
     clickerStartingNumber: String = "",
     clickerIncrement: String = "",
     clickerDirection: ClickerIncrementDirection = ClickerIncrementDirection.ADD,
+    autoFill: Boolean = false,
+    autoFillSource: String = AutoFill.TIMESTAMP,
+    convertOnce: Boolean = false,
     /** True for a field that already exists in the saved schema (type locked). */
     val existing: Boolean = false,
 ) : ComparisonSettingsDraft {
@@ -1050,6 +1054,14 @@ private class EditDraft(
     override var clickerStartingNumber by mutableStateOf(clickerStartingNumber)
     override var clickerIncrement by mutableStateOf(clickerIncrement)
     override var clickerDirection by mutableStateOf(clickerDirection)
+    var autoFill by mutableStateOf(autoFill)
+    /** The Auto Fill drop-down's pick, kept while the checkbox is off. */
+    var autoFillSource by mutableStateOf(autoFillSource)
+    /** One-time "Convert Field to Dropdown Values One Time"; never saved with the field. */
+    var convertOnce by mutableStateOf(convertOnce)
+
+    /** True when the next Save should fill this field across existing entries. */
+    fun convertsOnSave(): Boolean = convertOnce && autoFill && type.autoFillable
 
     /** Stable identity for list keys; survives reordering, unique per draft. */
     val uid: Long = editDraftCounter++
@@ -1069,7 +1081,8 @@ private class EditDraft(
             secondLabel == o.secondLabel && totalLabel == o.totalLabel &&
             wholeNumbersOnly == o.wholeNumbersOnly && clickerCounting == o.clickerCounting &&
             clickerButtonLabel == o.clickerButtonLabel && clickerStartingNumber == o.clickerStartingNumber &&
-            clickerIncrement == o.clickerIncrement && clickerDirection == o.clickerDirection
+            clickerIncrement == o.clickerIncrement && clickerDirection == o.clickerDirection &&
+            autoFill == o.autoFill && autoFillSource == o.autoFillSource && convertOnce == o.convertOnce
 
     /** The options that will be saved: a row left blank is never stored. */
     fun savedChoices(): List<ChoiceOption> =
@@ -1161,6 +1174,9 @@ private class EditDraft(
         clickerStartingNumber = clickerStartingNumber,
         clickerIncrement = clickerIncrement,
         clickerDirection = clickerDirection,
+        autoFill = autoFill,
+        autoFillSource = autoFillSource,
+        convertOnce = convertOnce,
         existing = existing,
     )
 
@@ -1193,6 +1209,9 @@ private class EditDraft(
         clickerStartingNumber = other.clickerStartingNumber
         clickerIncrement = other.clickerIncrement
         clickerDirection = other.clickerDirection
+        autoFill = other.autoFill
+        autoFillSource = other.autoFillSource
+        convertOnce = other.convertOnce
     }
 
     fun toFieldDef(): FieldDef = FieldDef(
@@ -1228,6 +1247,7 @@ private class EditDraft(
         clickerStartingNumber = if (type == FieldType.COMPARISON) clickerStartingNumber.toIntOrNull() ?: 0 else 0,
         clickerIncrement = if (type == FieldType.COMPARISON) clickerIncrement.toIntOrNull()?.takeIf { it > 0 } ?: 1 else 1,
         clickerDirection = if (type == FieldType.COMPARISON) clickerDirection else ClickerIncrementDirection.ADD,
+        autoFillSource = if (type.autoFillable && autoFill) autoFillSource else null,
     )
 
     fun toSnapshot(): EditDraftSnapshot = EditDraftSnapshot(
@@ -1259,6 +1279,9 @@ private class EditDraft(
         clickerStartingNumber = clickerStartingNumber,
         clickerIncrement = clickerIncrement,
         clickerDirection = clickerDirection,
+        autoFill = autoFill,
+        autoFillSource = autoFillSource,
+        convertOnce = convertOnce,
         existing = existing,
     )
 }
@@ -1298,6 +1321,9 @@ private data class EditDraftSnapshot(
     val clickerStartingNumber: String = "",
     val clickerIncrement: String = "",
     val clickerDirection: ClickerIncrementDirection = ClickerIncrementDirection.ADD,
+    val autoFill: Boolean = false,
+    val autoFillSource: String = AutoFill.TIMESTAMP,
+    val convertOnce: Boolean = false,
     val existing: Boolean,
 )
 
@@ -1330,6 +1356,9 @@ private fun EditDraftSnapshot.toEditDraft(): EditDraft = EditDraft(
     clickerStartingNumber = clickerStartingNumber,
     clickerIncrement = clickerIncrement,
     clickerDirection = clickerDirection,
+    autoFill = autoFill,
+    autoFillSource = autoFillSource,
+    convertOnce = convertOnce,
     existing = existing,
 )
 
@@ -1363,6 +1392,8 @@ private fun draftOf(f: FieldDef, sortByTimestamp: Boolean): EditDraft = EditDraf
     clickerStartingNumber = f.clickerStartingNumber.takeIf { it != 0 }?.toString() ?: "",
     clickerIncrement = f.clickerIncrement.takeIf { it != 1 }?.toString() ?: "",
     clickerDirection = f.clickerDirection,
+    autoFill = f.autoFillSource != null,
+    autoFillSource = f.autoFillSource ?: AutoFill.TIMESTAMP,
     existing = true,
 )
 

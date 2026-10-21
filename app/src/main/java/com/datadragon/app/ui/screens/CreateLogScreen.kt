@@ -81,6 +81,8 @@ import com.datadragon.app.data.hasDuplicateLabels
 import com.datadragon.app.data.matchingLabel
 import com.datadragon.app.data.ChoiceStyle
 import com.datadragon.app.data.FieldDef
+import com.datadragon.app.data.AutoFill
+import com.datadragon.app.data.AutoFill.autoFillable
 import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.sortEligible
 import com.datadragon.app.data.FormMarkdownGenerator
@@ -241,7 +243,7 @@ fun CreateLogScreen(
                                             options = settings.autoCapitalizeOptions,
                                         )
                                     }
-                                fields = built.map { it.second }
+                                fields = built.map { it.second }.withValidAutoFill()
                                 builtSortFieldId = built
                                     .singleOrNull { (draft, _) -> draft.sortByTimestamp }
                                     ?.second
@@ -378,6 +380,7 @@ fun CreateLogScreen(
                             val fields = draftFields
                                 .filter { it.label.trim().isNotEmpty() }
                                 .map { it.toFieldDef() }
+                                .withValidAutoFill()
                             pasteText = FormMarkdownGenerator.generate(name, fields)
                             preview = null
                             mode = BuilderMode.PASTE
@@ -755,6 +758,7 @@ private fun BuildEditor(
             ReorderableItem {
                 FieldEditorCard(
                     field = field,
+                    otherFields = fields.filter { it !== field }.map { it.toFieldDef() },
                     index = index,
                     sortNewestFirst = sortNewestFirst,
                     onSortChanged = { setSort(field, it) },
@@ -805,6 +809,8 @@ private fun BuildEditor(
 @Composable
 private fun FieldEditorCard(
     field: DraftField,
+    /** The form's other fields, for the Auto Fill drop-down. */
+    otherFields: List<FieldDef>,
     index: Int,
     sortNewestFirst: Boolean,
     onSortChanged: (Boolean) -> Unit,
@@ -943,6 +949,16 @@ private fun FieldEditorCard(
                     title = "Allow Unknown Option",
                 )
                 else -> Unit
+            }
+
+            if (field.type.autoFillable) {
+                AutoFillSettings(
+                    checked = field.autoFill,
+                    onCheckedChange = { field.autoFill = it },
+                    source = field.autoFillSource,
+                    onSourceChange = { field.autoFillSource = it },
+                    sourceFields = AutoFill.sourceFields(field.toFieldDef(), otherFields),
+                )
             }
 
             if (field.type.sortEligible) {
@@ -1142,6 +1158,11 @@ private fun PreviewSection(result: FormMarkdownParser.ParseResult) {
 
 /** Mutable, Compose-observable editing state for one field in the Build tab. */
 private class DraftField(
+    /**
+     * The new field's permanent id, generated once with the draft so another
+     * field's Auto Fill can name it; it becomes the saved field's id.
+     */
+    val id: String = StableUuid.createNew(),
     label: String = "",
     type: FieldType = FieldType.TEXT,
     required: Boolean = false,
@@ -1170,6 +1191,8 @@ private class DraftField(
     clickerStartingNumber: String = "",
     clickerIncrement: String = "",
     clickerDirection: ClickerIncrementDirection = ClickerIncrementDirection.ADD,
+    autoFill: Boolean = false,
+    autoFillSource: String = AutoFill.TIMESTAMP,
 ) : ComparisonSettingsDraft {
     var label by mutableStateOf(label)
     var type by mutableStateOf(type)
@@ -1198,6 +1221,9 @@ private class DraftField(
     override var clickerCounting by mutableStateOf(clickerCounting)
     override var clickerButtonLabel by mutableStateOf(clickerButtonLabel)
     override var clickerStartingNumber by mutableStateOf(clickerStartingNumber)
+    var autoFill by mutableStateOf(autoFill)
+    /** The Auto Fill drop-down's pick, kept while the checkbox is off. */
+    var autoFillSource by mutableStateOf(autoFillSource)
     override var clickerIncrement by mutableStateOf(clickerIncrement)
     override var clickerDirection by mutableStateOf(clickerDirection)
 
@@ -1258,9 +1284,9 @@ private class DraftField(
     private fun ratioDigitsValid(): Boolean =
         RatioValues.parseDigits(leftDigits) != null && RatioValues.parseDigits(rightDigits) != null
 
-    /** A brand-new field: it and each of its options get a fresh permanent id. */
+    /** A brand-new field: it keeps the draft's [id]; each option gets a fresh permanent id. */
     fun toFieldDef(): FieldDef = FieldDef(
-        id = StableUuid.createNew(),
+        id = id,
         label = label.trim(),
         type = type,
         required = required && type != FieldType.COMPARISON,
@@ -1291,9 +1317,11 @@ private class DraftField(
         clickerStartingNumber = if (type == FieldType.COMPARISON) clickerStartingNumber.toIntOrNull() ?: 0 else 0,
         clickerIncrement = if (type == FieldType.COMPARISON) clickerIncrement.toIntOrNull()?.takeIf { it > 0 } ?: 1 else 1,
         clickerDirection = if (type == FieldType.COMPARISON) clickerDirection else ClickerIncrementDirection.ADD,
+        autoFillSource = if (type.autoFillable && autoFill) autoFillSource else null,
     )
 
     fun toSnapshot(): DraftFieldSnapshot = DraftFieldSnapshot(
+        id = id,
         label = label,
         type = type,
         required = required,
@@ -1322,6 +1350,8 @@ private class DraftField(
         clickerStartingNumber = clickerStartingNumber,
         clickerIncrement = clickerIncrement,
         clickerDirection = clickerDirection,
+        autoFill = autoFill,
+        autoFillSource = autoFillSource,
     )
 }
 
@@ -1335,6 +1365,7 @@ private const val SCALE_DEFAULT_TO = 10
 /** Plain serializable snapshot of a [DraftField], for [draftFieldsSaver]. */
 @Serializable
 private data class DraftFieldSnapshot(
+    val id: String = "",
     val label: String,
     val type: FieldType,
     val required: Boolean,
@@ -1363,9 +1394,12 @@ private data class DraftFieldSnapshot(
     val clickerStartingNumber: String = "",
     val clickerIncrement: String = "",
     val clickerDirection: ClickerIncrementDirection = ClickerIncrementDirection.ADD,
+    val autoFill: Boolean = false,
+    val autoFillSource: String = AutoFill.TIMESTAMP,
 )
 
 private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
+    id = id.ifBlank { StableUuid.createNew() },
     label = label,
     type = type,
     required = required,
@@ -1394,6 +1428,8 @@ private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
     clickerStartingNumber = clickerStartingNumber,
     clickerIncrement = clickerIncrement,
     clickerDirection = clickerDirection,
+    autoFill = autoFill,
+    autoFillSource = autoFillSource,
 )
 
 /**
@@ -1437,6 +1473,7 @@ private fun FieldDef.autoCapitalized(labels: Boolean, options: Boolean): FieldDe
 )
 
 private fun FieldDef.toDraft(): DraftField = DraftField(
+    id = id.ifBlank { StableUuid.createNew() },
     label = label,
     type = type,
     required = required,
@@ -1472,6 +1509,8 @@ private fun FieldDef.toDraft(): DraftField = DraftField(
     clickerStartingNumber = clickerStartingNumber.takeIf { it != 0 }?.toString() ?: "",
     clickerIncrement = clickerIncrement.takeIf { it != 1 }?.toString() ?: "",
     clickerDirection = clickerDirection,
+    autoFill = autoFillSource != null,
+    autoFillSource = autoFillSource ?: AutoFill.TIMESTAMP,
 )
 
 /** The first single-`#` line of [text], used as the log name when the box is empty. */

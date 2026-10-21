@@ -16,14 +16,17 @@ import org.robolectric.annotation.Config
 
 /**
  * Edit Form's Locked Log, the create-only Never Allow Form Unlocking, and the
- * one-time timestamp conversion, through the real view models.
+ * one-time Convert Field to Dropdown Values One Time, through the real view models.
  */
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class EditFormLockingTest {
 
-    private val dateTime = FieldDef(id = "when", label = "When", type = FieldType.DATETIME, required = true, defaultNow = true)
+    private val dateTime = FieldDef(
+        id = "when", label = "When", type = FieldType.DATETIME, required = true, defaultNow = true,
+        autoFillSource = AutoFill.TIMESTAMP,
+    )
 
     @Test fun unlockingASwitchedOverFormInEditFormMakesItsEntriesEditableAndConvertsTimestamps() = runTest {
         Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
@@ -49,7 +52,7 @@ class EditFormLockingTest {
 
             val saved = CompletableDeferred<Unit>()
             editor.save(name, listOf(dateTime), false, null, true, false, false,
-                locked = false, convertTimestampsToFieldId = "when", onSaved = { saved.complete(Unit) })
+                locked = false, convertFieldIds = setOf("when"), onSaved = { saved.complete(Unit) })
             saved.await()
 
             val template = db.logTemplateDao().getById(templateId)!!

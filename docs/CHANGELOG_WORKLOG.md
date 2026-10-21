@@ -17,20 +17,32 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
   Form shows Locked Log on and disabled. Stored as `log_templates.neverAllowUnlocking`
   (database v26 → v27, additive, every existing form gets off). The DAO's
   `setLocked` refuses to unlock such a form.
-- **Convert Time Stamps to Date and Time Field** (Edit Form checkbox, unchecked):
-  shown only for a form with at least one saved entry, Show Timestamp
-  off, and a Date & Time field. On Save it copies each entry's automatic
-  timestamp (date, hour, minute) into the Date & Time field wherever that field
-  is empty; existing values and the entries' own timestamps are untouched. With
-  more than one Date & Time field, a Destination Field picker chooses the field.
-  It works on locked forms, is a one-time action (cleared after Save), and
-  nothing is converted if the edit is discarded.
+- **Auto Fill** (Date, Time and Date & Time fields, in the field's own settings
+  on both the create screen and Edit Form): a checkbox, with the subtext "Future
+  fields will continue to auto-populate from the selected field automatically
+  while checked." and, while checked, a drop-down: "Auto Fill from Timestamp"
+  plus "Auto Fill from <label>" for every other field with a matching part. A
+  Date field takes the date (Date or Date & Time source), a Time field the time
+  (Time or Date & Time source), and a Date & Time field takes what any of the
+  three has, with the missing part from the entry's timestamp. New entries open
+  already filled in and keep following the source; the value can still be
+  changed. Two fields can never fill from each other. Stored as
+  `FieldDef.autoFillSource` (`timestamp` or the source field's id) and written
+  in Form Markdown as `auto_fill: timestamp` / `auto_fill: <label>`.
+- **Convert Field to Dropdown Values One Time** (Edit Form field settings,
+  default off): shown once the form has entries and Auto Fill is checked. On
+  Save it fills existing entries from the selected source by the same rules,
+  only where the field is empty, also on locked forms; entries' timestamps are
+  untouched. It is cleared after Save, and nothing happens if the edit is
+  discarded. This replaces the earlier form-level "Convert Time Stamps to Date
+  and Time Field" checkbox and its Destination Field picker.
 - **"Automatic Timestamping" is renamed "Show Timestamp"** on the Form create
   and Edit Form screens and the Create / Edit Idea Log screen. Behavior is unchanged: every card always saves the date
   and time it was saved; the toggle only shows or hides it.
 - **Entry edits re-check the saved lock** before writing, from both the entry
   form and the follow-up note screen.
-- **Backup format 11** carries Never Allow Form Unlocking (written only when on).
+- **Backup format 11** carries Never Allow Form Unlocking (written only when on)
+  and Auto Fill (a field key written only when set).
   Older backups restore it as off; their saved locked state is kept as before,
   and a missing locked state keeps the existing restore default. A restored
   permanently locked form is always locked.

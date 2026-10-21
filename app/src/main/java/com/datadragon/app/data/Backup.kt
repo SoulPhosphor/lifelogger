@@ -554,9 +554,9 @@ object BackupCodec {
         ) { "Backup automatic backup preferences are incomplete." }
         // Preferences converted from a version-3 file lack the version-4 fields,
         // so they are re-encoded with the version that truthfully describes them.
-        val version = if (preferences != null && !preferences.hasAutomaticBackupPreferences && payload.luckyLists == null && preferences.modeEnabledLuckyList == null && !payload.hasAllowAdditionsFromForm() && !payload.hasVersion7FieldSettings() && !payload.hasVersion8Identities() && !payload.hasAdvancedSearchSettings() && !payload.hasVersion10Comparison() && !payload.hasPermanentLock()) {
+        val version = if (preferences != null && !preferences.hasAutomaticBackupPreferences && payload.luckyLists == null && preferences.modeEnabledLuckyList == null && !payload.hasAllowAdditionsFromForm() && !payload.hasVersion7FieldSettings() && !payload.hasVersion8Identities() && !payload.hasAdvancedSearchSettings() && !payload.hasVersion10Comparison() && !payload.hasVersion11Content()) {
             BackupFile.FIRST_ENVELOPE_VERSION
-        } else if (payload.hasPermanentLock()) {
+        } else if (payload.hasVersion11Content()) {
             BackupFile.VERSION
         } else if (payload.hasVersion10Comparison()) {
             backup.version.coerceIn(10, BackupFile.VERSION)
@@ -625,6 +625,10 @@ object BackupCodec {
         // drop it and let a permanently locked form be unlocked.
         require(envelope.version >= 11 || !envelope.payload.hasPermanentLock()) {
             "Never Allow Form Unlocking requires backup version 11."
+        }
+        // Auto Fill arrived in version 11 too; an older reader would drop it.
+        require(envelope.version >= 11 || !envelope.payload.hasAutoFill()) {
+            "Auto Fill requires backup version 11."
         }
         validateManifest(envelope.includedCategories, envelope.payload)
         val canonical = canonicalPayload(envelope.payload)
@@ -741,6 +745,15 @@ object BackupCodec {
 
     private fun BackupPayload.hasPermanentLock(): Boolean =
         forms.orEmpty().any { it.neverAllowUnlocking != null }
+
+    /** True when a form field declares Auto Fill, which arrived in version 11. */
+    private fun BackupPayload.hasAutoFill(): Boolean =
+        forms.orEmpty().any { form ->
+            val fields = runCatching { Json.parseToJsonElement(form.schemaJson) }.getOrNull() as? JsonArray
+            fields.orEmpty().any { (it as? JsonObject)?.containsKey("autoFillSource") == true }
+        }
+
+    private fun BackupPayload.hasVersion11Content(): Boolean = hasPermanentLock() || hasAutoFill()
 
     private fun BackupPayload.hasAllowAdditionsFromForm(): Boolean =
         forms.orEmpty().any { it.allowAdditionsFromForm == true }

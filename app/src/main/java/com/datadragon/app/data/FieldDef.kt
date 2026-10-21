@@ -48,6 +48,12 @@ data class FieldDef(
     val legacyAllowPreselectedMultipleChoices: Boolean = false,
     /** datetime: pre-fill with the current time (`default: now`). */
     val defaultNow: Boolean = false,
+    /**
+     * date / time / datetime: where a new entry's value auto-fills from — the
+     * entry's timestamp ([AutoFill.TIMESTAMP]) or another date / time field's
+     * permanent id — or null when Auto Fill is off. See [AutoFill].
+     */
+    val autoFillSource: String? = null,
     /** date / datetime: offer this label as an order-sorting category. */
     val allowOrderFiltering: Boolean = false,
     /** yesno: show an "Unknown" radio alongside Yes and No. */

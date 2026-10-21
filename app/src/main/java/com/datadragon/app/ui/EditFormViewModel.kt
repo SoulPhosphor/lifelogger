@@ -12,7 +12,7 @@ import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.savedComparisonDigits
 import com.datadragon.app.data.FormMarkdownGenerator
 import com.datadragon.app.data.FormMarkdownParser
-import com.datadragon.app.data.TimestampConversion
+import com.datadragon.app.data.AutoFill
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.NonCancellable
@@ -68,7 +68,7 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
     private val _neverAllowUnlocking = MutableStateFlow(false)
     val neverAllowUnlocking: StateFlow<Boolean> = _neverAllowUnlocking
 
-    /** Whether the form has at least one saved entry (gates the timestamp conversion). */
+    /** Whether the form has at least one saved entry (gates Convert Field to Dropdown Values One Time). */
     private val _hasEntries = MutableStateFlow(false)
     val hasEntries: StateFlow<Boolean> = _hasEntries
 
@@ -120,9 +120,9 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * Write back the edited title, schema and form settings. When
-     * [convertTimestampsToFieldId] is set, each entry's timestamp is also copied
-     * into that Date & Time field wherever it is empty, in the same transaction.
+     * Write back the edited title, schema and form settings. Each field in
+     * [convertFieldIds] is also auto-filled across existing entries wherever it
+     * is empty (Convert Field to Dropdown Values One Time), in the same transaction.
      */
     fun save(
         name: String,
@@ -134,7 +134,7 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
         allowAdditionsFromForm: Boolean,
         advancedSearchEnabled: Boolean = false,
         locked: Boolean,
-        convertTimestampsToFieldId: String? = null,
+        convertFieldIds: Set<String> = emptySet(),
         onSaved: () -> Unit,
     ) {
         if (templateId < 0) return
@@ -156,7 +156,7 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
                     advancedSearchEnabled,
                 )
                 dao.setLocked(id, locked)
-                convertTimestampsToFieldId?.let { TimestampConversion.convert(entryDao, id, it) }
+                AutoFill.convert(entryDao, id, fields, convertFieldIds)
             }
             _locked.value = dao.getById(id)?.locked ?: locked
             _name.value = savedName

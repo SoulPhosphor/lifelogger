@@ -386,3 +386,6 @@ Forms carry `neverAllowUnlocking` in `log_templates`, added by the additive
 form without it encodes exactly as before. Version 11 is required when it is
 declared. Missing means off. `templateOf` restores a form that has it as locked.
 The existing `locked` field and its legacy default are unchanged.
+
+Form fields may also carry `autoFillSource` (Auto Fill) inside `schemaJson`,
+written only when set; a form declaring it also requires version 11.

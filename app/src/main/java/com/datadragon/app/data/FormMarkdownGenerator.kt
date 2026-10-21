@@ -67,6 +67,12 @@ object FormMarkdownGenerator {
                 FieldType.YESNO -> if (field.allowUnknown) sb.append("allow_unknown: true\n")
                 else -> Unit
             }
+            // Auto Fill names its source by label (or `timestamp`).
+            when (val source = field.autoFillSource) {
+                null -> Unit
+                AutoFill.TIMESTAMP -> sb.append("auto_fill: timestamp\n")
+                else -> fields.firstOrNull { it.id == source }?.let { sb.append("auto_fill: ").append(it.label).append('\n') }
+            }
             if (field.required) sb.append("required\n")
         }
         return sb.toString().trimEnd() + "\n"
