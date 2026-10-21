@@ -432,7 +432,7 @@ fun IdeaLogEditorScaffold(
             SettingSwitchRow(
                 checked = automaticTimestamping,
                 onCheckedChange = onAutomaticTimestampingChange,
-                title = "Automatic Timestamping",
+                title = "Show Timestamp",
             )
             SettingSwitchRow(
                 checked = allowArchiving,

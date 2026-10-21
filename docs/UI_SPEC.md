@@ -404,7 +404,7 @@ against it.
 Visual builder only; there is no Paste tab for Ideas. Settings, in order:
 
 1. Idea Log Name
-2. Automatic Timestamping — default off
+2. Show Timestamp — default off
 3. Allow Archiving — default off
 4. Show Entire Idea Card — default off
 5. Number of Lines Shown in Preview Mode (#) — default 20, 1–999, 3 digits max

@@ -26,7 +26,7 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
   It works on locked forms, is a one-time action (cleared after Save), and
   nothing is converted if the edit is discarded.
 - **"Automatic Timestamping" is renamed "Show Timestamp"** on the Form create
-  and Edit Form screens. Behavior is unchanged: every card always saves the date
+  and Edit Form screens and the Create / Edit Idea Log screen. Behavior is unchanged: every card always saves the date
   and time it was saved; the toggle only shows or hides it.
 - **Entry edits re-check the saved lock** before writing, from both the entry
   form and the follow-up note screen.
