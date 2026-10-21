@@ -25,11 +25,12 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
   Date field takes the date (Date or Date & Time source), a Time field the time
   (Time or Date & Time source), and a Date & Time field takes what any of the
   three has, with the missing part from the entry's timestamp. New entries open
-  already filled in and keep following the source; the value can still be
-  changed. Two fields can never fill from each other. Stored as
+  already filled in (the timestamp is when the card is being filled out) and
+  keep following the source; once the value is changed by hand, including
+  cleared, it is never auto-filled again on that card. Two fields can never fill from each other. Stored as
   `FieldDef.autoFillSource` (`timestamp` or the source field's id) and written
   in Form Markdown as `auto_fill: timestamp` / `auto_fill: <label>`.
-- **Convert Field to Dropdown Values One Time** (Edit Form field settings,
+- **Fill Existing Cards One Time** (Edit Form field settings,
   default off): shown once the form has entries and Auto Fill is checked. On
   Save it fills existing entries from the selected source by the same rules,
   only where the field is empty, also on locked forms; entries' timestamps are

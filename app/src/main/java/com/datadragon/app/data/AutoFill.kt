@@ -21,7 +21,7 @@ import java.time.OffsetDateTime
  *   and the missing part (if any) from the entry's timestamp.
  *
  * The same rules serve the entry form (new entries) and Edit Form's one-time
- * "Convert Field to Dropdown Values One Time", which fills existing entries
+ * "Fill Existing Cards One Time", which fills existing entries
  * only where the field is empty.
  */
 object AutoFill {

@@ -239,7 +239,7 @@ fun EditFormScreen(
         sortNewestFirst != null && integrateCalendar != null && allowAdditionsFromForm != null && advancedSearchEnabled != null &&
         locked != null && rows.all { it.isValid() }
 
-    // Fields whose "Convert Field to Dropdown Values One Time" is on: an
+    // Fields whose "Fill Existing Cards One Time" is on: an
     // instruction for the next Save only, never a stored setting. It is cleared
     // once saved, and leaving without saving converts nothing.
     fun pendingConversionIds(): Set<String> =
@@ -731,7 +731,7 @@ private fun FieldEditorScreen(
                     SettingSwitchRow(
                         checked = draft.convertOnce,
                         onCheckedChange = { draft.convertOnce = it },
-                        title = "Convert Field to Dropdown Values One Time",
+                        title = "Fill Existing Cards One Time",
                     )
                 }
             }
@@ -1057,7 +1057,7 @@ private class EditDraft(
     var autoFill by mutableStateOf(autoFill)
     /** The Auto Fill drop-down's pick, kept while the checkbox is off. */
     var autoFillSource by mutableStateOf(autoFillSource)
-    /** One-time "Convert Field to Dropdown Values One Time"; never saved with the field. */
+    /** One-time "Fill Existing Cards One Time"; never saved with the field. */
     var convertOnce by mutableStateOf(convertOnce)
 
     /** True when the next Save should fill this field across existing entries. */

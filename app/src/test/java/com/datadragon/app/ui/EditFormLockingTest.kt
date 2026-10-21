@@ -16,7 +16,7 @@ import org.robolectric.annotation.Config
 
 /**
  * Edit Form's Locked Log, the create-only Never Allow Form Unlocking, and the
- * one-time Convert Field to Dropdown Values One Time, through the real view models.
+ * one-time Fill Existing Cards One Time, through the real view models.
  */
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)

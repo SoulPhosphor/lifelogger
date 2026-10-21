@@ -68,7 +68,7 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
     private val _neverAllowUnlocking = MutableStateFlow(false)
     val neverAllowUnlocking: StateFlow<Boolean> = _neverAllowUnlocking
 
-    /** Whether the form has at least one saved entry (gates Convert Field to Dropdown Values One Time). */
+    /** Whether the form has at least one saved entry (gates Fill Existing Cards One Time). */
     private val _hasEntries = MutableStateFlow(false)
     val hasEntries: StateFlow<Boolean> = _hasEntries
 
@@ -122,7 +122,7 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
     /**
      * Write back the edited title, schema and form settings. Each field in
      * [convertFieldIds] is also auto-filled across existing entries wherever it
-     * is empty (Convert Field to Dropdown Values One Time), in the same transaction.
+     * is empty (Fill Existing Cards One Time), in the same transaction.
      */
     fun save(
         name: String,

@@ -207,10 +207,12 @@ fun NewEntryScreen(
 
     // Auto Fill (new entries only): a Date, Time or Date & Time field set to
     // auto-fill opens already filled in, from this entry's timestamp or from its
-    // source field, and keeps following that field as it changes. Its value can
-    // still be changed by hand; [autoFilled] remembers what was filled last, so
-    // a value the user entered is never overwritten.
+    // source field, and keeps following that field as it changes. [autoFilled]
+    // remembers what was filled last; once the user changes the value by hand
+    // (including clearing it), the field is marked in [editedByHand] and is
+    // never filled again on this entry.
     val autoFilled = rememberSaveable(saver = textValuesSaver) { mutableStateMapOf() }
+    val editedByHand = rememberSaveable(saver = textValuesSaver) { mutableStateMapOf() }
     LaunchedEffect(fields, isEditing) {
         if (isEditing) return@LaunchedEffect
         val order = AutoFill.fillOrder(fields)
@@ -222,7 +224,9 @@ fun NewEntryScreen(
                 val sourceField = fields.firstOrNull { it.id == source }
                 val filled = AutoFill.value(target.type, sourceField?.type, sourceField?.let { textValues[it.id] }, openedAt)
                 val current = textValues[target.id]
-                if (current == null || current == autoFilled[target.id]) {
+                val lastFilled = autoFilled[target.id]
+                if (lastFilled != null && current != lastFilled) editedByHand[target.id] = "true"
+                if (target.id !in editedByHand && (current == null || current == lastFilled)) {
                     if (filled == null) {
                         textValues.remove(target.id)
                         autoFilled.remove(target.id)
