@@ -76,6 +76,8 @@ import com.datadragon.app.data.ChoiceStyle
 import com.datadragon.app.data.ClickerIncrementDirection
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.RatioValues
+import com.datadragon.app.data.AutoFill
+import com.datadragon.app.data.AutoFill.autoFillable
 import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.sortEligible
 import com.datadragon.app.data.SettingsRepository
@@ -146,6 +148,9 @@ fun EditFormScreen(
     val loadedIntegrateCalendar by viewModel.integrateCalendar.collectAsStateWithLifecycle()
     val loadedAdvancedSearchEnabled by viewModel.advancedSearchEnabled.collectAsStateWithLifecycle()
     val loadedAllowAdditionsFromForm by viewModel.allowAdditionsFromForm.collectAsStateWithLifecycle()
+    val loadedLocked by viewModel.locked.collectAsStateWithLifecycle()
+    val neverAllowUnlocking by viewModel.neverAllowUnlocking.collectAsStateWithLifecycle()
+    val hasEntries by viewModel.hasEntries.collectAsStateWithLifecycle()
     val calendars by viewModel.calendars.collectAsStateWithLifecycle()
     val savedComparisonDigits by viewModel.savedComparisonDigits.collectAsStateWithLifecycle()
     // The existing form title is editable alongside the field list and is saved
@@ -162,6 +167,8 @@ fun EditFormScreen(
     var savedAdvancedSearchEnabled by rememberSaveable { mutableStateOf<Boolean?>(null) }
     var allowAdditionsFromForm by rememberSaveable { mutableStateOf<Boolean?>(null) }
     var savedAllowAdditionsFromForm by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    var locked by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    var savedLocked by rememberSaveable { mutableStateOf<Boolean?>(null) }
     LaunchedEffect(name) {
         if (formTitle == null && name != null) {
             formTitle = name
@@ -190,6 +197,12 @@ fun EditFormScreen(
         if (advancedSearchEnabled == null && name != null) {
             advancedSearchEnabled = loadedAdvancedSearchEnabled
             savedAdvancedSearchEnabled = loadedAdvancedSearchEnabled
+        }
+    }
+    LaunchedEffect(name, loadedLocked) {
+        if (locked == null && name != null) {
+            locked = loadedLocked
+            savedLocked = loadedLocked
         }
     }
     LaunchedEffect(name, loadedAllowAdditionsFromForm) {
@@ -224,7 +237,13 @@ fun EditFormScreen(
 
     val canSave = name != null && formTitle != null && automaticTimestamping != null &&
         sortNewestFirst != null && integrateCalendar != null && allowAdditionsFromForm != null && advancedSearchEnabled != null &&
-        rows.all { it.isValid() }
+        locked != null && rows.all { it.isValid() }
+
+    // Fields whose "Fill Existing Cards One Time" is on: an
+    // instruction for the next Save only, never a stored setting. It is cleared
+    // once saved, and leaving without saving converts nothing.
+    fun pendingConversionIds(): Set<String> =
+        if (hasEntries) rows.filter { it.convertsOnSave() }.map { it.id }.toSet() else emptySet()
 
     fun move(index: Int, delta: Int) {
         val target = index + delta
@@ -237,15 +256,22 @@ fun EditFormScreen(
     // Persist the current schema and form settings.
     fun persist(onDone: () -> Unit) {
         val titleToSave = formTitle.orEmpty().trim()
+        // An Auto Fill source that was removed or changed type saves as the
+        // timestamp, matching what its drop-down shows; the rows take the same
+        // value so the saved baseline matches.
+        val fieldsToSave = rows.map { it.toFieldDef() }.withValidAutoFill()
+        rows.zip(fieldsToSave).forEach { (row, field) -> field.autoFillSource?.let { row.autoFillSource = it } }
         viewModel.save(
             name = titleToSave,
-            fields = rows.map { it.toFieldDef() },
+            fields = fieldsToSave,
             automaticTimestamping = automaticTimestamping ?: false,
             sortTimestampFieldId = rows.firstOrNull { it.sortByTimestamp }?.id,
             sortNewestFirst = sortNewestFirst ?: true,
             integrateCalendar = integrateCalendar ?: false,
             allowAdditionsFromForm = allowAdditionsFromForm ?: false,
             advancedSearchEnabled = advancedSearchEnabled ?: false,
+            locked = locked ?: false,
+            convertFieldIds = pendingConversionIds(),
             onSaved = {
                 formTitle = titleToSave
                 savedTitle = titleToSave
@@ -254,6 +280,8 @@ fun EditFormScreen(
                 savedIntegrateCalendar = integrateCalendar
                 savedAllowAdditionsFromForm = allowAdditionsFromForm
                 savedAdvancedSearchEnabled = advancedSearchEnabled
+                savedLocked = locked
+                rows.forEach { it.convertOnce = false }
                 savedSnapshot = rows.map { it.toFieldDef() }
                 onDone()
             },
@@ -294,6 +322,8 @@ fun EditFormScreen(
                 editingIndex = null
             },
             minimumDigits = savedComparisonDigits[draft.id],
+            otherFields = rows.filter { it !== draft }.map { it.toFieldDef() },
+            hasEntries = hasEntries,
         )
         return
     }
@@ -308,6 +338,8 @@ fun EditFormScreen(
         (savedSortNewestFirst != null && sortNewestFirst != savedSortNewestFirst) ||
         (savedIntegrateCalendar != null && integrateCalendar != savedIntegrateCalendar) ||
         (savedAllowAdditionsFromForm != null && allowAdditionsFromForm != savedAllowAdditionsFromForm) ||
+        (savedLocked != null && locked != savedLocked) ||
+        pendingConversionIds().isNotEmpty() ||
         (seeded && currentSortFieldId != savedSortFieldId)
     var showDiscard by rememberSaveable { mutableStateOf(false) }
     fun attemptBack() { if (dirty) showDiscard = true else onBack() }
@@ -414,7 +446,7 @@ fun EditFormScreen(
                 SettingSwitchRow(
                     checked = automaticTimestamping ?: false,
                     onCheckedChange = { automaticTimestamping = it },
-                    title = "Automatic Timestamping",
+                    title = "Show Timestamp",
                 )
             }
 
@@ -434,6 +466,18 @@ fun EditFormScreen(
                     checked = allowAdditionsFromForm ?: false,
                     onCheckedChange = { allowAdditionsFromForm = it },
                     title = "Allow Additions from Form",
+                )
+            }
+
+            item(key = "locked-log") {
+                // Always shown. A form created with Never Allow Form Unlocking
+                // shows it on and disabled, so its status is visible.
+                SettingSwitchRow(
+                    checked = neverAllowUnlocking || locked == true,
+                    onCheckedChange = { locked = it },
+                    title = "Locked Log",
+                    subtitle = "Prevent saved entries from being edited while this is enabled.",
+                    enabled = !neverAllowUnlocking,
                 )
             }
 
@@ -573,6 +617,10 @@ private fun FieldEditorScreen(
     onCancel: () -> Unit,
     /** Comparison: the most digits a saved number of this field has, or null. */
     minimumDigits: Int?,
+    /** The form's other fields, for the Auto Fill drop-down. */
+    otherFields: List<FieldDef>,
+    /** Whether the form has saved entries (offers the one-time conversion). */
+    hasEntries: Boolean,
 ) {
     val draft = remember(source) { source.copy() }
     val context = LocalContext.current
@@ -611,6 +659,10 @@ private fun FieldEditorScreen(
                             if (draft.type == FieldType.COMPARISON) {
                                 draft.digits = digitsAtLeast(draft.digits, minimumDigits)
                             }
+                            draft.autoFillSource = validAutoFillSource(
+                                draft.autoFillSource,
+                                AutoFill.sourceFields(draft.toFieldDef(), otherFields),
+                            )
                             source.applyFrom(draft)
                             if (source.sortByTimestamp) onSortSelected()
                             onSortDirectionChange(newestFirst)
@@ -670,6 +722,24 @@ private fun FieldEditorScreen(
                 onDeleteOption = onDeleteOption,
                 minimumDigits = minimumDigits,
             )
+            if (draft.type.autoFillable) {
+                AutoFillSettings(
+                    checked = draft.autoFill,
+                    onCheckedChange = { draft.autoFill = it },
+                    source = draft.autoFillSource,
+                    onSourceChange = { draft.autoFillSource = it },
+                    sourceFields = AutoFill.sourceFields(draft.toFieldDef(), otherFields),
+                )
+                // Offered once the form has entries: fills them from the
+                // selected source on Save, only where this field is empty.
+                if (draft.autoFill && hasEntries) {
+                    SettingSwitchRow(
+                        checked = draft.convertOnce,
+                        onCheckedChange = { draft.convertOnce = it },
+                        title = "Fill Existing Cards One Time",
+                    )
+                }
+            }
             if (draft.type.sortEligible) {
                 CheckboxSettingRow(
                     checked = draft.allowOrderFiltering,
@@ -956,6 +1026,9 @@ private class EditDraft(
     clickerStartingNumber: String = "",
     clickerIncrement: String = "",
     clickerDirection: ClickerIncrementDirection = ClickerIncrementDirection.ADD,
+    autoFill: Boolean = false,
+    autoFillSource: String = AutoFill.TIMESTAMP,
+    convertOnce: Boolean = false,
     /** True for a field that already exists in the saved schema (type locked). */
     val existing: Boolean = false,
 ) : ComparisonSettingsDraft {
@@ -986,6 +1059,14 @@ private class EditDraft(
     override var clickerStartingNumber by mutableStateOf(clickerStartingNumber)
     override var clickerIncrement by mutableStateOf(clickerIncrement)
     override var clickerDirection by mutableStateOf(clickerDirection)
+    var autoFill by mutableStateOf(autoFill)
+    /** The Auto Fill drop-down's pick, kept while the checkbox is off. */
+    var autoFillSource by mutableStateOf(autoFillSource)
+    /** One-time "Fill Existing Cards One Time"; never saved with the field. */
+    var convertOnce by mutableStateOf(convertOnce)
+
+    /** True when the next Save should fill this field across existing entries. */
+    fun convertsOnSave(): Boolean = convertOnce && autoFill && type.autoFillable
 
     /** Stable identity for list keys; survives reordering, unique per draft. */
     val uid: Long = editDraftCounter++
@@ -1005,7 +1086,8 @@ private class EditDraft(
             secondLabel == o.secondLabel && totalLabel == o.totalLabel &&
             wholeNumbersOnly == o.wholeNumbersOnly && clickerCounting == o.clickerCounting &&
             clickerButtonLabel == o.clickerButtonLabel && clickerStartingNumber == o.clickerStartingNumber &&
-            clickerIncrement == o.clickerIncrement && clickerDirection == o.clickerDirection
+            clickerIncrement == o.clickerIncrement && clickerDirection == o.clickerDirection &&
+            autoFill == o.autoFill && autoFillSource == o.autoFillSource && convertOnce == o.convertOnce
 
     /** The options that will be saved: a row left blank is never stored. */
     fun savedChoices(): List<ChoiceOption> =
@@ -1097,6 +1179,9 @@ private class EditDraft(
         clickerStartingNumber = clickerStartingNumber,
         clickerIncrement = clickerIncrement,
         clickerDirection = clickerDirection,
+        autoFill = autoFill,
+        autoFillSource = autoFillSource,
+        convertOnce = convertOnce,
         existing = existing,
     )
 
@@ -1129,6 +1214,9 @@ private class EditDraft(
         clickerStartingNumber = other.clickerStartingNumber
         clickerIncrement = other.clickerIncrement
         clickerDirection = other.clickerDirection
+        autoFill = other.autoFill
+        autoFillSource = other.autoFillSource
+        convertOnce = other.convertOnce
     }
 
     fun toFieldDef(): FieldDef = FieldDef(
@@ -1164,6 +1252,7 @@ private class EditDraft(
         clickerStartingNumber = if (type == FieldType.COMPARISON) clickerStartingNumber.toIntOrNull() ?: 0 else 0,
         clickerIncrement = if (type == FieldType.COMPARISON) clickerIncrement.toIntOrNull()?.takeIf { it > 0 } ?: 1 else 1,
         clickerDirection = if (type == FieldType.COMPARISON) clickerDirection else ClickerIncrementDirection.ADD,
+        autoFillSource = if (type.autoFillable && autoFill) autoFillSource else null,
     )
 
     fun toSnapshot(): EditDraftSnapshot = EditDraftSnapshot(
@@ -1195,6 +1284,9 @@ private class EditDraft(
         clickerStartingNumber = clickerStartingNumber,
         clickerIncrement = clickerIncrement,
         clickerDirection = clickerDirection,
+        autoFill = autoFill,
+        autoFillSource = autoFillSource,
+        convertOnce = convertOnce,
         existing = existing,
     )
 }
@@ -1234,6 +1326,9 @@ private data class EditDraftSnapshot(
     val clickerStartingNumber: String = "",
     val clickerIncrement: String = "",
     val clickerDirection: ClickerIncrementDirection = ClickerIncrementDirection.ADD,
+    val autoFill: Boolean = false,
+    val autoFillSource: String = AutoFill.TIMESTAMP,
+    val convertOnce: Boolean = false,
     val existing: Boolean,
 )
 
@@ -1266,6 +1361,9 @@ private fun EditDraftSnapshot.toEditDraft(): EditDraft = EditDraft(
     clickerStartingNumber = clickerStartingNumber,
     clickerIncrement = clickerIncrement,
     clickerDirection = clickerDirection,
+    autoFill = autoFill,
+    autoFillSource = autoFillSource,
+    convertOnce = convertOnce,
     existing = existing,
 )
 
@@ -1299,6 +1397,8 @@ private fun draftOf(f: FieldDef, sortByTimestamp: Boolean): EditDraft = EditDraf
     clickerStartingNumber = f.clickerStartingNumber.takeIf { it != 0 }?.toString() ?: "",
     clickerIncrement = f.clickerIncrement.takeIf { it != 1 }?.toString() ?: "",
     clickerDirection = f.clickerDirection,
+    autoFill = f.autoFillSource != null,
+    autoFillSource = f.autoFillSource ?: AutoFill.TIMESTAMP,
     existing = true,
 )
 

@@ -29,6 +29,7 @@ class CreateLogViewModel(app: Application) : AndroidViewModel(app) {
         sortTimestampFieldId: String?,
         sortNewestFirst: Boolean,
         advancedSearchEnabled: Boolean = false,
+        neverAllowUnlocking: Boolean = false,
         onSaved: () -> Unit,
     ) {
         viewModelScope.launch {
@@ -39,7 +40,9 @@ class CreateLogViewModel(app: Application) : AndroidViewModel(app) {
                     createdAt = System.currentTimeMillis(),
                     schemaJson = schemaJson,
                     formMarkdown = formMarkdown,
-                    locked = locked,
+                    // A permanently locked form is always created locked.
+                    locked = locked || neverAllowUnlocking,
+                    neverAllowUnlocking = neverAllowUnlocking,
                     allowAppendedNotes = allowAppendedNotes,
                     automaticTimestamping = automaticTimestamping,
                     sortTimestampFieldId = sortTimestampFieldId,

@@ -276,6 +276,22 @@ type: datetime
 default: now
 ```
 
+`auto_fill:` turns on Auto Fill: `auto_fill: timestamp` fills new entries from
+the entry's timestamp, and `auto_fill: <field label>` fills them from another
+date, time or datetime field with a matching part (a `date` field takes the
+date, a `time` field the time; a `datetime` field takes what the source has and
+the missing part from the timestamp). A source field that is itself labeled
+`Timestamp` is written `auto_fill_field: Timestamp`, which always means a field.
+
+```
+## Start
+type: datetime
+
+## Start Time
+type: time
+auto_fill: Start
+```
+
 ---
 
 ## 4. Parser rules

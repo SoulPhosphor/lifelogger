@@ -4,6 +4,52 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-10-21 — Reversible form locking and timestamp conversion
+
+- **Locked Log is reversible.** It is shown on the create screen (now off by
+  default) and in Edit Form, and can be turned on and off as often as wanted.
+  Subtitle: "Prevent saved entries from being edited while this is enabled." The
+  old one-way gear-menu **Unlock Log** action and its warning dialog are removed.
+  Existing forms keep their current locked/unlocked state and become freely
+  lockable and unlockable.
+- **Never Allow Form Unlocking** (create screen only, default off, under Locked
+  Log): when on, the form is created locked and stays locked permanently; Edit
+  Form shows Locked Log on and disabled. Stored as `log_templates.neverAllowUnlocking`
+  (database v26 → v27, additive, every existing form gets off). The DAO's
+  `setLocked` refuses to unlock such a form.
+- **Auto Fill** (Date, Time and Date & Time fields, in the field's own settings
+  on both the create screen and Edit Form): a checkbox, with the subtext "Future
+  fields will continue to auto-populate from the selected field automatically
+  while checked." and, while checked, a drop-down: "Auto Fill from Timestamp"
+  plus "Auto Fill from <label>" for every other field with a matching part. A
+  Date field takes the date (Date or Date & Time source), a Time field the time
+  (Time or Date & Time source), and a Date & Time field takes what any of the
+  three has, with the missing part from the entry's timestamp. New entries open
+  already filled in (the timestamp is when the card is being filled out) and
+  keep following the source; once the value is changed by hand, including
+  cleared, it is never auto-filled again on that card. Two fields can never fill from each other. Stored as
+  `FieldDef.autoFillSource` (`timestamp` or the source field's id) and written
+  in Form Markdown as `auto_fill: timestamp` / `auto_fill: <label>`.
+- **Fill Existing Cards One Time** (Edit Form field settings,
+  default off): shown once the form has entries and Auto Fill is checked. On
+  Save it fills existing entries from the selected source by the same rules,
+  only where the field is empty, also on locked forms; entries' timestamps are
+  untouched. It is cleared after Save, and nothing happens if the edit is
+  discarded. This replaces the earlier form-level "Convert Time Stamps to Date
+  and Time Field" checkbox and its Destination Field picker.
+- **"Automatic Timestamping" is renamed "Show Timestamp"** on the Form create
+  and Edit Form screens and the Create / Edit Idea Log screen. Behavior is unchanged: every card always saves the date
+  and time it was saved; the toggle only shows or hides it.
+- **Entry edits re-check the saved lock** before writing, from both the entry
+  form and the follow-up note screen.
+- **Backup format 11** carries Never Allow Form Unlocking (written only when on)
+  and Auto Fill (a field key written only when set).
+  Older backups restore it as off; their saved locked state is kept as before,
+  and a missing locked state keeps the existing restore default. A restored
+  permanently locked form is always locked.
+
+---
+
 ## 2026-10-20 — Comparison form field
 
 - **New field type**: Comparison (`comparison`). Each row picks an item from the

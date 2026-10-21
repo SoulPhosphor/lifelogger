@@ -36,12 +36,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.datadragon.app.data.AutoFill
 import com.datadragon.app.data.ComparisonRow
 import com.datadragon.app.data.ComparisonValues
 import com.datadragon.app.data.EntryValues
@@ -199,6 +201,40 @@ fun NewEntryScreen(
             }
             if (field.type == FieldType.DROPDOWN && textValues[field.id] == null) {
                 field.preselectedSingleChoice()?.let { textValues[field.id] = it }
+            }
+        }
+    }
+
+    // Auto Fill (new entries only): a Date, Time or Date & Time field set to
+    // auto-fill opens already filled in, from this entry's timestamp or from its
+    // source field, and keeps following that field as it changes. [autoFilled]
+    // remembers what was filled last; once the user changes the value by hand
+    // (including clearing it), the field is marked in [editedByHand] and is
+    // never filled again on this entry.
+    val autoFilled = rememberSaveable(saver = textValuesSaver) { mutableStateMapOf() }
+    val editedByHand = rememberSaveable(saver = textValuesSaver) { mutableStateMapOf() }
+    LaunchedEffect(fields, isEditing) {
+        if (isEditing) return@LaunchedEffect
+        val order = AutoFill.fillOrder(fields)
+        if (order.isEmpty()) return@LaunchedEffect
+        val openedAt = LocalDateTime.now()
+        snapshotFlow { fields.map { textValues[it.id] } }.collect {
+            order.forEach { target ->
+                val source = AutoFill.sourceOf(target, fields) ?: return@forEach
+                val sourceField = fields.firstOrNull { it.id == source }
+                val filled = AutoFill.value(target.type, sourceField?.type, sourceField?.let { textValues[it.id] }, openedAt)
+                val current = textValues[target.id]
+                val lastFilled = autoFilled[target.id]
+                if (lastFilled != null && current != lastFilled) editedByHand[target.id] = "true"
+                if (target.id !in editedByHand && (current == null || current == lastFilled)) {
+                    if (filled == null) {
+                        textValues.remove(target.id)
+                        autoFilled.remove(target.id)
+                    } else {
+                        textValues[target.id] = filled
+                        autoFilled[target.id] = filled
+                    }
+                }
             }
         }
     }

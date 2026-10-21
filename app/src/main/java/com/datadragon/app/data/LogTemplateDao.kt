@@ -9,8 +9,8 @@ import kotlinx.coroutines.flow.Flow
 /**
  * Data access for [LogTemplate].
  *
- * A template's title and field schema can be edited after creation. [unlock]
- * remains a one-way flip of `locked` from true to false.
+ * A template's title and field schema can be edited after creation. [setLocked]
+ * turns locking on and off, except on a log created permanently locked.
  */
 @Dao
 interface LogTemplateDao {
@@ -18,9 +18,15 @@ interface LogTemplateDao {
     @Insert
     suspend fun insert(template: LogTemplate): Long
 
-    /** One-way unlock: a locked log becomes editable and can never be re-locked. */
-    @Query("UPDATE log_templates SET locked = 0 WHERE id = :id")
-    suspend fun unlock(id: Long)
+    /**
+     * Lock or unlock a log's saved entries. A log created with Never Allow Form
+     * Unlocking always stays locked, whatever [locked] asks for.
+     */
+    @Query(
+        "UPDATE log_templates SET locked = CASE WHEN neverAllowUnlocking = 1 THEN 1 ELSE :locked END " +
+            "WHERE id = :id",
+    )
+    suspend fun setLocked(id: Long, locked: Boolean)
 
     /** Turn follow-up notes on or off for a log (toggleable after creation). */
     @Query("UPDATE log_templates SET allowAppendedNotes = :allow WHERE id = :id")

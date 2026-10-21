@@ -129,6 +129,9 @@ Write like a professional technical writer, not like someone thinking out loud.
 
 ## Appearance
 
+**Never ask the owner about styles.** Unless the owner says otherwise, follow
+the existing styles.
+
 **Always follow `docs/STYLE.md` and `docs/UI_ELEMENTS.md` before implementing
 or discussing UI appearance.** These documents contain already-approved design
 decisions. Inspect the existing theme and reusable components before asking the

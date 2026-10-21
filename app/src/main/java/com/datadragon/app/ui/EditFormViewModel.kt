@@ -12,6 +12,7 @@ import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.savedComparisonDigits
 import com.datadragon.app.data.FormMarkdownGenerator
 import com.datadragon.app.data.FormMarkdownParser
+import com.datadragon.app.data.AutoFill
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.NonCancellable
@@ -60,6 +61,17 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
     private val _allowAdditionsFromForm = MutableStateFlow(false)
     val allowAdditionsFromForm: StateFlow<Boolean> = _allowAdditionsFromForm
 
+    private val _locked = MutableStateFlow(false)
+    val locked: StateFlow<Boolean> = _locked
+
+    /** Set at creation and never changed: the form is permanently locked. */
+    private val _neverAllowUnlocking = MutableStateFlow(false)
+    val neverAllowUnlocking: StateFlow<Boolean> = _neverAllowUnlocking
+
+    /** Whether the form has at least one saved entry (gates Fill Existing Cards One Time). */
+    private val _hasEntries = MutableStateFlow(false)
+    val hasEntries: StateFlow<Boolean> = _hasEntries
+
     /**
      * Per Comparison field id, the most digits any saved number of that field
      * has — the lowest its Max Digits may be set to.
@@ -88,6 +100,9 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
             _integrateCalendar.value = template?.integrateCalendar ?: false
             _allowAdditionsFromForm.value = template?.allowAdditionsFromForm ?: false
             _advancedSearchEnabled.value = template?.advancedSearchEnabled ?: false
+            _locked.value = template?.locked ?: false
+            _neverAllowUnlocking.value = template?.neverAllowUnlocking ?: false
+            _hasEntries.value = entryDao.getForTemplateOnce(id).isNotEmpty()
             _fields.value = template
                 ?.let { runCatching { json.decodeFromString<List<FieldDef>>(it.schemaJson) }.getOrNull() }
                 ?: emptyList()
@@ -104,7 +119,11 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Write back the edited title, schema and form settings. */
+    /**
+     * Write back the edited title, schema and form settings. Each field in
+     * [convertFieldIds] is also auto-filled across existing entries wherever it
+     * is empty (Fill Existing Cards One Time), in the same transaction.
+     */
     fun save(
         name: String,
         fields: List<FieldDef>,
@@ -114,24 +133,32 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
         integrateCalendar: Boolean,
         allowAdditionsFromForm: Boolean,
         advancedSearchEnabled: Boolean = false,
+        locked: Boolean,
+        convertFieldIds: Set<String> = emptySet(),
         onSaved: () -> Unit,
     ) {
         if (templateId < 0) return
+        val id = templateId
         viewModelScope.launch {
             val savedName = name.trim()
             val markdown = FormMarkdownGenerator.generate(savedName, fields)
-            dao.updateForm(
-                templateId,
-                savedName,
-                FormMarkdownParser.encodeFields(fields),
-                markdown,
-                automaticTimestamping,
-                sortTimestampFieldId,
-                sortNewestFirst,
-                integrateCalendar,
-                allowAdditionsFromForm,
-                advancedSearchEnabled,
-            )
+            db.withTransaction {
+                dao.updateForm(
+                    id,
+                    savedName,
+                    FormMarkdownParser.encodeFields(fields),
+                    markdown,
+                    automaticTimestamping,
+                    sortTimestampFieldId,
+                    sortNewestFirst,
+                    integrateCalendar,
+                    allowAdditionsFromForm,
+                    advancedSearchEnabled,
+                )
+                dao.setLocked(id, locked)
+                AutoFill.convert(entryDao, id, fields, convertFieldIds)
+            }
+            _locked.value = dao.getById(id)?.locked ?: locked
             _name.value = savedName
             _fields.value = fields
             _automaticTimestamping.value = automaticTimestamping

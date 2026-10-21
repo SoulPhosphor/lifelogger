@@ -36,6 +36,10 @@ object FormMarkdownParser {
         var from: Int? = null
         var to: Int? = null
         var defaultNow = false
+        /** `auto_fill: timestamp` or `auto_fill: <field label>`, resolved once every field is read. */
+        var autoFill: String? = null
+        /** `auto_fill_field:` — the value is always a field label, never the timestamp. */
+        var autoFillIsField = false
         var allowUnknown = false
         var makeDropdown = false
         var choiceStyle = ChoiceStyle.DROPDOWN
@@ -73,11 +77,25 @@ object FormMarkdownParser {
         var builder: Builder? = null
         var inOptions = false
 
+        // Field id → its written `auto_fill:` value (and whether it can only be a
+        // field label), resolved after the last field.
+        val autoFillRefs = mutableMapOf<String, Pair<String, Boolean>>()
+
         fun flush() {
             val b = builder ?: return
             builder = null
             inOptions = false
+            val before = fields.size
             buildField(b, seenLabels, fields, issues, newId)
+            val added = fields.getOrNull(before)
+            val ref = b.autoFill
+            if (added != null && ref != null) {
+                if (AutoFill.run { added.type.autoFillable }) {
+                    autoFillRefs[added.id] = ref to b.autoFillIsField
+                } else {
+                    issues.add("Field \"${added.label}\": auto_fill only applies to date, time and datetime fields; ignored.")
+                }
+            }
         }
 
         input.lines().forEachIndexed { idx, raw ->
@@ -153,6 +171,14 @@ object FormMarkdownParser {
                             ?: run { issues.add("Field \"${b.label}\": to \"$value\" is not a number."); null }
                         "required" -> b.required = value.equals("true", ignoreCase = true) || value.equals("yes", ignoreCase = true)
                         "default" -> b.defaultNow = value.equals("now", ignoreCase = true)
+                        "auto_fill" -> {
+                            b.autoFill = value.ifEmpty { null }
+                            b.autoFillIsField = false
+                        }
+                        "auto_fill_field" -> {
+                            b.autoFill = value.ifEmpty { null }
+                            b.autoFillIsField = true
+                        }
                         "allow_unknown" -> b.allowUnknown =
                             value.equals("true", ignoreCase = true) || value.equals("yes", ignoreCase = true)
                         "make_dropdown" -> b.makeDropdown =
@@ -203,6 +229,7 @@ object FormMarkdownParser {
             }
         }
         flush()
+        resolveAutoFill(fields, autoFillRefs, issues)
 
         return ParseResult(
             name = name?.ifEmpty { null },
@@ -210,6 +237,33 @@ object FormMarkdownParser {
             skipped = skipped,
             issues = issues,
         )
+    }
+
+    /**
+     * Point each `auto_fill:` at its source: `timestamp`, or the field with that
+     * label (ignoring capitalization) that has a matching date or time part;
+     * `auto_fill_field:` always names a field, even one labeled "Timestamp". An
+     * unknown, unsuitable or looping source is reported and ignored.
+     */
+    private fun resolveAutoFill(
+        fields: MutableList<FieldDef>,
+        refs: Map<String, Pair<String, Boolean>>,
+        issues: MutableList<String>,
+    ) {
+        fields.indices.forEach { index ->
+            val target = fields[index]
+            val (ref, fieldOnly) = refs[target.id] ?: return@forEach
+            val source = if (!fieldOnly && ref.equals(AutoFill.TIMESTAMP, ignoreCase = true)) {
+                AutoFill.TIMESTAMP
+            } else {
+                AutoFill.sourceFields(target, fields).firstOrNull { it.label.equals(ref, ignoreCase = true) }?.id
+            }
+            if (source == null) {
+                issues.add("Field \"${target.label}\": auto_fill \"$ref\" is not timestamp or a matching date or time field; ignored.")
+            } else {
+                fields[index] = target.copy(autoFillSource = source)
+            }
+        }
     }
 
     /** Validate one accumulated field and, if valid, add it to [fields]. */

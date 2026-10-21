@@ -89,7 +89,8 @@ class FollowUpNoteViewModel(app: Application) : AndroidViewModel(app) {
         onSaved: () -> Unit,
     ) {
         viewModelScope.launch {
-            if (entryValues != null) {
+            // The saved lock state is re-read so a locked log's entry never changes.
+            if (entryValues != null && templateDao.getById(templateId)?.locked == false) {
                 editingEntry?.let { existing ->
                     entryDao.update(
                         existing.copy(

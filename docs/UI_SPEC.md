@@ -128,8 +128,10 @@ All primary screens are **full-screen**. The only floating dialogs allowed are *
   truncated. Notes, when present, appear last as `Notes: …`.
 - Tapping `🗑` confirms then deletes.
 - **Locked vs unlocked.** A locked log shows a 🔒 next to its name (and on the
-  Home list). Tapping the 🔒 offers a one-way **unlock** (confirm dialog warns it
-  can't be re-locked). While a log is **unlocked**, each entry shows an edit
+  Home list). Locking is turned on and off with **Locked Log** in Edit Form, as
+  often as wanted — unless the form was created with **Never Allow Form
+  Unlocking**, which keeps it locked permanently (Edit Form then shows Locked Log
+  on and disabled). While a log is **unlocked**, each entry shows an edit
   pencil that reopens the entry form pre-filled; saving keeps the original
   date/time and stamps an edit time. Locked entries can't be edited — only added,
   deleted, or (if enabled) appended to.
@@ -188,9 +190,13 @@ Once a log is created, it cannot be edited. It can only be deleted.
 ```
 
 - **Log name** (required). Logs have no description field.
-- **Two behavior checkboxes**, chosen once at creation:
-  - **Locked log** (default on): entries are create-once and can't be edited.
-    One-way — it can be unlocked later from the log screen, but never re-locked.
+- **Behavior toggles:**
+  - **Locked Log** (default off): "Prevent saved entries from being edited while
+    this is enabled." Also shown in Edit Form, where it can be turned on and off.
+  - **Never Allow Form Unlocking** (default off), directly under Locked Log, on
+    this screen only: "This option is only available on form creation. If toggled
+    off you will always be able to turn locking on and off." Turning it on also
+    turns Locked Log on and holds it on; the form stays locked permanently.
   - **Allow follow-up notes** (default off): entries can have time-stamped notes
     appended later without changing the original.
 - **Style toggle (`[ Build | Paste ]`)** picks how fields are defined. **Build is
@@ -398,7 +404,7 @@ against it.
 Visual builder only; there is no Paste tab for Ideas. Settings, in order:
 
 1. Idea Log Name
-2. Automatic Timestamping — default off
+2. Show Timestamp — default off
 3. Allow Archiving — default off
 4. Show Entire Idea Card — default off
 5. Number of Lines Shown in Preview Mode (#) — default 20, 1–999, 3 digits max

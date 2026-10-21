@@ -35,7 +35,7 @@ class DailyListConverters {
         ClickerLog::class, ClickerCard::class, LuckyList::class, LuckyListItem::class,
         BackupState::class,
     ],
-    version = 26,
+    version = 27,
     // Exported to app/schemas so CI can prove a Room or build-tool upgrade
     // leaves the stored schema (and its identity hash) unchanged.
     exportSchema = true,
@@ -68,7 +68,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun backupStateDao(): BackupStateDao
 
     companion object {
-        const val SCHEMA_VERSION = 26
+        const val SCHEMA_VERSION = 27
 
         @Volatile
         private var instance: AppDatabase? = null
@@ -611,6 +611,26 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         /**
+         * v27 adds the per-form `neverAllowUnlocking` flag (Never Allow Form
+         * Unlocking). Purely additive — every existing form gets 0 (off), since
+         * the option didn't exist when it was created, and its current `locked`
+         * value is left exactly as it was. Skipped when the column is already
+         * present, so it can never fail on re-run.
+         */
+        internal val MIGRATION_26_27 = object : Migration(26, 27) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                val hasColumn = db.query("PRAGMA table_info(`log_templates`)").use { cursor ->
+                    val nameIndex = cursor.getColumnIndexOrThrow("name")
+                    generateSequence { if (cursor.moveToNext()) cursor.getString(nameIndex) else null }
+                        .any { it == "neverAllowUnlocking" }
+                }
+                if (!hasColumn) {
+                    db.execSQL("ALTER TABLE log_templates ADD COLUMN neverAllowUnlocking INTEGER NOT NULL DEFAULT 0")
+                }
+            }
+        }
+
+        /**
          * v24 gives every Form field and every Single / Multiple Choice option a
          * permanent identity, and every Idea Category one too. No table changes:
          * the stored JSON is converted by [FieldIdentityMigration] — fields gain
@@ -718,7 +738,7 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15,
                         MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19,
                         MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23,
-                        MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26,
+                        MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27,
                     )
                     .addCallback(UUID_IDENTITY_CALLBACK)
                     .addCallback(BACKUP_REVISION_CALLBACK)

@@ -149,6 +149,11 @@ class NewEntryViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val existing = editing
             if (existing != null) {
+                // Editing respects the saved lock state; a locked log's entry is left as is.
+                if (templateDao.getById(templateId)?.locked != false) {
+                    onSaved()
+                    return@launch
+                }
                 entryDao.update(
                     existing.copy(
                         valuesJson = EntryValues.encode(values),
