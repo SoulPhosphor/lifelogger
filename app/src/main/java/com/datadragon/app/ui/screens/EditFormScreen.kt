@@ -445,7 +445,7 @@ fun EditFormScreen(
                 SettingSwitchRow(
                     checked = automaticTimestamping ?: false,
                     onCheckedChange = { automaticTimestamping = it },
-                    title = "Automatic Timestamping",
+                    title = "Show Timestamp",
                 )
             }
 

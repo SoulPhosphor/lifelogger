@@ -10,7 +10,7 @@ import java.time.OffsetDateTime
 /**
  * Edit Form's one-time "Convert Time Stamps to Date and Time Field": copies an
  * entry's automatic timestamp (`createdAt`) into a Date & Time field so the
- * information survives switching Automatic Timestamping off.
+ * information survives switching Show Timestamp off.
  *
  * Only an empty destination is filled — a value the user already entered is
  * never replaced. The timestamp keeps the wall-clock date, hour and minute it

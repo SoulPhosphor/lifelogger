@@ -18,13 +18,16 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
   (database v26 → v27, additive, every existing form gets off). The DAO's
   `setLocked` refuses to unlock such a form.
 - **Convert Time Stamps to Date and Time Field** (Edit Form checkbox, unchecked):
-  shown only for a form with at least one saved entry, Automatic Timestamping
+  shown only for a form with at least one saved entry, Show Timestamp
   off, and a Date & Time field. On Save it copies each entry's automatic
   timestamp (date, hour, minute) into the Date & Time field wherever that field
   is empty; existing values and the entries' own timestamps are untouched. With
   more than one Date & Time field, a Destination Field picker chooses the field.
   It works on locked forms, is a one-time action (cleared after Save), and
   nothing is converted if the edit is discarded.
+- **"Automatic Timestamping" is renamed "Show Timestamp"** on the Form create
+  and Edit Form screens. Behavior is unchanged: every card always saves the date
+  and time it was saved; the toggle only shows or hides it.
 - **Entry edits re-check the saved lock** before writing, from both the entry
   form and the follow-up note screen.
 - **Backup format 11** carries Never Allow Form Unlocking (written only when on).

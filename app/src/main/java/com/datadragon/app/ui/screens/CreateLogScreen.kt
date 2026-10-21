@@ -327,7 +327,7 @@ fun CreateLogScreen(
             SettingSwitchRow(
                 checked = automaticTimestamping,
                 onCheckedChange = { automaticTimestamping = it },
-                title = "Automatic Timestamping",
+                title = "Show Timestamp",
             )
             SettingSwitchRow(
                 checked = locked,
