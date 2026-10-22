@@ -73,6 +73,7 @@ import com.datadragon.app.data.ChoiceOption
 import com.datadragon.app.data.OptionDuplicates
 import com.datadragon.app.data.StableUuid
 import com.datadragon.app.data.activeChoices
+import com.datadragon.app.data.hasItemRows
 import com.datadragon.app.data.hasOptionList
 import com.datadragon.app.data.ComparisonValues
 import com.datadragon.app.data.ClickerIncrementDirection
@@ -115,6 +116,7 @@ webpage        — a web address, with a button that opens it
 blood_pressure — Two 3-Digit Boxes Separated by "/" (Systolic / Diastolic)
 ratio          — two numbers separated by "/". Set "left_digits" and "right_digits" (1 to 10). Add "unit" for a unit of measurement
 comparison     — rows of an item from a list with two numbers and their difference. Needs "options:". Set "digits" for max digits. Add "whole_numbers: false" to allow decimals
+list_item_quantities — rows of an item from a list with its amount. Needs "options:". Set "digits" for max digits. Add "add_quantities: true" for a total line. Add "whole_numbers: false" to allow decimals
 
 Any field can add "required" to prevent saving without it."""
 
@@ -601,22 +603,54 @@ internal fun ComparisonFieldSettings(field: ComparisonSettingsDraft, minimumDigi
         )
     }
     CaptionSetting("Total Label", field.totalLabel, { field.totalLabel = it }, ComparisonValues.DEFAULT_TOTAL_LABEL)
-    var maxDigitsFocused by remember { mutableStateOf(false) }
-    OutlinedTextField(
-        value = field.digits,
-        onValueChange = { input ->
-            // Nothing above the largest Max Digits is accepted; the box keeps what it had.
-            val digits = input.filter { it.isDigit() }.take(2)
-            if ((digits.toIntOrNull() ?: 0) <= ComparisonValues.MAX_DIGITS) field.digits = digits
-        },
-        label = { Text("Max Digits (Optional)") },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        modifier = Modifier.onFocusChanged { state ->
-            if (maxDigitsFocused && !state.isFocused) field.digits = digitsAtLeast(field.digits, minimumDigits)
-            maxDigitsFocused = state.isFocused
-        },
+    NumberColumnSettings(field, minimumDigits)
+}
+
+/** The List Item Quantities settings, which add "Add Item Quantities" to the Comparison ones. */
+internal interface ListItemQuantitiesSettingsDraft : ComparisonSettingsDraft {
+    var addQuantities: Boolean
+}
+
+/**
+ * A List Item Quantities field's settings: the Comparison settings without the
+ * second column and clicker counting. The Total Label shows only while "Add
+ * Item Quantities" is on, since the total line shows only then.
+ */
+@Composable
+internal fun ListItemQuantitiesFieldSettings(field: ListItemQuantitiesSettingsDraft, minimumDigits: Int? = null) {
+    CaptionSetting("Item Column Label", field.itemLabel, { field.itemLabel = it }, ComparisonValues.DEFAULT_ITEM_LABEL)
+    CaptionSetting("First Column Label", field.firstLabel, { field.firstLabel = it }, ComparisonValues.DEFAULT_AMOUNT_LABEL)
+    SettingSwitchRow(
+        checked = field.addQuantities,
+        onCheckedChange = { field.addQuantities = it },
+        title = "Add Item Quantities",
     )
+    if (field.addQuantities) {
+        CaptionSetting("Total Label", field.totalLabel, { field.totalLabel = it }, ComparisonValues.DEFAULT_TOTAL_QUANTITY_LABEL)
+    }
+    NumberColumnSettings(field, minimumDigits)
+}
+
+/** Max Digits and "Only Allow Whole Numbers", shared by Comparison and List Item Quantities. */
+@Composable
+private fun NumberColumnSettings(field: ComparisonSettingsDraft, minimumDigits: Int?) {
+    var maxDigitsFocused by remember { mutableStateOf(false) }
+    Labeled("Max Digits (Optional)") {
+        OutlinedTextField(
+            value = field.digits,
+            onValueChange = { input ->
+                // Nothing above the largest Max Digits is accepted; the box keeps what it had.
+                val digits = input.filter { it.isDigit() }.take(2)
+                if ((digits.toIntOrNull() ?: 0) <= ComparisonValues.MAX_DIGITS) field.digits = digits
+            },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.fillMaxWidth().onFocusChanged { state ->
+                if (maxDigitsFocused && !state.isFocused) field.digits = digitsAtLeast(field.digits, minimumDigits)
+                maxDigitsFocused = state.isFocused
+            },
+        )
+    }
     if (minimumDigits != null && digitsAtLeast(field.digits, minimumDigits) != field.digits) {
         Text(
             "Data already includes a value of $minimumDigits number places. You can not go below that.",
@@ -938,6 +972,15 @@ private fun FieldEditorCard(
                     )
                     ComparisonFieldSettings(field)
                 }
+                FieldType.LIST_ITEM_QUANTITIES -> {
+                    OutlinedTextField(
+                        value = field.optionsText,
+                        onValueChange = { field.optionsText = it },
+                        label = { Text("Options (One per Line)") },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = AppTheme.sizes.editorMinHeight),
+                    )
+                    ListItemQuantitiesFieldSettings(field)
+                }
                 FieldType.DATETIME -> CheckboxSettingRow(
                     checked = field.defaultNow,
                     onCheckedChange = { field.defaultNow = it },
@@ -979,8 +1022,8 @@ private fun FieldEditorCard(
                     )
                 }
             }
-            // A Comparison field is never required.
-            if (field.type != FieldType.COMPARISON) {
+            // A Comparison or List Item Quantities field is never required.
+            if (!field.type.hasItemRows) {
                 SettingSwitchRow(
                     checked = field.required,
                     onCheckedChange = { field.required = it },
@@ -1050,7 +1093,7 @@ private fun TypeDropdown(selected: FieldType, onSelected: (FieldType) -> Unit) {
             modifier = Modifier.menuAnchor().fillMaxWidth(),
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            FieldType.entries.forEach { type ->
+            FieldType.pickerOrder.forEach { type ->
                 DropdownMenuItem(
                     text = { Text(type.friendly()) },
                     onClick = {
@@ -1193,7 +1236,8 @@ private class DraftField(
     clickerDirection: ClickerIncrementDirection = ClickerIncrementDirection.ADD,
     autoFill: Boolean = false,
     autoFillSource: String = AutoFill.TIMESTAMP,
-) : ComparisonSettingsDraft {
+    addQuantities: Boolean = false,
+) : ListItemQuantitiesSettingsDraft {
     var label by mutableStateOf(label)
     var type by mutableStateOf(type)
     var required by mutableStateOf(required)
@@ -1226,6 +1270,7 @@ private class DraftField(
     var autoFillSource by mutableStateOf(autoFillSource)
     override var clickerIncrement by mutableStateOf(clickerIncrement)
     override var clickerDirection by mutableStateOf(clickerDirection)
+    override var addQuantities by mutableStateOf(addQuantities)
 
     fun optionList(): List<String> =
         optionsText.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
@@ -1264,7 +1309,7 @@ private class DraftField(
         return when (type) {
             FieldType.SCALE -> effectiveTo() >= effectiveFrom()
             FieldType.DROPDOWN -> optionList().isNotEmpty() && preselectedOptionValid()
-            FieldType.MULTIPLE, FieldType.COMPARISON -> optionList().isNotEmpty()
+            FieldType.MULTIPLE, FieldType.COMPARISON, FieldType.LIST_ITEM_QUANTITIES -> optionList().isNotEmpty()
             FieldType.RATIO -> ratioDigitsValid()
             else -> true
         }
@@ -1289,11 +1334,11 @@ private class DraftField(
         id = id,
         label = label.trim(),
         type = type,
-        required = required && type != FieldType.COMPARISON,
+        required = required && !type.hasItemRows,
         lines = if (type == FieldType.MULTILINE) lines.toIntOrNull() else null,
         digits = when (type) {
             FieldType.NUMBER -> digits.toIntOrNull()
-            FieldType.COMPARISON -> ComparisonValues.parseMaxDigits(digits)
+            FieldType.COMPARISON, FieldType.LIST_ITEM_QUANTITIES -> ComparisonValues.parseMaxDigits(digits)
             else -> null
         },
         from = if (type == FieldType.SCALE) effectiveFrom() else null,
@@ -1307,17 +1352,18 @@ private class DraftField(
         leftDigits = if (type == FieldType.RATIO) RatioValues.parseDigits(leftDigits) else null,
         rightDigits = if (type == FieldType.RATIO) RatioValues.parseDigits(rightDigits) else null,
         unit = if (type == FieldType.RATIO) unit.trim() else "",
-        itemLabel = if (type == FieldType.COMPARISON) itemLabel.trim() else "",
-        firstLabel = if (type == FieldType.COMPARISON) firstLabel.trim() else "",
+        itemLabel = if (type.hasItemRows) itemLabel.trim() else "",
+        firstLabel = if (type.hasItemRows) firstLabel.trim() else "",
         secondLabel = if (type == FieldType.COMPARISON) secondLabel.trim() else "",
-        totalLabel = if (type == FieldType.COMPARISON) totalLabel.trim() else "",
-        wholeNumbersOnly = type != FieldType.COMPARISON || wholeNumbersOnly,
+        totalLabel = if (type.hasItemRows) totalLabel.trim() else "",
+        wholeNumbersOnly = !type.hasItemRows || wholeNumbersOnly,
         clickerCounting = type == FieldType.COMPARISON && clickerCounting,
         clickerButtonLabel = if (type == FieldType.COMPARISON) clickerButtonLabel.trim() else "",
         clickerStartingNumber = if (type == FieldType.COMPARISON) clickerStartingNumber.toIntOrNull() ?: 0 else 0,
         clickerIncrement = if (type == FieldType.COMPARISON) clickerIncrement.toIntOrNull()?.takeIf { it > 0 } ?: 1 else 1,
         clickerDirection = if (type == FieldType.COMPARISON) clickerDirection else ClickerIncrementDirection.ADD,
         autoFillSource = if (type.autoFillable && autoFill) autoFillSource else null,
+        addQuantities = type == FieldType.LIST_ITEM_QUANTITIES && addQuantities,
     )
 
     fun toSnapshot(): DraftFieldSnapshot = DraftFieldSnapshot(
@@ -1352,6 +1398,7 @@ private class DraftField(
         clickerDirection = clickerDirection,
         autoFill = autoFill,
         autoFillSource = autoFillSource,
+        addQuantities = addQuantities,
     )
 }
 
@@ -1396,6 +1443,7 @@ private data class DraftFieldSnapshot(
     val clickerDirection: ClickerIncrementDirection = ClickerIncrementDirection.ADD,
     val autoFill: Boolean = false,
     val autoFillSource: String = AutoFill.TIMESTAMP,
+    val addQuantities: Boolean = false,
 )
 
 private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
@@ -1430,6 +1478,7 @@ private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
     clickerDirection = clickerDirection,
     autoFill = autoFill,
     autoFillSource = autoFillSource,
+    addQuantities = addQuantities,
 )
 
 /**
@@ -1511,6 +1560,7 @@ private fun FieldDef.toDraft(): DraftField = DraftField(
     clickerDirection = clickerDirection,
     autoFill = autoFillSource != null,
     autoFillSource = autoFillSource ?: AutoFill.TIMESTAMP,
+    addQuantities = addQuantities,
 )
 
 /** The first single-`#` line of [text], used as the log name when the box is empty. */
@@ -1536,6 +1586,7 @@ private fun FieldType.friendly(): String = when (this) {
     FieldType.BLOOD_PRESSURE -> "Blood Pressure"
     FieldType.RATIO -> "Ratios"
     FieldType.COMPARISON -> "Comparison"
+    FieldType.LIST_ITEM_QUANTITIES -> "List Item Quantities"
 }
 
 /** A short human-readable description of a parsed field for the preview. */
@@ -1556,6 +1607,7 @@ private fun FieldDef.summary(): String {
         FieldType.BLOOD_PRESSURE -> "Blood pressure (###/###)"
         FieldType.RATIO -> "Ratios"
         FieldType.COMPARISON -> "Compare: " + activeChoices.joinToString(", ") { it.label }
+        FieldType.LIST_ITEM_QUANTITIES -> "Total: " + activeChoices.joinToString(", ") { it.label }
     }
     return if (required) "$base · required" else base
 }

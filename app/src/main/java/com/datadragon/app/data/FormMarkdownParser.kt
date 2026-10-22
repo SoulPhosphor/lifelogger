@@ -60,6 +60,7 @@ object FormMarkdownParser {
         var clickerStartingNumber = 0
         var clickerIncrement = 1
         var clickerDirection = ClickerIncrementDirection.ADD
+        var addQuantities = false
         val options = mutableListOf<String>()
     }
 
@@ -205,6 +206,8 @@ object FormMarkdownParser {
                             !(value.equals("false", ignoreCase = true) || value.equals("no", ignoreCase = true))
                         "clicker_counting" -> b.clickerCounting =
                             value.equals("true", ignoreCase = true) || value.equals("yes", ignoreCase = true)
+                        "add_quantities" -> b.addQuantities =
+                            value.equals("true", ignoreCase = true) || value.equals("yes", ignoreCase = true)
                         "button_label" -> b.clickerButtonLabel = value
                         "starting_number" -> b.clickerStartingNumber = value.toIntOrNull()
                             ?: run { issues.add("Field \"${b.label}\": starting_number \"$value\" is not a number."); 0 }
@@ -303,14 +306,14 @@ object FormMarkdownParser {
                     return
                 }
             }
-            FieldType.COMPARISON -> {
+            FieldType.COMPARISON, FieldType.LIST_ITEM_QUANTITIES -> {
                 if (b.options.isEmpty()) {
                     issues.add("Field \"${b.label}\" (${type.token}) has no options; skipped.")
                     return
                 }
                 b.digits?.let { digits ->
                     if (digits !in 1..ComparisonValues.MAX_DIGITS) {
-                        issues.add("Field \"${b.label}\" (comparison): digits must be from 1 to ${ComparisonValues.MAX_DIGITS}; ignored.")
+                        issues.add("Field \"${b.label}\" (${type.token}): digits must be from 1 to ${ComparisonValues.MAX_DIGITS}; ignored.")
                         b.digits = null
                     }
                 }
@@ -329,10 +332,10 @@ object FormMarkdownParser {
                 id = newId(),
                 label = b.label,
                 type = type,
-                // A Comparison field is never required.
-                required = b.required && type != FieldType.COMPARISON,
+                // A Comparison or List Item Quantities field is never required.
+                required = b.required && !type.hasItemRows,
                 lines = b.lines.takeIf { type == FieldType.MULTILINE },
-                digits = b.digits.takeIf { type == FieldType.NUMBER || type == FieldType.COMPARISON },
+                digits = b.digits.takeIf { type == FieldType.NUMBER || type.hasItemRows },
                 from = b.from.takeIf { type == FieldType.SCALE },
                 to = b.to.takeIf { type == FieldType.SCALE },
                 choices = if (type.hasOptionList) buildChoices(b, type, issues, newId) else emptyList(),
@@ -343,16 +346,17 @@ object FormMarkdownParser {
                 leftDigits = b.leftDigits.takeIf { type == FieldType.RATIO },
                 rightDigits = b.rightDigits.takeIf { type == FieldType.RATIO },
                 unit = if (type == FieldType.RATIO) b.unit else "",
-                itemLabel = if (type == FieldType.COMPARISON) b.itemLabel else "",
-                firstLabel = if (type == FieldType.COMPARISON) b.firstLabel else "",
+                itemLabel = if (type.hasItemRows) b.itemLabel else "",
+                firstLabel = if (type.hasItemRows) b.firstLabel else "",
                 secondLabel = if (type == FieldType.COMPARISON) b.secondLabel else "",
-                totalLabel = if (type == FieldType.COMPARISON) b.totalLabel else "",
-                wholeNumbersOnly = type != FieldType.COMPARISON || b.wholeNumbersOnly,
+                totalLabel = if (type.hasItemRows) b.totalLabel else "",
+                wholeNumbersOnly = !type.hasItemRows || b.wholeNumbersOnly,
                 clickerCounting = type == FieldType.COMPARISON && b.clickerCounting,
                 clickerButtonLabel = if (type == FieldType.COMPARISON) b.clickerButtonLabel else "",
                 clickerStartingNumber = if (type == FieldType.COMPARISON) b.clickerStartingNumber else 0,
                 clickerIncrement = if (type == FieldType.COMPARISON) b.clickerIncrement else 1,
                 clickerDirection = if (type == FieldType.COMPARISON) b.clickerDirection else ClickerIncrementDirection.ADD,
+                addQuantities = type == FieldType.LIST_ITEM_QUANTITIES && b.addQuantities,
             )
         )
     }

@@ -33,6 +33,11 @@ data class ComparisonRow(
  * has an item — no press is needed — so [withStartingNumbers] fills it in before
  * a row is shown, totalled or stored. A row with no item yet (the placeholder
  * "Choose Item" row) only shows the Starting Number; it is never stored.
+ *
+ * A List Item Quantities field ([FieldType.LIST_ITEM_QUANTITIES]) stores its
+ * rows the same way with only the one number, `first` (its Amount). It has no
+ * second number and no difference; its total, shown only with "Add Item
+ * Quantities" on, is the sum of the amounts.
  */
 object ComparisonValues {
 
@@ -42,6 +47,8 @@ object ComparisonValues {
     const val DEFAULT_TOTAL_LABEL = "Total Difference"
     const val DIFFERENCE_LABEL = "Δ"
     const val DEFAULT_BUTTON_LABEL = "Add"
+    const val DEFAULT_AMOUNT_LABEL = "Amount"
+    const val DEFAULT_TOTAL_QUANTITY_LABEL = "Total Quantity"
 
     /** The largest Max Digits a Comparison field accepts. */
     const val MAX_DIGITS = 15
@@ -88,10 +95,22 @@ object ComparisonValues {
     }
 
     /** The sum of every row's difference, or null when no row has both numbers. */
-    fun total(rows: List<ComparisonRow>): BigDecimal? =
-        rows.mapNotNull(::difference)
-            .takeIf { it.isNotEmpty() }
-            ?.fold(BigDecimal.ZERO) { sum, difference -> sum.add(difference) }
+    fun total(rows: List<ComparisonRow>): BigDecimal? = sum(rows.mapNotNull(::difference))
+
+    /**
+     * The total [field] shows under [rows]: a Comparison field's sum of the
+     * differences, or a List Item Quantities field's sum of the amounts — null
+     * there when Add Item Quantities is off or no row has an amount.
+     */
+    fun total(field: FieldDef, rows: List<ComparisonRow>): BigDecimal? =
+        if (field.type == FieldType.LIST_ITEM_QUANTITIES) {
+            if (field.addQuantities) sum(rows.mapNotNull { parse(it.first) }) else null
+        } else {
+            total(rows)
+        }
+
+    private fun sum(numbers: List<BigDecimal>): BigDecimal? =
+        numbers.takeIf { it.isNotEmpty() }?.fold(BigDecimal.ZERO) { sum, number -> sum.add(number) }
 
     /** A number as shown: plain digits, no exponent, no trailing zeros after the point. */
     fun format(value: BigDecimal): String =
@@ -226,8 +245,9 @@ object ComparisonValues {
 
     /**
      * One line of text for a saved answer, used wherever a field is shown as
-     * text (reports, exports): each row as "Item: Expected 3, Actual 1, Δ -2",
-     * rows joined by "; ", then the total. Null when nothing was saved.
+     * text (reports, exports, the calendar): each row as "Item: Expected 3,
+     * Actual 1, Δ -2" (List Item Quantities: "Item: Amount 5"), rows joined by
+     * "; ", then the total. Null when nothing was saved.
      */
     fun display(field: FieldDef, stored: List<ComparisonRow>): String? {
         val rows = withStartingNumbers(field, answers(stored))
@@ -241,26 +261,33 @@ object ComparisonValues {
             val name = field.choice(row.item)?.label ?: row.item
             if (numbers.isEmpty()) name else "$name: ${numbers.joinToString(", ")}"
         }
-        val total = total(rows)?.let { "${field.comparisonTotalLabel}: ${format(it)}" }
+        val total = total(field, rows)?.let { "${field.comparisonTotalLabel}: ${format(it)}" }
         return (parts + listOfNotNull(total)).joinToString("; ")
     }
 }
 
-/** The captions a Comparison field shows, falling back to the defaults when left blank. */
+/**
+ * The captions a Comparison or List Item Quantities field shows, falling back
+ * to the defaults when left blank.
+ */
 val FieldDef.comparisonItemLabel: String
     get() = itemLabel.ifBlank { ComparisonValues.DEFAULT_ITEM_LABEL }
 val FieldDef.comparisonFirstLabel: String
-    get() = firstLabel.ifBlank { ComparisonValues.DEFAULT_FIRST_LABEL }
+    get() = firstLabel.ifBlank {
+        if (type == FieldType.LIST_ITEM_QUANTITIES) ComparisonValues.DEFAULT_AMOUNT_LABEL else ComparisonValues.DEFAULT_FIRST_LABEL
+    }
 val FieldDef.comparisonSecondLabel: String
     get() = secondLabel.ifBlank { ComparisonValues.DEFAULT_SECOND_LABEL }
 val FieldDef.comparisonTotalLabel: String
-    get() = totalLabel.ifBlank { ComparisonValues.DEFAULT_TOTAL_LABEL }
+    get() = totalLabel.ifBlank {
+        if (type == FieldType.LIST_ITEM_QUANTITIES) ComparisonValues.DEFAULT_TOTAL_QUANTITY_LABEL else ComparisonValues.DEFAULT_TOTAL_LABEL
+    }
 val FieldDef.comparisonButtonLabel: String
     get() = clickerButtonLabel.ifBlank { ComparisonValues.DEFAULT_BUTTON_LABEL }
 
 /**
- * The most digits any saved number of a Comparison field has, across both
- * columns of every entry in [entryValues] — the lowest Max Digits it may be
+ * The most digits any saved number of a Comparison or List Item Quantities
+ * field has, across its columns of every entry in [entryValues] — the lowest Max Digits it may be
  * given. Null when nothing is saved.
  */
 fun FieldDef.savedComparisonDigits(entryValues: List<String>): Int? =

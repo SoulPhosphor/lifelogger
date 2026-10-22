@@ -53,6 +53,7 @@ import com.datadragon.app.data.preselectedSingleChoice
 import com.datadragon.app.data.MAX_RATIO_DIGITS
 import com.datadragon.app.data.RatioValues
 import com.datadragon.app.data.WebAddress
+import com.datadragon.app.data.hasItemRows
 import com.datadragon.app.ui.NewEntryViewModel
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -178,7 +179,7 @@ fun NewEntryScreen(
                     val tags = EntryValues.stringList(values, field)
                     if (tags.isNotEmpty()) tagValues[field.id] = tags
                 }
-                FieldType.COMPARISON -> {
+                FieldType.COMPARISON, FieldType.LIST_ITEM_QUANTITIES -> {
                     val rows = ComparisonValues.rows(values, field)
                     if (rows.isNotEmpty()) comparisonValues[field.id] = rows
                 }
@@ -378,13 +379,13 @@ fun NewEntryScreen(
             onCancel = { addingOptionTo = null },
             onConfirm = { additions ->
                 viewModel.addOptions(field.id, additions) { added ->
-                    if (field.type == FieldType.COMPARISON) placeComparisonItems(comparisonValues, field.id, added)
+                    if (field.type.hasItemRows) placeComparisonItems(comparisonValues, field.id, added)
                 }
                 addingOptionTo = null
             },
             onRestore = { option ->
                 viewModel.restoreOption(field.id, option.id) {
-                    if (field.type == FieldType.COMPARISON) placeComparisonItems(comparisonValues, field.id, listOf(option.id))
+                    if (field.type.hasItemRows) placeComparisonItems(comparisonValues, field.id, listOf(option.id))
                 }
             },
         )
@@ -426,7 +427,7 @@ internal fun missingRequiredFieldIds(
 ): List<String> = fields.mapNotNull { field ->
     val value = textValues[field.id]
     val missing = when {
-        field.type == FieldType.COMPARISON ->
+        field.type.hasItemRows ->
             comparisonValues[field.id].orEmpty().any(ComparisonValues::needsItem)
         field.type == FieldType.WEBPAGE ->
             if (value.isNullOrBlank()) field.required else !WebAddress.isValid(value)
@@ -488,7 +489,7 @@ internal fun collectValues(
                 val tags = tagValues[field.id].orEmpty()
                 if (tags.isNotEmpty()) put(field.id, EntryValues.stringArray(tags))
             }
-            FieldType.COMPARISON -> {
+            FieldType.COMPARISON, FieldType.LIST_ITEM_QUANTITIES -> {
                 // Rows keep the order they were entered in; a row with no item isn't stored.
                 // With clicker counting, an item's untouched Starting Number is its value.
                 val rows = ComparisonValues.withStartingNumbers(field, comparisonValues[field.id].orEmpty())

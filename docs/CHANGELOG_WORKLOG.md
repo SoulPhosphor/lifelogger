@@ -4,6 +4,29 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-10-22 — List Item Quantities field and the Max Digits title
+
+- **Max Digits** on Comparison fields (forms and Clicker Data Logs) now shows
+  its title, "Max Digits (Optional)", above an empty box like the other
+  settings instead of inside the box.
+- **New form field type: List Item Quantities** (`list_item_quantities`),
+  listed in the Type drop-down right under Comparison, which now sits under
+  Yes / No (the date and time types and the rest follow). It is Comparison
+  with one number column: each row picks an item and takes its amount. No
+  second column, no difference, no clicker counting, never required. New
+  options are added from the form the same way as Comparison.
+- **Settings**: Item Column Label (default Item), First Column Label (default
+  Amount), Add Item Quantities (off by default), Total Label (default Total
+  Quantity, shown only while Add Item Quantities is on), Max Digits
+  (Optional), Only Allow Whole Numbers (on by default). With Add Item
+  Quantities off there is no total line at all.
+- **Storage / backup / export**: rows use the Comparison row JSON with only
+  `item` and `first`. Backups that hold the field are written as version 12.
+  CSV, reports, PDF and the calendar's day list show it as one line
+  ("Soda: Amount 5; Juice: Amount 10", then the total when on). Form Markdown
+  writes and reads it.
+- Forms only; Clicker Data Logs and Idea Logs do not offer it.
+
 ## 2026-10-21 — Reversible form locking and timestamp conversion
 
 - **Locked Log is reversible.** It is shown on the create screen (now off by

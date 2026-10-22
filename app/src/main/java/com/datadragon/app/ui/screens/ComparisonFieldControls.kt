@@ -49,6 +49,7 @@ import com.datadragon.app.data.ChoiceOption
 import com.datadragon.app.data.ComparisonRow
 import com.datadragon.app.data.ComparisonValues
 import com.datadragon.app.data.FieldDef
+import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.activeChoices
 import com.datadragon.app.data.choice
 import com.datadragon.app.data.comparisonButtonLabel
@@ -81,6 +82,10 @@ private const val MIN_NUMBER_CHARS = 3
  * button beside it instead of a typed box: each press steps the number from the
  * Starting Number, which already counts once the row has an item.
  *
+ * A List Item Quantities field draws the same table with only the item and its
+ * one number box (no second column, no difference), and shows the total of the
+ * amounts only with "Add Item Quantities" on.
+ *
  * [onNewOption] is set only when the form allows additions; it opens the Add
  * Option pop-up, whose new items the caller places into the rows. [onNotice]
  * shows a short message, such as a refused decimal point.
@@ -100,7 +105,8 @@ internal fun ComparisonField(
     val chosen = rows.map { it.item }.filter { it.isNotBlank() }.toSet()
     // A blank row is waiting for one of the unused items, so it counts against them.
     val canAddItem = field.activeChoices.count { it.id !in chosen } > rows.count { it.item.isBlank() }
-    val total = ComparisonValues.total(counted)?.let(ComparisonValues::format).orEmpty()
+    val total = ComparisonValues.total(field, counted)?.let(ComparisonValues::format).orEmpty()
+    val showsTotal = !field.isQuantityList || field.addQuantities
 
     fun update(index: Int, change: (ComparisonRow) -> ComparisonRow) =
         onRowsChange(rows.mapIndexed { i, row -> if (i == index) change(row) else row })
@@ -144,17 +150,19 @@ internal fun ComparisonField(
                     }
                 }
             }
-            HorizontalDivider()
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(widths.gap),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(field.comparisonTotalLabel, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
-                if (oneLine) {
-                    Text(total, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.width(widths.difference))
-                    Spacer(Modifier.width(widths.remove))
-                } else {
-                    Text(total, style = MaterialTheme.typography.bodyLarge)
+            if (showsTotal) {
+                HorizontalDivider()
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(widths.gap),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(field.comparisonTotalLabel, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+                    if (oneLine) {
+                        Text(total, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.width(widths.total))
+                        Spacer(Modifier.width(widths.remove))
+                    } else {
+                        Text(total, style = MaterialTheme.typography.bodyLarge)
+                    }
                 }
             }
         }
@@ -178,8 +186,10 @@ private fun ComparisonHeader(field: FieldDef, widths: ComparisonWidths, oneLine:
     val style = MaterialTheme.typography.labelLarge
     val numberCaptions: @Composable () -> Unit = {
         Text(field.comparisonFirstLabel, style = style, modifier = Modifier.width(widths.first))
-        Text(field.comparisonSecondLabel, style = style, modifier = Modifier.width(widths.second))
-        Text(ComparisonValues.DIFFERENCE_LABEL, style = style, modifier = Modifier.width(widths.difference))
+        if (!field.isQuantityList) {
+            Text(field.comparisonSecondLabel, style = style, modifier = Modifier.width(widths.second))
+            Text(ComparisonValues.DIFFERENCE_LABEL, style = style, modifier = Modifier.width(widths.difference))
+        }
     }
     if (oneLine) {
         Row(
@@ -236,7 +246,9 @@ private fun ComparisonEditRow(
             onNotice = onNotice,
             modifier = Modifier.width(widths.first),
         )
-        if (field.clickerCounting) {
+        if (field.isQuantityList) {
+            // One number box only: no second column and no difference.
+        } else if (field.clickerCounting) {
             ComparisonClickerCell(
                 value = ComparisonValues.format(ComparisonValues.clickerValue(field, row)),
                 buttonLabel = field.comparisonButtonLabel,
@@ -254,11 +266,13 @@ private fun ComparisonEditRow(
                 modifier = Modifier.width(widths.second),
             )
         }
-        Text(
-            difference,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.width(widths.difference),
-        )
+        if (!field.isQuantityList) {
+            Text(
+                difference,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.width(widths.difference),
+            )
+        }
     }
     val remove: @Composable () -> Unit = {
         IconButton(onClick = onRemove) {
@@ -398,7 +412,9 @@ private fun ComparisonClickerCell(
 
 /**
  * A saved Comparison answer on an entry card: the same columns as the entry
- * form (item, the two numbers, Δ) and the total underneath, read-only.
+ * form (item, the two numbers, Δ) and the total underneath, read-only. A List
+ * Item Quantities answer shows the item and its amount, and its total only
+ * with "Add Item Quantities" on.
  */
 @Composable
 internal fun ComparisonReadout(
@@ -424,6 +440,7 @@ internal fun ComparisonReadout(
                 second = field.comparisonSecondLabel,
                 difference = ComparisonValues.DIFFERENCE_LABEL,
                 header = true,
+                twoNumbers = !field.isQuantityList,
             )
             counted.forEach { row ->
                 ComparisonReadoutLine(
@@ -434,9 +451,10 @@ internal fun ComparisonReadout(
                     second = ComparisonValues.parse(row.second)?.let(ComparisonValues::format).orEmpty(),
                     difference = ComparisonValues.difference(row)?.let(ComparisonValues::format).orEmpty(),
                     header = false,
+                    twoNumbers = !field.isQuantityList,
                 )
             }
-            ComparisonValues.total(counted)?.let { total ->
+            ComparisonValues.total(field, counted)?.let { total ->
                 Text(
                     text = buildAnnotatedString {
                         withStyle(SpanStyle(color = labelColor, fontWeight = labelWeight)) {
@@ -462,6 +480,7 @@ private fun ComparisonReadoutLine(
     second: String,
     difference: String,
     header: Boolean,
+    twoNumbers: Boolean,
 ) {
     val valueStyle = MaterialTheme.typography.bodyLarge
     val style = if (header) {
@@ -474,8 +493,10 @@ private fun ComparisonReadoutLine(
     }
     val numbers: @Composable () -> Unit = {
         Text(first, style = style, modifier = Modifier.width(widths.first))
-        Text(second, style = style, modifier = Modifier.width(widths.second))
-        Text(difference, style = style, modifier = Modifier.width(widths.difference))
+        if (twoNumbers) {
+            Text(second, style = style, modifier = Modifier.width(widths.second))
+            Text(difference, style = style, modifier = Modifier.width(widths.difference))
+        }
     }
     if (oneLine) {
         Row(horizontalArrangement = Arrangement.spacedBy(widths.gap)) {
@@ -491,7 +512,10 @@ private fun ComparisonReadoutLine(
     }
 }
 
-/** The measured column widths of one Comparison table. */
+/**
+ * The measured column widths of one Comparison table. A List Item Quantities
+ * table has no second or difference column ([twoNumbers] false).
+ */
 private class ComparisonWidths(
     val first: Dp,
     val second: Dp,
@@ -499,10 +523,15 @@ private class ComparisonWidths(
     val remove: Dp,
     val gap: Dp,
     private val itemMinimum: Dp,
+    private val twoNumbers: Boolean,
 ) {
     /** The narrowest line that still fits every column side by side. */
     val oneLineMinimum: Dp
-        get() = itemMinimum + gap + first + gap + second + gap + difference + gap + remove
+        get() = itemMinimum + gap + first + (if (twoNumbers) gap + second + gap + difference else Dp(0f)) + gap + remove
+
+    /** The column the total lines up under: Δ, or the amount column. */
+    val total: Dp
+        get() = if (twoNumbers) difference else first
 }
 
 /**
@@ -510,7 +539,8 @@ private class ComparisonWidths(
  * word of its caption, whichever is wider (a caption wraps between words). On
  * the entry form a box fits the field's digit limit — plus a decimal point
  * when decimals are allowed, plus a minus sign — or, with no limit, whatever
- * has been typed. The Δ column fits its caption and every difference shown.
+ * has been typed. The Δ column fits its caption and every difference shown;
+ * a List Item Quantities amount column also fits the total shown under it.
  */
 @Composable
 private fun measureComparisonWidths(field: FieldDef, rows: List<ComparisonRow>, readout: Boolean): ComparisonWidths {
@@ -559,10 +589,12 @@ private fun measureComparisonWidths(field: FieldDef, rows: List<ComparisonRow>, 
     }
 
     val counted = ComparisonValues.withStartingNumbers(field, rows)
+    val total = ComparisonValues.total(field, counted)?.let(ComparisonValues::format).takeIf { !readout }
     val differences = counted.mapNotNull(ComparisonValues::difference).map(ComparisonValues::format) +
-        listOfNotNull(ComparisonValues.total(counted)?.let(ComparisonValues::format).takeIf { !readout })
+        listOfNotNull(total.takeIf { !field.isQuantityList })
+    val first = column(field.comparisonFirstLabel, rows.map { it.first })
     return ComparisonWidths(
-        first = column(field.comparisonFirstLabel, rows.map { it.first }),
+        first = if (field.isQuantityList && total != null) maxOf(first, width(total, numberStyle)) else first,
         second = if (field.clickerCounting && !readout) {
             clickerColumn(field.comparisonSecondLabel)
         } else {
@@ -575,5 +607,10 @@ private fun measureComparisonWidths(field: FieldDef, rows: List<ComparisonRow>, 
         remove = remove,
         gap = gap,
         itemMinimum = itemMinimum,
+        twoNumbers = !field.isQuantityList,
     )
 }
+
+/** True for a List Item Quantities field: one number column, no difference. */
+private val FieldDef.isQuantityList: Boolean
+    get() = type == FieldType.LIST_ITEM_QUANTITIES

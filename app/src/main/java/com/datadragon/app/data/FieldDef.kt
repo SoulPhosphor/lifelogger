@@ -17,9 +17,10 @@ import kotlinx.serialization.Serializable
  * written before field identities existed — [FieldIdentityMigration] assigns
  * it once and persists it; nothing generates one while decoding.
  *
- * A Single Choice (`dropdown`), Multiple Choice (`multiple`) or Comparison
- * (`comparison`) field keeps its options in [choices], each with its own
- * permanent id; answers store those ids.
+ * A Single Choice (`dropdown`), Multiple Choice (`multiple`), Comparison
+ * (`comparison`) or List Item Quantities (`list_item_quantities`) field keeps
+ * its options in [choices], each with its own permanent id; answers store
+ * those ids.
  *
  * The `legacy…` properties hold the pre-identity shape (option text, the
  * Multiple Choice `*` switch, and the Single Choice "top answer" switch). They
@@ -33,12 +34,12 @@ data class FieldDef(
     val required: Boolean = false,
     /** multiline: visible height. */
     val lines: Int? = null,
-    /** number / comparison: max digits allowed. */
+    /** number / comparison / list item quantities: max digits allowed. */
     val digits: Int? = null,
     /** scale: inclusive range bounds. */
     val from: Int? = null,
     val to: Int? = null,
-    /** dropdown / multiple / comparison: the options, active and retired, in display order. */
+    /** dropdown / multiple / comparison / list item quantities: the options, active and retired, in display order. */
     val choices: List<ChoiceOption> = emptyList(),
     /** Legacy (pre-identity) dropdown / multiple option text. */
     @SerialName("options")
@@ -70,12 +71,16 @@ data class FieldDef(
     val rightDigits: Int? = null,
     /** ratio: the unit of measurement shown after the value (blank for none). */
     val unit: String = "",
-    /** comparison: the column and total captions; blank shows the default. */
+    /**
+     * comparison: the column and total captions; blank shows the default. List
+     * Item Quantities uses [itemLabel], [firstLabel] (its one number column)
+     * and [totalLabel].
+     */
     val itemLabel: String = "",
     val firstLabel: String = "",
     val secondLabel: String = "",
     val totalLabel: String = "",
-    /** comparison: the typed number columns take whole numbers only. */
+    /** comparison / list item quantities: the typed number columns take whole numbers only. */
     val wholeNumbersOnly: Boolean = true,
     /**
      * comparison: the second column counts with a tracker button instead of a
@@ -91,6 +96,11 @@ data class FieldDef(
     val clickerIncrement: Int = 1,
     /** comparison clicker counting: whether a press adds or subtracts. */
     val clickerDirection: ClickerIncrementDirection = ClickerIncrementDirection.ADD,
+    /**
+     * list item quantities: "Add Item Quantities" — show the total of the
+     * amount column under the rows. Off shows no total line.
+     */
+    val addQuantities: Boolean = false,
 )
 
 /** How a Single Choice (`dropdown`) field presents its options on the entry form. */
@@ -105,11 +115,18 @@ val FieldType.hasChoices: Boolean
     get() = this == FieldType.DROPDOWN || this == FieldType.MULTIPLE
 
 /**
+ * True for the field types whose answer is rows of an item picked from
+ * [FieldDef.choices] plus numbers: Comparison and List Item Quantities.
+ */
+val FieldType.hasItemRows: Boolean
+    get() = this == FieldType.COMPARISON || this == FieldType.LIST_ITEM_QUANTITIES
+
+/**
  * True for every field type whose items live in [FieldDef.choices] with
- * permanent ids: the two choice types plus Comparison, whose rows pick items.
+ * permanent ids: the two choice types plus the item-row types.
  */
 val FieldType.hasOptionList: Boolean
-    get() = hasChoices || this == FieldType.COMPARISON
+    get() = hasChoices || hasItemRows
 
 /** The options still offered for new answers, in display order. */
 val FieldDef.activeChoices: List<ChoiceOption>
@@ -154,11 +171,36 @@ enum class FieldType(val token: String) {
     TAGS("tags"),
     WEBPAGE("webpage"),
     BLOOD_PRESSURE("blood_pressure"),
-    COMPARISON("comparison");
+    COMPARISON("comparison"),
+    LIST_ITEM_QUANTITIES("list_item_quantities");
 
     companion object {
         fun fromToken(token: String): FieldType? =
             entries.firstOrNull { it.token == token.trim().lowercase() }
+
+        /**
+         * The order the form builders' Type drop-down lists the types in: the
+         * item-row types sit just below Yes / No, with the date and time types
+         * and the rest after them.
+         */
+        val pickerOrder: List<FieldType> = listOf(
+            TEXT,
+            MULTILINE,
+            NUMBER,
+            DROPDOWN,
+            MULTIPLE,
+            SCALE,
+            YESNO,
+            COMPARISON,
+            LIST_ITEM_QUANTITIES,
+            DATE,
+            TIME,
+            DATETIME,
+            RATIO,
+            TAGS,
+            WEBPAGE,
+            BLOOD_PRESSURE,
+        )
     }
 }
 

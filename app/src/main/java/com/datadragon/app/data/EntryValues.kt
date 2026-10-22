@@ -25,8 +25,8 @@ import java.util.Locale
  *   [ChoiceOption.id] as a JSON string; `multiple` fields store a JSON array of
  *   the selected option ids. A rename therefore never touches stored answers.
  * - `tags` fields are stored as a JSON array of the tag strings.
- * - `comparison` fields store a JSON array of row objects ([ComparisonValues]),
- *   each naming its item by option id.
+ * - `comparison` and `list_item_quantities` fields store a JSON array of row
+ *   objects ([ComparisonValues]), each naming its item by option id.
  * - every other type is stored as a JSON string in a machine-readable form
  *   (`date` as `yyyy-MM-dd`, `time` as `HH:mm`, `datetime` as `yyyy-MM-dd'T'HH:mm`,
  *   `scale`/`number` as the raw number text). Display formatting (12-hour
@@ -156,7 +156,8 @@ object EntryValues {
                 reformat(raw, { LocalDateTime.parse(it, DATETIME_STORAGE) }) { dateTimeDisplay.format(it) }
             FieldType.RATIO ->
                 (raw as? JsonPrimitive)?.contentOrNull?.ifBlank { null }?.let { RatioValues.display(it, field.unit) }
-            FieldType.COMPARISON -> ComparisonValues.display(field, ComparisonValues.decode(raw))
+            FieldType.COMPARISON, FieldType.LIST_ITEM_QUANTITIES ->
+                ComparisonValues.display(field, ComparisonValues.decode(raw))
             else -> (raw as? JsonPrimitive)?.contentOrNull?.ifBlank { null }
         }
     }
@@ -221,7 +222,8 @@ object EntryValues {
      * [fieldId] — the data side of permanently deleting an option. A Single
      * Choice answer holding it becomes unanswered (the key is dropped); a
      * Multiple Choice answer keeps all its other selections, and is dropped only
-     * when nothing else was selected; a Comparison answer loses only the rows
+     * when nothing else was selected; a Comparison or List Item Quantities
+     * answer loses only the rows
      * that picked it. Every other field, the Notes, and the entry itself are
      * untouched.
      *

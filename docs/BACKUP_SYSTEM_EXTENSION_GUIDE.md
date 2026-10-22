@@ -389,3 +389,13 @@ The existing `locked` field and its legacy default are unchanged.
 
 Form fields may also carry `autoFillSource` (Auto Fill) inside `schemaJson`,
 written only when set; a form declaring it also requires version 11.
+
+## List Item Quantities fields (backup 12)
+
+A List Item Quantities field (`LIST_ITEM_QUANTITIES`) lives in a form's
+`schemaJson` like any field; its options are `ChoiceOption`s with permanent ids
+and its answers use the Comparison row shape with only `item` and `first`. Its
+own setting, `addQuantities`, is written only when on. No table or database
+change. A form declaring such a field requires backup version 12, since an
+older reader would reject the unknown field type; a decoded version-11 file
+without one keeps version 11.

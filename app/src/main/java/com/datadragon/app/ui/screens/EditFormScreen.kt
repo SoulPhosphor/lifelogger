@@ -67,6 +67,7 @@ import com.datadragon.app.data.ChoiceEdits
 import com.datadragon.app.data.ChoiceOption
 import com.datadragon.app.data.StableUuid
 import com.datadragon.app.data.activeChoices
+import com.datadragon.app.data.hasItemRows
 import com.datadragon.app.data.hasOptionList
 import com.datadragon.app.data.hasDuplicateLabels
 import com.datadragon.app.ui.components.ChoiceEditorWordings
@@ -656,7 +657,7 @@ private fun FieldEditorScreen(
                                 return@TextButton
                             }
                             // Max Digits never drops below what saved numbers already use.
-                            if (draft.type == FieldType.COMPARISON) {
+                            if (draft.type.hasItemRows) {
                                 draft.digits = digitsAtLeast(draft.digits, minimumDigits)
                             }
                             draft.autoFillSource = validAutoFillSource(
@@ -761,8 +762,8 @@ private fun FieldEditorScreen(
                     )
                 }
             }
-            // A Comparison field is never required.
-            if (draft.type != FieldType.COMPARISON) RequiredRow(draft)
+            // A Comparison or List Item Quantities field is never required.
+            if (!draft.type.hasItemRows) RequiredRow(draft)
             if (draft.type == FieldType.DROPDOWN) {
                 ChoiceStyleRadios(
                     style = draft.choiceStyle,
@@ -876,6 +877,17 @@ private fun SettingsControls(
             )
             ComparisonFieldSettings(field, minimumDigits)
         }
+        FieldType.LIST_ITEM_QUANTITIES -> {
+            ChoiceOptionsEditor(
+                choices = field.choices,
+                onChoicesChange = { field.choices = it },
+                wording = ChoiceEditorWordings.formOptions,
+                preselection = ChoicePreselection.NONE,
+                capitalizeNew = capitalizeNewOptions,
+                onDeletePermanently = onDeleteOption,
+            )
+            ListItemQuantitiesFieldSettings(field, minimumDigits)
+        }
         FieldType.RATIO -> RatioFieldSettings(
             leftDigits = field.leftDigits,
             onLeftDigitsChange = { field.leftDigits = it },
@@ -972,7 +984,7 @@ private fun EditTypeDropdown(selected: FieldType, onSelected: (FieldType) -> Uni
             modifier = Modifier.menuAnchor().fillMaxWidth(),
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            FieldType.entries.forEach { type ->
+            FieldType.pickerOrder.forEach { type ->
                 DropdownMenuItem(
                     text = { Text(type.editFriendly()) },
                     onClick = {
@@ -1029,9 +1041,10 @@ private class EditDraft(
     autoFill: Boolean = false,
     autoFillSource: String = AutoFill.TIMESTAMP,
     convertOnce: Boolean = false,
+    addQuantities: Boolean = false,
     /** True for a field that already exists in the saved schema (type locked). */
     val existing: Boolean = false,
-) : ComparisonSettingsDraft {
+) : ListItemQuantitiesSettingsDraft {
     var label by mutableStateOf(label)
     var type by mutableStateOf(type)
     var required by mutableStateOf(required)
@@ -1059,6 +1072,7 @@ private class EditDraft(
     override var clickerStartingNumber by mutableStateOf(clickerStartingNumber)
     override var clickerIncrement by mutableStateOf(clickerIncrement)
     override var clickerDirection by mutableStateOf(clickerDirection)
+    override var addQuantities by mutableStateOf(addQuantities)
     var autoFill by mutableStateOf(autoFill)
     /** The Auto Fill drop-down's pick, kept while the checkbox is off. */
     var autoFillSource by mutableStateOf(autoFillSource)
@@ -1087,6 +1101,7 @@ private class EditDraft(
             wholeNumbersOnly == o.wholeNumbersOnly && clickerCounting == o.clickerCounting &&
             clickerButtonLabel == o.clickerButtonLabel && clickerStartingNumber == o.clickerStartingNumber &&
             clickerIncrement == o.clickerIncrement && clickerDirection == o.clickerDirection &&
+            addQuantities == o.addQuantities &&
             autoFill == o.autoFill && autoFillSource == o.autoFillSource && convertOnce == o.convertOnce
 
     /** The options that will be saved: a row left blank is never stored. */
@@ -1100,7 +1115,8 @@ private class EditDraft(
         if (label.trim().isEmpty()) return false
         return when (type) {
             FieldType.SCALE -> effectiveTo() >= effectiveFrom()
-            FieldType.DROPDOWN, FieldType.MULTIPLE, FieldType.COMPARISON -> savedChoices().activeChoices.isNotEmpty()
+            FieldType.DROPDOWN, FieldType.MULTIPLE, FieldType.COMPARISON, FieldType.LIST_ITEM_QUANTITIES ->
+                savedChoices().activeChoices.isNotEmpty()
             FieldType.RATIO -> ratioDigitsValid()
             else -> true
         }
@@ -1140,6 +1156,7 @@ private class EditDraft(
             FieldType.BLOOD_PRESSURE -> "Blood pressure (###/###)"
             FieldType.RATIO -> "Ratios"
             FieldType.COMPARISON -> "Comparison" + optionsSummary()
+            FieldType.LIST_ITEM_QUANTITIES -> "List Item Quantities" + optionsSummary()
         }
         return if (required) "$base · required" else base
     }
@@ -1182,6 +1199,7 @@ private class EditDraft(
         autoFill = autoFill,
         autoFillSource = autoFillSource,
         convertOnce = convertOnce,
+        addQuantities = addQuantities,
         existing = existing,
     )
 
@@ -1217,18 +1235,19 @@ private class EditDraft(
         autoFill = other.autoFill
         autoFillSource = other.autoFillSource
         convertOnce = other.convertOnce
+        addQuantities = other.addQuantities
     }
 
     fun toFieldDef(): FieldDef = FieldDef(
         id = id,
         label = label.trim(),
         type = type,
-        required = required && type != FieldType.COMPARISON,
+        required = required && !type.hasItemRows,
         lines = if (type == FieldType.MULTILINE) lines.toIntOrNull() else null,
         digits = when (type) {
             FieldType.NUMBER -> digits.toIntOrNull()
             // The box caps what can be typed; only saved data's own floor goes higher.
-            FieldType.COMPARISON -> digits.toIntOrNull()?.takeIf { it > 0 }
+            FieldType.COMPARISON, FieldType.LIST_ITEM_QUANTITIES -> digits.toIntOrNull()?.takeIf { it > 0 }
             else -> null
         },
         from = if (type == FieldType.SCALE) effectiveFrom() else null,
@@ -1242,17 +1261,18 @@ private class EditDraft(
         leftDigits = if (type == FieldType.RATIO) RatioValues.parseDigits(leftDigits) else null,
         rightDigits = if (type == FieldType.RATIO) RatioValues.parseDigits(rightDigits) else null,
         unit = if (type == FieldType.RATIO) unit.trim() else "",
-        itemLabel = if (type == FieldType.COMPARISON) itemLabel.trim() else "",
-        firstLabel = if (type == FieldType.COMPARISON) firstLabel.trim() else "",
+        itemLabel = if (type.hasItemRows) itemLabel.trim() else "",
+        firstLabel = if (type.hasItemRows) firstLabel.trim() else "",
         secondLabel = if (type == FieldType.COMPARISON) secondLabel.trim() else "",
-        totalLabel = if (type == FieldType.COMPARISON) totalLabel.trim() else "",
-        wholeNumbersOnly = type != FieldType.COMPARISON || wholeNumbersOnly,
+        totalLabel = if (type.hasItemRows) totalLabel.trim() else "",
+        wholeNumbersOnly = !type.hasItemRows || wholeNumbersOnly,
         clickerCounting = type == FieldType.COMPARISON && clickerCounting,
         clickerButtonLabel = if (type == FieldType.COMPARISON) clickerButtonLabel.trim() else "",
         clickerStartingNumber = if (type == FieldType.COMPARISON) clickerStartingNumber.toIntOrNull() ?: 0 else 0,
         clickerIncrement = if (type == FieldType.COMPARISON) clickerIncrement.toIntOrNull()?.takeIf { it > 0 } ?: 1 else 1,
         clickerDirection = if (type == FieldType.COMPARISON) clickerDirection else ClickerIncrementDirection.ADD,
         autoFillSource = if (type.autoFillable && autoFill) autoFillSource else null,
+        addQuantities = type == FieldType.LIST_ITEM_QUANTITIES && addQuantities,
     )
 
     fun toSnapshot(): EditDraftSnapshot = EditDraftSnapshot(
@@ -1287,6 +1307,7 @@ private class EditDraft(
         autoFill = autoFill,
         autoFillSource = autoFillSource,
         convertOnce = convertOnce,
+        addQuantities = addQuantities,
         existing = existing,
     )
 }
@@ -1329,6 +1350,7 @@ private data class EditDraftSnapshot(
     val autoFill: Boolean = false,
     val autoFillSource: String = AutoFill.TIMESTAMP,
     val convertOnce: Boolean = false,
+    val addQuantities: Boolean = false,
     val existing: Boolean,
 )
 
@@ -1364,6 +1386,7 @@ private fun EditDraftSnapshot.toEditDraft(): EditDraft = EditDraft(
     autoFill = autoFill,
     autoFillSource = autoFillSource,
     convertOnce = convertOnce,
+    addQuantities = addQuantities,
     existing = existing,
 )
 
@@ -1399,6 +1422,7 @@ private fun draftOf(f: FieldDef, sortByTimestamp: Boolean): EditDraft = EditDraf
     clickerDirection = f.clickerDirection,
     autoFill = f.autoFillSource != null,
     autoFillSource = f.autoFillSource ?: AutoFill.TIMESTAMP,
+    addQuantities = f.addQuantities,
     existing = true,
 )
 
@@ -1418,4 +1442,5 @@ private fun FieldType.editFriendly(): String = when (this) {
     FieldType.BLOOD_PRESSURE -> "Blood Pressure"
     FieldType.RATIO -> "Ratios"
     FieldType.COMPARISON -> "Comparison"
+    FieldType.LIST_ITEM_QUANTITIES -> "List Item Quantities"
 }
