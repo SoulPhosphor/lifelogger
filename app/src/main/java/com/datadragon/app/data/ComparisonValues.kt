@@ -57,6 +57,7 @@ object ComparisonValues {
     const val DEFAULT_AMOUNT_LABEL = "Amount"
     const val DEFAULT_TOTAL_QUANTITY_LABEL = "Total Quantity"
     const val AVERAGE_LABEL = "Average of Numbers"
+    const val AVERAGE_DIFFERENCE_LABEL = "Average of Differences"
     const val CHECK_TOTAL_LABEL = "Total Amount of Check Marks"
 
     /** How a checked row reads wherever the answer is shown as text. */
@@ -129,10 +130,14 @@ object ComparisonValues {
         numbers.takeIf { it.isNotEmpty() }?.fold(BigDecimal.ZERO) { sum, number -> sum.add(number) }
 
     /** The average of the rows' amounts, to two decimal places, or null when no row has one. */
-    fun average(rows: List<ComparisonRow>): BigDecimal? {
-        val amounts = rows.mapNotNull { parse(it.first) }
-        val total = sum(amounts) ?: return null
-        return total.divide(BigDecimal(amounts.size), AVERAGE_PLACES, RoundingMode.HALF_UP)
+    fun average(rows: List<ComparisonRow>): BigDecimal? = averageOf(rows.mapNotNull { parse(it.first) })
+
+    /** The average of the rows' differences, to two decimal places, or null when no row has both numbers. */
+    fun averageDifference(rows: List<ComparisonRow>): BigDecimal? = averageOf(rows.mapNotNull(::difference))
+
+    private fun averageOf(numbers: List<BigDecimal>): BigDecimal? {
+        val total = sum(numbers) ?: return null
+        return total.divide(BigDecimal(numbers.size), AVERAGE_PLACES, RoundingMode.HALF_UP)
     }
 
     /** How many rows with an item are checked. */
@@ -140,14 +145,18 @@ object ComparisonValues {
 
     /**
      * The lines [field] shows under its table, in order. Comparison: its total
-     * difference. List Item Quantities: the Total Quantity (with Add Item
+     * difference, then the Average of Differences (with Show Average of
+     * Differences on). List Item Quantities: the Total Quantity (with Add Item
      * Quantities on), the Average of Numbers (with Show Average of Numbers on),
      * then the Total Amount of Check Marks (with Add Checkbox and Show Total
      * Amount of Check Marks both on). Empty when none is turned on.
      */
     fun summaryLines(field: FieldDef, rows: List<ComparisonRow>): List<ComparisonSummaryLine> =
         if (field.type != FieldType.LIST_ITEM_QUANTITIES) {
-            listOf(ComparisonSummaryLine(field.comparisonTotalLabel, total(rows)))
+            listOfNotNull(
+                ComparisonSummaryLine(field.comparisonTotalLabel, total(rows)),
+                ComparisonSummaryLine(AVERAGE_DIFFERENCE_LABEL, averageDifference(rows)).takeIf { field.showAverage },
+            )
         } else {
             listOfNotNull(
                 ComparisonSummaryLine(field.comparisonTotalLabel, total(field, rows)).takeIf { field.addQuantities },

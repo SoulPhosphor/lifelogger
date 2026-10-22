@@ -85,6 +85,7 @@ private class ClickerDraftField(
     totalLabel: String = "",
     wholeNumbersOnly: Boolean = true,
     useClickerCounting: Boolean = false,
+    showAverage: Boolean = false,
 ) : ComparisonSettingsDraft {
     var type by mutableStateOf(type)
     var label by mutableStateOf(label)
@@ -101,6 +102,7 @@ private class ClickerDraftField(
     override var totalLabel by mutableStateOf(totalLabel)
     override var wholeNumbersOnly by mutableStateOf(wholeNumbersOnly)
     override var clickerCounting by mutableStateOf(useClickerCounting)
+    override var showAverage by mutableStateOf(showAverage)
 
     // A Comparison field's clicker counting reuses this field's Click Tracker settings.
     override var digits: String
@@ -147,6 +149,7 @@ private class ClickerDraftField(
         totalLabel = if (type == ClickerFieldType.COMPARISON) totalLabel.trim() else "",
         wholeNumbersOnly = type != ClickerFieldType.COMPARISON || wholeNumbersOnly,
         useClickerCounting = type == ClickerFieldType.COMPARISON && clickerCounting,
+        showAverage = type == ClickerFieldType.COMPARISON && showAverage,
     )
 }
 
@@ -167,6 +170,7 @@ private fun ClickerField.toDraft(): ClickerDraftField = ClickerDraftField(
     totalLabel = totalLabel,
     wholeNumbersOnly = wholeNumbersOnly,
     useClickerCounting = useClickerCounting,
+    showAverage = showAverage,
 )
 
 /** Everything Clicker setup saves, to tell whether an existing log has unsaved edits. */

@@ -111,7 +111,11 @@ data class FieldDef(
      * Checkbox on, count the checked rows under the table.
      */
     val showCheckTotal: Boolean = false,
-    /** list item quantities: "Show Average of Numbers" — average the amounts under the table. */
+    /**
+     * list item quantities: "Show Average of Numbers" — average the amounts
+     * under the table. comparison: "Show Average of Differences" — average the
+     * rows' differences under the total.
+     */
     val showAverage: Boolean = false,
 )
 

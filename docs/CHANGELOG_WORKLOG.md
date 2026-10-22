@@ -18,6 +18,9 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 - Rows store a check mark as `"checked": true`. Backups holding the new
   settings or a saved check mark are written as version 13. Exports add
   "Checked" to a checked row and the new lines after the rows.
+- **Comparison: Show Average of Differences** (off by default, under Total
+  Label, on forms and Clicker Data Logs). Shows Average of Differences — the
+  rows' differences averaged to two decimal places — under the total.
 
 ## 2026-10-22 — List Item Quantities field and the Max Digits title
 

@@ -639,10 +639,10 @@ object BackupCodec {
         require(envelope.version >= 12 || !envelope.payload.hasListItemQuantities()) {
             "List Item Quantities fields require backup version 12."
         }
-        // Their check boxes, check mark count and average arrived in version 13;
-        // an older reader would drop the settings and the saved check marks.
+        // Their check boxes, check mark count and average, and the Comparison
+        // average, arrived in version 13; an older reader would drop them.
         require(envelope.version >= 13 || !envelope.payload.hasQuantityListChecksOrAverage()) {
-            "List Item Quantities check boxes and averages require backup version 13."
+            "Check boxes and averages require backup version 13."
         }
         validateManifest(envelope.includedCategories, envelope.payload)
         val canonical = canonicalPayload(envelope.payload)
@@ -761,15 +761,20 @@ object BackupCodec {
 
     /**
      * True when a form field declares Add Checkbox, Show Total Amount of Check
-     * Marks or Show Average of Numbers, or a saved row holds a check mark — the
+     * Marks or a Show Average setting, a Clicker Comparison field declares Show
+     * Average of Differences, or a saved row holds a check mark — the
      * version-13 content.
      */
     private fun BackupPayload.hasQuantityListChecksOrAverage(): Boolean =
         forms.orEmpty().any { form ->
-            val fields = runCatching { Json.parseToJsonElement(form.schemaJson) }.getOrNull() as? JsonArray
-            fields.orEmpty().any { field -> VERSION_13_FIELD_KEYS.any { (field as? JsonObject)?.containsKey(it) == true } } ||
+            declaresAnyKey(form.schemaJson, VERSION_13_FIELD_KEYS) ||
                 form.entries.any { entry -> holdsCheckMark(entry.valuesJson) }
-        }
+        } || clickerData.orEmpty().any { declaresAnyKey(it.fieldsJson, listOf("showAverage")) }
+
+    private fun declaresAnyKey(fieldsJson: String, keys: List<String>): Boolean {
+        val fields = runCatching { Json.parseToJsonElement(fieldsJson) }.getOrNull() as? JsonArray
+        return fields.orEmpty().any { field -> keys.any { (field as? JsonObject)?.containsKey(it) == true } }
+    }
 
     private val VERSION_13_FIELD_KEYS = listOf("addCheckbox", "showCheckTotal", "showAverage")
 

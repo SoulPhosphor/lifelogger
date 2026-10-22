@@ -561,6 +561,8 @@ internal interface ComparisonSettingsDraft {
     var clickerStartingNumber: String
     var clickerIncrement: String
     var clickerDirection: ClickerIncrementDirection
+    /** Comparison: Show Average of Differences; List Item Quantities: Show Average of Numbers. */
+    var showAverage: Boolean
 }
 
 /**
@@ -603,6 +605,11 @@ internal fun ComparisonFieldSettings(field: ComparisonSettingsDraft, minimumDigi
         )
     }
     CaptionSetting("Total Label", field.totalLabel, { field.totalLabel = it }, ComparisonValues.DEFAULT_TOTAL_LABEL)
+    SettingSwitchRow(
+        checked = field.showAverage,
+        onCheckedChange = { field.showAverage = it },
+        title = "Show Average of Differences",
+    )
     NumberColumnSettings(field, minimumDigits)
 }
 
@@ -611,7 +618,6 @@ internal interface ListItemQuantitiesSettingsDraft : ComparisonSettingsDraft {
     var addQuantities: Boolean
     var addCheckbox: Boolean
     var showCheckTotal: Boolean
-    var showAverage: Boolean
 }
 
 /**
@@ -1395,7 +1401,7 @@ private class DraftField(
         addQuantities = type == FieldType.LIST_ITEM_QUANTITIES && addQuantities,
         addCheckbox = type == FieldType.LIST_ITEM_QUANTITIES && addCheckbox,
         showCheckTotal = type == FieldType.LIST_ITEM_QUANTITIES && showCheckTotal,
-        showAverage = type == FieldType.LIST_ITEM_QUANTITIES && showAverage,
+        showAverage = type.hasItemRows && showAverage,
     )
 
     fun toSnapshot(): DraftFieldSnapshot = DraftFieldSnapshot(

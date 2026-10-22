@@ -57,6 +57,7 @@ object FormMarkdownGenerator {
                     if (field.clickerStartingNumber != 0) sb.append("starting_number: ").append(field.clickerStartingNumber).append('\n')
                     if (field.clickerIncrement != 1) sb.append("increment: ").append(field.clickerIncrement).append('\n')
                     if (field.clickerDirection == ClickerIncrementDirection.SUBTRACT) sb.append("direction: subtract\n")
+                    if (field.showAverage) sb.append("show_average: true\n")
                 }
                 FieldType.LIST_ITEM_QUANTITIES -> {
                     sb.append("options:\n")

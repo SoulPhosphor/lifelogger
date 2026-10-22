@@ -58,6 +58,8 @@ data class ClickerField(
      * [buttonLabel], [startingNumber], [incrementDirection] and [incrementAmount].
      */
     val useClickerCounting: Boolean = false,
+    /** Comparison: "Show Average of Differences" under the total ([FieldDef.showAverage]). */
+    val showAverage: Boolean = false,
 )
 
 /**
@@ -81,6 +83,7 @@ fun ClickerField.comparisonDef(): FieldDef = FieldDef(
     clickerStartingNumber = startingNumber,
     clickerIncrement = incrementAmount,
     clickerDirection = incrementDirection,
+    showAverage = showAverage,
 )
 
 /**

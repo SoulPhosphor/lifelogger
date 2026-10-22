@@ -1290,7 +1290,7 @@ private class EditDraft(
         addQuantities = type == FieldType.LIST_ITEM_QUANTITIES && addQuantities,
         addCheckbox = type == FieldType.LIST_ITEM_QUANTITIES && addCheckbox,
         showCheckTotal = type == FieldType.LIST_ITEM_QUANTITIES && showCheckTotal,
-        showAverage = type == FieldType.LIST_ITEM_QUANTITIES && showAverage,
+        showAverage = type.hasItemRows && showAverage,
     )
 
     fun toSnapshot(): EditDraftSnapshot = EditDraftSnapshot(

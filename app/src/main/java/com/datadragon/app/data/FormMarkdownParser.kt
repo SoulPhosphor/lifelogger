@@ -368,7 +368,7 @@ object FormMarkdownParser {
                 addQuantities = type == FieldType.LIST_ITEM_QUANTITIES && b.addQuantities,
                 addCheckbox = type == FieldType.LIST_ITEM_QUANTITIES && b.addCheckbox,
                 showCheckTotal = type == FieldType.LIST_ITEM_QUANTITIES && b.showCheckTotal,
-                showAverage = type == FieldType.LIST_ITEM_QUANTITIES && b.showAverage,
+                showAverage = type.hasItemRows && b.showAverage,
             )
         )
     }

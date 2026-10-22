@@ -407,3 +407,7 @@ written only when on, and a saved row may carry `"checked": true`. A form
 declaring any of those settings, or holding any saved check mark, requires
 backup version 13, since an older reader would drop them. A decoded
 version-12 file without them keeps version 12. No database change.
+
+A Comparison field (forms and Clicker Data Logs) may carry `showAverage`
+(Show Average of Differences), written only when on; it also requires
+version 13.
