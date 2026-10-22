@@ -5,20 +5,26 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import java.math.BigDecimal
+import java.math.RoundingMode
 
 /**
  * One row of a Comparison field as the entry form edits it: the chosen item's
  * permanent [ChoiceOption.id] (blank for none) and the text in its two number
- * boxes (blank for none).
+ * boxes (blank for none). [checked] is a List Item Quantities row's check mark.
  */
 @Serializable
 data class ComparisonRow(
     val item: String = "",
     val first: String = "",
     val second: String = "",
+    val checked: Boolean = false,
 )
+
+/** One line under an item-row table: its caption and its value, or null when there is none yet. */
+data class ComparisonSummaryLine(val label: String, val value: BigDecimal?)
 
 /**
  * Helpers for the Comparison field type. An answer is stored as a JSON array of
@@ -37,7 +43,8 @@ data class ComparisonRow(
  * A List Item Quantities field ([FieldType.LIST_ITEM_QUANTITIES]) stores its
  * rows the same way with only the one number, `first` (its Amount). It has no
  * second number and no difference; its total, shown only with "Add Item
- * Quantities" on, is the sum of the amounts.
+ * Quantities" on, is the sum of the amounts. With "Add Checkbox" on, a row
+ * may also hold a check mark, stored as `"checked": true`.
  */
 object ComparisonValues {
 
@@ -49,6 +56,12 @@ object ComparisonValues {
     const val DEFAULT_BUTTON_LABEL = "Add"
     const val DEFAULT_AMOUNT_LABEL = "Amount"
     const val DEFAULT_TOTAL_QUANTITY_LABEL = "Total Quantity"
+    const val AVERAGE_LABEL = "Average of Numbers"
+    const val AVERAGE_DIFFERENCE_LABEL = "Average of Differences"
+    const val CHECK_TOTAL_LABEL = "Total Amount of Check Marks"
+
+    /** How a checked row reads wherever the answer is shown as text. */
+    const val CHECKED_TEXT = "Checked"
 
     /** The largest Max Digits a Comparison field accepts. */
     const val MAX_DIGITS = 15
@@ -62,6 +75,10 @@ object ComparisonValues {
     private const val KEY_ITEM = "item"
     private const val KEY_FIRST = "first"
     private const val KEY_SECOND = "second"
+    private const val KEY_CHECKED = "checked"
+
+    /** Decimal places an average is rounded to, as the calendar rounds its fractions. */
+    private const val AVERAGE_PLACES = 2
 
     /**
      * The text a number box keeps from [input]: digits, one leading minus sign
@@ -111,6 +128,43 @@ object ComparisonValues {
 
     private fun sum(numbers: List<BigDecimal>): BigDecimal? =
         numbers.takeIf { it.isNotEmpty() }?.fold(BigDecimal.ZERO) { sum, number -> sum.add(number) }
+
+    /** The average of the rows' amounts, to two decimal places, or null when no row has one. */
+    fun average(rows: List<ComparisonRow>): BigDecimal? = averageOf(rows.mapNotNull { parse(it.first) })
+
+    /** The average of the rows' differences, to two decimal places, or null when no row has both numbers. */
+    fun averageDifference(rows: List<ComparisonRow>): BigDecimal? = averageOf(rows.mapNotNull(::difference))
+
+    private fun averageOf(numbers: List<BigDecimal>): BigDecimal? {
+        val total = sum(numbers) ?: return null
+        return total.divide(BigDecimal(numbers.size), AVERAGE_PLACES, RoundingMode.HALF_UP)
+    }
+
+    /** How many rows with an item are checked. */
+    fun checkCount(rows: List<ComparisonRow>): Int = answers(rows).count { it.checked }
+
+    /**
+     * The lines [field] shows under its table, in order. Comparison: its total
+     * difference, then the Average of Differences (with Show Average of
+     * Differences on). List Item Quantities: the Total Quantity (with Add Item
+     * Quantities on), the Average of Numbers (with Show Average of Numbers on),
+     * then the Total Amount of Check Marks (with Add Checkbox and Show Total
+     * Amount of Check Marks both on). Empty when none is turned on.
+     */
+    fun summaryLines(field: FieldDef, rows: List<ComparisonRow>): List<ComparisonSummaryLine> =
+        if (field.type != FieldType.LIST_ITEM_QUANTITIES) {
+            listOfNotNull(
+                ComparisonSummaryLine(field.comparisonTotalLabel, total(rows)),
+                ComparisonSummaryLine(AVERAGE_DIFFERENCE_LABEL, averageDifference(rows)).takeIf { field.showAverage },
+            )
+        } else {
+            listOfNotNull(
+                ComparisonSummaryLine(field.comparisonTotalLabel, total(field, rows)).takeIf { field.addQuantities },
+                ComparisonSummaryLine(AVERAGE_LABEL, average(rows)).takeIf { field.showAverage },
+                ComparisonSummaryLine(CHECK_TOTAL_LABEL, BigDecimal(checkCount(rows)))
+                    .takeIf { field.addCheckbox && field.showCheckTotal },
+            )
+        }
 
     /** A number as shown: plain digits, no exponent, no trailing zeros after the point. */
     fun format(value: BigDecimal): String =
@@ -175,11 +229,11 @@ object ComparisonValues {
 
     /** True when the row holds nothing at all. */
     fun isBlank(row: ComparisonRow): Boolean =
-        row.item.isBlank() && parse(row.first) == null && parse(row.second) == null
+        row.item.isBlank() && parse(row.first) == null && parse(row.second) == null && !row.checked
 
-    /** True when the row has a number but no item, which blocks Save. */
+    /** True when the row has a number or a check mark but no item, which blocks Save. */
     fun needsItem(row: ComparisonRow): Boolean =
-        row.item.isBlank() && (parse(row.first) != null || parse(row.second) != null)
+        row.item.isBlank() && (parse(row.first) != null || parse(row.second) != null || row.checked)
 
     /**
      * The stored form of [rows], or null when there is nothing to store. Only rows
@@ -194,6 +248,7 @@ object ComparisonValues {
                     if (row.item.isNotBlank()) put(KEY_ITEM, JsonPrimitive(row.item))
                     parse(row.first)?.let { put(KEY_FIRST, JsonPrimitive(it)) }
                     parse(row.second)?.let { put(KEY_SECOND, JsonPrimitive(it)) }
+                    if (row.checked) put(KEY_CHECKED, JsonPrimitive(true))
                 },
             )
         }
@@ -208,7 +263,12 @@ object ComparisonValues {
         (raw as? JsonArray)?.mapNotNull { element ->
             val row = element as? JsonObject ?: return@mapNotNull null
             val item = (row[KEY_ITEM] as? JsonPrimitive)?.contentOrNull.orEmpty()
-            ComparisonRow(item = item, first = numberText(row[KEY_FIRST]), second = numberText(row[KEY_SECOND]))
+            ComparisonRow(
+                item = item,
+                first = numberText(row[KEY_FIRST]),
+                second = numberText(row[KEY_SECOND]),
+                checked = (row[KEY_CHECKED] as? JsonPrimitive)?.booleanOrNull == true,
+            )
                 // A row without an item is kept only as a draft holding a number.
                 .takeIf { it.item.isNotBlank() || needsItem(it) }
         }.orEmpty()
@@ -246,8 +306,10 @@ object ComparisonValues {
     /**
      * One line of text for a saved answer, used wherever a field is shown as
      * text (reports, exports, the calendar): each row as "Item: Expected 3,
-     * Actual 1, Δ -2" (List Item Quantities: "Item: Amount 5"), rows joined by
-     * "; ", then the total. Null when nothing was saved.
+     * Actual 1, Δ -2" (List Item Quantities: "Item: Amount 5", plus
+     * "Checked" for a checked row with Add Checkbox on), rows joined by "; ",
+     * then the lines under the table that have a value. Null when nothing was
+     * saved.
      */
     fun display(field: FieldDef, stored: List<ComparisonRow>): String? {
         val rows = withStartingNumbers(field, answers(stored))
@@ -257,14 +319,19 @@ object ComparisonValues {
                 parse(row.first)?.let { "${field.comparisonFirstLabel} ${format(it)}" },
                 parse(row.second)?.let { "${field.comparisonSecondLabel} ${format(it)}" },
                 difference(row)?.let { "$DIFFERENCE_LABEL ${format(it)}" },
+                CHECKED_TEXT.takeIf { row.checked && field.isQuantityListWithCheckbox },
             )
             val name = field.choice(row.item)?.label ?: row.item
             if (numbers.isEmpty()) name else "$name: ${numbers.joinToString(", ")}"
         }
-        val total = total(field, rows)?.let { "${field.comparisonTotalLabel}: ${format(it)}" }
-        return (parts + listOfNotNull(total)).joinToString("; ")
+        val summary = summaryLines(field, rows).mapNotNull { line -> line.value?.let { "${line.label}: ${format(it)}" } }
+        return (parts + summary).joinToString("; ")
     }
 }
+
+/** True for a List Item Quantities field with Add Checkbox on. */
+val FieldDef.isQuantityListWithCheckbox: Boolean
+    get() = type == FieldType.LIST_ITEM_QUANTITIES && addCheckbox
 
 /**
  * The captions a Comparison or List Item Quantities field shows, falling back

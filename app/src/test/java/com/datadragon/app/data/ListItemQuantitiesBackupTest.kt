@@ -50,6 +50,9 @@ class ListItemQuantitiesBackupTest {
             firstLabel = "Count",
             totalLabel = "All Food",
             addQuantities = true,
+            addCheckbox = true,
+            showCheckTotal = true,
+            showAverage = true,
             choices = listOf(
                 ChoiceOption("option-soda", "Soda"),
                 ChoiceOption("option-juice", "Juice", retired = true),
@@ -59,7 +62,7 @@ class ListItemQuantitiesBackupTest {
         val templateId = db.logTemplateDao().insert(
             LogTemplate(uuid = "form-groceries", name = "Groceries", createdAt = 1, schemaJson = schemaJson),
         )
-        val rows = listOf(ComparisonRow("option-juice", "10"), ComparisonRow("option-soda", "5"))
+        val rows = listOf(ComparisonRow("option-juice", "10", checked = true), ComparisonRow("option-soda", "5"))
         val valuesJson = EntryValues.encode(mapOf(field.id to ComparisonValues.encode(rows)!!))
         db.logEntryDao().insert(LogEntry(templateId = templateId, createdAt = "2026-10-22T08:00:00Z", valuesJson = valuesJson))
 

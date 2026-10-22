@@ -312,4 +312,45 @@ class ComparisonValuesTest {
 
         assertEquals(listOf(ComparisonRow("turkey"), ComparisonRow("ham", first = "2500")), rows)
     }
+
+    @Test
+    fun theAverageOfDifferencesShowsUnderTheTotalOnlyWhenTurnedOn() {
+        val field = FieldDef(
+            id = "meals",
+            label = "Meals",
+            type = FieldType.COMPARISON,
+            choices = listOf(ChoiceOption("turkey", "Turkey"), ChoiceOption("ham", "Ham"), ChoiceOption("beef", "Beef")),
+        )
+        // Differences -2 and 3; the row without a second number has none.
+        val rows = listOf(ComparisonRow("turkey", "3", "1"), ComparisonRow("ham", "1", "4"), ComparisonRow("beef", "5", ""))
+        assertEquals(listOf("Total Difference"), ComparisonValues.summaryLines(field, rows).map { it.label })
+
+        val averaging = field.copy(showAverage = true)
+        assertEquals(
+            listOf("Total Difference" to "1", "Average of Differences" to "0.5"),
+            ComparisonValues.summaryLines(averaging, rows).map { it.label to ComparisonValues.format(it.value!!) },
+        )
+        assertTrue(ComparisonValues.display(averaging, rows)!!.endsWith("; Total Difference: 1; Average of Differences: 0.5"))
+        assertNull(ComparisonValues.averageDifference(listOf(ComparisonRow("beef", "5", ""))))
+    }
+
+    @Test
+    fun aClickerComparisonCarriesShowAverageOfDifferences() {
+        val field = ClickerField(id = "f", type = ClickerFieldType.COMPARISON, label = "Meals", showAverage = true)
+        assertTrue(field.comparisonDef().showAverage)
+        val log = ClickerLog(uuid = "a", title = "A", createdAt = 1, lastAccessedAt = 1, fieldsJson = ClickerComparison.encodeFields(listOf(field)))
+        val text = BackupCodec.encode(
+            BackupFile.single(
+                exportedAt = "2026-10-22T12:00:00Z",
+                category = BackupCategory.CLICKER_DATA,
+                payload = BackupPayload(clickerData = listOf(BackupCodec.clickerOf(log, emptyList()))),
+            ),
+        )
+        assertEquals(13, BackupCodec.decode(text).version)
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            BackupCodec.decode(text.replace("\"version\": ${BackupFile.VERSION}", "\"version\": 12"))
+        }
+        // Without it the Clicker field encodes exactly as before.
+        assertFalse(ClickerComparison.encodeFields(listOf(field.copy(showAverage = false))).contains("showAverage"))
+    }
 }

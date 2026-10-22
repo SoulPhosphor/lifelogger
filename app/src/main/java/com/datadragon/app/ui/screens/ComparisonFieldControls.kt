@@ -1,6 +1,7 @@
 package com.datadragon.app.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -9,10 +10,13 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.material3.DropdownMenuItem
@@ -23,6 +27,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -35,6 +40,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
@@ -49,6 +55,7 @@ import com.datadragon.app.data.ChoiceOption
 import com.datadragon.app.data.ComparisonRow
 import com.datadragon.app.data.ComparisonValues
 import com.datadragon.app.data.FieldDef
+import com.datadragon.app.data.ComparisonSummaryLine
 import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.activeChoices
 import com.datadragon.app.data.choice
@@ -56,7 +63,7 @@ import com.datadragon.app.data.comparisonButtonLabel
 import com.datadragon.app.data.comparisonFirstLabel
 import com.datadragon.app.data.comparisonItemLabel
 import com.datadragon.app.data.comparisonSecondLabel
-import com.datadragon.app.data.comparisonTotalLabel
+import com.datadragon.app.data.isQuantityListWithCheckbox
 import com.datadragon.app.ui.components.AccessibleOutlinedTextField as OutlinedTextField
 import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.ui.theme.AppTheme
@@ -83,8 +90,9 @@ private const val MIN_NUMBER_CHARS = 3
  * Starting Number, which already counts once the row has an item.
  *
  * A List Item Quantities field draws the same table with only the item and its
- * one number box (no second column, no difference), and shows the total of the
- * amounts only with "Add Item Quantities" on.
+ * one number box (no second column, no difference) — plus, with "Add
+ * Checkbox" on, a check box right after the box. Under it go only the lines
+ * its settings turn on ([ComparisonValues.summaryLines]).
  *
  * [onNewOption] is set only when the form allows additions; it opens the Add
  * Option pop-up, whose new items the caller places into the rows. [onNotice]
@@ -105,8 +113,7 @@ internal fun ComparisonField(
     val chosen = rows.map { it.item }.filter { it.isNotBlank() }.toSet()
     // A blank row is waiting for one of the unused items, so it counts against them.
     val canAddItem = field.activeChoices.count { it.id !in chosen } > rows.count { it.item.isBlank() }
-    val total = ComparisonValues.total(field, counted)?.let(ComparisonValues::format).orEmpty()
-    val showsTotal = !field.isQuantityList || field.addQuantities
+    val summary = ComparisonValues.summaryLines(field, counted)
 
     fun update(index: Int, change: (ComparisonRow) -> ComparisonRow) =
         onRowsChange(rows.mapIndexed { i, row -> if (i == index) change(row) else row })
@@ -150,21 +157,27 @@ internal fun ComparisonField(
                     }
                 }
             }
-            if (showsTotal) {
-                HorizontalDivider()
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(widths.gap),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(field.comparisonTotalLabel, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
-                    if (oneLine) {
-                        Text(total, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.width(widths.total))
-                        Spacer(Modifier.width(widths.remove))
-                    } else {
-                        Text(total, style = MaterialTheme.typography.bodyLarge)
-                    }
-                }
-            }
+            if (summary.isNotEmpty()) HorizontalDivider()
+            summary.forEach { line -> ComparisonSummaryRow(line, widths, oneLine) }
+        }
+    }
+}
+
+/** One line under the table on the entry form: its caption, then its value under the number column. */
+@Composable
+private fun ComparisonSummaryRow(line: ComparisonSummaryLine, widths: ComparisonWidths, oneLine: Boolean) {
+    val value = line.value?.let(ComparisonValues::format).orEmpty()
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(widths.gap),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(line.label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+        if (oneLine) {
+            Text(value, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.width(widths.total))
+            widths.checkSpacer()
+            Spacer(Modifier.width(widths.remove))
+        } else {
+            Text(value, style = MaterialTheme.typography.bodyLarge)
         }
     }
 }
@@ -190,6 +203,8 @@ private fun ComparisonHeader(field: FieldDef, widths: ComparisonWidths, oneLine:
             Text(field.comparisonSecondLabel, style = style, modifier = Modifier.width(widths.second))
             Text(ComparisonValues.DIFFERENCE_LABEL, style = style, modifier = Modifier.width(widths.difference))
         }
+        // The check box column has no caption.
+        widths.checkSpacer()
     }
     if (oneLine) {
         Row(
@@ -247,7 +262,14 @@ private fun ComparisonEditRow(
             modifier = Modifier.width(widths.first),
         )
         if (field.isQuantityList) {
-            // One number box only: no second column and no difference.
+            // One number box only (no second column, no difference), then the check box.
+            if (field.addCheckbox) {
+                RowCheckBox(
+                    checked = row.checked,
+                    accessibleLabel = "$numberLabel: Check Mark",
+                    onToggle = { onChange(row.copy(checked = !row.checked)) },
+                )
+            }
         } else if (field.clickerCounting) {
             ComparisonClickerCell(
                 value = ComparisonValues.format(ComparisonValues.clickerValue(field, row)),
@@ -383,6 +405,26 @@ private fun ComparisonNumberBox(
 }
 
 /**
+ * A row's check box: an empty framed box, which a press fills with the check
+ * icon and a second press empties. Its visible box stays small; the tap area
+ * is the usual minimum around it.
+ */
+@Composable
+private fun RowCheckBox(checked: Boolean, accessibleLabel: String, onToggle: () -> Unit) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .minimumInteractiveComponentSize()
+            .toggleable(value = checked, role = Role.Checkbox, onValueChange = { onToggle() })
+            .semantics { contentDescription = accessibleLabel }
+            .size(AppTheme.sizes.itemCheckBox)
+            .border(AppTheme.shapes.controlBorder, MaterialTheme.colorScheme.outline, AppTheme.shapes.control),
+    ) {
+        if (checked) Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(AppTheme.sizes.smallIcon))
+    }
+}
+
+/**
  * The second column under clicker style counting: the current value, then the
  * field's button, which steps it by the increment. There is no typed box.
  */
@@ -441,6 +483,7 @@ internal fun ComparisonReadout(
                 difference = ComparisonValues.DIFFERENCE_LABEL,
                 header = true,
                 twoNumbers = !field.isQuantityList,
+                checked = false,
             )
             counted.forEach { row ->
                 ComparisonReadoutLine(
@@ -452,15 +495,17 @@ internal fun ComparisonReadout(
                     difference = ComparisonValues.difference(row)?.let(ComparisonValues::format).orEmpty(),
                     header = false,
                     twoNumbers = !field.isQuantityList,
+                    checked = row.checked,
                 )
             }
-            ComparisonValues.total(field, counted)?.let { total ->
+            ComparisonValues.summaryLines(field, counted).forEach { line ->
+                val value = line.value ?: return@forEach
                 Text(
                     text = buildAnnotatedString {
                         withStyle(SpanStyle(color = labelColor, fontWeight = labelWeight)) {
-                            append("${field.comparisonTotalLabel}: ")
+                            append("${line.label}: ")
                         }
-                        append(ComparisonValues.format(total))
+                        append(ComparisonValues.format(value))
                     },
                     style = valueStyle,
                 )
@@ -481,6 +526,7 @@ private fun ComparisonReadoutLine(
     difference: String,
     header: Boolean,
     twoNumbers: Boolean,
+    checked: Boolean,
 ) {
     val valueStyle = MaterialTheme.typography.bodyLarge
     val style = if (header) {
@@ -496,6 +542,18 @@ private fun ComparisonReadoutLine(
         if (twoNumbers) {
             Text(second, style = style, modifier = Modifier.width(widths.second))
             Text(difference, style = style, modifier = Modifier.width(widths.difference))
+        }
+        if (widths.check > Dp(0f)) {
+            // A saved check mark shows as the check icon; an unchecked row leaves the column empty.
+            Box(modifier = Modifier.width(widths.check), contentAlignment = Alignment.Center) {
+                if (checked) {
+                    Icon(
+                        Icons.Filled.Check,
+                        contentDescription = "Checked",
+                        modifier = Modifier.size(AppTheme.sizes.smallIcon),
+                    )
+                }
+            }
         }
     }
     if (oneLine) {
@@ -524,10 +582,19 @@ private class ComparisonWidths(
     val gap: Dp,
     private val itemMinimum: Dp,
     private val twoNumbers: Boolean,
+    /** The check box column, or zero when the field has none. */
+    val check: Dp,
 ) {
     /** The narrowest line that still fits every column side by side. */
     val oneLineMinimum: Dp
-        get() = itemMinimum + gap + first + (if (twoNumbers) gap + second + gap + difference else Dp(0f)) + gap + remove
+        get() = itemMinimum + gap + first + (if (twoNumbers) gap + second + gap + difference else Dp(0f)) +
+            (if (check > Dp(0f)) gap + check else Dp(0f)) + gap + remove
+
+    /** Room for the check box column in a line that has nothing there, keeping the columns lined up. */
+    @Composable
+    fun checkSpacer() {
+        if (check > Dp(0f)) Spacer(Modifier.width(check))
+    }
 
     /** The column the total lines up under: Δ, or the amount column. */
     val total: Dp
@@ -589,12 +656,19 @@ private fun measureComparisonWidths(field: FieldDef, rows: List<ComparisonRow>, 
     }
 
     val counted = ComparisonValues.withStartingNumbers(field, rows)
-    val total = ComparisonValues.total(field, counted)?.let(ComparisonValues::format).takeIf { !readout }
+    // The entry form shows the values under the table in the Δ column (Comparison)
+    // or the amount column (List Item Quantities), so that column fits them.
+    val summaryValues = if (readout) {
+        emptyList()
+    } else {
+        ComparisonValues.summaryLines(field, counted).mapNotNull { it.value?.let(ComparisonValues::format) }
+    }
     val differences = counted.mapNotNull(ComparisonValues::difference).map(ComparisonValues::format) +
-        listOfNotNull(total.takeIf { !field.isQuantityList })
+        summaryValues.takeIf { !field.isQuantityList }.orEmpty()
     val first = column(field.comparisonFirstLabel, rows.map { it.first })
+    val summaryWidth = summaryValues.maxOfOrNull { width(it, numberStyle) }
     return ComparisonWidths(
-        first = if (field.isQuantityList && total != null) maxOf(first, width(total, numberStyle)) else first,
+        first = if (field.isQuantityList && summaryWidth != null) maxOf(first, summaryWidth) else first,
         second = if (field.clickerCounting && !readout) {
             clickerColumn(field.comparisonSecondLabel)
         } else {
@@ -608,6 +682,7 @@ private fun measureComparisonWidths(field: FieldDef, rows: List<ComparisonRow>, 
         gap = gap,
         itemMinimum = itemMinimum,
         twoNumbers = !field.isQuantityList,
+        check = if (field.isQuantityListWithCheckbox) AppTheme.sizes.minimumTouchTarget else Dp(0f),
     )
 }
 

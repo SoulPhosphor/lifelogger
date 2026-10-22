@@ -4,6 +4,24 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-10-22 — List Item Quantities check boxes and average
+
+- Three new List Item Quantities toggles, all off by default: **Show Average
+  of Numbers**, **Add Checkbox** (subtext "Adds a place to add a simple check
+  mark next to the total.") and, shown while Add Checkbox is on, **Show Total
+  Amount of Check Marks**.
+- Add Checkbox puts an empty framed box right after each row's amount box; a
+  press shows the check icon, a second press clears it. It has no caption. On
+  a saved card a checked row shows the check icon.
+- Under the table, in order: Total Quantity, Average of Numbers (to two
+  decimal places), Total Amount of Check Marks — each only when turned on.
+- Rows store a check mark as `"checked": true`. Backups holding the new
+  settings or a saved check mark are written as version 13. Exports add
+  "Checked" to a checked row and the new lines after the rows.
+- **Comparison: Show Average of Differences** (off by default, under Total
+  Label, on forms and Clicker Data Logs). Shows Average of Differences — the
+  rows' differences averaged to two decimal places — under the total.
+
 ## 2026-10-22 — List Item Quantities field and the Max Digits title
 
 - **Max Digits** on Comparison fields (forms and Clicker Data Logs) now shows

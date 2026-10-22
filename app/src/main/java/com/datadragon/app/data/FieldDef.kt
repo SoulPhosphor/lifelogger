@@ -101,6 +101,22 @@ data class FieldDef(
      * amount column under the rows. Off shows no total line.
      */
     val addQuantities: Boolean = false,
+    /**
+     * list item quantities: "Add Checkbox" — each row gets a check box right
+     * after its amount box, which a press checks and a second press clears.
+     */
+    val addCheckbox: Boolean = false,
+    /**
+     * list item quantities: "Show Total Amount of Check Marks" — with Add
+     * Checkbox on, count the checked rows under the table.
+     */
+    val showCheckTotal: Boolean = false,
+    /**
+     * list item quantities: "Show Average of Numbers" — average the amounts
+     * under the table. comparison: "Show Average of Differences" — average the
+     * rows' differences under the total.
+     */
+    val showAverage: Boolean = false,
 )
 
 /** How a Single Choice (`dropdown`) field presents its options on the entry form. */
