@@ -399,3 +399,11 @@ own setting, `addQuantities`, is written only when on. No table or database
 change. A form declaring such a field requires backup version 12, since an
 older reader would reject the unknown field type; a decoded version-11 file
 without one keeps version 11.
+
+## List Item Quantities check boxes and average (backup 13)
+
+The field may carry `addCheckbox`, `showCheckTotal` and `showAverage`, each
+written only when on, and a saved row may carry `"checked": true`. A form
+declaring any of those settings, or holding any saved check mark, requires
+backup version 13, since an older reader would drop them. A decoded
+version-12 file without them keeps version 12. No database change.

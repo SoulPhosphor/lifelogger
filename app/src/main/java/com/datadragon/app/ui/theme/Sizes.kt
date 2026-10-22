@@ -43,6 +43,8 @@ data class AppSizes(
     val fieldContentInset: Dp,
     /** The narrowest a Comparison row's item drop-down may get before the row wraps to two lines. */
     val comparisonItemMinWidth: Dp,
+    /** The visible box of a List Item Quantities row's check box (its tap area is the touch minimum). */
+    val itemCheckBox: Dp,
     /** Minimums only: text fields remain free to grow with their contents. */
     val editorMinHeight: Dp,
     val notesMinHeight: Dp,
@@ -75,6 +77,7 @@ val DefaultAppSizes = AppSizes(
     clickerNumberWidth = 120.dp,
     fieldContentInset = 16.dp,
     comparisonItemMinWidth = 128.dp,
+    itemCheckBox = 24.dp,
     editorMinHeight = 96.dp,
     notesMinHeight = 120.dp,
     followUpMinHeight = 144.dp,

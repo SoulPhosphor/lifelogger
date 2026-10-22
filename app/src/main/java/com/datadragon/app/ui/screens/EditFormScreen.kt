@@ -1042,6 +1042,9 @@ private class EditDraft(
     autoFillSource: String = AutoFill.TIMESTAMP,
     convertOnce: Boolean = false,
     addQuantities: Boolean = false,
+    addCheckbox: Boolean = false,
+    showCheckTotal: Boolean = false,
+    showAverage: Boolean = false,
     /** True for a field that already exists in the saved schema (type locked). */
     val existing: Boolean = false,
 ) : ListItemQuantitiesSettingsDraft {
@@ -1073,6 +1076,9 @@ private class EditDraft(
     override var clickerIncrement by mutableStateOf(clickerIncrement)
     override var clickerDirection by mutableStateOf(clickerDirection)
     override var addQuantities by mutableStateOf(addQuantities)
+    override var addCheckbox by mutableStateOf(addCheckbox)
+    override var showCheckTotal by mutableStateOf(showCheckTotal)
+    override var showAverage by mutableStateOf(showAverage)
     var autoFill by mutableStateOf(autoFill)
     /** The Auto Fill drop-down's pick, kept while the checkbox is off. */
     var autoFillSource by mutableStateOf(autoFillSource)
@@ -1102,6 +1108,9 @@ private class EditDraft(
             clickerButtonLabel == o.clickerButtonLabel && clickerStartingNumber == o.clickerStartingNumber &&
             clickerIncrement == o.clickerIncrement && clickerDirection == o.clickerDirection &&
             addQuantities == o.addQuantities &&
+            addCheckbox == o.addCheckbox &&
+            showCheckTotal == o.showCheckTotal &&
+            showAverage == o.showAverage &&
             autoFill == o.autoFill && autoFillSource == o.autoFillSource && convertOnce == o.convertOnce
 
     /** The options that will be saved: a row left blank is never stored. */
@@ -1200,6 +1209,9 @@ private class EditDraft(
         autoFillSource = autoFillSource,
         convertOnce = convertOnce,
         addQuantities = addQuantities,
+        addCheckbox = addCheckbox,
+        showCheckTotal = showCheckTotal,
+        showAverage = showAverage,
         existing = existing,
     )
 
@@ -1236,6 +1248,9 @@ private class EditDraft(
         autoFillSource = other.autoFillSource
         convertOnce = other.convertOnce
         addQuantities = other.addQuantities
+        addCheckbox = other.addCheckbox
+        showCheckTotal = other.showCheckTotal
+        showAverage = other.showAverage
     }
 
     fun toFieldDef(): FieldDef = FieldDef(
@@ -1273,6 +1288,9 @@ private class EditDraft(
         clickerDirection = if (type == FieldType.COMPARISON) clickerDirection else ClickerIncrementDirection.ADD,
         autoFillSource = if (type.autoFillable && autoFill) autoFillSource else null,
         addQuantities = type == FieldType.LIST_ITEM_QUANTITIES && addQuantities,
+        addCheckbox = type == FieldType.LIST_ITEM_QUANTITIES && addCheckbox,
+        showCheckTotal = type == FieldType.LIST_ITEM_QUANTITIES && showCheckTotal,
+        showAverage = type == FieldType.LIST_ITEM_QUANTITIES && showAverage,
     )
 
     fun toSnapshot(): EditDraftSnapshot = EditDraftSnapshot(
@@ -1308,6 +1326,9 @@ private class EditDraft(
         autoFillSource = autoFillSource,
         convertOnce = convertOnce,
         addQuantities = addQuantities,
+        addCheckbox = addCheckbox,
+        showCheckTotal = showCheckTotal,
+        showAverage = showAverage,
         existing = existing,
     )
 }
@@ -1351,6 +1372,9 @@ private data class EditDraftSnapshot(
     val autoFillSource: String = AutoFill.TIMESTAMP,
     val convertOnce: Boolean = false,
     val addQuantities: Boolean = false,
+    val addCheckbox: Boolean = false,
+    val showCheckTotal: Boolean = false,
+    val showAverage: Boolean = false,
     val existing: Boolean,
 )
 
@@ -1387,6 +1411,9 @@ private fun EditDraftSnapshot.toEditDraft(): EditDraft = EditDraft(
     autoFillSource = autoFillSource,
     convertOnce = convertOnce,
     addQuantities = addQuantities,
+    addCheckbox = addCheckbox,
+    showCheckTotal = showCheckTotal,
+    showAverage = showAverage,
     existing = existing,
 )
 
@@ -1423,6 +1450,9 @@ private fun draftOf(f: FieldDef, sortByTimestamp: Boolean): EditDraft = EditDraf
     autoFill = f.autoFillSource != null,
     autoFillSource = f.autoFillSource ?: AutoFill.TIMESTAMP,
     addQuantities = f.addQuantities,
+    addCheckbox = f.addCheckbox,
+    showCheckTotal = f.showCheckTotal,
+    showAverage = f.showAverage,
     existing = true,
 )
 

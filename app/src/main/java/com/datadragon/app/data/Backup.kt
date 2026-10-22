@@ -51,7 +51,7 @@ data class BackupFile(
 
     companion object {
         const val FORMAT = "datadragon-backup"
-        const val VERSION = 12
+        const val VERSION = 13
 
         /**
          * The version before Comparison fields. A decoded version-9 file that
@@ -554,10 +554,12 @@ object BackupCodec {
         ) { "Backup automatic backup preferences are incomplete." }
         // Preferences converted from a version-3 file lack the version-4 fields,
         // so they are re-encoded with the version that truthfully describes them.
-        val version = if (preferences != null && !preferences.hasAutomaticBackupPreferences && payload.luckyLists == null && preferences.modeEnabledLuckyList == null && !payload.hasAllowAdditionsFromForm() && !payload.hasVersion7FieldSettings() && !payload.hasVersion8Identities() && !payload.hasAdvancedSearchSettings() && !payload.hasVersion10Comparison() && !payload.hasVersion11Content() && !payload.hasListItemQuantities()) {
+        val version = if (preferences != null && !preferences.hasAutomaticBackupPreferences && payload.luckyLists == null && preferences.modeEnabledLuckyList == null && !payload.hasAllowAdditionsFromForm() && !payload.hasVersion7FieldSettings() && !payload.hasVersion8Identities() && !payload.hasAdvancedSearchSettings() && !payload.hasVersion10Comparison() && !payload.hasVersion11Content() && !payload.hasListItemQuantities() && !payload.hasQuantityListChecksOrAverage()) {
             BackupFile.FIRST_ENVELOPE_VERSION
-        } else if (payload.hasListItemQuantities()) {
+        } else if (payload.hasQuantityListChecksOrAverage()) {
             BackupFile.VERSION
+        } else if (payload.hasListItemQuantities()) {
+            backup.version.coerceIn(12, BackupFile.VERSION)
         } else if (payload.hasVersion11Content()) {
             backup.version.coerceIn(11, BackupFile.VERSION)
         } else if (payload.hasVersion10Comparison()) {
@@ -636,6 +638,11 @@ object BackupCodec {
         // would reject the unknown field type.
         require(envelope.version >= 12 || !envelope.payload.hasListItemQuantities()) {
             "List Item Quantities fields require backup version 12."
+        }
+        // Their check boxes, check mark count and average arrived in version 13;
+        // an older reader would drop the settings and the saved check marks.
+        require(envelope.version >= 13 || !envelope.payload.hasQuantityListChecksOrAverage()) {
+            "List Item Quantities check boxes and averages require backup version 13."
         }
         validateManifest(envelope.includedCategories, envelope.payload)
         val canonical = canonicalPayload(envelope.payload)
@@ -749,6 +756,27 @@ object BackupCodec {
         return fields.any { element ->
             val token = ((element as? JsonObject)?.get("type") as? JsonPrimitive)?.contentOrNull
             token?.trim()?.lowercase() == type.token
+        }
+    }
+
+    /**
+     * True when a form field declares Add Checkbox, Show Total Amount of Check
+     * Marks or Show Average of Numbers, or a saved row holds a check mark — the
+     * version-13 content.
+     */
+    private fun BackupPayload.hasQuantityListChecksOrAverage(): Boolean =
+        forms.orEmpty().any { form ->
+            val fields = runCatching { Json.parseToJsonElement(form.schemaJson) }.getOrNull() as? JsonArray
+            fields.orEmpty().any { field -> VERSION_13_FIELD_KEYS.any { (field as? JsonObject)?.containsKey(it) == true } } ||
+                form.entries.any { entry -> holdsCheckMark(entry.valuesJson) }
+        }
+
+    private val VERSION_13_FIELD_KEYS = listOf("addCheckbox", "showCheckTotal", "showAverage")
+
+    private fun holdsCheckMark(valuesJson: String): Boolean {
+        val values = runCatching { Json.parseToJsonElement(valuesJson) }.getOrNull() as? JsonObject ?: return false
+        return values.values.any { value ->
+            (value as? JsonArray)?.any { (it as? JsonObject)?.containsKey("checked") == true } == true
         }
     }
 

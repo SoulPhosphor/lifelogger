@@ -61,6 +61,9 @@ object FormMarkdownParser {
         var clickerIncrement = 1
         var clickerDirection = ClickerIncrementDirection.ADD
         var addQuantities = false
+        var addCheckbox = false
+        var showCheckTotal = false
+        var showAverage = false
         val options = mutableListOf<String>()
     }
 
@@ -207,6 +210,12 @@ object FormMarkdownParser {
                         "clicker_counting" -> b.clickerCounting =
                             value.equals("true", ignoreCase = true) || value.equals("yes", ignoreCase = true)
                         "add_quantities" -> b.addQuantities =
+                            value.equals("true", ignoreCase = true) || value.equals("yes", ignoreCase = true)
+                        "add_checkbox" -> b.addCheckbox =
+                            value.equals("true", ignoreCase = true) || value.equals("yes", ignoreCase = true)
+                        "show_check_total" -> b.showCheckTotal =
+                            value.equals("true", ignoreCase = true) || value.equals("yes", ignoreCase = true)
+                        "show_average" -> b.showAverage =
                             value.equals("true", ignoreCase = true) || value.equals("yes", ignoreCase = true)
                         "button_label" -> b.clickerButtonLabel = value
                         "starting_number" -> b.clickerStartingNumber = value.toIntOrNull()
@@ -357,6 +366,9 @@ object FormMarkdownParser {
                 clickerIncrement = if (type == FieldType.COMPARISON) b.clickerIncrement else 1,
                 clickerDirection = if (type == FieldType.COMPARISON) b.clickerDirection else ClickerIncrementDirection.ADD,
                 addQuantities = type == FieldType.LIST_ITEM_QUANTITIES && b.addQuantities,
+                addCheckbox = type == FieldType.LIST_ITEM_QUANTITIES && b.addCheckbox,
+                showCheckTotal = type == FieldType.LIST_ITEM_QUANTITIES && b.showCheckTotal,
+                showAverage = type == FieldType.LIST_ITEM_QUANTITIES && b.showAverage,
             )
         )
     }

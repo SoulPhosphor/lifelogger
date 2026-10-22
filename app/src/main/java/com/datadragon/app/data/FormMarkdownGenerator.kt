@@ -67,6 +67,9 @@ object FormMarkdownGenerator {
                     if (field.firstLabel.isNotBlank()) sb.append("first_label: ").append(field.firstLabel.trim()).append('\n')
                     if (field.addQuantities) sb.append("add_quantities: true\n")
                     if (field.totalLabel.isNotBlank()) sb.append("total_label: ").append(field.totalLabel.trim()).append('\n')
+                    if (field.showAverage) sb.append("show_average: true\n")
+                    if (field.addCheckbox) sb.append("add_checkbox: true\n")
+                    if (field.showCheckTotal) sb.append("show_check_total: true\n")
                 }
                 FieldType.RATIO -> {
                     field.leftDigits?.let { sb.append("left_digits: ").append(it).append('\n') }

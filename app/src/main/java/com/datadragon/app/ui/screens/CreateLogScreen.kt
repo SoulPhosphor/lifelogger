@@ -606,15 +606,19 @@ internal fun ComparisonFieldSettings(field: ComparisonSettingsDraft, minimumDigi
     NumberColumnSettings(field, minimumDigits)
 }
 
-/** The List Item Quantities settings, which add "Add Item Quantities" to the Comparison ones. */
+/** The List Item Quantities settings, which add their own toggles to the Comparison ones. */
 internal interface ListItemQuantitiesSettingsDraft : ComparisonSettingsDraft {
     var addQuantities: Boolean
+    var addCheckbox: Boolean
+    var showCheckTotal: Boolean
+    var showAverage: Boolean
 }
 
 /**
  * A List Item Quantities field's settings: the Comparison settings without the
  * second column and clicker counting. The Total Label shows only while "Add
- * Item Quantities" is on, since the total line shows only then.
+ * Item Quantities" is on, since the total line shows only then; likewise "Show
+ * Total Amount of Check Marks" only while "Add Checkbox" is on.
  */
 @Composable
 internal fun ListItemQuantitiesFieldSettings(field: ListItemQuantitiesSettingsDraft, minimumDigits: Int? = null) {
@@ -627,6 +631,25 @@ internal fun ListItemQuantitiesFieldSettings(field: ListItemQuantitiesSettingsDr
     )
     if (field.addQuantities) {
         CaptionSetting("Total Label", field.totalLabel, { field.totalLabel = it }, ComparisonValues.DEFAULT_TOTAL_QUANTITY_LABEL)
+    }
+    SettingSwitchRow(
+        checked = field.showAverage,
+        onCheckedChange = { field.showAverage = it },
+        title = "Show Average of Numbers",
+    )
+    SettingSwitchRow(
+        checked = field.addCheckbox,
+        onCheckedChange = { field.addCheckbox = it },
+        title = "Add Checkbox",
+        subtitle = "Adds a place to add a simple check mark next to the total.",
+    )
+    // The check mark count only means something while rows have check boxes.
+    if (field.addCheckbox) {
+        SettingSwitchRow(
+            checked = field.showCheckTotal,
+            onCheckedChange = { field.showCheckTotal = it },
+            title = "Show Total Amount of Check Marks",
+        )
     }
     NumberColumnSettings(field, minimumDigits)
 }
@@ -1237,6 +1260,9 @@ private class DraftField(
     autoFill: Boolean = false,
     autoFillSource: String = AutoFill.TIMESTAMP,
     addQuantities: Boolean = false,
+    addCheckbox: Boolean = false,
+    showCheckTotal: Boolean = false,
+    showAverage: Boolean = false,
 ) : ListItemQuantitiesSettingsDraft {
     var label by mutableStateOf(label)
     var type by mutableStateOf(type)
@@ -1271,6 +1297,9 @@ private class DraftField(
     override var clickerIncrement by mutableStateOf(clickerIncrement)
     override var clickerDirection by mutableStateOf(clickerDirection)
     override var addQuantities by mutableStateOf(addQuantities)
+    override var addCheckbox by mutableStateOf(addCheckbox)
+    override var showCheckTotal by mutableStateOf(showCheckTotal)
+    override var showAverage by mutableStateOf(showAverage)
 
     fun optionList(): List<String> =
         optionsText.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
@@ -1364,6 +1393,9 @@ private class DraftField(
         clickerDirection = if (type == FieldType.COMPARISON) clickerDirection else ClickerIncrementDirection.ADD,
         autoFillSource = if (type.autoFillable && autoFill) autoFillSource else null,
         addQuantities = type == FieldType.LIST_ITEM_QUANTITIES && addQuantities,
+        addCheckbox = type == FieldType.LIST_ITEM_QUANTITIES && addCheckbox,
+        showCheckTotal = type == FieldType.LIST_ITEM_QUANTITIES && showCheckTotal,
+        showAverage = type == FieldType.LIST_ITEM_QUANTITIES && showAverage,
     )
 
     fun toSnapshot(): DraftFieldSnapshot = DraftFieldSnapshot(
@@ -1399,6 +1431,9 @@ private class DraftField(
         autoFill = autoFill,
         autoFillSource = autoFillSource,
         addQuantities = addQuantities,
+        addCheckbox = addCheckbox,
+        showCheckTotal = showCheckTotal,
+        showAverage = showAverage,
     )
 }
 
@@ -1444,6 +1479,9 @@ private data class DraftFieldSnapshot(
     val autoFill: Boolean = false,
     val autoFillSource: String = AutoFill.TIMESTAMP,
     val addQuantities: Boolean = false,
+    val addCheckbox: Boolean = false,
+    val showCheckTotal: Boolean = false,
+    val showAverage: Boolean = false,
 )
 
 private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
@@ -1479,6 +1517,9 @@ private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
     autoFill = autoFill,
     autoFillSource = autoFillSource,
     addQuantities = addQuantities,
+    addCheckbox = addCheckbox,
+    showCheckTotal = showCheckTotal,
+    showAverage = showAverage,
 )
 
 /**
@@ -1561,6 +1602,9 @@ private fun FieldDef.toDraft(): DraftField = DraftField(
     autoFill = autoFillSource != null,
     autoFillSource = autoFillSource ?: AutoFill.TIMESTAMP,
     addQuantities = addQuantities,
+    addCheckbox = addCheckbox,
+    showCheckTotal = showCheckTotal,
+    showAverage = showAverage,
 )
 
 /** The first single-`#` line of [text], used as the log name when the box is empty. */
