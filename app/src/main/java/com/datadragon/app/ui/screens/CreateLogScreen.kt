@@ -602,21 +602,22 @@ internal fun ComparisonFieldSettings(field: ComparisonSettingsDraft, minimumDigi
     }
     CaptionSetting("Total Label", field.totalLabel, { field.totalLabel = it }, ComparisonValues.DEFAULT_TOTAL_LABEL)
     var maxDigitsFocused by remember { mutableStateOf(false) }
-    OutlinedTextField(
-        value = field.digits,
-        onValueChange = { input ->
-            // Nothing above the largest Max Digits is accepted; the box keeps what it had.
-            val digits = input.filter { it.isDigit() }.take(2)
-            if ((digits.toIntOrNull() ?: 0) <= ComparisonValues.MAX_DIGITS) field.digits = digits
-        },
-        label = { Text("Max Digits (Optional)") },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        modifier = Modifier.onFocusChanged { state ->
-            if (maxDigitsFocused && !state.isFocused) field.digits = digitsAtLeast(field.digits, minimumDigits)
-            maxDigitsFocused = state.isFocused
-        },
-    )
+    Labeled("Max Digits (Optional)") {
+        OutlinedTextField(
+            value = field.digits,
+            onValueChange = { input ->
+                // Nothing above the largest Max Digits is accepted; the box keeps what it had.
+                val digits = input.filter { it.isDigit() }.take(2)
+                if ((digits.toIntOrNull() ?: 0) <= ComparisonValues.MAX_DIGITS) field.digits = digits
+            },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.fillMaxWidth().onFocusChanged { state ->
+                if (maxDigitsFocused && !state.isFocused) field.digits = digitsAtLeast(field.digits, minimumDigits)
+                maxDigitsFocused = state.isFocused
+            },
+        )
+    }
     if (minimumDigits != null && digitsAtLeast(field.digits, minimumDigits) != field.digits) {
         Text(
             "Data already includes a value of $minimumDigits number places. You can not go below that.",
