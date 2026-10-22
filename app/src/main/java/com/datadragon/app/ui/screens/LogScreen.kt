@@ -75,6 +75,7 @@ import com.datadragon.app.data.EntryValues
 import com.datadragon.app.data.FieldDef
 import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.LogEntry
+import com.datadragon.app.data.hasItemRows
 import com.datadragon.app.export.ExportContent
 import com.datadragon.app.export.LogExport
 import com.datadragon.app.ui.LogViewModel
@@ -646,7 +647,8 @@ private fun FollowUpNote(note: EntryNote, onClick: () -> Unit) {
  *
  * A `webpage` field gets a small open-in-browser button beside its address. Only
  * that button navigates — tapping the card itself never leaves for the browser.
- * A `comparison` field is shown as its table instead, read from [values].
+ * A `comparison` or `list_item_quantities` field is shown as its table
+ * instead, read from [values].
  */
 @Composable
 private fun FieldReadout(
@@ -655,7 +657,7 @@ private fun FieldReadout(
     values: JsonObject,
     modifier: Modifier = Modifier.fillMaxWidth().padding(top = AppTheme.spacing.related),
 ) {
-    if (field.type == FieldType.COMPARISON) {
+    if (field.type.hasItemRows) {
         ComparisonReadout(field = field, rows = ComparisonValues.answers(ComparisonValues.rows(values, field)), modifier = modifier)
     } else if (field.type == FieldType.WEBPAGE) {
         Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {

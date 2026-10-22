@@ -168,7 +168,7 @@ class AutoFillTest {
                 BackupPayload(forms = listOf(BackupCodec.logOf(LogTemplate(uuid = "f", name = "F", createdAt = 1, schemaJson = schema, locked = false), emptyList()))),
             ),
         )
-        assertEquals(11, BackupCodec.decode(text).version)
+        assertEquals(BackupFile.VERSION, BackupCodec.decode(text).version)
         assertThrows(IllegalArgumentException::class.java) {
             BackupCodec.decode(text.replace("\"version\": ${BackupFile.VERSION}", "\"version\": 10"))
         }

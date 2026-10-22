@@ -51,7 +51,7 @@ data class BackupFile(
 
     companion object {
         const val FORMAT = "datadragon-backup"
-        const val VERSION = 11
+        const val VERSION = 12
 
         /**
          * The version before Comparison fields. A decoded version-9 file that
@@ -554,10 +554,12 @@ object BackupCodec {
         ) { "Backup automatic backup preferences are incomplete." }
         // Preferences converted from a version-3 file lack the version-4 fields,
         // so they are re-encoded with the version that truthfully describes them.
-        val version = if (preferences != null && !preferences.hasAutomaticBackupPreferences && payload.luckyLists == null && preferences.modeEnabledLuckyList == null && !payload.hasAllowAdditionsFromForm() && !payload.hasVersion7FieldSettings() && !payload.hasVersion8Identities() && !payload.hasAdvancedSearchSettings() && !payload.hasVersion10Comparison() && !payload.hasVersion11Content()) {
+        val version = if (preferences != null && !preferences.hasAutomaticBackupPreferences && payload.luckyLists == null && preferences.modeEnabledLuckyList == null && !payload.hasAllowAdditionsFromForm() && !payload.hasVersion7FieldSettings() && !payload.hasVersion8Identities() && !payload.hasAdvancedSearchSettings() && !payload.hasVersion10Comparison() && !payload.hasVersion11Content() && !payload.hasListItemQuantities()) {
             BackupFile.FIRST_ENVELOPE_VERSION
-        } else if (payload.hasVersion11Content()) {
+        } else if (payload.hasListItemQuantities()) {
             BackupFile.VERSION
+        } else if (payload.hasVersion11Content()) {
+            backup.version.coerceIn(11, BackupFile.VERSION)
         } else if (payload.hasVersion10Comparison()) {
             backup.version.coerceIn(10, BackupFile.VERSION)
         } else {
@@ -629,6 +631,11 @@ object BackupCodec {
         // Auto Fill arrived in version 11 too; an older reader would drop it.
         require(envelope.version >= 11 || !envelope.payload.hasAutoFill()) {
             "Auto Fill requires backup version 11."
+        }
+        // List Item Quantities fields arrived in version 12; an older reader
+        // would reject the unknown field type.
+        require(envelope.version >= 12 || !envelope.payload.hasListItemQuantities()) {
+            "List Item Quantities fields require backup version 12."
         }
         validateManifest(envelope.includedCategories, envelope.payload)
         val canonical = canonicalPayload(envelope.payload)
@@ -735,13 +742,19 @@ object BackupCodec {
         forms.orEmpty().any { declaresComparison(it.schemaJson) } ||
             clickerData.orEmpty().any { it.allowAdditionsFromForm != null || declaresComparison(it.fieldsJson) }
 
-    private fun declaresComparison(fieldsJson: String): Boolean {
+    private fun declaresComparison(fieldsJson: String): Boolean = declaresType(fieldsJson, FieldType.COMPARISON)
+
+    private fun declaresType(fieldsJson: String, type: FieldType): Boolean {
         val fields = runCatching { Json.parseToJsonElement(fieldsJson) }.getOrNull() as? JsonArray ?: return false
         return fields.any { element ->
             val token = ((element as? JsonObject)?.get("type") as? JsonPrimitive)?.contentOrNull
-            token?.trim()?.lowercase() == FieldType.COMPARISON.token
+            token?.trim()?.lowercase() == type.token
         }
     }
+
+    /** True when a form has a List Item Quantities field — the version-12 content. */
+    private fun BackupPayload.hasListItemQuantities(): Boolean =
+        forms.orEmpty().any { declaresType(it.schemaJson, FieldType.LIST_ITEM_QUANTITIES) }
 
     private fun BackupPayload.hasPermanentLock(): Boolean =
         forms.orEmpty().any { it.neverAllowUnlocking != null }

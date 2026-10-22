@@ -148,7 +148,7 @@ class FormLockingTest {
     fun thePermanentLockRoundTripsAsVersion11AndOlderVersionsRejectIt() {
         val text = formFile(form(locked = true, neverAllowUnlocking = true))
         val decoded = BackupCodec.decode(text)
-        assertEquals(11, decoded.version)
+        assertEquals(BackupFile.VERSION, decoded.version)
         val restored = BackupCodec.templateOf(decoded.logs.single())
         assertTrue(restored.locked)
         assertTrue(restored.neverAllowUnlocking)

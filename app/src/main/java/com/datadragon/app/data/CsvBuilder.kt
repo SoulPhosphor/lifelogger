@@ -56,7 +56,8 @@ object CsvBuilder {
                 ?.let { EntryValues.choiceLabels(field, it).joinToString("; ") }
                 .orEmpty()
             // Comparison rows export as one line: item labels with their numbers and differences.
-            FieldType.COMPARISON -> EntryValues.displayValue(field, values).orEmpty()
+            // List Item Quantities rows likewise: item labels with their amounts.
+            FieldType.COMPARISON, FieldType.LIST_ITEM_QUANTITIES -> EntryValues.displayValue(field, values).orEmpty()
             // Tags have no fixed option list, so they export in saved order.
             FieldType.TAGS -> EntryValues.stringList(values, field).joinToString("; ")
             // Everything else exports its raw stored value (scale as the bare

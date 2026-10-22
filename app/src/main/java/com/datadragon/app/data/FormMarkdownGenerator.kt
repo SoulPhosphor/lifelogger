@@ -58,6 +58,16 @@ object FormMarkdownGenerator {
                     if (field.clickerIncrement != 1) sb.append("increment: ").append(field.clickerIncrement).append('\n')
                     if (field.clickerDirection == ClickerIncrementDirection.SUBTRACT) sb.append("direction: subtract\n")
                 }
+                FieldType.LIST_ITEM_QUANTITIES -> {
+                    sb.append("options:\n")
+                    field.activeChoices.forEach { choice -> sb.append("- ").append(choice.label).append('\n') }
+                    field.digits?.let { sb.append("digits: ").append(it).append('\n') }
+                    if (!field.wholeNumbersOnly) sb.append("whole_numbers: false\n")
+                    if (field.itemLabel.isNotBlank()) sb.append("item_label: ").append(field.itemLabel.trim()).append('\n')
+                    if (field.firstLabel.isNotBlank()) sb.append("first_label: ").append(field.firstLabel.trim()).append('\n')
+                    if (field.addQuantities) sb.append("add_quantities: true\n")
+                    if (field.totalLabel.isNotBlank()) sb.append("total_label: ").append(field.totalLabel.trim()).append('\n')
+                }
                 FieldType.RATIO -> {
                     field.leftDigits?.let { sb.append("left_digits: ").append(it).append('\n') }
                     field.rightDigits?.let { sb.append("right_digits: ").append(it).append('\n') }

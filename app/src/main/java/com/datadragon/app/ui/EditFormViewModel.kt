@@ -13,6 +13,7 @@ import com.datadragon.app.data.savedComparisonDigits
 import com.datadragon.app.data.FormMarkdownGenerator
 import com.datadragon.app.data.FormMarkdownParser
 import com.datadragon.app.data.AutoFill
+import com.datadragon.app.data.hasItemRows
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.NonCancellable
@@ -106,7 +107,7 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
             _fields.value = template
                 ?.let { runCatching { json.decodeFromString<List<FieldDef>>(it.schemaJson) }.getOrNull() }
                 ?: emptyList()
-            val comparisons = _fields.value.filter { it.type == FieldType.COMPARISON }
+            val comparisons = _fields.value.filter { it.type.hasItemRows }
             if (comparisons.isNotEmpty()) {
                 val entryValues = entryDao.getForTemplateOnce(id).map { it.valuesJson }
                 _savedComparisonDigits.value = comparisons

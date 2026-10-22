@@ -46,8 +46,9 @@ lines: 4
 | `blood_pressure` | Two 3-digit boxes separated by `/` (systolic / diastolic) | none |
 | `ratio` | Two number boxes separated by `/`, followed by an optional unit | `left_digits` and `right_digits` — max digits on each side (1 to 10, both required); `unit` — unit of measurement (optional) |
 | `comparison` | Rows of an item picked from a list plus two numbers, with each row's difference and a total | the list of items; `digits` — max digits per number (optional); `whole_numbers: false` allows a decimal point; `item_label`, `first_label`, `second_label`, `total_label` rename the captions (defaults Item, Expected, Actual, Total Difference); `clicker_counting: true` counts the second column with a button, set by `button_label` (default Add), `starting_number` (default 0), `increment` (default 1) and `direction: subtract` |
+| `list_item_quantities` | Rows of an item picked from a list plus its amount, with an optional total of the amounts | the list of items; `digits` — max digits per amount (optional); `whole_numbers: false` allows a decimal point; `item_label`, `first_label` rename the column captions (defaults Item, Amount); `add_quantities: true` shows the total line, captioned by `total_label` (default Total Quantity) |
 
-Any field may also add `required` (the user must fill it before saving). Fields are optional by default. A `comparison` field is never required; `required` is ignored on it.
+Any field may also add `required` (the user must fill it before saving). Fields are optional by default. A `comparison` or `list_item_quantities` field is never required; `required` is ignored on it.
 
 ### Scale rendering
 
@@ -204,6 +205,24 @@ first column only. Switching counting on or off never changes saved numbers.
 Stored as a JSON array of rows, each `{"item": <option id>, "first": <number>,
 "second": <number>}`, with a blank number left out. The item is the option's
 permanent id, so renaming an option never disconnects saved rows.
+
+
+### list_item_quantities
+
+```
+## Groceries
+type: list_item_quantities
+options:
+- Soda
+- Juice
+add_quantities: true
+```
+
+Works like `comparison` with one number column: each row has an item
+drop-down, its amount box (captioned Amount by default) and a remove X. There
+is no second column and no difference. With `add_quantities: true` a total line
+(Total Quantity by default) sums every row's amount; without it there is no
+total line. Amounts are whole numbers unless `whole_numbers: false`.
 
 ### yesno
 

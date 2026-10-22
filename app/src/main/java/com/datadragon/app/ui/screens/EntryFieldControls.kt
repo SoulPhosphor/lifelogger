@@ -66,6 +66,7 @@ import com.datadragon.app.data.MAX_RATIO_DIGITS
 import com.datadragon.app.data.RatioValues
 import com.datadragon.app.data.ChoiceOption
 import com.datadragon.app.data.choice
+import com.datadragon.app.data.hasItemRows
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -134,7 +135,7 @@ fun EntryFieldControl(
     }
     Column(modifier = targetModifier.then(validationModifier).semantics {
         if (showRequiredError) {
-            if (field.type == FieldType.COMPARISON) {
+            if (field.type.hasItemRows) {
                 error("${field.label}: Choose an item for each row with numbers.")
             } else {
                 error("${field.label}: This field is required.")
@@ -301,7 +302,7 @@ fun EntryFieldControl(
             )
 
             // No title of its own: the column captions head the table.
-            FieldType.COMPARISON -> ComparisonField(
+            FieldType.COMPARISON, FieldType.LIST_ITEM_QUANTITIES -> ComparisonField(
                 field = field,
                 rows = comparisonValues[field.id] ?: listOf(ComparisonRow()),
                 onRowsChange = { comparisonValues[field.id] = it },
