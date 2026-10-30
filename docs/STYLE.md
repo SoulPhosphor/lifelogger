@@ -227,8 +227,11 @@ and not new phrasing for the formats it shares.
   | `.pdf` | PDF Document (.pdf) | Printable document format | Everything |
   | `.csv` | Spreadsheet (.csv) | Table of entries for a spreadsheet app | Forms, Data |
   | `.json` | Application Data (.json) | Use this file to import or restore this `<thing>` later | Everything |
+  | `.json` | Clean JSON (.json) | Human-readable data for AI analysis | Forms |
 
-- **Rows appear in that order**, always. `.json` is always last.
+- **Rows appear in that order**, always. Application Data (.json) is always
+  last, except on forms, where Clean JSON (.json) sits directly below it
+  (owner ruling, October 30 2026).
 - **A row is left out only when that thing genuinely cannot produce that file.**
   Lists have no rows of entries, so they offer no `.csv`; forms and Data
   (Clicker) groupings do, so they offer it. "Not one of the usual formats" is

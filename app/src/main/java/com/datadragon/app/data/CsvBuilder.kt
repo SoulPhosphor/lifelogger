@@ -13,7 +13,7 @@ package com.datadragon.app.data
  * - date / time columns export the ISO-8601 string exactly as stored, so
  *   spreadsheets can sort them. Empty optional fields export as empty cells.
  *
- * Column order: `entry_id, created_at, {field 1}…{field n}, notes`. (The free-text
+ * Column order: `created_at, {field 1}…{field n}, notes`. (The free-text
  * Notes column is appended so notes aren't lost in the CSV; everything else
  * matches §3 exactly.)
  */
@@ -25,7 +25,6 @@ object CsvBuilder {
         val sb = StringBuilder()
 
         val header = buildList {
-            add("entry_id")
             add("created_at")
             fields.forEach { add(it.label) }
             add("notes")
@@ -35,7 +34,6 @@ object CsvBuilder {
         entries.sortedBy { it.createdAt }.forEach { entry ->
             val values = EntryValues.decode(entry.valuesJson)
             val row = buildList {
-                add(entry.id.toString())
                 add(entry.createdAt)
                 fields.forEach { add(cell(it, values)) }
                 add(EntryValues.notes(values) ?: "")
