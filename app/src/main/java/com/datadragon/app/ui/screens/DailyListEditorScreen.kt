@@ -1,5 +1,6 @@
 package com.datadragon.app.ui.screens
 
+import com.datadragon.app.export.SaveExportDocument
 import com.datadragon.app.ui.components.reorderedItems
 import com.datadragon.app.ui.components.accessibleReorder
 import com.datadragon.app.ui.theme.AppTheme
@@ -130,7 +131,7 @@ fun DailyListEditorScreen(
     // Export: the user picks the destination via the system "Save to…" sheet.
     var pendingExport by remember { mutableStateOf<ExportContent?>(null) }
     val saveDocument = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("*/*"),
+        SaveExportDocument(),
     ) { uri ->
         val export = pendingExport
         pendingExport = null

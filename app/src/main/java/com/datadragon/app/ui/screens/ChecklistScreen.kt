@@ -1,5 +1,6 @@
 package com.datadragon.app.ui.screens
 
+import com.datadragon.app.export.SaveExportDocument
 import com.datadragon.app.ui.components.reorderedItems
 import com.datadragon.app.ui.components.accessibleReorder
 import android.widget.Toast
@@ -135,7 +136,7 @@ fun ChecklistScreen(
     // system "Save to…" sheet; we write the bytes to whatever it returns.
     var pendingExport by remember { mutableStateOf<ExportContent?>(null) }
     val saveDocument = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("*/*"),
+        SaveExportDocument(),
     ) { uri ->
         val export = pendingExport
         pendingExport = null
