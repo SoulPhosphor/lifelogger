@@ -135,15 +135,16 @@ class ClickerExportTest {
     @Test
     fun csvHasVisibleStampsOnlyAndNoCreatedAt() {
         val visible = ClickerReport.csv(log(true, true), fields, cards, includeFollowUps = true).split("\r\n")
-        assertEquals("card_id,date,time,Glasses,Steps,Mood,Details,Seen On,follow_up_notes", visible[0])
-        assertEquals("card-a,2026-09-01,08:05,3,42,Calm,\"Line one\nLine two\",2026-08-30,", visible[1])
-        assertEquals("card-b,2026-09-02,14:15,7,,,,,Felt good", visible[2])
+        assertEquals("date,time,Glasses,Steps,Mood,Details,Seen On,follow_up_notes", visible[0])
+        assertEquals("2026-09-01,08:05,3,42,Calm,\"Line one\nLine two\",2026-08-30,", visible[1])
+        assertEquals("2026-09-02,14:15,7,,,,,Felt good", visible[2])
 
         val hidden = ClickerReport.csv(log(false, false), fields, cards, includeFollowUps = false)
         val lines = hidden.split("\r\n")
-        assertEquals("card_id,Glasses,Steps,Mood,Details,Seen On", lines[0])
-        assertEquals("card-b,7,,,,", lines[2])
+        assertEquals("Glasses,Steps,Mood,Details,Seen On", lines[0])
+        assertEquals("7,,,,", lines[2])
         assertFalse(hidden.contains("created_at"))
+        assertFalse(hidden.contains("card-"))
         assertFalse(hidden.contains("2026-09-0"))
         assertFalse(hidden.contains("Felt good"))
     }

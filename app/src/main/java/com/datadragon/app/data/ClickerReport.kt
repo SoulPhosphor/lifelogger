@@ -114,8 +114,8 @@ object ClickerReport {
 
     /**
      * The spreadsheet export: one row per card, oldest first. Columns are
-     * `card_id` (the card's UUID), then `date` / `time` only when the grouping
-     * shows those stamps, each field in setup order, then `follow_up_notes`
+     * `date` / `time` only when the grouping shows those stamps, each field in
+     * setup order, then `follow_up_notes`
      * when [includeFollowUps] is on. Values are the raw stored values; an
      * untouched Click Tracker is its starting number.
      */
@@ -127,7 +127,6 @@ object ClickerReport {
     ): String {
         val sb = StringBuilder()
         val header = buildList {
-            add("card_id")
             if (log.autoDateStamp) add("date")
             if (log.autoTimeStamp) add("time")
             fields.forEach { add(it.label) }
@@ -138,7 +137,6 @@ object ClickerReport {
         ordered(cards).forEach { card ->
             val values = ClickerValues.decode(card.valuesJson)
             val row = buildList {
-                add(card.uuid)
                 if (log.autoDateStamp) add(visibleDate(log, card)?.toString() ?: "")
                 if (log.autoTimeStamp) add(visibleTime(log, card)?.format(EntryValues.TIME_STORAGE) ?: "")
                 fields.forEach { field ->
