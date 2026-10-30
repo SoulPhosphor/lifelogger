@@ -65,6 +65,14 @@ class ListItemQuantitiesTest {
     }
 
     @Test
+    fun csvHasNoEntryIdColumn() {
+        val entry = LogEntry(id = 42, templateId = 1, createdAt = "2026-10-22T08:00:00Z", valuesJson = "{}")
+        val lines = CsvBuilder.build(listOf(field), listOf(entry)).split("\r\n")
+        assertEquals("created_at,Groceries,notes", lines[0])
+        assertEquals("2026-10-22T08:00:00Z,,", lines[1])
+    }
+
+    @Test
     fun formMarkdownRoundTripsTheField() {
         val written = field.copy(
             digits = 4,

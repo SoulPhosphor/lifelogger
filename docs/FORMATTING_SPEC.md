@@ -94,8 +94,12 @@ CSV is for users who want spreadsheet-compatible data. It is not the primary rea
 ### Column order
 
 ```
-entry_id, created_at, {field 1}, {field 2}, ..., {field n}
+created_at, {field 1}, {field 2}, ..., {field n}
 ```
+
+No internal id column (owner ruling, October 30 2026): database row numbers
+and UUIDs mean nothing to a reader, and every column they need is already
+there.
 
 ---
 
