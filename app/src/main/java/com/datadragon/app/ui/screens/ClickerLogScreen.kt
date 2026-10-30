@@ -1,5 +1,6 @@
 package com.datadragon.app.ui.screens
 
+import com.datadragon.app.export.SaveExportDocument
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -152,7 +153,7 @@ fun ClickerLogScreen(
     }
     var pendingExport by remember { mutableStateOf<ExportContent?>(null) }
     val saveDocument = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("*/*"),
+        SaveExportDocument(),
     ) { uri ->
         val export = pendingExport
         pendingExport = null

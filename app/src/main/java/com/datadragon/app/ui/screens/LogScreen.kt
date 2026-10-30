@@ -1,5 +1,6 @@
 package com.datadragon.app.ui.screens
 
+import com.datadragon.app.export.SaveExportDocument
 import com.datadragon.app.data.AdvancedSearch
 import com.datadragon.app.ui.components.AdvancedView
 import com.datadragon.app.ui.components.AdvancedViewState
@@ -155,7 +156,7 @@ fun LogScreen(
     // system "Save to…" sheet; we write the bytes to whatever location it returns.
     var pendingExport by remember { mutableStateOf<ExportContent?>(null) }
     val saveDocument = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("*/*"),
+        SaveExportDocument(),
     ) { uri ->
         val export = pendingExport
         pendingExport = null
