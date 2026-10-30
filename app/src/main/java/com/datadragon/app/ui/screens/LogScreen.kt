@@ -388,6 +388,14 @@ fun LogScreen(
                         startSave(LogExport.json(current, entries, notesByEntry, includeFollowUps))
                     }
                 },
+                ExportFormatOption(
+                    "Clean JSON (.json)",
+                    "Human-readable data for AI analysis",
+                ) {
+                    if (current != null) {
+                        startSave(LogExport.cleanJson(current, fields, entries, notesByEntry, includeFollowUps))
+                    }
+                },
             ),
         )
     }

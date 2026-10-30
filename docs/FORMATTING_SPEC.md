@@ -122,6 +122,9 @@ Timestamps stay in ISO-8601 exactly as stored. JSON files are for backup and dat
   marked `_report`.
 - Example: `My Log` → `my_log.txt`, `my_log.md`, `my_log.pdf`, `my_log.csv`,
   `my_log.json`
+- Exception (owner ruling, October 30 2026): a form's "Clean JSON (.json)"
+  export adds `_clean` so it never collides with the restorable `.json`:
+  `my_log_clean.json`.
 
 Files are saved through the Android system "Save to…" document picker
 (`ACTION_CREATE_DOCUMENT`): the user chooses the destination folder (Drive,

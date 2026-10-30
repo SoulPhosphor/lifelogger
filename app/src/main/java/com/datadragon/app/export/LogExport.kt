@@ -2,6 +2,7 @@ package com.datadragon.app.export
 
 import com.datadragon.app.data.BackupCodec
 import com.datadragon.app.data.BackupRepository
+import com.datadragon.app.data.CleanJsonBuilder
 import com.datadragon.app.data.CsvBuilder
 import com.datadragon.app.data.EntryNote
 import com.datadragon.app.data.ExportNaming
@@ -61,6 +62,23 @@ object LogExport {
         val notes = if (includeFollowUps) notesByEntry.values.flatten() else emptyList()
         val json = BackupCodec.encodeSingleLog(template, entries, BackupRepository.now(), notes)
         return ExportContent(ExportNaming.fileName(template.name, "json"), json.toByteArray())
+    }
+
+    /**
+     * The human-readable "Clean JSON" file for analysis ([CleanJsonBuilder]).
+     * Named `<name>_clean.json` so it never collides with the restorable `.json`.
+     */
+    fun cleanJson(
+        template: LogTemplate,
+        fields: List<FieldDef>,
+        entries: List<LogEntry>,
+        notesByEntry: Map<Long, List<EntryNote>> = emptyMap(),
+        includeFollowUps: Boolean = false,
+    ): ExportContent {
+        val json = CleanJsonBuilder.build(
+            template, fields, entries, BackupRepository.now(), notesByEntry, includeFollowUps,
+        )
+        return ExportContent(ExportNaming.fileName("${template.name} clean", "json"), json.toByteArray())
     }
 
     fun csv(template: LogTemplate, fields: List<FieldDef>, entries: List<LogEntry>): ExportContent =
