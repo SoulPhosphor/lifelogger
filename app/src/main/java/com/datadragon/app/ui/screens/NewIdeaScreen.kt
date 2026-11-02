@@ -1,5 +1,8 @@
 package com.datadragon.app.ui.screens
 
+import com.datadragon.app.data.CardContent
+import com.datadragon.app.ui.components.NothingSavedDialog
+
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.error
 import androidx.activity.compose.BackHandler
@@ -159,6 +162,8 @@ fun NewIdeaScreen(
 
     val blockingFieldIds = blockingIdeaFieldIds(fields, textValues, tagValues)
     val dirty = baseline != null && collectIdeaValues(fields, textValues, tagValues, initialValues) != baseline
+    var showNothingSaved by rememberSaveable { mutableStateOf(false) }
+    if (showNothingSaved) NothingSavedDialog { showNothingSaved = false }
     var showDiscard by rememberSaveable { mutableStateOf(false) }
     fun attemptBack() { if (dirty) showDiscard = true else onBack() }
     BackHandler { attemptBack() }
@@ -176,10 +181,13 @@ fun NewIdeaScreen(
                     TextButton(
                         enabled = fields.isNotEmpty(),
                         onClick = {
-                            if (blockingFieldIds.isEmpty()) {
+                            if (!CardContent.hasIdeaData(fields, collectIdeaValues(fields, textValues, tagValues, initialValues))) {
+                                showNothingSaved = true
+                            } else if (blockingFieldIds.isEmpty()) {
                                 viewModel.save(
                                     values = collectIdeaValues(fields, textValues, tagValues, initialValues),
                                     onSaved = onBack,
+                                    onEmpty = { showNothingSaved = true },
                                 )
                             } else {
                                 // Bring the first field that still needs attention

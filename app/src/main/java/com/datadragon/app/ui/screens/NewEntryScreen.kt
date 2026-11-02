@@ -1,5 +1,8 @@
 package com.datadragon.app.ui.screens
 
+import com.datadragon.app.data.CardContent
+import com.datadragon.app.ui.components.NothingSavedDialog
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
@@ -274,6 +277,8 @@ fun NewEntryScreen(
         collectValues(fields, textValues, multiValues, tagValues, comparisonValues, notes) != baseline ||
             comparisonValues.values.any { rows -> rows.any(ComparisonValues::needsItem) }
         )
+    var showNothingSaved by rememberSaveable { mutableStateOf(false) }
+    if (showNothingSaved) NothingSavedDialog { showNothingSaved = false }
     var showDiscard by rememberSaveable { mutableStateOf(false) }
     fun attemptBack() { if (dirty) showDiscard = true else onBack() }
     BackHandler { attemptBack() }
@@ -292,10 +297,13 @@ fun NewEntryScreen(
                     TextButton(
                         enabled = fields.isNotEmpty(),
                         onClick = {
-                            if (missingRequiredIds.isEmpty()) {
+                            if (!CardContent.hasFormData(fields, collectValues(fields, textValues, multiValues, tagValues, comparisonValues, notes))) {
+                                showNothingSaved = true
+                            } else if (missingRequiredIds.isEmpty()) {
                                 viewModel.save(
                                     values = collectValues(fields, textValues, multiValues, tagValues, comparisonValues, notes),
                                     onSaved = onBack,
+                                    onEmpty = { showNothingSaved = true },
                                 )
                             } else {
                                 validationAttempted = true

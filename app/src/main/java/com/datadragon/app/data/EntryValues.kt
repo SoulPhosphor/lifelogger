@@ -125,7 +125,8 @@ object EntryValues {
             is JsonPrimitive -> listOfNotNull(raw.contentOrNull?.ifBlank { null })
             else -> emptyList()
         }
-        val known = field.choices.filter { it.id in ids }.map { it.label }
+        val options = if (field.type.hasChoices && field.orderOptionsAlphabetically) ChoiceEdits.alphabetical(field.choices) else field.choices
+        val known = options.filter { it.id in ids }.map { it.label }
         val unknown = ids.filter { id -> field.choices.none { it.id == id } }
         return known + unknown
     }

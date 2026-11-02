@@ -353,7 +353,9 @@ internal fun Labeled(
  * stays visible and can still be deselected.
  */
 internal fun FieldDef.offeredChoices(selectedIds: Collection<String>): List<ChoiceOption> =
-    choices.filter { !it.retired || it.id in selectedIds }
+    choices.filter { !it.retired || it.id in selectedIds }.let { offered ->
+        if (orderOptionsAlphabetically) offered.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.label.trim() }) else offered
+    }
 
 /**
  * A Single Choice dropdown over [options]. [selectedLabel] is the current

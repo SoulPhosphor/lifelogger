@@ -1,6 +1,7 @@
 package com.datadragon.app.ui.screens
 
 import com.datadragon.app.data.CardCopyText
+import com.datadragon.app.ui.components.NothingSavedDialog
 import com.datadragon.app.ui.components.rememberCopyText
 
 import com.datadragon.app.export.SaveExportDocument
@@ -199,6 +200,8 @@ fun ChecklistScreen(
     // already been written to the database as crash protection. Back on an
     // established list (or an untouched empty draft) just leaves, flushing any
     // pending text first and waiting for it before navigating.
+    var showNothingSaved by rememberSaveable { mutableStateOf(false) }
+    if (showNothingSaved) NothingSavedDialog { showNothingSaved = false }
     val hasText = items.any { it.text.isNotBlank() }
     val hasContent = title.isNotBlank() || hasText
     var showDiscard by rememberSaveable { mutableStateOf(false) }
@@ -295,8 +298,10 @@ fun ChecklistScreen(
                     // gets a ⋮ menu holding Export and Delete List instead.
                     if (isDraft) {
                         TextButton(
-                            enabled = hasText,
-                            onClick = { if (!refuseEditingDuplicate()) viewModel.save(onBack) },
+                            onClick = {
+                                if (!hasText) showNothingSaved = true
+                                else if (!refuseEditingDuplicate()) viewModel.save(onBack)
+                            },
                         ) { Text("Save") }
                     } else {
                         Box {

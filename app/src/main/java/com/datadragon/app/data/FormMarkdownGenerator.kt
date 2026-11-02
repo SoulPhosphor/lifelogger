@@ -92,6 +92,7 @@ object FormMarkdownGenerator {
                     sb.append(key).append(": ").append(it.label).append('\n')
                 }
             }
+            if (field.type.hasChoices && field.orderOptionsAlphabetically) sb.append("order_options_alphabetically: true\n")
             if (field.required) sb.append("required\n")
         }
         return sb.toString().trimEnd() + "\n"

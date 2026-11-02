@@ -556,9 +556,9 @@ object BackupCodec {
         ) { "Backup automatic backup preferences are incomplete." }
         // Preferences converted from a version-3 file lack the version-4 fields,
         // so they are re-encoded with the version that truthfully describes them.
-        val version = if (preferences != null && !preferences.hasAutomaticBackupPreferences && payload.luckyLists == null && preferences.modeEnabledLuckyList == null && !payload.hasAllowAdditionsFromForm() && !payload.hasVersion7FieldSettings() && !payload.hasVersion8Identities() && !payload.hasAdvancedSearchSettings() && !payload.hasVersion10Comparison() && !payload.hasVersion11Content() && !payload.hasListItemQuantities() && !payload.hasQuantityListChecksOrAverage() && preferences.homeGroupingOrders == null) {
+        val version = if (preferences != null && !preferences.hasAutomaticBackupPreferences && payload.luckyLists == null && preferences.modeEnabledLuckyList == null && !payload.hasAllowAdditionsFromForm() && !payload.hasVersion7FieldSettings() && !payload.hasVersion8Identities() && !payload.hasAdvancedSearchSettings() && !payload.hasVersion10Comparison() && !payload.hasVersion11Content() && !payload.hasListItemQuantities() && !payload.hasQuantityListChecksOrAverage() && preferences.homeGroupingOrders == null && !payload.hasAlphabeticalOptions()) {
             BackupFile.FIRST_ENVELOPE_VERSION
-        } else if (preferences?.homeGroupingOrders != null) {
+        } else if (preferences?.homeGroupingOrders != null || payload.hasAlphabeticalOptions()) {
             BackupFile.VERSION
         } else if (payload.hasQuantityListChecksOrAverage()) {
             backup.version.coerceIn(13, BackupFile.VERSION)
@@ -643,8 +643,8 @@ object BackupCodec {
         require(envelope.version >= 12 || !envelope.payload.hasListItemQuantities()) {
             "List Item Quantities fields require backup version 12."
         }
-        require(envelope.version >= 14 || envelope.payload.portablePreferences?.homeGroupingOrders == null) {
-            "Home grouping order requires backup version 14."
+        require(envelope.version >= 14 || (envelope.payload.portablePreferences?.homeGroupingOrders == null && !envelope.payload.hasAlphabeticalOptions())) {
+            "Home grouping order and alphabetical options require backup version 14."
         }
         // Their check boxes, check mark count and average, and the Comparison
         // average, arrived in version 13; an older reader would drop them.
@@ -744,6 +744,9 @@ object BackupCodec {
             "choices" in field || (fieldIdsCount && !id.isNullOrBlank())
         }
     }
+
+    private fun BackupPayload.hasAlphabeticalOptions(): Boolean =
+        forms.orEmpty().any { declaresAnyKey(it.schemaJson, listOf("orderOptionsAlphabetically")) }
 
     private val VERSION_7_FIELD_KEYS = listOf("choiceStyle", "topAnswerPreselected", "leftDigits", "rightDigits", "unit")
 

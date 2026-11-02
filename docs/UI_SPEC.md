@@ -548,3 +548,23 @@ Opened Lists, Daily Task cards and Lucky Lists offer Copy above Export in
 the upper-right kebab menu. Lists and Daily Tasks copy bulleted items under
 Unfinished Items and Completed Items, omitting an empty section entirely.
 Sub-items retain indentation. Lucky Lists copy a single bulleted list.
+
+
+## Empty card saves and option ordering (November 2026)
+
+Saving a Form entry or Idea with no field/note data, or finalizing an ordinary
+List or Lucky List without any nonblank item, is refused. The notice is exactly
+Nothing Saved / No Data Was Entered, through STYLE.md's AppDialog and outlined
+Okay action. Whitespace, empty arrays and empty compound-input separators do
+not count as data. Zero and No do count. Daily Tasks and Clicker Data are exempt;
+Clicker's plus continues creating an immediately usable zero-event card.
+
+Single Choice and Multiple Choice field settings offer Order Options
+Alphabetically (default off) below the Options help, before the options. On
+activation, options visibly sort by label ignoring capitalization. Active
+options, answer controls, selected-answer readouts and Copy honor the setting;
+new and renamed options stay sorted. While on, the drag grip and its spacing
+are absent. Switching off keeps the current alphabetical order and restores
+manual dragging. Retired options preserve their identities and separate section.
+A focused, newly added option can be moved using its grip without first
+focusing another option; text gestures continue to edit the label.

@@ -104,7 +104,7 @@ class NewEntryViewModel(app: Application) : AndroidViewModel(app) {
                         added += option.id
                     }
                 }
-            field.copy(choices = choices)
+            field.copy(choices = if (field.orderOptionsAlphabetically) ChoiceEdits.alphabetical(choices) else choices)
         }
     }
 
@@ -144,7 +144,8 @@ class NewEntryViewModel(app: Application) : AndroidViewModel(app) {
      * the current time. [values] is keyed by field id plus the reserved notes
      * key; timestamps are ISO-8601 with offset.
      */
-    fun save(values: Map<String, JsonElement>, onSaved: () -> Unit) {
+    fun save(values: Map<String, JsonElement>, onSaved: () -> Unit, onEmpty: () -> Unit = {}) {
+        if (!com.datadragon.app.data.CardContent.hasFormData(_fields.value, values)) { onEmpty(); return }
         if (templateId < 0) return
         viewModelScope.launch {
             val existing = editing

@@ -68,7 +68,8 @@ class NewIdeaViewModel(app: Application) : AndroidViewModel(app) {
      * Persist the idea. Editing keeps the original `createdAt` and stamps
      * `updatedAt`; a new idea is inserted with the current time, active.
      */
-    fun save(values: Map<String, JsonElement>, onSaved: () -> Unit) {
+    fun save(values: Map<String, JsonElement>, onSaved: () -> Unit, onEmpty: () -> Unit = {}) {
+        if (!com.datadragon.app.data.CardContent.hasIdeaData(_fields.value, values)) { onEmpty(); return }
         if (ideaLogId < 0) return
         viewModelScope.launch {
             val existing = editing

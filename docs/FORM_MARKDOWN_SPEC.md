@@ -340,3 +340,12 @@ Before a template is saved, the Create/Edit Log screen shows a **preview** of th
 
 - The parsed result is stored as the template's `schemaJson`.
 - The original pasted Form Markdown is also stored with the template, so it can be shown again for editing and included in `.json` exports.
+
+
+### Alphabetical choice options
+
+Single Choice (`dropdown`) and Multiple Choice (`multiple`) accept
+`order_options_alphabetically: true`. The default is false. The generator
+writes the setting when on and writes active options in displayed order.
+The setting lives in schema JSON as `orderOptionsAlphabetically` and never
+changes field or option identities or saved answers.

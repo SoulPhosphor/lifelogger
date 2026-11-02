@@ -428,3 +428,11 @@ Merge retains current settings under the existing approved rule. Older
 files omit this nullable property and leave current ordering untouched.
 Canonical encoding sorts mode keys, preserves UUID list order, counts the
 mode orders, and requires version 14 whenever the property is declared.
+
+
+Single Choice and Multiple Choice fields may also declare
+`orderOptionsAlphabetically` in the schema JSON. Its false default is omitted
+from encoding so older payloads and checksums are unchanged. A declaration
+requires backup 14. Existing form snapshot, individual export, Merge conflict,
+Replace, Undo and revision tracking cover the field setting without a Room
+schema change.

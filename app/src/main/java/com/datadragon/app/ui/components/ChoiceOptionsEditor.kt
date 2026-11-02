@@ -49,6 +49,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.ImeAction
 import com.datadragon.app.data.ChoiceEdits
 import com.datadragon.app.data.ChoiceNameCheck
+import com.datadragon.app.ui.screens.SettingSwitchRow
 import com.datadragon.app.data.ChoiceOption
 import com.datadragon.app.data.TitleCase
 import com.datadragon.app.data.activeChoices
@@ -154,6 +155,8 @@ fun ChoiceOptionsEditor(
     capitalizeNew: Boolean,
     onDeletePermanently: (ChoiceOption) -> Unit,
     modifier: Modifier = Modifier,
+    alphabetical: Boolean? = null,
+    onAlphabeticalChange: (Boolean) -> Unit = {},
 ) {
     // The row being renamed, the label it had when editing began, and whether it
     // is a just-added row that hasn't been committed yet.
@@ -220,7 +223,7 @@ fun ChoiceOptionsEditor(
         editingIsNew = false
     }
 
-    val active = choices.activeChoices
+    val active = (if (alphabetical == true) ChoiceEdits.alphabetical(choices) else choices).activeChoices
     val retired = choices.retiredChoices
 
     Column(
@@ -236,6 +239,19 @@ fun ChoiceOptionsEditor(
             )
         }
 
+        if (alphabetical != null) {
+            SettingSwitchRow(
+                checked = alphabetical,
+                title = "Order Options Alphabetically",
+                onCheckedChange = { checked ->
+                    val settled = settled()
+                    val base = if (alphabetical) ChoiceEdits.alphabetical(settled) else settled
+                    onAlphabeticalChange(checked)
+                    onChoicesChange(if (checked) ChoiceEdits.alphabetical(base) else base)
+                },
+            )
+        }
+
         // ReorderableColumn keeps per-item state sized to the list it first saw;
         // keying on the count rebuilds it when rows are added, retired or deleted.
         key(active.size) {
@@ -243,7 +259,7 @@ fun ChoiceOptionsEditor(
                 list = active,
                 onSettle = { from, to ->
                     active.getOrNull(from)?.let { moved ->
-                        onChoicesChange(ChoiceEdits.movedActive(choices, moved.id, to))
+                        if (alphabetical != true) onChoicesChange(ChoiceEdits.movedActive(settled(), moved.id, to))
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -253,22 +269,23 @@ fun ChoiceOptionsEditor(
                     val isEditing = editingId == option.id
                     ActiveChoiceRow(
                         option = option,
+                        showGrip = alphabetical != true,
                         isEditing = isEditing,
                         preselection = preselection,
                         gripModifier = Modifier
-                            .draggableHandle(enabled = !isEditing)
+                            .draggableHandle(enabled = alphabetical != true)
                             .accessibleReorder(index, active.size) { offset ->
                                 val destination = index + offset
                                 if (destination in active.indices) {
-                                    onChoicesChange(ChoiceEdits.movedActive(choices, option.id, destination))
+                                    onChoicesChange(ChoiceEdits.movedActive(settled(), option.id, destination))
                                     true
                                 } else {
                                     false
                                 }
                             },
-                        // Dragging is off while the row is being edited, so selecting
-                        // text or moving the cursor never reorders it.
-                        labelDragModifier = Modifier.longPressDraggableHandle(enabled = !isEditing),
+                        // Text gestures stay in the editor; the separate grip can
+                        // reorder a fresh option without leaving its text box.
+                        labelDragModifier = Modifier.longPressDraggableHandle(enabled = !isEditing && alphabetical != true),
                         onTap = { if (!isEditing) startEditing(option) },
                         onLabelChange = { onChoicesChange(ChoiceEdits.renamed(choices, option.id, it)) },
                         onCommit = { commit(option.id) },
@@ -428,6 +445,7 @@ private fun ChoiceLabelFrame(
 @Composable
 private fun ActiveChoiceRow(
     option: ChoiceOption,
+    showGrip: Boolean,
     isEditing: Boolean,
     preselection: ChoicePreselection,
     gripModifier: Modifier,
@@ -446,7 +464,7 @@ private fun ActiveChoiceRow(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
+        if (showGrip) Icon(
             imageVector = Icons.Filled.DragIndicator,
             contentDescription = "Reorder",
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
