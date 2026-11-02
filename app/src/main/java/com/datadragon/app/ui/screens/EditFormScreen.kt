@@ -857,7 +857,7 @@ private fun SettingsControls(
         }
         FieldType.DROPDOWN, FieldType.MULTIPLE -> ChoiceOptionsEditor(
             choices = field.choices,
-            onChoicesChange = { field.choices = if (field.orderOptionsAlphabetically) ChoiceEdits.alphabetical(it) else it },
+            onChoicesChange = { field.choices = it },
             alphabetical = field.orderOptionsAlphabetically,
             onAlphabeticalChange = { field.orderOptionsAlphabetically = it },
             wording = ChoiceEditorWordings.formOptions,

@@ -25,7 +25,7 @@ class ChoiceOptionsEditorTest {
         val alphabetical = mutableStateOf(false)
         compose.setContent { DataDragonTheme(dynamicColor = false) {
             ChoiceOptionsEditor(choices = choices.value,
-                onChoicesChange = { choices.value = if (alphabetical.value) ChoiceEdits.alphabetical(it) else it },
+                onChoicesChange = { choices.value = it },
                 wording = ChoiceEditorWordings.formOptions, preselection = ChoicePreselection.MULTIPLE,
                 capitalizeNew = false, onDeletePermanently = {}, alphabetical = alphabetical.value,
                 onAlphabeticalChange = { alphabetical.value = it })
@@ -48,18 +48,35 @@ class ChoiceOptionsEditorTest {
                 wording = ChoiceEditorWordings.formOptions, preselection = ChoicePreselection.MULTIPLE,
                 capitalizeNew = false, onDeletePermanently = {})
         } }
-        compose.onNodeWithText("Add Option").performClick()
+        compose.onNodeWithText("Add Option", substring = true).performClick()
         compose.onNodeWithContentDescription("Option Name").performTextInput("Middle")
         compose.onNode(hasSetTextAction()).assertIsFocused()
         val handles = compose.onAllNodesWithContentDescription("Reorder")
         val first = handles[0].getUnclippedBoundsInRoot()
         val last = handles[2].getUnclippedBoundsInRoot()
-        val distance = with(compose.density) { (last.center.y - first.center.y).toPx() }
+        val distance = with(compose.density) { (last.top - first.top).toPx() }
         handles[2].performTouchInput { swipe(center, Offset(center.x, center.y - distance), durationMillis = 800) }
         compose.waitForIdle()
         compose.runOnIdle {
             assertEquals("Middle", choices.value.first().label)
             assertEquals(setOf("Alpha", "Middle", "Zed"), choices.value.map { it.label }.toSet())
+        }
+    }
+
+    @Test fun alphabeticalRenameKeepsFocusAndSortsAfterEditingFinishes() {
+        val choices = mutableStateOf(listOf(ChoiceOption("z", "Zed"), ChoiceOption("a", "Alpha")))
+        compose.setContent { DataDragonTheme(dynamicColor = false) {
+            ChoiceOptionsEditor(choices = choices.value, onChoicesChange = { choices.value = it },
+                wording = ChoiceEditorWordings.formOptions, preselection = ChoicePreselection.SINGLE,
+                capitalizeNew = false, onDeletePermanently = {}, alphabetical = true)
+        } }
+        compose.onNodeWithText("Zed").performClick()
+        compose.onNode(hasSetTextAction()).performTextClearance()
+        compose.onNode(hasSetTextAction()).performTextInput("Beta")
+        compose.onNode(hasSetTextAction()).assertIsFocused().performImeAction()
+        compose.runOnIdle {
+            assertEquals(listOf("Alpha", "Beta"), choices.value.map { it.label })
+            assertEquals("z", choices.value.last().id)
         }
     }
 

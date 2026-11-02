@@ -169,6 +169,11 @@ fun ChoiceOptionsEditor(
     var pendingDelete by remember { mutableStateOf<ChoiceOption?>(null) }
     val focusManager = LocalFocusManager.current
 
+    // Keep the text editor stationary while typing; sort when the edit commits.
+    fun publish(updated: List<ChoiceOption>) {
+        onChoicesChange(if (alphabetical == true && editingId == null) ChoiceEdits.alphabetical(updated) else updated)
+    }
+
     /**
      * Finish renaming [id] and return the resulting list: a valid new name is
      * kept; a blank or colliding name puts the row back (and drops a just-added
@@ -206,24 +211,27 @@ fun ChoiceOptionsEditor(
     /** Commit [id]'s rename (if it is being edited) and publish the result. */
     fun commit(id: String) {
         val result = committed(id, choices)
-        if (result != choices) onChoicesChange(result)
+        if (result != choices || alphabetical == true) publish(result)
     }
 
     /**
      * Settle any rename in progress and return the list to build the next
      * change on, so a commit and a following change never overwrite each other.
      */
-    fun settled(): List<ChoiceOption> = editingId?.let { committed(it, choices) } ?: choices
+    fun settled(): List<ChoiceOption> {
+        val base = editingId?.let { committed(it, choices) } ?: choices
+        return if (alphabetical == true) ChoiceEdits.alphabetical(base) else base
+    }
 
     fun startEditing(option: ChoiceOption) {
         val base = settled()
-        if (base != choices) onChoicesChange(base)
+        if (base != choices) publish(base)
         editingId = option.id
         labelBeforeEdit = option.label
         editingIsNew = false
     }
 
-    val active = (if (alphabetical == true) ChoiceEdits.alphabetical(choices) else choices).activeChoices
+    val active = (if (alphabetical == true && editingId == null) ChoiceEdits.alphabetical(choices) else choices).activeChoices
     val retired = choices.retiredChoices
 
     Column(
@@ -247,7 +255,7 @@ fun ChoiceOptionsEditor(
                     val settled = settled()
                     val base = if (alphabetical) ChoiceEdits.alphabetical(settled) else settled
                     onAlphabeticalChange(checked)
-                    onChoicesChange(if (checked) ChoiceEdits.alphabetical(base) else base)
+                    publish(if (checked) ChoiceEdits.alphabetical(base) else base)
                 },
             )
         }
@@ -259,7 +267,7 @@ fun ChoiceOptionsEditor(
                 list = active,
                 onSettle = { from, to ->
                     active.getOrNull(from)?.let { moved ->
-                        if (alphabetical != true) onChoicesChange(ChoiceEdits.movedActive(settled(), moved.id, to))
+                        if (alphabetical != true) publish(ChoiceEdits.movedActive(settled(), moved.id, to))
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -277,7 +285,7 @@ fun ChoiceOptionsEditor(
                             .accessibleReorder(index, active.size) { offset ->
                                 val destination = index + offset
                                 if (destination in active.indices) {
-                                    onChoicesChange(ChoiceEdits.movedActive(settled(), option.id, destination))
+                                    publish(ChoiceEdits.movedActive(settled(), option.id, destination))
                                     true
                                 } else {
                                     false
@@ -287,14 +295,14 @@ fun ChoiceOptionsEditor(
                         // reorder a fresh option without leaving its text box.
                         labelDragModifier = Modifier.longPressDraggableHandle(enabled = !isEditing && alphabetical != true),
                         onTap = { if (!isEditing) startEditing(option) },
-                        onLabelChange = { onChoicesChange(ChoiceEdits.renamed(choices, option.id, it)) },
+                        onLabelChange = { publish(ChoiceEdits.renamed(choices, option.id, it)) },
                         onCommit = { commit(option.id) },
                         onDone = { focusManager.clearFocus() },
                         onRemovePreselection = {
-                            onChoicesChange(ChoiceEdits.notPreselected(settled(), option.id))
+                            publish(ChoiceEdits.notPreselected(settled(), option.id))
                         },
                         onMakePreselected = {
-                            onChoicesChange(
+                            publish(
                                 ChoiceEdits.preselected(
                                     settled(),
                                     option.id,
@@ -302,10 +310,10 @@ fun ChoiceOptionsEditor(
                                 ),
                             )
                         },
-                        onRetire = { onChoicesChange(ChoiceEdits.retired(settled(), option.id)) },
+                        onRetire = { publish(ChoiceEdits.retired(settled(), option.id)) },
                         onDelete = {
                             val base = settled()
-                            if (base != choices) onChoicesChange(base)
+                            if (base != choices) publish(base)
                             // A just-added row that was never named is simply gone.
                             base.firstOrNull { it.id == option.id }?.let { pendingDelete = it }
                         },
@@ -321,7 +329,7 @@ fun ChoiceOptionsEditor(
                 editingId = option.id
                 labelBeforeEdit = ""
                 editingIsNew = true
-                onChoicesChange(ChoiceEdits.withNew(base, option))
+                publish(ChoiceEdits.withNew(base, option))
             },
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -353,7 +361,7 @@ fun ChoiceOptionsEditor(
             retired.forEach { option ->
                 RetiredChoiceRow(
                     option = option,
-                    onRestore = { onChoicesChange(ChoiceEdits.restored(settled(), option.id)) },
+                    onRestore = { publish(ChoiceEdits.restored(settled(), option.id)) },
                     onDelete = { pendingDelete = option },
                 )
             }
@@ -372,7 +380,7 @@ fun ChoiceOptionsEditor(
             dismissButton = { DialogDismissButton("Cancel") { pendingRestore = null } },
             confirmButton = {
                 DialogActionButton("Restore") {
-                    onChoicesChange(ChoiceEdits.restored(choices, option.id))
+                    publish(ChoiceEdits.restored(choices, option.id))
                     pendingRestore = null
                 }
             },
@@ -385,11 +393,11 @@ fun ChoiceOptionsEditor(
             wording = wording,
             onCancel = { pendingDelete = null },
             onRetire = {
-                onChoicesChange(ChoiceEdits.retired(choices, option.id))
+                publish(ChoiceEdits.retired(choices, option.id))
                 pendingDelete = null
             },
             onDelete = {
-                onChoicesChange(ChoiceEdits.withoutId(choices, option.id))
+                publish(ChoiceEdits.withoutId(choices, option.id))
                 onDeletePermanently(option)
                 pendingDelete = null
             },
