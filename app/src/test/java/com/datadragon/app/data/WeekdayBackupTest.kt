@@ -1,5 +1,6 @@
 package com.datadragon.app.data
 
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.*
@@ -58,4 +59,39 @@ class WeekdayBackupTest {
         assertEquals(days.last().id, restored.single { it.weekday == 7 }.id)
         assertEquals("Munday", restored.single { it.weekday == 1 }.label)
     }
+    @Test fun immediateDeletionKeepsSavedWeekdaySettingsValidEvenIfTheEditorIsThenCancelled() {
+        val on = field.copy(choices = days, weekday = settings.copy(defaultEnteredDay = true))
+        val optionId = days.first().id
+        val answer = EntryValues.encode(mapOf(field.id to EntryValues.stringArray(listOf(optionId, days[1].id))))
+        val formResult = ChoiceDeletion.fromForm(FormMarkdownParser.encodeFields(listOf(on)), listOf(answer), emptyList(), field.id, optionId)!!
+        val form = Json.decodeFromString<List<FieldDef>>(formResult.schemaJson).single()
+        assertFalse(form.weekday.defaultEnteredDay)
+        assertEquals(settings.weekdayIds, form.weekday.weekdayIds)
+        assertFalse(form.choices.any { it.id == optionId })
+        assertEquals(listOf(days[1].id), Weekday.selected(EntryValues.decode(formResult.entryValues.single())[field.id]))
+        val formPayload = formPayload().let { it.copy(forms = it.forms!!.map { log -> log.copy(schemaJson = formResult.schemaJson) }) }
+        BackupRestoreValidator.validate(BackupFile.single("now", BackupCategory.FORMS, formPayload))
+
+        val idea = IdeaFieldDef(id = field.id, label = field.label, type = field.type, choices = days, weekday = on.weekday)
+        val ideaResult = ChoiceDeletion.fromIdeaLog(Json.encodeToString(listOf(idea)), listOf(answer), field.id, optionId)!!
+        val savedIdea = Json.decodeFromString<List<IdeaFieldDef>>(ideaResult.fieldsJson).single()
+        assertFalse(savedIdea.weekday.defaultEnteredDay)
+        assertEquals(settings.weekdayIds, savedIdea.weekday.weekdayIds)
+        assertEquals(listOf(days[1].id), Weekday.selected(EntryValues.decode(ideaResult.entryValues.single())[field.id]))
+        val ideaPayload = ideaPayload().let { it.copy(ideaLogs = it.ideaLogs!!.map { log -> log.copy(fieldsJson = ideaResult.fieldsJson) }) }
+        BackupRestoreValidator.validate(BackupFile.single("now", BackupCategory.IDEA_LOGS, ideaPayload))
+
+        val clicker = ClickerField(id = field.id, label = field.label, type = ClickerFieldType.DAY_OF_WEEK, choices = days, weekday = on.weekday)
+        val log = ClickerLog(uuid = StableUuid.createNew(), title = "Test", createdAt = 1, lastAccessedAt = 1, fieldsJson = Json.encodeToString(listOf(clicker)))
+        val updated = ClickerComparison.withoutOptionInLog(log, field.id, optionId)!!
+        val savedClicker = Json.decodeFromString<List<ClickerField>>(updated.fieldsJson).single()
+        assertFalse(savedClicker.weekday.defaultEnteredDay)
+        assertEquals(settings.weekdayIds, savedClicker.weekday.weekdayIds)
+        BackupRestoreValidator.validate(BackupFile.single("now", BackupCategory.CLICKER_DATA, BackupPayload(clickerData = listOf(BackupCodec.clickerOf(updated, emptyList())))))
+
+        val custom = ChoiceOption.createNew("Extra")
+        assertEquals(on.weekday, Weekday.afterDeleting(on.weekday, days + custom, custom.id))
+        assertEquals(days.first().id, Weekday.restoreWeekdays(form.choices, Weekday.seeds(form.weekday)).single { it.weekday == 1 }.id)
+    }
+
 }

@@ -44,7 +44,7 @@ object ChoiceDeletion {
         val fields = runCatching { json.decodeFromString(ListSerializer(FieldDef.serializer()), schemaJson) }
             .getOrNull() ?: return null
         val updated = fields.map { field ->
-            if (field.id == fieldId) field.copy(choices = ChoiceEdits.withoutId(field.choices, optionId)) else field
+            if (field.id == fieldId) field.copy(choices = ChoiceEdits.withoutId(field.choices, optionId), weekday = Weekday.afterDeleting(field.weekday, field.choices, optionId)) else field
         }
         return FormResult(
             schemaJson = if (updated == fields) schemaJson else FormMarkdownParser.encodeFields(updated),
@@ -75,7 +75,7 @@ object ChoiceDeletion {
         val fields = runCatching { json.decodeFromString(ListSerializer(IdeaFieldDef.serializer()), fieldsJson) }
             .getOrNull() ?: return null
         val updated = fields.map { field ->
-            if (field.id == fieldId) field.copy(choices = ChoiceEdits.withoutId(field.choices, categoryId)) else field
+            if (field.id == fieldId) field.copy(choices = ChoiceEdits.withoutId(field.choices, categoryId), weekday = Weekday.afterDeleting(field.weekday, field.choices, categoryId)) else field
         }
         return IdeaResult(
             fieldsJson = if (updated == fields) {

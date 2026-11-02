@@ -315,10 +315,11 @@ fun EditFormScreen(
                 // Committed right away; also drop it from the screen's own copy
                 // and its saved baseline so neither Save nor Discard brings it back.
                 viewModel.deleteOptionPermanently(draft.id, option.id)
+                if (option.weekday != null) draft.weekday = draft.weekday.copy(defaultEnteredDay = false)
                 draft.choices = ChoiceEdits.withoutId(draft.choices, option.id)
                 savedSnapshot = savedSnapshot?.map { saved ->
                     if (saved.id == draft.id) {
-                        saved.copy(choices = ChoiceEdits.withoutId(saved.choices, option.id))
+                        saved.copy(choices = ChoiceEdits.withoutId(saved.choices, option.id), weekday = Weekday.afterDeleting(saved.weekday, saved.choices, option.id))
                     } else {
                         saved
                     }

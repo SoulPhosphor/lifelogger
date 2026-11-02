@@ -612,3 +612,11 @@ A newly added choice that has never been saved is deleted outright, rather than
 retired. Single Choice, Multiple Choices and Day of the Week builders use the
 saved option UUIDs as this boundary. A persisted choice retains the existing
 Retire / Delete behavior. All controls use the existing theme roles and styles.
+
+Permanent deletion commits immediately, as in the existing choice editors. If a
+saved built-in weekday is deleted after Default Entered Day is turned off in the
+draft, that prerequisite setting is committed off in the same deletion transaction.
+The saved editor baseline is updated too. Cancelling subsequent edits therefore
+cannot leave the saved automatic-day setting on with a missing weekday. Other
+unsaved settings remain pending, and custom-option deletion does not change the
+saved automatic-day setting.

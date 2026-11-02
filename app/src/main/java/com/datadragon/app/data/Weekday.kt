@@ -29,6 +29,10 @@ object Weekday {
             ChoiceOption(id = newId(), label = day.getDisplayName(TextStyle.FULL, Locale.ENGLISH), weekday = day.value)
         }
 
+    /** Immediate permanent deletion also commits the prerequisite that allowed a built-in to be deleted. */
+    fun afterDeleting(settings: WeekdaySettings, choices: List<ChoiceOption>, optionId: String): WeekdaySettings =
+        if (choices.any { it.id == optionId && it.weekday != null }) settings.copy(defaultEnteredDay = false) else settings
+
     fun validChoices(choices: List<ChoiceOption>, settings: WeekdaySettings): Boolean =
         choices.activeChoices.any { it.label.isNotBlank() } &&
             (!settings.defaultEnteredDay || (1..7).all { day -> choices.any { it.weekday == day && !it.retired && it.label.isNotBlank() } })

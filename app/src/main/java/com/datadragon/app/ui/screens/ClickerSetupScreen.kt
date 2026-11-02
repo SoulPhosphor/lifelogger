@@ -385,10 +385,11 @@ fun ClickerSetupScreen(
                         // Committed at once for a saved log, like a form's option, so
                         // it leaves the saved baseline too and doesn't count as unsaved.
                         existingLogId?.let { viewModel.deleteComparisonOptionPermanently(it, field.id, option.id) }
+                        if (option.weekday != null) field.weekday = field.weekday.copy(defaultEnteredDay = false)
                         savedSetup = savedSetup?.let { saved ->
                             saved.copy(
                                 fields = saved.fields.map {
-                                    if (it.id == field.id) it.copy(choices = ChoiceEdits.withoutId(it.choices, option.id)) else it
+                                    if (it.id == field.id) it.copy(choices = ChoiceEdits.withoutId(it.choices, option.id), weekday = Weekday.afterDeleting(it.weekday, it.choices, option.id)) else it
                                 },
                             )
                         }

@@ -182,7 +182,7 @@ class IdeaLogEditorViewModel(app: Application) : AndroidViewModel(app) {
                 // Keep the saved baseline in step so the deleted category never
                 // counts as an unsaved change or comes back on Discard.
                 _loadedFields.value = _loadedFields.value.map { field ->
-                    if (field.id == fieldId) field.copy(choices = ChoiceEdits.withoutId(field.choices, categoryId)) else field
+                    if (field.id == fieldId) field.copy(choices = ChoiceEdits.withoutId(field.choices, categoryId), weekday = com.datadragon.app.data.Weekday.afterDeleting(field.weekday, field.choices, categoryId)) else field
                 }
             }
         }

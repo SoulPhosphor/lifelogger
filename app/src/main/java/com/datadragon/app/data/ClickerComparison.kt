@@ -133,7 +133,7 @@ object ClickerComparison {
     fun withoutOptionInLog(log: ClickerLog, fieldId: String, optionId: String): ClickerLog? {
         val fields = decodeFields(log.fieldsJson) ?: return null
         val updated = fields.map { field ->
-            if (field.id == fieldId) field.copy(choices = ChoiceEdits.withoutId(field.choices, optionId)) else field
+            if (field.id == fieldId) field.copy(choices = ChoiceEdits.withoutId(field.choices, optionId), weekday = Weekday.afterDeleting(field.weekday, field.choices, optionId)) else field
         }
         return if (updated == fields) null else log.copy(fieldsJson = encodeFields(updated))
     }
