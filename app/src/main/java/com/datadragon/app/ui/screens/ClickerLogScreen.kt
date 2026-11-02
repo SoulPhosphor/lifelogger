@@ -1,5 +1,8 @@
 package com.datadragon.app.ui.screens
 
+import com.datadragon.app.data.CardCopyText
+import com.datadragon.app.ui.components.rememberCopyText
+
 import com.datadragon.app.export.SaveExportDocument
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -135,6 +138,7 @@ fun ClickerLogScreen(
 
     var cogMenuOpen by remember { mutableStateOf(false) }
     var confirmDeleteLog by remember { mutableStateOf(false) }
+    val copyText = rememberCopyText()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -316,6 +320,7 @@ fun ClickerLogScreen(
                             onNotice = { showNotice(it) },
                         ),
                         onEditCard = { onEditCard(card.id) },
+                        onCopyCard = { scope.launch { viewModel.copySnapshot(card.id)?.let(copyText) } },
                         onDeleteCard = { viewModel.deleteCard(card) },
                     )
                 }
@@ -416,6 +421,7 @@ private fun ClickerCardView(
     onSetValue: (ClickerField, String) -> Unit,
     comparison: ClickerComparisonActions,
     onEditCard: () -> Unit,
+    onCopyCard: () -> Unit,
     onDeleteCard: () -> Unit,
 ) {
     val values = remember(card.valuesJson) { ClickerValues.decode(card.valuesJson) }
@@ -437,6 +443,10 @@ private fun ClickerCardView(
                         DropdownMenuItem(
                             text = { Text("Edit") },
                             onClick = { menuOpen = false; onEditCard() },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Copy") },
+                            onClick = { menuOpen = false; onCopyCard() },
                         )
                         DropdownMenuItem(
                             text = { Text("Delete") },

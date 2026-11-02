@@ -1,5 +1,8 @@
 package com.datadragon.app.ui.screens
 
+import com.datadragon.app.data.CardCopyText
+import com.datadragon.app.ui.components.rememberCopyText
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -60,6 +63,7 @@ fun IdeaDetailScreen(
         if (logId != null && id != null) viewModel.load(logId, id)
     }
 
+    val copyText = rememberCopyText()
     val log by viewModel.log.collectAsStateWithLifecycle()
     val fields by viewModel.fields.collectAsStateWithLifecycle()
     val entry by viewModel.entry.collectAsStateWithLifecycle()
@@ -91,6 +95,7 @@ fun IdeaDetailScreen(
                             onMenuOpenChange = { menuOpen = it },
                             onToggleMark = viewModel::toggleMark,
                             onEdit = { onEditIdea(current.id) },
+                            onCopy = { copyText(CardCopyText.idea(current, fields, log?.automaticTimestamping == true)) },
                             onSetArchived = viewModel::setArchived,
                             onDelete = { confirmDelete = true },
                         )

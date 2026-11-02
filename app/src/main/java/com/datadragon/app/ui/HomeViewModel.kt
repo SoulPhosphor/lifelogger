@@ -8,6 +8,7 @@ import com.datadragon.app.data.AppDatabase
 import com.datadragon.app.data.Checklist
 import com.datadragon.app.data.asChecklist
 import com.datadragon.app.data.ClickerLog
+import com.datadragon.app.data.HomeGroupingOrder
 import com.datadragon.app.data.HomeView
 import com.datadragon.app.data.IdeaLog
 import com.datadragon.app.data.LogTemplate
@@ -32,6 +33,13 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     private val clickerDao = AppDatabase.getInstance(app).clickerDao()
     private val settings = SettingsRepository(app)
 
+    private val groupingOrders = MutableStateFlow(settings.homeGroupingOrders())
+
+    fun reorderGroupings(mode: HomeView, uuids: List<String>) {
+        settings.setHomeGroupingOrder(mode, uuids)
+        groupingOrders.value = settings.homeGroupingOrders()
+    }
+
     /**
      * Home rows: each template paired with its entry count and most-recent entry
      * time, so the screen can show "N entries · last entry …" (docs/UI_SPEC.md §2).
@@ -47,6 +55,8 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                     lastEntryAt = summary?.lastCreatedAt,
                 )
             }
+        }.combine(groupingOrders) { rows, orders ->
+            HomeGroupingOrder.apply(rows, orders[HomeView.FORMS.key].orEmpty()) { it.template.uuid }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /**
@@ -65,16 +75,22 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                     lastEntryAt = summary?.lastCreatedAt,
                 )
             }
+        }.combine(groupingOrders) { rows, orders ->
+            HomeGroupingOrder.apply(rows, orders[HomeView.IDEAS.key].orEmpty()) { it.log.uuid }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val luckyLists: StateFlow<List<Checklist>> = luckyDao.observeLists()
         .map { lists -> lists.map { it.asChecklist() } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        .combine(groupingOrders) { rows, orders ->
+            HomeGroupingOrder.apply(rows, orders[HomeView.LUCKY_LIST.key].orEmpty()) { it.uuid }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** All saved lists, shown as name-only cards in the Lists view (drafts excluded). */
     val checklists: StateFlow<List<Checklist>> =
         checklistDao.observeChecklists()
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+            .combine(groupingOrders) { rows, orders ->
+            HomeGroupingOrder.apply(rows, orders[HomeView.LISTS.key].orEmpty()) { it.uuid }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /**
      * Clicker Home rows: each Clicker grouping paired with its card count, so the
@@ -88,6 +104,8 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
             logs.map { log ->
                 HomeClickerLog(log = log, entryCount = byLog[log.id]?.count ?: 0)
             }
+        }.combine(groupingOrders) { rows, orders ->
+            HomeGroupingOrder.apply(rows, orders[HomeView.CLICKER.key].orEmpty()) { it.log.uuid }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     // The most recent unfinished draft (if any), checked once when Home is created
@@ -152,6 +170,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     // SharedPreferences keeps listeners weakly, so this strong reference must live
     // as long as the view model does; onCleared unregisters it.
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+        groupingOrders.value = settings.homeGroupingOrders()
         _navStyle.value = settings.navStyle
         _useModeLabelInDropdown.value = settings.useModeLabelInDropdown
         val enabled = settings.enabledModes

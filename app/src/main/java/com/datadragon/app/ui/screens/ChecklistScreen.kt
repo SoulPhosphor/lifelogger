@@ -1,5 +1,8 @@
 package com.datadragon.app.ui.screens
 
+import com.datadragon.app.data.CardCopyText
+import com.datadragon.app.ui.components.rememberCopyText
+
 import com.datadragon.app.export.SaveExportDocument
 import com.datadragon.app.ui.components.reorderedItems
 import com.datadragon.app.ui.components.accessibleReorder
@@ -115,6 +118,7 @@ fun ChecklistScreen(
     val idLong = checklistId?.toLongOrNull()
     LaunchedEffect(checklistId) { viewModel.load(idLong) }
 
+    val copyText = rememberCopyText()
     val context = LocalContext.current
     val exportScope = rememberCoroutineScope()
     var menuOpen by remember { mutableStateOf(false) }
@@ -300,6 +304,10 @@ fun ChecklistScreen(
                                 Icon(Icons.Filled.MoreVert, contentDescription = "List options")
                             }
                             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("Copy") },
+                                    onClick = { menuOpen = false; copyText(CardCopyText.list(title, items.map { CardCopyText.Item(it.text, it.completed, it.indent) }, lucky)) },
+                                )
                                 DropdownMenuItem(
                                     text = { Text("Export") },
                                     onClick = {

@@ -26,6 +26,7 @@ object BackupRestoreValidator {
             "Backup category counts do not match its payload."
         }
 
+        backup.payload.portablePreferences?.homeGroupingOrders?.let(HomeGroupingOrder::validate)
         validateForms(backup)
         validateLists(backup)
         backup.payload.luckyLists?.let { lists ->

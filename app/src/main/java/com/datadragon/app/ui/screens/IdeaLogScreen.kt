@@ -1,5 +1,8 @@
 package com.datadragon.app.ui.screens
 
+import com.datadragon.app.data.CardCopyText
+import com.datadragon.app.ui.components.rememberCopyText
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -425,6 +428,8 @@ private fun IdeaCard(
     onSetArchived: (Boolean) -> Unit,
     onDelete: () -> Unit,
 ) {
+    val copyText = rememberCopyText()
+    val onCopy = { copyText(CardCopyText.idea(entry, fields, showAutomaticTimestamp)) }
     val values = remember(entry.valuesJson) { IdeaValues.decode(entry.valuesJson) }
     val mode = cardDisplayMode(log)
     val shown = remember(fields, values, mode) { visibleIdeaFields(fields, values, mode) }
@@ -476,6 +481,7 @@ private fun IdeaCard(
                             onMenuOpenChange = { menuOpen = it },
                             onToggleMark = onToggleMark,
                             onEdit = onEdit,
+                            onCopy = onCopy,
                             onSetArchived = onSetArchived,
                             onDelete = onDelete,
                         )
@@ -505,6 +511,7 @@ private fun IdeaCard(
                         onMenuOpenChange = { menuOpen = it },
                         onToggleMark = onToggleMark,
                         onEdit = onEdit,
+                            onCopy = onCopy,
                         onSetArchived = onSetArchived,
                         onDelete = onDelete,
                     )
@@ -529,6 +536,7 @@ internal fun IdeaActions(
     onMenuOpenChange: (Boolean) -> Unit,
     onToggleMark: () -> Unit,
     onEdit: () -> Unit,
+    onCopy: () -> Unit,
     onSetArchived: (Boolean) -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -545,6 +553,10 @@ internal fun IdeaActions(
             DropdownMenuItem(
                 text = { Text("Edit") },
                 onClick = { onMenuOpenChange(false); onEdit() },
+            )
+            DropdownMenuItem(
+                text = { Text("Copy") },
+                onClick = { onMenuOpenChange(false); onCopy() },
             )
             DropdownMenuItem(
                 text = { Text(if (marked) "Unmark" else "Mark") },

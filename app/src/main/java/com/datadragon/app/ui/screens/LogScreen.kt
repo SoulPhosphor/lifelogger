@@ -1,5 +1,8 @@
 package com.datadragon.app.ui.screens
 
+import com.datadragon.app.data.CardCopyText
+import com.datadragon.app.ui.components.rememberCopyText
+
 import com.datadragon.app.export.SaveExportDocument
 import com.datadragon.app.data.AdvancedSearch
 import com.datadragon.app.ui.components.AdvancedView
@@ -460,6 +463,8 @@ private fun EntryRow(
     onAddNote: () -> Unit,
     onEditNote: (Long) -> Unit,
 ) {
+    val copyText = rememberCopyText()
+    val onCopy = { copyText(CardCopyText.form(entry, fields, appendedNotes, showAutomaticTimestamp)) }
     val values = remember(entry.valuesJson) { EntryValues.decode(entry.valuesJson) }
     val notes = remember(values) { EntryValues.notes(values) }
     var menuOpen by remember { mutableStateOf(false) }
@@ -523,6 +528,7 @@ private fun EntryRow(
                             onMenuOpenChange = { menuOpen = it },
                             onToggleMark = onToggleMark,
                             onEdit = onEdit,
+                            onCopy = onCopy,
                             onAddNote = onAddNote,
                             onDelete = onDelete,
                         )
@@ -567,6 +573,7 @@ private fun EntryRow(
                         onMenuOpenChange = { menuOpen = it },
                         onToggleMark = onToggleMark,
                         onEdit = onEdit,
+                            onCopy = onCopy,
                         onAddNote = onAddNote,
                         onDelete = onDelete,
                     )
@@ -589,6 +596,7 @@ private fun EntryActions(
     onMenuOpenChange: (Boolean) -> Unit,
     onToggleMark: () -> Unit,
     onEdit: () -> Unit,
+    onCopy: () -> Unit,
     onAddNote: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -609,6 +617,10 @@ private fun EntryActions(
                     onClick = { onMenuOpenChange(false); onEdit() },
                 )
             }
+            DropdownMenuItem(
+                text = { Text("Copy") },
+                onClick = { onMenuOpenChange(false); onCopy() },
+            )
             DropdownMenuItem(
                 text = { Text(if (marked) "Unmark" else "Mark") },
                 onClick = { onMenuOpenChange(false); onToggleMark() },
