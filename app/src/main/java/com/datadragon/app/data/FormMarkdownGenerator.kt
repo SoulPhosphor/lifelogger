@@ -41,6 +41,20 @@ object FormMarkdownGenerator {
                         }
                     }
                 }
+                FieldType.DAY_OF_WEEK -> {
+                    sb.append("default_entered_day: ").append(field.weekday.defaultEnteredDay).append('\n')
+                    sb.append("only_allow_choosing_one_day: ").append(field.weekday.onlyOne).append('\n')
+                    sb.append("choice_style: ").append(if (field.weekday.choiceStyle == ChoiceStyle.DISPLAYED) "displayed" else "dropdown").append('\n')
+                    sb.append("weekday_numbers: ").append(kotlinx.serialization.json.JsonArray(field.activeChoices.map {
+                        it.weekday?.let({ n -> kotlinx.serialization.json.JsonPrimitive(n) }) ?: kotlinx.serialization.json.JsonNull
+                    })).append('\n')
+                    sb.append("options:\n")
+                    field.activeChoices.forEach { choice ->
+                        sb.append("- ")
+                        if (choice.preselected) sb.append('*')
+                        sb.append(choice.label).append('\n')
+                    }
+                }
                 FieldType.COMPARISON -> {
                     sb.append("options:\n")
                     field.activeChoices.forEach { choice -> sb.append("- ").append(choice.label).append('\n') }

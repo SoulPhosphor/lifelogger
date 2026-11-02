@@ -98,6 +98,8 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import sh.calvin.reorderable.ReorderableColumn
+import com.datadragon.app.data.Weekday
+import com.datadragon.app.data.WeekdaySettings
 import com.datadragon.app.ui.theme.AppTheme
 
 /** Which editor is showing. Build (visual taps) is the default. */
@@ -905,16 +907,24 @@ private fun FieldEditorCard(
                 )
             }
 
-            OutlinedTextField(
-                value = field.label,
-                onValueChange = { field.label = it },
-                label = { Text("Label") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            if (field.type == FieldType.DAY_OF_WEEK) {
+                WeekdayLabelEditor(value = field.label, onValueChange = { field.label = it })
+            } else {
+                OutlinedTextField(
+                    value = field.label,
+                    onValueChange = { field.label = it },
+                    label = { Text("Label") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
 
             TypeDropdown(selected = field.type, onSelected = {
                 field.type = it
+                if (it == FieldType.DAY_OF_WEEK && field.weekday.weekdayIds.isEmpty()) {
+                    field.choices = Weekday.newChoices()
+                    field.weekday = field.weekday.copy(weekdayIds = Weekday.identities(field.choices))
+                }
                 // Time-only and non-date fields can never take part in ordering.
                 if (!it.sortEligible) {
                     field.allowOrderFiltering = false
@@ -958,6 +968,13 @@ private fun FieldEditorCard(
                         title = "Make Dropdown Instead",
                     )
                 }
+                FieldType.DAY_OF_WEEK -> WeekdaySettingsControls(
+                    settings = field.weekday, choices = field.choices, seeds = Weekday.seeds(field.weekday),
+                    persistedIds = emptySet(), onSettingsChange = { field.weekday = it },
+                    onChoicesChange = { field.choices = it }, required = field.required,
+                    onRequiredChange = { field.required = it }, capitalizeNew = false,
+                    onDeletePermanently = {},
+                )
                 FieldType.DROPDOWN, FieldType.MULTIPLE -> {
                     Text("Options (One per Line)", style = MaterialTheme.typography.labelLarge)
                     if (field.type == FieldType.MULTIPLE) {
@@ -1061,7 +1078,7 @@ private fun FieldEditorCard(
                 }
             }
             // A Comparison or List Item Quantities field is never required.
-            if (!field.type.hasItemRows) {
+            if (!field.type.hasItemRows && field.type != FieldType.DAY_OF_WEEK) {
                 SettingSwitchRow(
                     checked = field.required,
                     onCheckedChange = { field.required = it },
@@ -1252,6 +1269,7 @@ private class DraftField(
     from: String = "",
     to: String = "",
     optionsText: String = "",
+    choices: List<ChoiceOption> = emptyList(),
     orderOptionsAlphabetically: Boolean = false,
     defaultNow: Boolean = false,
     allowOrderFiltering: Boolean = false,
@@ -1259,6 +1277,7 @@ private class DraftField(
     allowUnknown: Boolean = false,
     makeDropdown: Boolean = false,
     choiceStyle: ChoiceStyle = ChoiceStyle.DROPDOWN,
+    weekday: WeekdaySettings = WeekdaySettings(),
     preselectedOption: String = "",
     leftDigits: String = "",
     rightDigits: String = "",
@@ -1288,6 +1307,7 @@ private class DraftField(
     var from by mutableStateOf(from)
     var to by mutableStateOf(to)
     var optionsText by mutableStateOf(optionsText)
+    var choices by mutableStateOf(choices)
     var orderOptionsAlphabetically by mutableStateOf(orderOptionsAlphabetically)
     var defaultNow by mutableStateOf(defaultNow)
     var allowOrderFiltering by mutableStateOf(allowOrderFiltering)
@@ -1295,6 +1315,7 @@ private class DraftField(
     var allowUnknown by mutableStateOf(allowUnknown)
     var makeDropdown by mutableStateOf(makeDropdown)
     var choiceStyle by mutableStateOf(choiceStyle)
+    var weekday by mutableStateOf(weekday)
     /** Single Choice: the name of the option pre-selected on new entries (blank for none). */
     var preselectedOption by mutableStateOf(preselectedOption)
     var leftDigits by mutableStateOf(leftDigits)
@@ -1328,6 +1349,7 @@ private class DraftField(
      * ignoring capitalization) is the one pre-selected option.
      */
     fun choiceList(): List<ChoiceOption> {
+        if (type == FieldType.DAY_OF_WEEK) return choices.filter { it.label.isNotBlank() }.map { it.copy(label = it.label.trim()) }
         val choices = optionList().map { written ->
             val marked = type == FieldType.MULTIPLE && written.startsWith("*") &&
                 written.removePrefix("*").isNotBlank()
@@ -1351,9 +1373,10 @@ private class DraftField(
     private fun effectiveTo(): Int = to.toIntOrNull() ?: SCALE_DEFAULT_TO
 
     fun isValid(): Boolean {
-        if (label.trim().isEmpty()) return false
+        if (label.trim().isEmpty() && type != FieldType.DAY_OF_WEEK) return false
         return when (type) {
             FieldType.SCALE -> effectiveTo() >= effectiveFrom()
+            FieldType.DAY_OF_WEEK -> Weekday.validChoices(choices, weekday)
             FieldType.DROPDOWN -> optionList().isNotEmpty() && preselectedOptionValid()
             FieldType.MULTIPLE, FieldType.COMPARISON, FieldType.LIST_ITEM_QUANTITIES -> optionList().isNotEmpty()
             FieldType.RATIO -> ratioDigitsValid()
@@ -1363,9 +1386,9 @@ private class DraftField(
 
     /** A short error message when the field isn't yet valid, else null. */
     fun validationHint(): String? = when {
-        label.trim().isEmpty() -> "Add a label."
+        label.trim().isEmpty() && type != FieldType.DAY_OF_WEEK -> "Add a label."
         type == FieldType.SCALE && !isValid() -> "Scale To must be ≥ From."
-        type.hasOptionList && optionList().isEmpty() ->
+        type.hasOptionList && type != FieldType.DAY_OF_WEEK && optionList().isEmpty() ->
             "Add at least one option."
         !preselectedOptionValid() -> "Enter an option from the list."
         type == FieldType.RATIO && !ratioDigitsValid() -> RATIO_DIGITS_HINT
@@ -1378,7 +1401,7 @@ private class DraftField(
     /** A brand-new field: it keeps the draft's [id]; each option gets a fresh permanent id. */
     fun toFieldDef(): FieldDef = FieldDef(
         id = id,
-        label = label.trim(),
+        label = label.trim().ifBlank { if (type == FieldType.DAY_OF_WEEK) Weekday.LABEL else "" },
         type = type,
         required = required && !type.hasItemRows,
         lines = if (type == FieldType.MULTILINE) lines.toIntOrNull() else null,
@@ -1396,6 +1419,7 @@ private class DraftField(
         allowUnknown = type == FieldType.YESNO && allowUnknown,
         makeDropdown = type == FieldType.SCALE && makeDropdown,
         choiceStyle = if (type == FieldType.DROPDOWN) choiceStyle else ChoiceStyle.DROPDOWN,
+        weekday = weekday,
         leftDigits = if (type == FieldType.RATIO) RatioValues.parseDigits(leftDigits) else null,
         rightDigits = if (type == FieldType.RATIO) RatioValues.parseDigits(rightDigits) else null,
         unit = if (type == FieldType.RATIO) unit.trim() else "",
@@ -1426,6 +1450,7 @@ private class DraftField(
         from = from,
         to = to,
         optionsText = optionsText,
+        choices = choices,
         orderOptionsAlphabetically = orderOptionsAlphabetically,
         defaultNow = defaultNow,
         allowOrderFiltering = allowOrderFiltering,
@@ -1433,6 +1458,7 @@ private class DraftField(
         allowUnknown = allowUnknown,
         makeDropdown = makeDropdown,
         choiceStyle = choiceStyle,
+        weekday = weekday,
         preselectedOption = preselectedOption,
         leftDigits = leftDigits,
         rightDigits = rightDigits,
@@ -1475,6 +1501,7 @@ private data class DraftFieldSnapshot(
     val from: String,
     val to: String,
     val optionsText: String,
+    val choices: List<ChoiceOption> = emptyList(),
     val orderOptionsAlphabetically: Boolean = false,
     val defaultNow: Boolean,
     val allowOrderFiltering: Boolean = false,
@@ -1482,6 +1509,7 @@ private data class DraftFieldSnapshot(
     val allowUnknown: Boolean = false,
     val makeDropdown: Boolean = false,
     val choiceStyle: ChoiceStyle = ChoiceStyle.DROPDOWN,
+    val weekday: WeekdaySettings = WeekdaySettings(),
     val preselectedOption: String = "",
     val leftDigits: String = "",
     val rightDigits: String = "",
@@ -1514,6 +1542,7 @@ private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
     from = from,
     to = to,
     optionsText = optionsText,
+    choices = choices,
     orderOptionsAlphabetically = orderOptionsAlphabetically,
     defaultNow = defaultNow,
     allowOrderFiltering = allowOrderFiltering,
@@ -1521,6 +1550,7 @@ private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
     allowUnknown = allowUnknown,
     makeDropdown = makeDropdown,
     choiceStyle = choiceStyle,
+    weekday = weekday,
     preselectedOption = preselectedOption,
     leftDigits = leftDigits,
     rightDigits = rightDigits,
@@ -1595,6 +1625,7 @@ private fun FieldDef.toDraft(): DraftField = DraftField(
     orderOptionsAlphabetically = orderOptionsAlphabetically,
     // Back to the creation syntax: `*` marks a pre-selected Multiple Choice
     // option; a Single Choice default goes in Pre-Selected Option.
+    choices = choices,
     optionsText = activeChoices.joinToString("\n") { choice ->
         if (type == FieldType.MULTIPLE && choice.preselected) "*${choice.label}" else choice.label
     },
@@ -1603,6 +1634,7 @@ private fun FieldDef.toDraft(): DraftField = DraftField(
     allowUnknown = allowUnknown,
     makeDropdown = makeDropdown,
     choiceStyle = choiceStyle,
+    weekday = weekday,
     preselectedOption = if (type == FieldType.DROPDOWN) {
         activeChoices.firstOrNull { it.preselected }?.label.orEmpty()
     } else {
@@ -1644,6 +1676,7 @@ private fun FieldType.friendly(): String = when (this) {
     FieldType.MULTIPLE -> "Multiple Choices"
     FieldType.SCALE -> "Scale (Number Range)"
     FieldType.YESNO -> "Yes / No (with optional Unknown)"
+    FieldType.DAY_OF_WEEK -> Weekday.LABEL
     FieldType.DATE -> "Date"
     FieldType.TIME -> "Time"
     FieldType.DATETIME -> "Date & time"
@@ -1665,6 +1698,7 @@ private fun FieldDef.summary(): String {
         FieldType.MULTIPLE -> "Pick several: " + activeChoices.joinToString(", ") { it.label }
         FieldType.SCALE -> "Scale $from–$to" + (if (makeDropdown) " · Dropdown" else "")
         FieldType.YESNO -> if (allowUnknown) "Yes / No / Unknown" else "Yes / No"
+        FieldType.DAY_OF_WEEK -> Weekday.LABEL
         FieldType.DATE -> "Date"
         FieldType.TIME -> "Time"
         FieldType.DATETIME -> "Date & time" + (if (defaultNow) " (defaults to now)" else "")

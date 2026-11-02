@@ -436,3 +436,16 @@ from encoding so older payloads and checksums are unchanged. A declaration
 requires backup 14. Existing form snapshot, individual export, Merge conflict,
 Replace, Undo and revision tracking cover the field setting without a Room
 schema change.
+
+
+### Day of the Week fields (format 15)
+
+Day of the Week adds only schema/value JSON inside the existing Forms, Ideas and
+Clicker Data categories. There are no new Room tables, preference keys or database
+schema changes. Existing category snapshot, Merge/Replace, Undo and revision
+triggers carry this JSON unchanged. Format 15 protects older clients from silently
+dropping the new field type or settings. The codec detects it in all three modes.
+The validator checks option identity, immutable weekday associations, the complete
+built-in identity map, and all seven active weekdays when Default Entered Day is
+on. WeekdayBackupTest covers individual and multi-mode envelopes, exact schema and
+value round trips, version rejection, and validation of missing weekdays.

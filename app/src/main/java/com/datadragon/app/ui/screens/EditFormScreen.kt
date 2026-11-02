@@ -91,6 +91,8 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
+import com.datadragon.app.data.Weekday
+import com.datadragon.app.data.WeekdaySettings
 import com.datadragon.app.ui.theme.AppTheme
 
 /**
@@ -283,7 +285,12 @@ fun EditFormScreen(
                 savedAllowAdditionsFromForm = allowAdditionsFromForm
                 savedAdvancedSearchEnabled = advancedSearchEnabled
                 savedLocked = locked
-                rows.forEach { it.convertOnce = false }
+                rows.forEach { row ->
+                    row.convertOnce = false
+                    fieldsToSave.firstOrNull { it.id == row.id }?.let { saved ->
+                        row.persistedChoiceIds = saved.choices.map { it.id }.toSet()
+                    }
+                }
                 savedSnapshot = rows.map { it.toFieldDef() }
                 onDone()
             },
@@ -308,10 +315,11 @@ fun EditFormScreen(
                 // Committed right away; also drop it from the screen's own copy
                 // and its saved baseline so neither Save nor Discard brings it back.
                 viewModel.deleteOptionPermanently(draft.id, option.id)
+                if (option.weekday != null) draft.weekday = draft.weekday.copy(defaultEnteredDay = false)
                 draft.choices = ChoiceEdits.withoutId(draft.choices, option.id)
                 savedSnapshot = savedSnapshot?.map { saved ->
                     if (saved.id == draft.id) {
-                        saved.copy(choices = ChoiceEdits.withoutId(saved.choices, option.id))
+                        saved.copy(choices = ChoiceEdits.withoutId(saved.choices, option.id), weekday = Weekday.afterDeleting(saved.weekday, saved.choices, option.id))
                     } else {
                         saved
                     }
@@ -692,13 +700,17 @@ private fun FieldEditorScreen(
                 .padding(AppTheme.spacing.screenInset),
             verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset),
         ) {
-            OutlinedTextField(
-                value = draft.label,
-                onValueChange = { draft.label = it },
-                label = { Text("Label") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            if (draft.type == FieldType.DAY_OF_WEEK) {
+                WeekdayLabelEditor(value = draft.label, onValueChange = { draft.label = it })
+            } else {
+                OutlinedTextField(
+                    value = draft.label,
+                    onValueChange = { draft.label = it },
+                    label = { Text("Label") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
 
             if (draft.existing) {
                 // Type is locked for existing fields so stored values stay valid.
@@ -710,6 +722,10 @@ private fun FieldEditorScreen(
             } else {
                 EditTypeDropdown(selected = draft.type, onSelected = {
                     draft.type = it
+                    if (it == FieldType.DAY_OF_WEEK && draft.weekday.weekdayIds.isEmpty()) {
+                        draft.choices = Weekday.newChoices()
+                        draft.weekday = draft.weekday.copy(weekdayIds = Weekday.identities(draft.choices))
+                    }
                     // Time-only and non-date fields can never take part in ordering.
                     if (!it.sortEligible) {
                         draft.allowOrderFiltering = false
@@ -764,7 +780,7 @@ private fun FieldEditorScreen(
                 }
             }
             // A Comparison or List Item Quantities field is never required.
-            if (!draft.type.hasItemRows) RequiredRow(draft)
+            if (!draft.type.hasItemRows && draft.type != FieldType.DAY_OF_WEEK) RequiredRow(draft)
             if (draft.type == FieldType.DROPDOWN) {
                 ChoiceStyleRadios(
                     style = draft.choiceStyle,
@@ -855,9 +871,17 @@ private fun SettingsControls(
                 title = "Make Dropdown Instead",
             )
         }
+        FieldType.DAY_OF_WEEK -> WeekdaySettingsControls(
+            settings = field.weekday, choices = field.choices, seeds = Weekday.seeds(field.weekday),
+            persistedIds = field.persistedChoiceIds, onSettingsChange = { field.weekday = it },
+            onChoicesChange = { field.choices = it }, required = field.required,
+            onRequiredChange = { field.required = it }, capitalizeNew = capitalizeNewOptions,
+            onDeletePermanently = onDeleteOption,
+        )
         FieldType.DROPDOWN, FieldType.MULTIPLE -> ChoiceOptionsEditor(
             choices = field.choices,
             onChoicesChange = { field.choices = it },
+            persistedIds = field.persistedChoiceIds,
             alphabetical = field.orderOptionsAlphabetically,
             onAlphabeticalChange = { field.orderOptionsAlphabetically = it },
             wording = ChoiceEditorWordings.formOptions,
@@ -1029,6 +1053,8 @@ private class EditDraft(
     allowUnknown: Boolean = false,
     makeDropdown: Boolean = false,
     choiceStyle: ChoiceStyle = ChoiceStyle.DROPDOWN,
+    weekday: WeekdaySettings = WeekdaySettings(),
+    persistedIds: Set<String>? = null,
     leftDigits: String = "",
     rightDigits: String = "",
     unit: String = "",
@@ -1067,6 +1093,8 @@ private class EditDraft(
     var allowUnknown by mutableStateOf(allowUnknown)
     var makeDropdown by mutableStateOf(makeDropdown)
     var choiceStyle by mutableStateOf(choiceStyle)
+    var weekday by mutableStateOf(weekday)
+    var persistedChoiceIds by mutableStateOf(persistedIds ?: if (existing) choices.map { it.id }.toSet() else emptySet())
     var leftDigits by mutableStateOf(leftDigits)
     var rightDigits by mutableStateOf(rightDigits)
     var unit by mutableStateOf(unit)
@@ -1105,7 +1133,7 @@ private class EditDraft(
             sortByTimestamp == o.sortByTimestamp &&
             allowUnknown == o.allowUnknown &&
             makeDropdown == o.makeDropdown &&
-            choiceStyle == o.choiceStyle &&
+            choiceStyle == o.choiceStyle && weekday == o.weekday &&
             leftDigits == o.leftDigits && rightDigits == o.rightDigits && unit == o.unit &&
             itemLabel == o.itemLabel && firstLabel == o.firstLabel &&
             secondLabel == o.secondLabel && totalLabel == o.totalLabel &&
@@ -1126,8 +1154,9 @@ private class EditDraft(
     private fun effectiveTo(): Int = to.toIntOrNull() ?: EDIT_SCALE_DEFAULT_TO
 
     fun isValid(): Boolean {
-        if (label.trim().isEmpty()) return false
+        if (label.trim().isEmpty() && type != FieldType.DAY_OF_WEEK) return false
         return when (type) {
+            FieldType.DAY_OF_WEEK -> Weekday.validChoices(choices, weekday)
             FieldType.SCALE -> effectiveTo() >= effectiveFrom()
             FieldType.DROPDOWN, FieldType.MULTIPLE, FieldType.COMPARISON, FieldType.LIST_ITEM_QUANTITIES ->
                 savedChoices().activeChoices.isNotEmpty()
@@ -1137,7 +1166,7 @@ private class EditDraft(
     }
 
     fun validationHint(): String? = when {
-        label.trim().isEmpty() -> "Add a label."
+        label.trim().isEmpty() && type != FieldType.DAY_OF_WEEK -> "Add a label."
         type == FieldType.SCALE && !isValid() -> "Scale To must be ≥ From."
         type.hasOptionList && savedChoices().activeChoices.isEmpty() ->
             "Add at least one option."
@@ -1162,6 +1191,7 @@ private class EditDraft(
                 "Scale $lo–$hi" + (if (makeDropdown) " · Dropdown" else "")
             }
             FieldType.YESNO -> if (allowUnknown) "Yes / No / Unknown" else "Yes / No"
+            FieldType.DAY_OF_WEEK -> Weekday.LABEL
             FieldType.DATE -> "Date"
             FieldType.TIME -> "Time"
             FieldType.DATETIME -> "Date & time" + (if (defaultNow) " · defaults to now" else "")
@@ -1183,6 +1213,7 @@ private class EditDraft(
     /** A detached duplicate so the field editor can cancel without side effects. */
     fun copy(): EditDraft = EditDraft(
         id = id,
+        persistedIds = persistedChoiceIds,
         label = label,
         type = type,
         required = required,
@@ -1198,6 +1229,7 @@ private class EditDraft(
         allowUnknown = allowUnknown,
         makeDropdown = makeDropdown,
         choiceStyle = choiceStyle,
+        weekday = weekday,
         leftDigits = leftDigits,
         rightDigits = rightDigits,
         unit = unit,
@@ -1238,6 +1270,7 @@ private class EditDraft(
         allowUnknown = other.allowUnknown
         makeDropdown = other.makeDropdown
         choiceStyle = other.choiceStyle
+        weekday = other.weekday
         leftDigits = other.leftDigits
         rightDigits = other.rightDigits
         unit = other.unit
@@ -1262,7 +1295,7 @@ private class EditDraft(
 
     fun toFieldDef(): FieldDef = FieldDef(
         id = id,
-        label = label.trim(),
+        label = label.trim().ifBlank { if (type == FieldType.DAY_OF_WEEK) Weekday.LABEL else "" },
         type = type,
         required = required && !type.hasItemRows,
         lines = if (type == FieldType.MULTILINE) lines.toIntOrNull() else null,
@@ -1281,6 +1314,7 @@ private class EditDraft(
         allowUnknown = type == FieldType.YESNO && allowUnknown,
         makeDropdown = type == FieldType.SCALE && makeDropdown,
         choiceStyle = if (type == FieldType.DROPDOWN) choiceStyle else ChoiceStyle.DROPDOWN,
+        weekday = weekday,
         leftDigits = if (type == FieldType.RATIO) RatioValues.parseDigits(leftDigits) else null,
         rightDigits = if (type == FieldType.RATIO) RatioValues.parseDigits(rightDigits) else null,
         unit = if (type == FieldType.RATIO) unit.trim() else "",
@@ -1303,6 +1337,7 @@ private class EditDraft(
 
     fun toSnapshot(): EditDraftSnapshot = EditDraftSnapshot(
         id = id,
+        persistedIds = persistedChoiceIds,
         label = label,
         type = type,
         required = required,
@@ -1318,6 +1353,7 @@ private class EditDraft(
         allowUnknown = allowUnknown,
         makeDropdown = makeDropdown,
         choiceStyle = choiceStyle,
+        weekday = weekday,
         leftDigits = leftDigits,
         rightDigits = rightDigits,
         unit = unit,
@@ -1365,6 +1401,8 @@ private data class EditDraftSnapshot(
     val allowUnknown: Boolean = false,
     val makeDropdown: Boolean = false,
     val choiceStyle: ChoiceStyle = ChoiceStyle.DROPDOWN,
+    val weekday: WeekdaySettings = WeekdaySettings(),
+    val persistedIds: Set<String>? = null,
     val leftDigits: String = "",
     val rightDigits: String = "",
     val unit: String = "",
@@ -1390,6 +1428,7 @@ private data class EditDraftSnapshot(
 
 private fun EditDraftSnapshot.toEditDraft(): EditDraft = EditDraft(
     id = id,
+    persistedIds = persistedIds,
     label = label,
     type = type,
     required = required,
@@ -1405,6 +1444,7 @@ private fun EditDraftSnapshot.toEditDraft(): EditDraft = EditDraft(
     allowUnknown = allowUnknown,
     makeDropdown = makeDropdown,
     choiceStyle = choiceStyle,
+    weekday = weekday,
     leftDigits = leftDigits,
     rightDigits = rightDigits,
     unit = unit,
@@ -1446,6 +1486,7 @@ private fun draftOf(f: FieldDef, sortByTimestamp: Boolean): EditDraft = EditDraf
     allowUnknown = f.allowUnknown,
     makeDropdown = f.makeDropdown,
     choiceStyle = f.choiceStyle,
+    weekday = f.weekday,
     leftDigits = f.leftDigits?.toString() ?: "",
     rightDigits = f.rightDigits?.toString() ?: "",
     unit = f.unit,
@@ -1476,6 +1517,7 @@ private fun FieldType.editFriendly(): String = when (this) {
     FieldType.MULTIPLE -> "Multiple Choices"
     FieldType.SCALE -> "Scale (Number Range)"
     FieldType.YESNO -> "Yes / No (with optional Unknown)"
+    FieldType.DAY_OF_WEEK -> Weekday.LABEL
     FieldType.DATE -> "Date"
     FieldType.TIME -> "Time"
     FieldType.DATETIME -> "Date & time"

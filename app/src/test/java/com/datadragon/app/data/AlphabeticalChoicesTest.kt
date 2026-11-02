@@ -36,9 +36,9 @@ class AlphabeticalChoicesTest {
         val encoded = BackupCodec.encode(BackupFile.single(exportedAt = "2026-11-01T12:00:00Z", category = BackupCategory.FORMS,
             payload = BackupPayload(forms = listOf(BackupCodec.logOf(template, emptyList())))))
         val decoded = BackupCodec.decode(encoded)
-        assertEquals(14, decoded.version)
+        assertEquals(BackupFile.VERSION, decoded.version)
         assertEquals(encoded, BackupCodec.encode(decoded))
         assertEquals(template.schemaJson, decoded.logs.single().schemaJson)
-        assertThrows(IllegalArgumentException::class.java) { BackupCodec.decode(encoded.replace("\"version\": 14", "\"version\": 13")) }
+        assertThrows(IllegalArgumentException::class.java) { BackupCodec.decode(encoded.replace("\"version\": ${BackupFile.VERSION}", "\"version\": 13")) }
     }
 }

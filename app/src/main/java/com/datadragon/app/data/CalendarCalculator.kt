@@ -163,7 +163,7 @@ object CalendarCalculator {
                 val target = config.matchOption ?: return null
                 values.count { EntryValues.rawValue(it, field) == target }
             }
-            FieldType.MULTIPLE -> {
+            FieldType.DAY_OF_WEEK, FieldType.MULTIPLE -> {
                 val target = config.matchOption ?: return null
                 values.count { EntryValues.selectedOptions(it, field).contains(target) }
             }

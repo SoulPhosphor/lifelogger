@@ -155,6 +155,9 @@ fun ChoiceOptionsEditor(
     capitalizeNew: Boolean,
     onDeletePermanently: (ChoiceOption) -> Unit,
     modifier: Modifier = Modifier,
+    /** Null retains the existing editor contract; hosts supply saved option ids for choice fields. */
+    persistedIds: Set<String>? = null,
+    protectedIds: Set<String> = emptySet(),
     alphabetical: Boolean? = null,
     onAlphabeticalChange: (Boolean) -> Unit = {},
 ) {
@@ -281,6 +284,8 @@ fun ChoiceOptionsEditor(
                         showGrip = alphabetical != true,
                         isEditing = isEditing,
                         preselection = preselection,
+                        canRemove = option.id !in protectedIds,
+                        canRetire = persistedIds == null || option.id in persistedIds,
                         gripModifier = Modifier
                             .draggableHandle(enabled = alphabetical != true)
                             .accessibleReorder(index, active.size) { offset ->
@@ -311,12 +316,16 @@ fun ChoiceOptionsEditor(
                                 ),
                             )
                         },
-                        onRetire = { publish(ChoiceEdits.retired(settled(), option.id)) },
+                        onRetire = { publish(ChoiceEdits.removed(settled(), option.id, persistedIds ?: choices.map { it.id }.toSet())) },
                         onDelete = {
                             val base = settled()
                             if (base != choices) publish(base)
                             // A just-added row that was never named is simply gone.
-                            base.firstOrNull { it.id == option.id }?.let { pendingDelete = it }
+                            base.firstOrNull { it.id == option.id }?.let {
+                                if (persistedIds != null && it.id !in persistedIds) {
+                                    publish(ChoiceEdits.withoutId(base, it.id))
+                                } else pendingDelete = it
+                            }
                         },
                     )
                 }
@@ -458,6 +467,8 @@ private fun ActiveChoiceRow(
     showGrip: Boolean,
     isEditing: Boolean,
     preselection: ChoicePreselection,
+    canRemove: Boolean,
+    canRetire: Boolean,
     gripModifier: Modifier,
     labelDragModifier: Modifier,
     onTap: () -> Unit,
@@ -503,7 +514,7 @@ private fun ActiveChoiceRow(
                 Icon(Icons.Filled.TaskAlt, contentDescription = "Remove Pre-Selection")
             }
         }
-        Box {
+        if (canRemove || preselection != ChoicePreselection.NONE) Box {
             IconButton(onClick = { menuOpen = true }) {
                 Icon(Icons.Filled.MoreVert, contentDescription = "Option Menu")
             }
@@ -514,11 +525,11 @@ private fun ActiveChoiceRow(
                         onClick = { menuOpen = false; onMakePreselected() },
                     )
                 }
-                DropdownMenuItem(
+                if (canRemove && canRetire) DropdownMenuItem(
                     text = { Text("Retire") },
                     onClick = { menuOpen = false; onRetire() },
                 )
-                DropdownMenuItem(
+                if (canRemove) DropdownMenuItem(
                     text = { Text("Delete") },
                     onClick = { menuOpen = false; onDelete() },
                 )

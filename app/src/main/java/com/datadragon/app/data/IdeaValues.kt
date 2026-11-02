@@ -48,7 +48,9 @@ object IdeaValues {
 
     /** True when this field has something saved against it. */
     fun hasValue(values: JsonObject, field: IdeaFieldDef): Boolean =
-        if (field.type == FieldType.TAGS) {
+        if (field.type == FieldType.DAY_OF_WEEK) {
+            Weekday.selected(values[field.id]).isNotEmpty()
+        } else if (field.type == FieldType.TAGS) {
             tags(values, field).isNotEmpty()
         } else {
             rawValue(values, field) != null
@@ -61,6 +63,7 @@ object IdeaValues {
      * the composable that draws them, not here.
      */
     fun displayValue(values: JsonObject, field: IdeaFieldDef): String? = when (field.type) {
+        FieldType.DAY_OF_WEEK -> Weekday.labels(field.choices, Weekday.selected(values[field.id]))
         FieldType.TAGS -> tags(values, field).takeIf { it.isNotEmpty() }?.joinToString(", ")
         FieldType.DATE -> reformat(rawValue(values, field)) {
             EntryValues.displayDate(LocalDate.parse(it, EntryValues.DATE_STORAGE))

@@ -60,6 +60,8 @@ data class ClickerField(
     val useClickerCounting: Boolean = false,
     /** Comparison: "Show Average of Differences" under the total ([FieldDef.showAverage]). */
     val showAverage: Boolean = false,
+    val required: Boolean = false,
+    val weekday: WeekdaySettings = WeekdaySettings(),
 )
 
 /**
@@ -98,6 +100,7 @@ fun ClickerField.comparisonDef(): FieldDef = FieldDef(
 enum class ClickerFieldType(val token: String) {
     CLICK_TRACKER("click_tracker"),
     WRITE_IN_NUMBER("write_in_number"),
+    DAY_OF_WEEK("day_of_week"),
     DATE("date"),
     TIME("time"),
     DATE_TIME("date_time"),
@@ -130,6 +133,6 @@ enum class ClickerIncrementDirection(val token: String) {
 val ClickerFieldType.editOnlyFromCardMenu: Boolean
     get() = when (this) {
         ClickerFieldType.CLICK_TRACKER, ClickerFieldType.WRITE_IN_NUMBER,
-        ClickerFieldType.TEXT, ClickerFieldType.MULTITEXT, ClickerFieldType.COMPARISON -> false
+        ClickerFieldType.TEXT, ClickerFieldType.MULTITEXT, ClickerFieldType.COMPARISON, ClickerFieldType.DAY_OF_WEEK -> false
         ClickerFieldType.DATE, ClickerFieldType.TIME, ClickerFieldType.DATE_TIME -> true
     }

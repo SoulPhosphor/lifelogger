@@ -47,7 +47,7 @@ object CsvBuilder {
     private fun cell(field: FieldDef, values: kotlinx.serialization.json.JsonObject): String =
         when (field.type) {
             // Choice answers export their option labels, in the field's option order.
-            FieldType.MULTIPLE -> values[field.id]
+            FieldType.DAY_OF_WEEK, FieldType.MULTIPLE -> values[field.id]
                 ?.let { EntryValues.choiceLabels(field, it).joinToString("; ") }
                 .orEmpty()
             FieldType.DROPDOWN -> values[field.id]

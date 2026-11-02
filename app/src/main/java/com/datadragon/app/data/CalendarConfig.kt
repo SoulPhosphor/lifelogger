@@ -79,7 +79,7 @@ object CalendarCalcRules {
             listOf(HIGHEST_VALUE, LOWEST_VALUE, AVERAGE, TOTAL, COUNT_ENTRIES, COUNT_MATCHING)
         FieldType.YESNO ->
             listOf(COUNT_YES, COUNT_NO) + if (allowUnknown) listOf(COUNT_UNKNOWN) else emptyList()
-        FieldType.DROPDOWN, FieldType.MULTIPLE ->
+        FieldType.DAY_OF_WEEK, FieldType.DROPDOWN, FieldType.MULTIPLE ->
             listOf(COUNT_MATCHING)
         else -> emptyList()
     }

@@ -349,3 +349,22 @@ Single Choice (`dropdown`) and Multiple Choice (`multiple`) accept
 writes the setting when on and writes active options in displayed order.
 The setting lives in schema JSON as `orderOptionsAlphabetically` and never
 changes field or option identities or saved answers.
+
+
+## Day of the Week
+
+`type: day_of_week` creates the seven standard weekdays when no options are
+written. `default_entered_day` and `only_allow_choosing_one_day` both default to
+true; `choice_style` uses dropdown/displayed and applies only in single mode.
+Options use the existing list syntax and a leading `*` for manual defaults.
+`weekday_numbers` is a JSON array parallel to the active option list, containing
+ISO weekday numbers (Monday = 1 through Sunday = 7), or null for a custom option.
+The generator writes these associations so renamed weekdays retain their meaning.
+When the array is omitted, newly pasted standard English day names receive their
+usual association. Default Entered Day fills in missing built-in weekdays.
+
+Application Data and full backups preserve field/option UUIDs, retired choices,
+associations, settings and saved selections. As with other field types, importing
+Form Markdown creates a new form definition with new identities. Day-of-week
+answers are arrays of option UUIDs in both modes, preserving past multi-day
+answers through later mode changes. Human-readable exports resolve UUIDs to labels.

@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.datadragon.app.data.AppDatabase
+import com.datadragon.app.data.Weekday
 import com.datadragon.app.data.ClickerCard
 import com.datadragon.app.data.ClickerCardOrder
 import com.datadragon.app.data.ClickerComparison
@@ -118,15 +119,17 @@ class ClickerLogViewModel(app: Application) : AndroidViewModel(app) {
         runCatching { json.decodeFromString<List<ClickerField>>(fieldsJson) }.getOrDefault(emptyList())
 
     /** Add a new card, stamping it per the log's settings and seeding tracker starts. */
-    fun addCard() {
+    fun addCard(onNeedsInput: (Long) -> Unit = {}) {
         val id = logId.value ?: return
         viewModelScope.launch {
             val current = dao.getLog(id) ?: return@launch
             val defs = decodeFields(current.fieldsJson)
             val now = System.currentTimeMillis()
-            val values = defs
-                .filter { it.type == ClickerFieldType.CLICK_TRACKER }
-                .associate { it.id to it.startingNumber.toString() }
+            val values = Weekday.clickerDefaults(defs, java.time.Instant.ofEpochMilli(now).atZone(java.time.ZoneId.systemDefault()).toLocalDate())
+            if (Weekday.missingRequired(defs, values).isNotEmpty()) {
+                onNeedsInput(id)
+                return@launch
+            }
             dao.insertCard(
                 ClickerCard(
                     uuid = StableUuid.createNew(),

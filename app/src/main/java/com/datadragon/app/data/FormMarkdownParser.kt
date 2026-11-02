@@ -44,6 +44,9 @@ object FormMarkdownParser {
         var makeDropdown = false
         var orderOptionsAlphabetically = false
         var choiceStyle = ChoiceStyle.DROPDOWN
+        var defaultEnteredDay = true
+        var onlyOneDay = true
+        var weekdayNumbers: List<Int?>? = null
         /** Legacy `top_answer_preselected: true`: pre-select the first option. */
         var topAnswerPreselected = false
         /** `preselected_option: <name>`: the Single Choice option pre-selected on new entries. */
@@ -189,6 +192,11 @@ object FormMarkdownParser {
                         "order_options_alphabetically" -> b.orderOptionsAlphabetically = value.equals("true", ignoreCase = true)
                         "make_dropdown" -> b.makeDropdown =
                             value.equals("true", ignoreCase = true) || value.equals("yes", ignoreCase = true)
+                        "default_entered_day" -> b.defaultEnteredDay = !value.equals("false", ignoreCase = true)
+                        "only_allow_choosing_one_day" -> b.onlyOneDay = !value.equals("false", ignoreCase = true)
+                        "weekday_numbers" -> b.weekdayNumbers = runCatching {
+                            json.decodeFromString<List<Int?>>(value)
+                        }.getOrElse { issues.add("Field \"${b.label}\": invalid weekday_numbers."); null }
                         "choice_style" -> when (value.lowercase()) {
                             "dropdown" -> b.choiceStyle = ChoiceStyle.DROPDOWN
                             "displayed" -> b.choiceStyle = ChoiceStyle.DISPLAYED
@@ -338,6 +346,33 @@ object FormMarkdownParser {
             else -> Unit
         }
 
+        var weekdaySettings = WeekdaySettings(defaultEnteredDay = b.defaultEnteredDay, onlyOne = b.onlyOneDay, choiceStyle = b.choiceStyle)
+        val weekdayChoices = if (type == FieldType.DAY_OF_WEEK) {
+            val initial = if (b.options.isEmpty()) Weekday.newChoices(newId) else buildChoices(b, type, issues, newId).mapIndexed { index, option ->
+                val associatedDay = if (b.weekdayNumbers != null) b.weekdayNumbers?.getOrNull(index) else
+                    java.time.DayOfWeek.values().firstOrNull { it.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.ENGLISH).equals(option.label, ignoreCase = true) }?.value
+                option.copy(weekday = associatedDay?.takeIf { it in 1..7 })
+            }
+            val knownDays = initial.mapNotNull { it.weekday }.toSet()
+            if (initial.mapNotNull { it.weekday }.size != knownDays.size) {
+                issues.add("Field \"${b.label}\": weekday_numbers repeats a weekday; skipped.")
+                return
+            }
+            val missing = (1..7).filter { it !in knownDays }.map { day ->
+                ChoiceOption(id = newId(), label = java.time.DayOfWeek.of(day).getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.ENGLISH), weekday = day)
+            }
+            // Missing built-ins remain available for re-enabling Default Entered Day.
+            val seeds = initial.filter { it.weekday != null } + missing
+            weekdaySettings = weekdaySettings.copy(weekdayIds = Weekday.identities(seeds))
+            var updated = if (b.defaultEnteredDay) Weekday.restoreWeekdays(initial, seeds) else initial
+            if (b.onlyOneDay && b.defaultEnteredDay) updated = updated.map { it.copy(preselected = false) }
+            else if (b.onlyOneDay && updated.count { it.preselected } > 1) {
+                issues.add("Field \"${b.label}\": a single weekday field cannot have multiple defaults; defaults cleared.")
+                updated = updated.map { it.copy(preselected = false) }
+            }
+            updated
+        } else emptyList()
+
         fields.add(
             FieldDef(
                 id = newId(),
@@ -349,7 +384,8 @@ object FormMarkdownParser {
                 digits = b.digits.takeIf { type == FieldType.NUMBER || type.hasItemRows },
                 from = b.from.takeIf { type == FieldType.SCALE },
                 to = b.to.takeIf { type == FieldType.SCALE },
-                choices = if (type.hasOptionList) buildChoices(b, type, issues, newId) else emptyList(),
+                choices = if (type == FieldType.DAY_OF_WEEK) weekdayChoices else if (type.hasOptionList) buildChoices(b, type, issues, newId) else emptyList(),
+                weekday = if (type == FieldType.DAY_OF_WEEK) weekdaySettings else WeekdaySettings(),
                 defaultNow = b.defaultNow && type == FieldType.DATETIME,
                 allowUnknown = b.allowUnknown && type == FieldType.YESNO,
                 makeDropdown = b.makeDropdown && type == FieldType.SCALE,
@@ -394,7 +430,7 @@ object FormMarkdownParser {
     ): List<ChoiceOption> {
         val choices = mutableListOf<ChoiceOption>()
         b.options.forEach { written ->
-            val marked = type == FieldType.MULTIPLE && written.startsWith("*") &&
+            val marked = (type == FieldType.MULTIPLE || type == FieldType.DAY_OF_WEEK) && written.startsWith("*") &&
                 written.removePrefix("*").isNotBlank()
             val label = if (marked) written.removePrefix("*").trim() else written
             val existing = choices.matchingLabel(label)

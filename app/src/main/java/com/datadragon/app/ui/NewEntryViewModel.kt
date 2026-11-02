@@ -3,6 +3,7 @@ package com.datadragon.app.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.datadragon.app.data.Weekday
 import com.datadragon.app.data.AppDatabase
 import com.datadragon.app.data.BackupRepository
 import com.datadragon.app.data.EntryValues
@@ -144,7 +145,7 @@ class NewEntryViewModel(app: Application) : AndroidViewModel(app) {
      * the current time. [values] is keyed by field id plus the reserved notes
      * key; timestamps are ISO-8601 with offset.
      */
-    fun save(values: Map<String, JsonElement>, onSaved: () -> Unit, onEmpty: () -> Unit = {}) {
+    fun save(values: Map<String, JsonElement>, onSaved: () -> Unit, onEmpty: () -> Unit = {}, untouchedWeekdayIds: Set<String> = emptySet()) {
         if (!com.datadragon.app.data.CardContent.hasFormData(_fields.value, values)) { onEmpty(); return }
         if (templateId < 0) return
         viewModelScope.launch {
@@ -169,7 +170,11 @@ class NewEntryViewModel(app: Application) : AndroidViewModel(app) {
                     LogEntry(
                         templateId = templateId,
                         createdAt = now,
-                        valuesJson = EntryValues.encode(values),
+                        valuesJson = EntryValues.encode(Weekday.atCreation(
+                            values, _fields.value.filter { it.type == FieldType.DAY_OF_WEEK }
+                                .map { Triple(it.id, it.choices, it.weekday) },
+                            OffsetDateTime.parse(now).toLocalDate(), untouchedWeekdayIds,
+                        )),
                     )
                 )
             }

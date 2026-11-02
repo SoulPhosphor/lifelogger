@@ -55,6 +55,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import com.datadragon.app.ui.ClickerCardEditViewModel
+import com.datadragon.app.data.Weekday
 import com.datadragon.app.ui.theme.AppTheme
 import com.datadragon.app.ui.components.PopupButton
 import java.time.Instant
@@ -82,7 +83,8 @@ private fun numberInput(input: String, maxDigits: Int): String {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClickerCardEditScreen(
-    cardId: Long,
+    cardId: Long?,
+    newLogId: Long? = null,
     onBack: () -> Unit,
     viewModel: ClickerCardEditViewModel = viewModel(),
 ) {
@@ -106,8 +108,8 @@ fun ClickerCardEditScreen(
         scope.launch { snackbarHostState.showSnackbar(message) }
     }
 
-    LaunchedEffect(cardId) {
-        val card = viewModel.loadCard(cardId)
+    LaunchedEffect(cardId, newLogId) {
+        val card = if (cardId != null) viewModel.loadCard(cardId) else newLogId?.let { viewModel.newCard(it) }
         if (card != null) {
             original = card
             val log = viewModel.loadLog(card.clickerLogId)
@@ -138,6 +140,8 @@ fun ClickerCardEditScreen(
             displayTime != current.displayTime ||
             values.filterValues { it.isNotEmpty() } != ClickerValues.decode(current.valuesJson).filterValues { it.isNotEmpty() }
         )
+    var validationAttempted by remember { mutableStateOf(false) }
+    val missingWeekdays = Weekday.missingRequired(fields, values)
     var showDiscard by remember { mutableStateOf(false) }
     fun attemptBack() { if (dirty) showDiscard = true else onBack() }
     BackHandler { attemptBack() }
@@ -183,7 +187,7 @@ fun ClickerCardEditScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Edit Card") },
+                title = { Text(if (cardId == null) "New Card" else "Edit Card") },
                 navigationIcon = {
                     IconButton(onClick = { attemptBack() }) {
                         Icon(Icons.Filled.KeyboardDoubleArrowLeft, contentDescription = "Back")
@@ -193,7 +197,8 @@ fun ClickerCardEditScreen(
                     TextButton(
                         enabled = current != null,
                         onClick = {
-                            if (current != null && comparisonBlocked.values.none { it }) {
+                            validationAttempted = true
+                            if (current != null && comparisonBlocked.values.none { it } && missingWeekdays.isEmpty()) {
                                 viewModel.save(
                                     card = current.copy(
                                         displayDate = displayDate,
@@ -242,6 +247,20 @@ fun ClickerCardEditScreen(
                             singleLine = true,
                             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    ClickerFieldType.DAY_OF_WEEK -> Column {
+                        WeekdayEntryControl(
+                            label = if (field.required) "${field.label} *" else field.label,
+                            choices = field.choices, settings = field.weekday,
+                            selected = Weekday.fromClicker(values[field.id]).toSet(),
+                            onSelectedChange = { selected ->
+                                if (selected.isEmpty()) values.remove(field.id) else values[field.id] = Weekday.clickerValue(selected)
+                            },
+                        )
+                        if (validationAttempted && field.id in missingWeekdays) Text(
+                            "${field.label}: This field is required.",
+                            color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall,
                         )
                     }
                     ClickerFieldType.DATE ->

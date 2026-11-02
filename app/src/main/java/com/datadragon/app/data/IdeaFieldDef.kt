@@ -63,6 +63,7 @@ data class IdeaFieldDef(
     val rightDigits: Int? = null,
     /** ratios: the unit of measurement shown after the value (blank for none). */
     val unit: String = "",
+    val weekday: WeekdaySettings = WeekdaySettings(),
 )
 
 /**
@@ -79,6 +80,7 @@ enum class IdeaFieldKind(val label: String, val fieldType: FieldType) {
     TAGS("Tags", FieldType.TAGS),
     CATEGORIES("Categories", FieldType.DROPDOWN),
     WEBPAGES("Webpages", FieldType.WEBPAGE),
+    DAY_OF_WEEK("Day of the Week", FieldType.DAY_OF_WEEK),
     DATE("Date Only", FieldType.DATE),
     TIME("Time Only", FieldType.TIME),
     DATETIME("Date/Time", FieldType.DATETIME);

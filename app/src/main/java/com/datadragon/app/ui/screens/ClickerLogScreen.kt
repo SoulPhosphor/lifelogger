@@ -75,6 +75,7 @@ import com.datadragon.app.ui.components.DialogDestructiveButton
 import com.datadragon.app.ui.components.DialogDismissButton
 import com.datadragon.app.ui.components.ExportFormatDialog
 import com.datadragon.app.ui.components.ExportFormatOption
+import com.datadragon.app.data.Weekday
 import com.datadragon.app.ui.theme.AppTheme
 import java.time.LocalDate
 import java.time.LocalTime
@@ -127,6 +128,7 @@ fun ClickerLogScreen(
     onEditLog: (Long) -> Unit,
     onEditCard: (Long) -> Unit,
     onOpenStatistics: (Long) -> Unit,
+    onNewCard: (Long) -> Unit,
     viewModel: ClickerLogViewModel = viewModel(),
 ) {
     LaunchedEffect(logId) { viewModel.start(logId) }
@@ -249,7 +251,7 @@ fun ClickerLogScreen(
                             )
                         }
                     }
-                    IconButton(onClick = { pendingAddScrolls += 1; viewModel.addCard() }) {
+                    IconButton(onClick = { pendingAddScrolls += 1; viewModel.addCard(onNeedsInput = onNewCard) }) {
                         Icon(Icons.Filled.Add, contentDescription = "New card")
                     }
                 },
@@ -497,6 +499,16 @@ private fun ClickerFieldFace(
 ) {
     when (field.type) {
         // Edited right on the card face and saved as it changes, like the trackers.
+        ClickerFieldType.DAY_OF_WEEK -> {
+            val selected = Weekday.fromClicker(values[field.id]).toSet()
+            WeekdayEntryControl(
+                label = if (field.required) "${field.label} *" else field.label,
+                choices = field.choices, settings = field.weekday, selected = selected,
+                onSelectedChange = { updated ->
+                    if (!field.required || updated.isNotEmpty()) onSetValue(if (updated.isEmpty()) "" else Weekday.clickerValue(updated))
+                },
+            )
+        }
         ClickerFieldType.COMPARISON -> ClickerComparisonEditor(
             field = field,
             stored = values,

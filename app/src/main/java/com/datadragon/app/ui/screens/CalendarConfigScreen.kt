@@ -449,7 +449,7 @@ fun CalendarConfigScreen(
                     if (CalendarCalcRules.requiresCondition(calculationRule)) {
                         val sourceFieldDef = (selectedSource as? SourceOption.Field)?.field
                         if (sourceFieldDef != null &&
-                            (sourceFieldDef.type == FieldType.DROPDOWN || sourceFieldDef.type == FieldType.MULTIPLE)
+                            (sourceFieldDef.type == FieldType.DROPDOWN || sourceFieldDef.type == FieldType.MULTIPLE || sourceFieldDef.type == FieldType.DAY_OF_WEEK)
                         ) {
                             // Choice field: count occurrences of one chosen option,
                             // stored by its permanent id. A retired option already

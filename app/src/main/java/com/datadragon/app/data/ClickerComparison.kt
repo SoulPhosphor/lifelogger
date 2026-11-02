@@ -35,7 +35,11 @@ object ClickerComparison {
         val values = ClickerValues.decode(valuesJson)
         val raw = values[fieldId] ?: return valuesJson
         val stored = runCatching { json.parseToJsonElement(raw) }.getOrNull() as? JsonArray ?: return valuesJson
-        val kept = ComparisonValues.withoutItem(stored, optionId)
+        val kept = if (stored.any { it is kotlinx.serialization.json.JsonObject }) {
+            ComparisonValues.withoutItem(stored, optionId)
+        } else {
+            kotlinx.serialization.json.JsonArray(stored.filterNot { (it as? kotlinx.serialization.json.JsonPrimitive)?.content == optionId }).takeIf { it.isNotEmpty() }
+        }
         if (kept == stored) return valuesJson
         val updated = values.toMutableMap()
         if (kept == null) updated.remove(fieldId) else updated[fieldId] = kept.toString()
@@ -129,7 +133,7 @@ object ClickerComparison {
     fun withoutOptionInLog(log: ClickerLog, fieldId: String, optionId: String): ClickerLog? {
         val fields = decodeFields(log.fieldsJson) ?: return null
         val updated = fields.map { field ->
-            if (field.id == fieldId) field.copy(choices = ChoiceEdits.withoutId(field.choices, optionId)) else field
+            if (field.id == fieldId) field.copy(choices = ChoiceEdits.withoutId(field.choices, optionId), weekday = Weekday.afterDeleting(field.weekday, field.choices, optionId)) else field
         }
         return if (updated == fields) null else log.copy(fieldsJson = encodeFields(updated))
     }

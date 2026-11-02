@@ -47,6 +47,9 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
+import com.datadragon.app.data.Weekday
+import com.datadragon.app.data.WeekdaySettings
+import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.DEFAULT_IDEA_LINES
 import com.datadragon.app.data.IdeaFieldDef
 import com.datadragon.app.data.IdeaFieldKind
@@ -112,6 +115,8 @@ class IdeaDraftField(
     rightDigits: String = "",
     unit: String = "",
     choices: List<ChoiceOption> = emptyList(),
+    weekday: WeekdaySettings = WeekdaySettings(),
+    persistedIds: Set<String> = emptySet(),
     /** True on Edit Idea Log: Categories are edited as rows that keep their ids. */
     val rowEditing: Boolean = false,
 ) {
@@ -132,6 +137,8 @@ class IdeaDraftField(
     var rightDigits by mutableStateOf(rightDigits)
     var unit by mutableStateOf(unit)
     var choices by mutableStateOf(choices)
+    var weekday by mutableStateOf(weekday)
+    val persistedChoiceIds = persistedIds
 
     fun optionList(): List<String> =
         optionsText.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
@@ -151,14 +158,16 @@ class IdeaDraftField(
         if (rowEditing) categories().activeChoices.isNotEmpty() else optionList().isNotEmpty()
 
     fun isValid(): Boolean = when {
-        label.trim().isEmpty() -> false
+        label.trim().isEmpty() && kind != IdeaFieldKind.DAY_OF_WEEK -> false
+        kind == IdeaFieldKind.DAY_OF_WEEK -> Weekday.validChoices(choices, weekday)
         kind == IdeaFieldKind.CATEGORIES -> hasActiveCategory()
         kind == IdeaFieldKind.RATIOS -> ratioDigitsValid()
         else -> true
     }
 
     fun validationHint(): String? = when {
-        label.trim().isEmpty() -> "Add a label."
+        label.trim().isEmpty() && kind != IdeaFieldKind.DAY_OF_WEEK -> "Add a label."
+        kind == IdeaFieldKind.DAY_OF_WEEK && choices.activeChoices.isEmpty() -> "Add at least one option."
         kind == IdeaFieldKind.CATEGORIES && !hasActiveCategory() -> "Add at least one option."
         kind == IdeaFieldKind.RATIOS && !ratioDigitsValid() -> RATIO_DIGITS_HINT
         else -> null
@@ -169,17 +178,20 @@ class IdeaDraftField(
 
     /** True when two categories share a name (ignoring capitalization). */
     fun hasCategoryDuplicate(): Boolean =
-        kind == IdeaFieldKind.CATEGORIES && categories().hasDuplicateLabels()
+        (kind == IdeaFieldKind.CATEGORIES && categories().hasDuplicateLabels()) ||
+            (kind == IdeaFieldKind.DAY_OF_WEEK && choices.hasDuplicateLabels())
 
     fun toFieldDef(): IdeaFieldDef = IdeaFieldDef(
         id = id,
-        label = label.trim(),
+        label = label.trim().ifBlank { if (kind == IdeaFieldKind.DAY_OF_WEEK) Weekday.LABEL else "" },
         type = kind.fieldType,
+        weekday = weekday,
         required = required,
         includeInPreview = includeInPreview,
         // A saved Categories field switched to another type keeps its categories,
         // so the answers already stored as category ids still read as names.
         choices = when {
+            kind == IdeaFieldKind.DAY_OF_WEEK -> choices.filter { it.label.isNotBlank() }.map { it.copy(label = it.label.trim()) }
             kind == IdeaFieldKind.CATEGORIES -> categories()
             rowEditing -> choices
             else -> emptyList()
@@ -215,6 +227,8 @@ class IdeaDraftField(
         rightDigits = rightDigits,
         unit = unit,
         choices = choices,
+        weekday = weekday,
+        persistedIds = persistedChoiceIds,
         rowEditing = rowEditing,
     )
 }
@@ -240,11 +254,14 @@ data class IdeaDraftSnapshot(
     val rightDigits: String = "",
     val unit: String = "",
     val choices: List<ChoiceOption> = emptyList(),
+    val weekday: WeekdaySettings = WeekdaySettings(),
+    val persistedIds: Set<String> = emptySet(),
     val rowEditing: Boolean = false,
 )
 
 fun IdeaDraftSnapshot.toDraft(): IdeaDraftField = IdeaDraftField(
     id = id,
+    persistedIds = persistedIds,
     label = label,
     kind = kind,
     required = required,
@@ -262,12 +279,14 @@ fun IdeaDraftSnapshot.toDraft(): IdeaDraftField = IdeaDraftField(
     rightDigits = rightDigits,
     unit = unit,
     choices = choices,
+    weekday = weekday,
     rowEditing = rowEditing,
 )
 
 /** Seed a draft from a saved field, keeping its permanent id and its categories' ids. */
 fun IdeaFieldDef.toDraft(sortByTimestamp: Boolean): IdeaDraftField = IdeaDraftField(
     id = id,
+    persistedIds = choices.map { it.id }.toSet(),
     label = label,
     kind = IdeaFieldKind.of(type),
     required = required,
@@ -284,6 +303,7 @@ fun IdeaFieldDef.toDraft(sortByTimestamp: Boolean): IdeaDraftField = IdeaDraftFi
     rightDigits = rightDigits?.toString() ?: "",
     unit = unit,
     choices = choices,
+    weekday = weekday,
     rowEditing = true,
 )
 
@@ -600,16 +620,25 @@ private fun IdeaFieldCard(
                 )
             }
 
-            OutlinedTextField(
-                value = field.label,
-                onValueChange = { field.label = it },
-                label = { Text("Label") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            if (field.kind == IdeaFieldKind.DAY_OF_WEEK) {
+                WeekdayLabelEditor(value = field.label, onValueChange = { field.label = it })
+            } else {
+                OutlinedTextField(
+                    value = field.label,
+                    onValueChange = { field.label = it },
+                    label = { Text("Label") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
 
             IdeaKindDropdown(selected = field.kind, onSelected = { kind ->
                 field.kind = kind
+                if (kind == IdeaFieldKind.DAY_OF_WEEK && field.weekday.weekdayIds.isEmpty()) {
+                    val days = Weekday.newChoices()
+                    field.choices = field.choices + days
+                    field.weekday = field.weekday.copy(weekdayIds = Weekday.identities(days))
+                }
                 // Only a date-bearing field can take part in ordering.
                 if (!kind.fieldType.sortEligible) {
                     field.allowOrderFiltering = false
@@ -618,6 +647,13 @@ private fun IdeaFieldCard(
             })
 
             when (field.kind) {
+                IdeaFieldKind.DAY_OF_WEEK -> WeekdaySettingsControls(
+                    settings = field.weekday, choices = field.choices, seeds = Weekday.seeds(field.weekday),
+                    persistedIds = field.persistedChoiceIds, onSettingsChange = { field.weekday = it },
+                    onChoicesChange = { field.choices = it }, required = field.required,
+                    onRequiredChange = { field.required = it }, capitalizeNew = capitalizeNewCategories,
+                    onDeletePermanently = onDeleteCategory,
+                )
                 IdeaFieldKind.CATEGORIES -> if (field.rowEditing) {
                     ChoiceOptionsEditor(
                         choices = field.choices,
@@ -666,7 +702,7 @@ private fun IdeaFieldCard(
                 }
             }
 
-            SettingSwitchRow(
+            if (field.kind != IdeaFieldKind.DAY_OF_WEEK) SettingSwitchRow(
                 checked = field.required,
                 onCheckedChange = { field.required = it },
                 title = "Required",
