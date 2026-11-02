@@ -53,22 +53,22 @@ class ChoiceOptionsEditorTest {
         compose.onNode(hasSetTextAction()).assertIsFocused()
         val handles = compose.onAllNodesWithContentDescription("Reorder")
         val trace = mutableListOf("before=" + handles.fetchSemanticsNodes().map { it.boundsInRoot })
-        val first = handles[0].getUnclippedBoundsInRoot()
-        val last = handles[2].getUnclippedBoundsInRoot()
-        val distance = with(compose.density) { (last.top - first.top).toPx() } + 24f
-        // The drag library updates animated offsets in launched coroutines.
-        // Let real UI frames run between pointer moves, as a physical drag does.
+        val targetTop = handles[0].fetchSemanticsNode().boundsInRoot.top - 24f
+        // Drag to an observed destination, allowing animation work between moves.
         handles[2].performTouchInput { down(center) }
-        repeat(4) {
-            handles[2].performTouchInput { moveBy(Offset(0f, -distance / 4)) }
-            compose.mainClock.advanceTimeByFrame()
-            compose.waitForIdle()
-            trace.add("move=" + handles.fetchSemanticsNodes().map { it.boundsInRoot })
+        repeat(10) {
+            if (handles[2].fetchSemanticsNode().boundsInRoot.top > targetTop) {
+                handles[2].performTouchInput { moveBy(Offset(0f, -32f)) }
+                compose.mainClock.advanceTimeByFrame()
+                compose.waitForIdle()
+                trace.add("move=" + handles.fetchSemanticsNodes().map { it.boundsInRoot })
+            }
         }
+        assertTrue("Drag did not reach its destination: $trace", handles[2].fetchSemanticsNode().boundsInRoot.top <= targetTop)
         handles[2].performTouchInput { up() }
         compose.waitForIdle()
         compose.runOnIdle {
-            assertEquals("order=${choices.value.map { it.label }}; distance=$distance; trace=$trace", "Middle", choices.value.first().label)
+            assertEquals("order=${choices.value.map { it.label }}; target=$targetTop; trace=$trace", "Middle", choices.value.first().label)
             assertEquals(setOf("Alpha", "Middle", "Zed"), choices.value.map { it.label }.toSet())
         }
     }
