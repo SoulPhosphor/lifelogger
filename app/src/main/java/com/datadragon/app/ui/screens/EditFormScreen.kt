@@ -285,7 +285,12 @@ fun EditFormScreen(
                 savedAllowAdditionsFromForm = allowAdditionsFromForm
                 savedAdvancedSearchEnabled = advancedSearchEnabled
                 savedLocked = locked
-                rows.forEach { it.convertOnce = false }
+                rows.forEach { row ->
+                    row.convertOnce = false
+                    fieldsToSave.firstOrNull { it.id == row.id }?.let { saved ->
+                        row.persistedChoiceIds = saved.choices.map { it.id }.toSet()
+                    }
+                }
                 savedSnapshot = rows.map { it.toFieldDef() }
                 onDone()
             },
@@ -1088,7 +1093,7 @@ private class EditDraft(
     var makeDropdown by mutableStateOf(makeDropdown)
     var choiceStyle by mutableStateOf(choiceStyle)
     var weekday by mutableStateOf(weekday)
-    val persistedChoiceIds = persistedIds ?: if (existing) choices.map { it.id }.toSet() else emptySet()
+    var persistedChoiceIds by mutableStateOf(persistedIds ?: if (existing) choices.map { it.id }.toSet() else emptySet())
     var leftDigits by mutableStateOf(leftDigits)
     var rightDigits by mutableStateOf(rightDigits)
     var unit by mutableStateOf(unit)

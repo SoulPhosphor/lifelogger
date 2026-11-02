@@ -125,6 +125,7 @@ fun NewIdeaScreen(
     // Form state, keyed by each field's permanent id rather than its label.
     val textValues = rememberSaveable(saver = ideaTextSaver) { mutableStateMapOf() }
     val tagValues = rememberSaveable(saver = ideaTagsSaver) { mutableStateMapOf() }
+    var editedWeekdays by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var validationAttempted by rememberSaveable { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
@@ -196,6 +197,7 @@ fun NewIdeaScreen(
                                     values = collectIdeaValues(fields, textValues, tagValues, initialValues),
                                     onSaved = onBack,
                                     onEmpty = { showNothingSaved = true },
+                                    untouchedWeekdayIds = fields.filter { it.type == FieldType.DAY_OF_WEEK && it.id !in editedWeekdays }.map { it.id }.toSet(),
                                 )
                             } else {
                                 // Bring the first field that still needs attention
@@ -241,6 +243,7 @@ fun NewIdeaScreen(
                     field = field,
                     textValues = textValues,
                     tagValues = tagValues,
+                    onWeekdayEdited = { if (it !in editedWeekdays) editedWeekdays = editedWeekdays + it },
                     showError = validationAttempted && field.id in blockingFieldIds,
                     bringIntoViewRequester = target?.bringIntoViewRequester,
                     focusRequester = target?.focusRequester,
@@ -280,6 +283,7 @@ private fun IdeaFieldControl(
     field: IdeaFieldDef,
     textValues: SnapshotStateMap<String, String>,
     tagValues: SnapshotStateMap<String, List<String>>,
+    onWeekdayEdited: (String) -> Unit,
     showError: Boolean,
     bringIntoViewRequester: BringIntoViewRequester?,
     focusRequester: FocusRequester?,
@@ -346,7 +350,7 @@ private fun IdeaFieldControl(
             FieldType.DAY_OF_WEEK -> WeekdayEntryControl(
                 label = label, choices = field.choices, settings = field.weekday,
                 selected = tagValues[field.id].orEmpty().toSet(),
-                onSelectedChange = { tagValues[field.id] = it.toList() },
+                onSelectedChange = { onWeekdayEdited(field.id); tagValues[field.id] = it.toList() },
             )
             FieldType.DROPDOWN -> {
                 val stored = textValues[field.id].orEmpty()

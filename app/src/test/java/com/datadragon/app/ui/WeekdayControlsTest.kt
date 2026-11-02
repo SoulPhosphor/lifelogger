@@ -23,6 +23,17 @@ import org.robolectric.annotation.Config
 class WeekdayControlsTest {
     @get:Rule val compose = createComposeRule()
 
+    @Test fun defaultLabelIsVisibleBeforeFocusAndTypingReplacesIt() {
+        val value = mutableStateOf("")
+        compose.setContent { DataDragonTheme(dynamicColor = false) {
+            WeekdayLabelEditor(value.value, { value.value = it })
+        } }
+        compose.onNodeWithText("Day of the Week").assertExists()
+        compose.onNode(hasSetTextAction()).assertIsNotFocused().performTextInput("My Days")
+        compose.onNode(hasSetTextAction()).assertTextContains("My Days")
+        compose.onNodeWithText("Day of the Week").assertDoesNotExist()
+    }
+
     @Test fun protectedDaysHaveNoRemovalMenuAndEnablingRestoresTheRetiredUUID() {
         val days = Weekday.newChoices()
         val choices = mutableStateOf(ChoiceEdits.retired(days, days.first().id))

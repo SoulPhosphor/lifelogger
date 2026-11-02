@@ -82,4 +82,16 @@ class WeekdayTest {
         assertEquals(listOf("weekday"), Weekday.missingRequired(listOf(required), emptyMap()))
         assertTrue(Weekday.missingRequired(listOf(required.copy(required = false)), emptyMap()).isEmpty())
     }
+    @Test fun crossingMidnightUpdatesOnlyUntouchedWeekdayDefaults() {
+        val original = mapOf(field.id to EntryValues.stringArray(listOf(monday.id)), "date" to EntryValues.string("2026-10-31"), "time" to EntryValues.string("23:59"))
+        val fields = listOf(Triple(field.id, days, settings))
+        val afterMidnight = Weekday.atCreation(original, fields, date.plusDays(1), setOf(field.id))
+        assertEquals(listOf(tuesday.id), Weekday.selected(afterMidnight[field.id]))
+        assertEquals(original["date"], afterMidnight["date"])
+        assertEquals(original["time"], afterMidnight["time"])
+        assertEquals(original, Weekday.atCreation(original, fields, date.plusDays(1), emptySet()))
+        val manual = mapOf(field.id to EntryValues.stringArray(listOf(tuesday.id)))
+        assertEquals(manual, Weekday.atCreation(manual, listOf(Triple(field.id, days, settings.copy(defaultEnteredDay = false))), date, setOf(field.id)))
+    }
+
 }

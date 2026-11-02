@@ -42,7 +42,7 @@ class HomeGroupingOrderTest {
         val file = BackupFile.single(exportedAt = "2026-11-01T12:00:00Z", category = BackupCategory.PORTABLE_PREFERENCES, payload = BackupPayload(portablePreferences = settings.portableBackupSnapshot()))
         val encoded = BackupCodec.encode(file)
         val decoded = BackupCodec.decode(encoded)
-        assertEquals(14, decoded.version)
+        assertEquals(BackupFile.VERSION, decoded.version)
         assertEquals(encoded, BackupCodec.encode(decoded))
         settings.applyPortableBackup(before)
         assertTrue(settings.homeGroupingOrders().isEmpty())
@@ -51,7 +51,7 @@ class HomeGroupingOrderTest {
         // An older file that never carried ordering leaves the current order alone.
         settings.applyPortableBackup(BackupPortablePreferences.defaults())
         assertEquals(listOf("b", "a"), settings.homeGroupingOrders()[HomeView.FORMS.key])
-        assertThrows(IllegalArgumentException::class.java) { BackupCodec.decode(encoded.replace("\"version\": 14", "\"version\": 13")) }
+        assertThrows(IllegalArgumentException::class.java) { BackupCodec.decode(encoded.replace("\"version\": ${BackupFile.VERSION}", "\"version\": 13")) }
         assertThrows(IllegalArgumentException::class.java) { HomeGroupingOrder.validate(mapOf(HomeView.FORMS.key to listOf("a", "a"))) }
     }
 }

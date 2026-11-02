@@ -55,6 +55,21 @@ object Weekday {
         else (manual + if (settings.defaultEnteredDay) listOfNotNull(today) else emptyList()).toSet()
     }
 
+    /** Re-evaluate only untouched automatic defaults at the actual creation date (e.g. across midnight). */
+    fun atCreation(
+        values: Map<String, JsonElement>,
+        fields: List<Triple<String, List<ChoiceOption>, WeekdaySettings>>,
+        date: LocalDate,
+        untouchedIds: Set<String>,
+    ): Map<String, JsonElement> = values.toMutableMap().apply {
+        fields.forEach { (id, choices, settings) ->
+            if (id in untouchedIds && settings.defaultEnteredDay) {
+                val selected = defaults(choices, settings, date)
+                if (selected.isEmpty()) remove(id) else put(id, EntryValues.stringArray(selected))
+            }
+        }
+    }
+
     /** Arrays in both modes preserve past selections when a field changes modes. */
     fun selected(raw: JsonElement?): List<String> = when (raw) {
         is JsonArray -> raw.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }

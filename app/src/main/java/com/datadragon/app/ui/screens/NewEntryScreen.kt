@@ -150,6 +150,7 @@ fun NewEntryScreen(
     val multiValues = rememberSaveable(saver = multiValuesSaver) { mutableStateMapOf() }
     val tagValues = rememberSaveable(saver = tagValuesSaver) { mutableStateMapOf() }
     val comparisonValues = rememberSaveable(saver = comparisonValuesSaver) { mutableStateMapOf() }
+    var editedWeekdays by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var notes by rememberSaveable { mutableStateOf("") }
     var validationAttempted by rememberSaveable { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
@@ -308,6 +309,7 @@ fun NewEntryScreen(
                                     values = collectValues(fields, textValues, multiValues, tagValues, comparisonValues, notes),
                                     onSaved = onBack,
                                     onEmpty = { showNothingSaved = true },
+                                    untouchedWeekdayIds = fields.filter { it.type == FieldType.DAY_OF_WEEK && it.id !in editedWeekdays }.map { it.id }.toSet(),
                                 )
                             } else {
                                 validationAttempted = true
@@ -363,6 +365,7 @@ fun NewEntryScreen(
                         null
                     },
                     onNotice = { showNotice(it) },
+                    onWeekdayEdited = { if (it !in editedWeekdays) editedWeekdays = editedWeekdays + it },
                 )
             }
 

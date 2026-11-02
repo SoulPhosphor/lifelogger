@@ -119,6 +119,7 @@ fun EntryFieldControl(
     onAddOption: ((FieldDef) -> Unit)? = null,
     /** Shows a short message to the user, such as a refused decimal point. */
     onNotice: (String) -> Unit = {},
+    onWeekdayEdited: (String) -> Unit = {},
 ) {
     val label = field.displayLabel()
     val targetModifier = bringIntoViewRequester?.let {
@@ -183,7 +184,7 @@ fun EntryFieldControl(
             FieldType.DAY_OF_WEEK -> WeekdayEntryControl(
                 label = label, choices = field.choices, settings = field.weekday,
                 selected = multiValues[field.id].orEmpty(),
-                onSelectedChange = { multiValues[field.id] = it },
+                onSelectedChange = { onWeekdayEdited(field.id); multiValues[field.id] = it },
                 onAdd = onAddOption?.let { add -> { add(field) } },
             )
             FieldType.DROPDOWN -> {

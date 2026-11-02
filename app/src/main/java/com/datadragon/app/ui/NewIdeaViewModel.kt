@@ -3,9 +3,11 @@ package com.datadragon.app.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.datadragon.app.data.Weekday
 import com.datadragon.app.data.AppDatabase
 import com.datadragon.app.data.BackupRepository
 import com.datadragon.app.data.IdeaEntry
+import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.IdeaFieldDef
 import com.datadragon.app.data.IdeaValues
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -68,7 +70,7 @@ class NewIdeaViewModel(app: Application) : AndroidViewModel(app) {
      * Persist the idea. Editing keeps the original `createdAt` and stamps
      * `updatedAt`; a new idea is inserted with the current time, active.
      */
-    fun save(values: Map<String, JsonElement>, onSaved: () -> Unit, onEmpty: () -> Unit = {}) {
+    fun save(values: Map<String, JsonElement>, onSaved: () -> Unit, onEmpty: () -> Unit = {}, untouchedWeekdayIds: Set<String> = emptySet()) {
         if (!com.datadragon.app.data.CardContent.hasIdeaData(_fields.value, values)) { onEmpty(); return }
         if (ideaLogId < 0) return
         viewModelScope.launch {
@@ -88,7 +90,11 @@ class NewIdeaViewModel(app: Application) : AndroidViewModel(app) {
                     IdeaEntry(
                         ideaLogId = ideaLogId,
                         createdAt = now,
-                        valuesJson = IdeaValues.encode(values),
+                        valuesJson = IdeaValues.encode(Weekday.atCreation(
+                            values, _fields.value.filter { it.type == FieldType.DAY_OF_WEEK }
+                                .map { Triple(it.id, it.choices, it.weekday) },
+                            OffsetDateTime.parse(now).toLocalDate(), untouchedWeekdayIds,
+                        )),
                     )
                 )
             }
