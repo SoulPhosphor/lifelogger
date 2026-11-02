@@ -66,6 +66,7 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.launch
+import com.datadragon.app.data.Weekday
 import com.datadragon.app.ui.theme.AppTheme
 
 /**
@@ -174,7 +175,7 @@ fun NewEntryScreen(
         val values = initialValues ?: return@LaunchedEffect
         fields.forEach { field ->
             when (field.type) {
-                FieldType.MULTIPLE -> {
+                FieldType.DAY_OF_WEEK, FieldType.MULTIPLE -> {
                     val selected = EntryValues.selectedOptions(values, field)
                     if (selected.isNotEmpty()) multiValues[field.id] = selected
                 }
@@ -199,6 +200,9 @@ fun NewEntryScreen(
     LaunchedEffect(fields, isEditing) {
         if (isEditing) return@LaunchedEffect
         fields.forEach { field ->
+            if (field.type == FieldType.DAY_OF_WEEK && multiValues[field.id] == null) {
+                multiValues[field.id] = Weekday.defaults(field.choices, field.weekday, java.time.LocalDate.now())
+            }
             if (field.type == FieldType.MULTIPLE && multiValues[field.id] == null) {
                 val preselected = field.preselectedMultipleChoices()
                 if (preselected.isNotEmpty()) multiValues[field.id] = preselected
@@ -449,7 +453,7 @@ internal fun missingRequiredFieldIds(
                 field.rightDigits ?: MAX_RATIO_DIGITS,
             )
         !field.required -> false
-        field.type == FieldType.MULTIPLE -> multiValues[field.id].orEmpty().isEmpty()
+        (field.type == FieldType.MULTIPLE || field.type == FieldType.DAY_OF_WEEK) -> multiValues[field.id].orEmpty().isEmpty()
         field.type == FieldType.TAGS -> tagValues[field.id].orEmpty().isEmpty()
         else -> value.isNullOrBlank()
     }
@@ -484,7 +488,7 @@ internal fun collectValues(
 ): Map<String, JsonElement> = buildMap {
     fields.forEach { field ->
         when (field.type) {
-            FieldType.MULTIPLE -> {
+            FieldType.DAY_OF_WEEK, FieldType.MULTIPLE -> {
                 // Store option ids in the schema's option order; an id the
                 // schema doesn't know is kept rather than dropped.
                 val selected = multiValues[field.id].orEmpty()

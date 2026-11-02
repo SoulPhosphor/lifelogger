@@ -51,7 +51,7 @@ data class BackupFile(
 
     companion object {
         const val FORMAT = "datadragon-backup"
-        const val VERSION = 14
+        const val VERSION = 15
 
         /**
          * The version before Comparison fields. A decoded version-9 file that
@@ -556,10 +556,12 @@ object BackupCodec {
         ) { "Backup automatic backup preferences are incomplete." }
         // Preferences converted from a version-3 file lack the version-4 fields,
         // so they are re-encoded with the version that truthfully describes them.
-        val version = if (preferences != null && !preferences.hasAutomaticBackupPreferences && payload.luckyLists == null && preferences.modeEnabledLuckyList == null && !payload.hasAllowAdditionsFromForm() && !payload.hasVersion7FieldSettings() && !payload.hasVersion8Identities() && !payload.hasAdvancedSearchSettings() && !payload.hasVersion10Comparison() && !payload.hasVersion11Content() && !payload.hasListItemQuantities() && !payload.hasQuantityListChecksOrAverage() && preferences.homeGroupingOrders == null && !payload.hasAlphabeticalOptions()) {
+        val version = if (preferences != null && !preferences.hasAutomaticBackupPreferences && payload.luckyLists == null && preferences.modeEnabledLuckyList == null && !payload.hasAllowAdditionsFromForm() && !payload.hasVersion7FieldSettings() && !payload.hasVersion8Identities() && !payload.hasAdvancedSearchSettings() && !payload.hasVersion10Comparison() && !payload.hasVersion11Content() && !payload.hasListItemQuantities() && !payload.hasQuantityListChecksOrAverage() && preferences.homeGroupingOrders == null && !payload.hasAlphabeticalOptions() && !payload.hasWeekdayFields()) {
             BackupFile.FIRST_ENVELOPE_VERSION
-        } else if (preferences?.homeGroupingOrders != null || payload.hasAlphabeticalOptions()) {
+        } else if (payload.hasWeekdayFields()) {
             BackupFile.VERSION
+        } else if (preferences?.homeGroupingOrders != null || payload.hasAlphabeticalOptions()) {
+            backup.version.coerceIn(14, BackupFile.VERSION)
         } else if (payload.hasQuantityListChecksOrAverage()) {
             backup.version.coerceIn(13, BackupFile.VERSION)
         } else if (payload.hasListItemQuantities()) {
@@ -642,6 +644,9 @@ object BackupCodec {
         // would reject the unknown field type.
         require(envelope.version >= 12 || !envelope.payload.hasListItemQuantities()) {
             "List Item Quantities fields require backup version 12."
+        }
+        require(envelope.version >= 15 || !envelope.payload.hasWeekdayFields()) {
+            "Day of the Week fields require backup version 15."
         }
         require(envelope.version >= 14 || (envelope.payload.portablePreferences?.homeGroupingOrders == null && !envelope.payload.hasAlphabeticalOptions())) {
             "Home grouping order and alphabetical options require backup version 14."
@@ -744,6 +749,16 @@ object BackupCodec {
             "choices" in field || (fieldIdsCount && !id.isNullOrBlank())
         }
     }
+
+    private fun BackupPayload.hasWeekdayFields(): Boolean =
+        forms.orEmpty().any { declaresFieldType(it.schemaJson, "day_of_week") } ||
+            ideaLogs.orEmpty().any { declaresFieldType(it.fieldsJson, "day_of_week") } ||
+            clickerData.orEmpty().any { declaresFieldType(it.fieldsJson, "day_of_week") }
+
+    private fun declaresFieldType(raw: String, token: String): Boolean =
+        (runCatching { json.parseToJsonElement(raw) }.getOrNull() as? JsonArray).orEmpty().any {
+            (it as? JsonObject)?.get("type")?.let { value -> (value as? JsonPrimitive)?.contentOrNull }?.equals(token, ignoreCase = true) == true
+        }
 
     private fun BackupPayload.hasAlphabeticalOptions(): Boolean =
         forms.orEmpty().any { declaresAnyKey(it.schemaJson, listOf("orderOptionsAlphabetically")) }

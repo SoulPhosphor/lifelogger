@@ -120,6 +120,7 @@ data class FieldDef(
      * rows' differences under the total.
      */
     val showAverage: Boolean = false,
+    val weekday: WeekdaySettings = WeekdaySettings(),
 )
 
 /** How a Single Choice (`dropdown`) field presents its options on the entry form. */
@@ -131,7 +132,7 @@ enum class ChoiceStyle {
 
 /** True for the two field types that hold a fixed list of [FieldDef.choices]. */
 val FieldType.hasChoices: Boolean
-    get() = this == FieldType.DROPDOWN || this == FieldType.MULTIPLE
+    get() = this == FieldType.DROPDOWN || this == FieldType.MULTIPLE || this == FieldType.DAY_OF_WEEK
 
 /**
  * True for the field types whose answer is rows of an item picked from
@@ -183,6 +184,7 @@ enum class FieldType(val token: String) {
     MULTIPLE("multiple"),
     SCALE("scale"),
     YESNO("yesno"),
+    DAY_OF_WEEK("day_of_week"),
     DATE("date"),
     TIME("time"),
     DATETIME("datetime"),
@@ -212,6 +214,7 @@ enum class FieldType(val token: String) {
             YESNO,
             COMPARISON,
             LIST_ITEM_QUANTITIES,
+            DAY_OF_WEEK,
             DATE,
             TIME,
             DATETIME,

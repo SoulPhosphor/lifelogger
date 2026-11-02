@@ -291,6 +291,7 @@ fun DataDragonNavHost(
                     onBack = { navController.popBackStack() },
                     onEditLog = { navController.navigate(Routes.editClickerLog(it)) },
                     onEditCard = { navController.navigate(Routes.clickerCardEdit(it)) },
+                    onNewCard = { navController.navigate(Routes.clickerCardNew(it)) },
                     onOpenStatistics = { navController.navigate(Routes.clickerStatistics(it)) },
                 )
             }
@@ -326,6 +327,16 @@ fun DataDragonNavHost(
         ) { backStackEntry ->
             val id = backStackEntry.arguments?.getString(Routes.CLICKER_LOG_ARG)?.toLongOrNull()
             ClickerSetupScreen(existingLogId = id, onBack = { navController.popBackStack() })
+        }
+
+        composable(
+            route = Routes.CLICKER_CARD_NEW,
+            arguments = listOf(navArgument(Routes.CLICKER_LOG_ARG) { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val id = backStackEntry.arguments?.getString(Routes.CLICKER_LOG_ARG)?.toLongOrNull()
+            if (id != null) {
+                ClickerCardEditScreen(cardId = null, newLogId = id, onBack = { navController.popBackStack() })
+            }
         }
 
         composable(

@@ -67,6 +67,7 @@ import kotlinx.serialization.json.JsonObject
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import com.datadragon.app.data.Weekday
 import com.datadragon.app.ui.theme.AppTheme
 
 private val ideaTextSaver = Saver<SnapshotStateMap<String, String>, String>(
@@ -140,12 +141,19 @@ fun NewIdeaScreen(
     LaunchedEffect(initialValues, fields) {
         val values = initialValues ?: return@LaunchedEffect
         fields.forEach { field ->
-            if (field.type == FieldType.TAGS) {
-                val tags = IdeaValues.tags(values, field)
+            if (field.type == FieldType.TAGS || field.type == FieldType.DAY_OF_WEEK) {
+                val tags = if (field.type == FieldType.DAY_OF_WEEK) Weekday.selected(values[field.id]) else IdeaValues.tags(values, field)
                 if (tags.isNotEmpty()) tagValues[field.id] = tags
             } else {
                 IdeaValues.rawValue(values, field)?.let { textValues[field.id] = it }
             }
+        }
+    }
+
+    LaunchedEffect(fields.map { it.id to it.type }, isEditing) {
+        if (isEditing) return@LaunchedEffect
+        fields.filter { it.type == FieldType.DAY_OF_WEEK && tagValues[it.id] == null }.forEach { field ->
+            tagValues[field.id] = Weekday.defaults(field.choices, field.weekday, java.time.LocalDate.now()).toList()
         }
     }
 
@@ -335,6 +343,11 @@ private fun IdeaFieldControl(
             // "Categories" is the single-choice dropdown, under the Ideas name.
             // The stored answer is the category's permanent id. A retired
             // category this idea already holds still shows.
+            FieldType.DAY_OF_WEEK -> WeekdayEntryControl(
+                label = label, choices = field.choices, settings = field.weekday,
+                selected = tagValues[field.id].orEmpty().toSet(),
+                onSelectedChange = { tagValues[field.id] = it.toList() },
+            )
             FieldType.DROPDOWN -> {
                 val stored = textValues[field.id].orEmpty()
                 DropdownField(
@@ -401,7 +414,7 @@ internal fun blockingIdeaFieldIds(
     val blocked = when (field.type) {
         FieldType.WEBPAGE ->
             if (value.isNullOrBlank()) field.required else !WebAddress.isValid(value)
-        FieldType.TAGS -> field.required && tagValues[field.id].orEmpty().isEmpty()
+        FieldType.DAY_OF_WEEK, FieldType.TAGS -> field.required && tagValues[field.id].orEmpty().isEmpty()
         FieldType.RATIO -> !RatioValues.acceptable(
             value,
             field.required,
@@ -429,9 +442,9 @@ internal fun collectIdeaValues(
 ): Map<String, JsonElement> = buildMap {
     fields.forEach { field ->
         val original = stored?.get(field.id)
-        if (field.type == FieldType.TAGS) {
+        if (field.type == FieldType.TAGS || field.type == FieldType.DAY_OF_WEEK) {
             val tags = tagValues[field.id].orEmpty()
-            if (original != null && tags == IdeaValues.tags(stored, field)) {
+            if (original != null && tags == (if (field.type == FieldType.DAY_OF_WEEK) Weekday.selected(stored[field.id]) else IdeaValues.tags(stored, field))) {
                 put(field.id, original)
             } else if (tags.isNotEmpty()) {
                 put(field.id, EntryValues.stringArray(tags))

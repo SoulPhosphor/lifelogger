@@ -180,6 +180,12 @@ fun EntryFieldControl(
                 )
             }
 
+            FieldType.DAY_OF_WEEK -> WeekdayEntryControl(
+                label = label, choices = field.choices, settings = field.weekday,
+                selected = multiValues[field.id].orEmpty(),
+                onSelectedChange = { multiValues[field.id] = it },
+                onAdd = onAddOption?.let { add -> { add(field) } },
+            )
             FieldType.DROPDOWN -> {
                 // The stored answer is an option id. A retired option this entry
                 // already holds still shows (and stays deselectable).
@@ -369,6 +375,7 @@ internal fun DropdownField(
     selectedLabel: String,
     onSelected: (ChoiceOption) -> Unit,
     onAdd: (() -> Unit)? = null,
+    emptyLabel: String = "Choose…",
 ) {
     var expanded by remember { mutableStateOf(false) }
     Labeled(label, onAdd) {
@@ -377,7 +384,7 @@ internal fun DropdownField(
                 value = selectedLabel,
                 onValueChange = {},
                 readOnly = true,
-                placeholder = { Text("Choose…") },
+                placeholder = { Text(emptyLabel) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                 modifier = Modifier.menuAnchor().fillMaxWidth(),
                 accessibleLabel = label,
@@ -627,7 +634,7 @@ private fun ScaleDropdown(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun MultipleField(
+internal fun MultipleField(
     label: String,
     options: List<ChoiceOption>,
     selectedIds: Set<String>,
@@ -653,7 +660,7 @@ private fun MultipleField(
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SingleChoiceChipsField(
+internal fun SingleChoiceChipsField(
     label: String,
     options: List<ChoiceOption>,
     selectedId: String,

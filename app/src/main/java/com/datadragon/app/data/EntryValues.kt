@@ -138,7 +138,7 @@ object EntryValues {
     fun displayValue(field: FieldDef, values: JsonObject): String? {
         val raw = values[field.id] ?: return null
         return when (field.type) {
-            FieldType.DROPDOWN, FieldType.MULTIPLE ->
+            FieldType.DAY_OF_WEEK, FieldType.DROPDOWN, FieldType.MULTIPLE ->
                 choiceLabels(field, raw).takeIf { it.isNotEmpty() }?.joinToString(", ")
             FieldType.TAGS ->
                 (raw as? JsonArray)

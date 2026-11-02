@@ -57,6 +57,8 @@ import com.datadragon.app.data.editOnlyFromCardMenu
 import com.datadragon.app.ui.ClickerSetupViewModel
 import com.datadragon.app.ui.components.AppButton
 import com.datadragon.app.ui.components.AppDropdownRow
+import com.datadragon.app.data.Weekday
+import com.datadragon.app.data.WeekdaySettings
 import com.datadragon.app.ui.theme.AppTheme
 
 /** The note shown under a display-only field type in a clicker log's setup. */
@@ -79,6 +81,9 @@ private class ClickerDraftField(
     maxDigits: String = "",
     autoIncrement: Boolean = false,
     choices: List<ChoiceOption> = emptyList(),
+    weekday: WeekdaySettings = WeekdaySettings(),
+    required: Boolean = false,
+    persistedIds: Set<String> = emptySet(),
     itemLabel: String = "",
     firstLabel: String = "",
     secondLabel: String = "",
@@ -96,6 +101,9 @@ private class ClickerDraftField(
     var maxDigits by mutableStateOf(maxDigits)
     var autoIncrement by mutableStateOf(autoIncrement)
     var choices by mutableStateOf(choices)
+    var weekday by mutableStateOf(weekday)
+    var required by mutableStateOf(required)
+    val persistedChoiceIds = persistedIds
     override var itemLabel by mutableStateOf(itemLabel)
     override var firstLabel by mutableStateOf(firstLabel)
     override var secondLabel by mutableStateOf(secondLabel)
@@ -126,12 +134,18 @@ private class ClickerDraftField(
         choices.filter { it.label.isNotBlank() }.map { it.copy(label = it.label.trim()) }
 
     /** A Comparison field needs at least one active item; every other type is ready once labeled. */
-    fun hasItems(): Boolean = type != ClickerFieldType.COMPARISON || savedChoices().activeChoices.isNotEmpty()
+    fun hasItems(): Boolean = when (type) {
+        ClickerFieldType.DAY_OF_WEEK -> Weekday.validChoices(choices, weekday)
+        ClickerFieldType.COMPARISON -> savedChoices().activeChoices.isNotEmpty()
+        else -> true
+    }
 
     fun toField(): ClickerField = ClickerField(
         id = id,
         type = type,
-        label = label.trim(),
+        label = label.trim().ifBlank { if (type == ClickerFieldType.DAY_OF_WEEK) Weekday.LABEL else "" },
+        weekday = weekday,
+        required = required,
         buttonLabel = buttonLabel.trim(),
         startingNumber = startingNumber.toIntOrNull() ?: 0,
         incrementDirection = incrementDirection,
@@ -142,7 +156,7 @@ private class ClickerDraftField(
             maxDigits.toIntOrNull()
         },
         autoIncrement = autoIncrement,
-        choices = if (type == ClickerFieldType.COMPARISON) savedChoices() else emptyList(),
+        choices = if (type == ClickerFieldType.COMPARISON || type == ClickerFieldType.DAY_OF_WEEK) savedChoices() else emptyList(),
         itemLabel = if (type == ClickerFieldType.COMPARISON) itemLabel.trim() else "",
         firstLabel = if (type == ClickerFieldType.COMPARISON) firstLabel.trim() else "",
         secondLabel = if (type == ClickerFieldType.COMPARISON) secondLabel.trim() else "",
@@ -164,6 +178,9 @@ private fun ClickerField.toDraft(): ClickerDraftField = ClickerDraftField(
     maxDigits = maxDigits?.toString() ?: "",
     autoIncrement = autoIncrement,
     choices = choices,
+    weekday = weekday,
+    required = required,
+    persistedIds = choices.map { it.id }.toSet(),
     itemLabel = itemLabel,
     firstLabel = firstLabel,
     secondLabel = secondLabel,
@@ -188,6 +205,7 @@ private data class ClickerSetupSnapshot(
 private fun ClickerFieldType.displayName(): String = when (this) {
     ClickerFieldType.CLICK_TRACKER -> "Click Tracker"
     ClickerFieldType.WRITE_IN_NUMBER -> "Write-In Number Tracker"
+    ClickerFieldType.DAY_OF_WEEK -> Weekday.LABEL
     ClickerFieldType.DATE -> "Date"
     ClickerFieldType.TIME -> "Time"
     ClickerFieldType.DATE_TIME -> "Date & Time"
@@ -246,7 +264,7 @@ fun ClickerSetupScreen(
         }
     }
 
-    val canSave = title.isNotBlank() && fields.isNotEmpty() && fields.all { it.label.isNotBlank() && it.hasItems() }
+    val canSave = title.isNotBlank() && fields.isNotEmpty() && fields.all { (it.label.isNotBlank() || it.type == ClickerFieldType.DAY_OF_WEEK) && it.hasItems() }
     val dirty = if (existingLogId == null) {
         title.isNotBlank() || fields.isNotEmpty()
     } else {
@@ -379,7 +397,9 @@ fun ClickerSetupScreen(
             }
 
             AddFieldButton(onAdd = { type ->
-                fields.add(ClickerDraftField(id = StableUuid.createNew(), type = type))
+                val choices = if (type == ClickerFieldType.DAY_OF_WEEK) Weekday.newChoices() else emptyList()
+                fields.add(ClickerDraftField(id = StableUuid.createNew(), type = type, choices = choices,
+                    weekday = WeekdaySettings(weekdayIds = Weekday.identities(choices))))
             })
         }
     }
@@ -477,11 +497,19 @@ private fun ClickerFieldEditor(
                 value = field.label,
                 onValueChange = { field.label = it },
                 singleLine = true,
+                placeholder = if (field.type == ClickerFieldType.DAY_OF_WEEK) ({ Text(Weekday.LABEL) }) else null,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
 
         when (field.type) {
+            ClickerFieldType.DAY_OF_WEEK -> WeekdaySettingsControls(
+                settings = field.weekday, choices = field.choices, seeds = Weekday.seeds(field.weekday),
+                persistedIds = field.persistedChoiceIds, onSettingsChange = { field.weekday = it },
+                onChoicesChange = { field.choices = it }, required = field.required,
+                onRequiredChange = { field.required = it }, capitalizeNew = capitalizeNewOptions,
+                onDeletePermanently = onDeleteOption,
+            )
             ClickerFieldType.CLICK_TRACKER -> {
                 Labeled("Button Label") {
                     OutlinedTextField(

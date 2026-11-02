@@ -35,7 +35,11 @@ object ClickerComparison {
         val values = ClickerValues.decode(valuesJson)
         val raw = values[fieldId] ?: return valuesJson
         val stored = runCatching { json.parseToJsonElement(raw) }.getOrNull() as? JsonArray ?: return valuesJson
-        val kept = ComparisonValues.withoutItem(stored, optionId)
+        val kept = if (stored.any { it is kotlinx.serialization.json.JsonObject }) {
+            ComparisonValues.withoutItem(stored, optionId)
+        } else {
+            kotlinx.serialization.json.JsonArray(stored.filterNot { (it as? kotlinx.serialization.json.JsonPrimitive)?.content == optionId }).takeIf { it.isNotEmpty() }
+        }
         if (kept == stored) return valuesJson
         val updated = values.toMutableMap()
         if (kept == null) updated.remove(fieldId) else updated[fieldId] = kept.toString()

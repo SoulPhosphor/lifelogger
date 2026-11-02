@@ -145,7 +145,7 @@ object ClickerReport {
                             ClickerFieldType.CLICK_TRACKER ->
                                 (ClickerValues.number(values, field.id) ?: field.startingNumber).toString()
                             // The same one-line text as a form's Comparison column.
-                            ClickerFieldType.COMPARISON -> displayValue(field, values).orEmpty()
+                            ClickerFieldType.COMPARISON, ClickerFieldType.DAY_OF_WEEK -> displayValue(field, values).orEmpty()
                             else -> values[field.id] ?: ""
                         },
                     )
@@ -175,6 +175,9 @@ object ClickerReport {
      * card face does.
      */
     internal fun displayValue(field: ClickerField, values: Map<String, String>): String? {
+        if (field.type == ClickerFieldType.DAY_OF_WEEK) {
+            return Weekday.labels(field.choices, Weekday.fromClicker(values[field.id]))
+        }
         if (field.type == ClickerFieldType.CLICK_TRACKER) {
             return (ClickerValues.number(values, field.id) ?: field.startingNumber).toString()
         }

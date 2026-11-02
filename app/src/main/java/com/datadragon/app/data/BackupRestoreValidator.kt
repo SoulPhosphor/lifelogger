@@ -204,6 +204,7 @@ object BackupRestoreValidator {
                 require(field.legacyOptions.isEmpty()) { "Idea Categories are missing UUIDs." }
             }
             requireUniqueChoiceIds(field.choices, "Idea Category")
+            if (field.type == FieldType.DAY_OF_WEEK) validateWeekday(field.choices, field.weekday)
         }
     }
 
@@ -239,7 +240,10 @@ object BackupRestoreValidator {
         val fields = runCatching { json.decodeFromJsonElement<List<ClickerField>>(normalized) }
             .getOrElse { throw IllegalArgumentException("Clicker fields are invalid JSON.", it) }
         // Comparison items are matched to card rows by id, so each needs a unique one.
-        fields.forEach { requireUniqueChoiceIds(it.choices, "Clicker Comparison item") }
+        fields.forEach {
+            requireUniqueChoiceIds(it.choices, "Clicker Comparison item")
+            if (it.type == ClickerFieldType.DAY_OF_WEEK) validateWeekday(it.choices, it.weekday)
+        }
     }
 
     /**
@@ -278,7 +282,25 @@ object BackupRestoreValidator {
             // would never be converted, so its answers could not be resolved.
             require(fields.none { it.legacyOptions.isNotEmpty() }) { "Form options are missing UUIDs." }
         }
-        fields.forEach { requireUniqueChoiceIds(it.choices, "Form option") }
+        fields.forEach {
+            requireUniqueChoiceIds(it.choices, "Form option")
+            if (it.type == FieldType.DAY_OF_WEEK) validateWeekday(it.choices, it.weekday)
+        }
+    }
+
+    private fun validateWeekday(choices: List<ChoiceOption>, settings: WeekdaySettings) {
+        require(settings.weekdayIds.keys == (1..7).toSet()) { "Weekday identities are incomplete." }
+        require(settings.weekdayIds.values.all { runCatching { java.util.UUID.fromString(it) }.isSuccess } && settings.weekdayIds.values.toSet().size == 7) {
+            "Weekday UUIDs must be valid and unique."
+        }
+        val builtIns = choices.filter { it.weekday != null }
+        require(builtIns.map { it.weekday }.distinct().size == builtIns.size) { "Weekday associations must be unique." }
+        require(builtIns.all { settings.weekdayIds[it.weekday] == it.id }) { "Weekday UUID association is invalid." }
+        require(choices.filter { it.weekday == null }.none { it.id in settings.weekdayIds.values }) { "A custom option uses a weekday UUID." }
+        if (settings.defaultEnteredDay) require(builtIns.activeChoices.size == 7 && builtIns.all { it.label.isNotBlank() }) {
+            "Default Entered Day requires all seven active weekdays."
+        }
+        if (settings.onlyOne) require(choices.activeChoices.count { it.preselected } <= 1) { "A single weekday field has multiple defaults." }
     }
 
     private fun requireUniqueChoiceIds(choices: List<ChoiceOption>, label: String) {

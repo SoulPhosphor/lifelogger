@@ -45,9 +45,23 @@ class ClickerCardEditViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    suspend fun newCard(logId: Long): ClickerCard? {
+        val log = dao.getLog(logId) ?: return null
+        val now = System.currentTimeMillis()
+        val local = java.time.Instant.ofEpochMilli(now).atZone(java.time.ZoneId.systemDefault())
+        return ClickerCard(
+            clickerLogId = logId, uuid = com.datadragon.app.data.StableUuid.createNew(), createdAt = now,
+            displayDate = if (log.autoDateStamp) local.toLocalDate().toString() else null,
+            displayTime = if (log.autoTimeStamp) local.toLocalTime().format(com.datadragon.app.data.EntryValues.TIME_STORAGE) else null,
+            valuesJson = com.datadragon.app.data.ClickerValues.encode(com.datadragon.app.data.Weekday.clickerDefaults(decodeFields(log.fieldsJson), local.toLocalDate())),
+        )
+    }
+
     fun save(card: ClickerCard, onSaved: () -> Unit) {
         viewModelScope.launch {
-            dao.updateCard(card)
+            val fields = loadFields(card.clickerLogId)
+            if (com.datadragon.app.data.Weekday.missingRequired(fields, com.datadragon.app.data.ClickerValues.decode(card.valuesJson)).isNotEmpty()) return@launch
+            if (card.id == 0L) dao.insertCard(card) else dao.updateCard(card)
             dao.touchModified(card.clickerLogId, System.currentTimeMillis())
             onSaved()
         }

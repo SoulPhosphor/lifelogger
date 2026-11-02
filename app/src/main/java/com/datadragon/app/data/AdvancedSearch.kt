@@ -43,7 +43,7 @@ object AdvancedSearch {
     }
 
     fun answers(field: FieldDef): List<SearchAnswer> = when (field.type) {
-        FieldType.DROPDOWN, FieldType.MULTIPLE -> field.choices.map {
+        FieldType.DAY_OF_WEEK, FieldType.DROPDOWN, FieldType.MULTIPLE -> field.choices.map {
             SearchAnswer(it.id, if (it.retired) "${it.label} (Retired)" else it.label)
         }
         // Include Unknown even after it stops being offered for new entries.

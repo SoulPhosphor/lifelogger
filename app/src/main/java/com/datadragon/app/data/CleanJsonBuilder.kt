@@ -96,7 +96,7 @@ object CleanJsonBuilder {
         return when (field.type) {
             FieldType.DROPDOWN ->
                 EntryValues.choiceLabels(field, raw).firstOrNull()?.let(::JsonPrimitive)
-            FieldType.MULTIPLE ->
+            FieldType.DAY_OF_WEEK, FieldType.MULTIPLE ->
                 EntryValues.choiceLabels(field, raw).takeIf { it.isNotEmpty() }?.let(EntryValues::stringArray)
             FieldType.TAGS ->
                 EntryValues.stringList(values, field).takeIf { it.isNotEmpty() }?.let(EntryValues::stringArray)

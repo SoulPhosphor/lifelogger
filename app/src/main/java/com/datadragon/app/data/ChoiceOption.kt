@@ -25,6 +25,8 @@ data class ChoiceOption(
     val label: String,
     val retired: Boolean = false,
     val preselected: Boolean = false,
+    /** ISO weekday (Monday = 1), independent of the editable label; null for custom options. */
+    val weekday: Int? = null,
 ) {
     companion object {
         /** The only path that creates a brand-new option with a fresh identity. */
@@ -68,6 +70,10 @@ object ChoiceEdits {
         active.add(toActiveIndex, active.removeAt(from))
         return active + choices.retiredChoices
     }
+
+    /** Unsaved options are removed outright; only persisted options enter Retired. */
+    fun removed(choices: List<ChoiceOption>, id: String, persistedIds: Set<String>): List<ChoiceOption> =
+        if (id in persistedIds) retired(choices, id) else withoutId(choices, id)
 
     /** Retire [id]: it leaves the active list, keeps its id, and is no longer pre-selected. */
     fun retired(choices: List<ChoiceOption>, id: String): List<ChoiceOption> {
