@@ -411,3 +411,28 @@ version-12 file without them keeps version 12. No database change.
 A Comparison field (forms and Clicker Data Logs) may carry `showAverage`
 (Show Average of Differences), written only when on; it also requires
 version 13.
+
+
+## Home grouping order (backup 14)
+
+`homeGroupingOrders` is an explicit portable preference mapping the five
+reorderable Home mode keys to ordered permanent grouping UUIDs. It never
+changes a UUID, local row id, grouping contents or child-record sort order.
+There is no Room schema change. New/unlisted groupings follow the saved
+ones in their existing baseline order; deleted UUIDs are ignored.
+
+Each drag updates the existing portable-preference revision counter.
+Manual/automatic full backups and Undo include even an empty map, so
+preferences Replace/Undo restores or clears the custom order. Preferences
+Merge retains current settings under the existing approved rule. Older
+files omit this nullable property and leave current ordering untouched.
+Canonical encoding sorts mode keys, preserves UUID list order, counts the
+mode orders, and requires version 14 whenever the property is declared.
+
+
+Single Choice and Multiple Choice fields may also declare
+`orderOptionsAlphabetically` in the schema JSON. Its false default is omitted
+from encoding so older payloads and checksums are unchanged. A declaration
+requires backup 14. Existing form snapshot, individual export, Merge conflict,
+Replace, Undo and revision tracking cover the field setting without a Room
+schema change.

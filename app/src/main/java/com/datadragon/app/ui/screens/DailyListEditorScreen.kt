@@ -1,5 +1,8 @@
 package com.datadragon.app.ui.screens
 
+import com.datadragon.app.data.CardCopyText
+import com.datadragon.app.ui.components.rememberCopyText
+
 import com.datadragon.app.export.SaveExportDocument
 import com.datadragon.app.ui.components.reorderedItems
 import com.datadragon.app.ui.components.accessibleReorder
@@ -116,6 +119,7 @@ fun DailyListEditorScreen(
     val allowTitle by viewModel.allowTitle.collectAsStateWithLifecycle()
 
     val scope = rememberCoroutineScope()
+    val copyText = rememberCopyText()
     val context = LocalContext.current
 
     var focusedItemId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -189,6 +193,10 @@ fun DailyListEditorScreen(
                                 Icon(Icons.Filled.MoreVert, contentDescription = "Daily Task options")
                             }
                             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("Copy") },
+                                    onClick = { menuOpen = false; copyText(CardCopyText.list(listOfNotNull(editorDate?.format(DAILY_LIST_DATE_FORMAT), title.takeIf { it.isNotBlank() }).joinToString("\n"), rows.map { CardCopyText.Item(it.text, it.completed, it.indent) })) },
+                                )
                                 DropdownMenuItem(
                                     text = { Text("Export") },
                                     onClick = { menuOpen = false; showExport = true },

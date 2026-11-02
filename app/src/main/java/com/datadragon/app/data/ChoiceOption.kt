@@ -48,6 +48,11 @@ val List<ChoiceOption>.retiredChoices: List<ChoiceOption>
  */
 object ChoiceEdits {
 
+    /** Sort active labels without changing identities, preselection or retired state. */
+    fun alphabetical(choices: List<ChoiceOption>): List<ChoiceOption> =
+        choices.activeChoices.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.label.trim() }) + choices.retiredChoices
+
+
     /** Rename the option [id] in place; its position and identity are unchanged. */
     fun renamed(choices: List<ChoiceOption>, id: String, label: String): List<ChoiceOption> =
         choices.map { if (it.id == id) it.copy(label = label) else it }

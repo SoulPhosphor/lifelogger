@@ -68,6 +68,7 @@ object BackupPhase0Inventory {
         "daily_list_retention",
         // One key per Clicker grouping: this prefix followed by the grouping's UUID.
         "clicker_follow_up_shown_",
+        "home_grouping_order_",
         "automatic_backup_cadence",
         "automatic_backup_custom_days",
         "automatic_backup_retention",

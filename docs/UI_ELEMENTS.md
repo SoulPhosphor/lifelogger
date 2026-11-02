@@ -189,3 +189,26 @@ It uses the outlined theme control frame and stroke icons (`Tune`, `ChevronRight
 Its `AdvancedViewState` is screen-local and survives collapse. Draft criteria only
 become applied criteria when Search runs. Legacy sorting remains unchanged when
 the feature is disabled. See UI_SPEC.md for behavior and setting placement.
+
+
+## Home grouping reordering and copying (November 2026)
+
+Forms, Lists, Ideas, Clicker Data and Lucky Lists expose Reorder Forms,
+Reorder Lists, Reorder Ideas, Reorder Clicker Data and Reorder Lucky Lists,
+respectively, above Settings in the Home cog menu. Reorder mode shows a
+DragIndicator handle at the far left of every grouping, keeps the rest of the
+row clickable, and replaces the top-right new-grouping plus with Done. Each
+move saves immediately. Done or Back exits reorder mode. Daily Tasks retains
+its existing sorting and has no reorder mode. This supersedes the older rule
+that Home grouping order cannot be changed.
+
+Individual Form, Idea and Clicker cards offer Copy directly below Edit in
+the kebab menu. Locked Forms still allow Copy. Idea Detail offers the same
+action. Copy places full, readable field labels and values on the system
+clipboard; preview truncation does not shorten copied text. Clicker Copy
+waits for pending inline edits and reads that card's current data.
+
+Opened Lists, Daily Task cards and Lucky Lists offer Copy above Export in
+the upper-right kebab menu. Lists and Daily Tasks copy bulleted items under
+Unfinished Items and Completed Items, omitting an empty section entirely.
+Sub-items retain indentation. Lucky Lists copy a single bulleted list.

@@ -42,6 +42,7 @@ object FormMarkdownParser {
         var autoFillIsField = false
         var allowUnknown = false
         var makeDropdown = false
+        var orderOptionsAlphabetically = false
         var choiceStyle = ChoiceStyle.DROPDOWN
         /** Legacy `top_answer_preselected: true`: pre-select the first option. */
         var topAnswerPreselected = false
@@ -185,6 +186,7 @@ object FormMarkdownParser {
                         }
                         "allow_unknown" -> b.allowUnknown =
                             value.equals("true", ignoreCase = true) || value.equals("yes", ignoreCase = true)
+                        "order_options_alphabetically" -> b.orderOptionsAlphabetically = value.equals("true", ignoreCase = true)
                         "make_dropdown" -> b.makeDropdown =
                             value.equals("true", ignoreCase = true) || value.equals("yes", ignoreCase = true)
                         "choice_style" -> when (value.lowercase()) {
@@ -351,6 +353,7 @@ object FormMarkdownParser {
                 defaultNow = b.defaultNow && type == FieldType.DATETIME,
                 allowUnknown = b.allowUnknown && type == FieldType.YESNO,
                 makeDropdown = b.makeDropdown && type == FieldType.SCALE,
+                orderOptionsAlphabetically = type.hasChoices && b.orderOptionsAlphabetically,
                 choiceStyle = if (type == FieldType.DROPDOWN) b.choiceStyle else ChoiceStyle.DROPDOWN,
                 leftDigits = b.leftDigits.takeIf { type == FieldType.RATIO },
                 rightDigits = b.rightDigits.takeIf { type == FieldType.RATIO },

@@ -35,6 +35,7 @@ fun HomeCard(
     subtitle: String? = null,
     leadingIcon: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
+    dragHandle: (@Composable () -> Unit)? = null,
 ) {
     Card(
         modifier = modifier
@@ -54,6 +55,7 @@ fun HomeCard(
                 ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            dragHandle?.invoke()
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     leadingIcon?.invoke()

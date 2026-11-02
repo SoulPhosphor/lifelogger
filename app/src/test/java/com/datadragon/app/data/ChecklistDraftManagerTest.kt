@@ -212,6 +212,20 @@ class ChecklistDraftManagerTest {
     }
 
     @Test
+    fun emptyDraftCannotBeFinalizedEvenIfItHasATitle() = runTest {
+        val store = FakeChecklistStore()
+        val mgr = manager(store, this, CoroutineScope(UnconfinedTestDispatcher(testScheduler)))
+        mgr.load(null, moveCompletedToBottom = false)
+        mgr.setTitle("Named")
+        var left = false
+        mgr.save { left = true }
+        advanceUntilIdle()
+        assertFalse(left)
+        assertTrue(mgr.isDraft.value)
+        assertTrue(store.lists.values.all { it.draft })
+    }
+
+    @Test
     fun saveFinalizesDraftIntoASavedList() = runTest {
         val store = FakeChecklistStore()
         val mgr = manager(store, this, CoroutineScope(UnconfinedTestDispatcher(testScheduler)))

@@ -137,6 +137,7 @@ class AutoBackupRevisionTest {
             change("clicker_follow_up_shown_") { it.setClickerFollowUpShown("test-group", true) },
             change("mode_enabled_ideas") { it.setModeEnabled(HomeView.IDEAS, false) },
             change("list_complete_icon") { it.completeIcon = CompleteIcon.CHECKMARK },
+            change("home_grouping_order_") { it.setHomeGroupingOrder(HomeView.FORMS, listOf("b", "a")) },
             change("list_cross_out_completed") { it.crossOutWhenCompleted = true },
             change("list_move_completed_bottom") { it.moveCompletedToBottom = true },
             change("daily_list_heading") { it.dailyListHeading = "Today" },

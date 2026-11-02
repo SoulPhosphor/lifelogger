@@ -26,6 +26,7 @@ import kotlinx.serialization.Serializable
  * Multiple Choice `*` switch, and the Single Choice "top answer" switch). They
  * are read only by [FieldIdentityMigration] and are empty/false afterwards.
  */
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable
 data class FieldDef(
     val id: String = "",
@@ -63,6 +64,8 @@ data class FieldDef(
     val makeDropdown: Boolean = false,
     /** dropdown (Single Choice): show as a dropdown or as displayed chips. */
     val choiceStyle: ChoiceStyle = ChoiceStyle.DROPDOWN,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val orderOptionsAlphabetically: Boolean = false,
     /** Legacy dropdown (Single Choice): the first option was pre-selected. */
     @SerialName("topAnswerPreselected")
     val legacyTopAnswerPreselected: Boolean = false,
@@ -146,7 +149,7 @@ val FieldType.hasOptionList: Boolean
 
 /** The options still offered for new answers, in display order. */
 val FieldDef.activeChoices: List<ChoiceOption>
-    get() = choices.activeChoices
+    get() = if (type.hasChoices && orderOptionsAlphabetically) ChoiceEdits.alphabetical(choices).activeChoices else choices.activeChoices
 
 /** The retired options, in display order. */
 val FieldDef.retiredChoices: List<ChoiceOption>

@@ -167,7 +167,7 @@ class ListItemQuantitiesTest {
             formFile(field, listOf(ComparisonRow("soda", "5", checked = true))),
         )
         files.forEach { text ->
-            assertEquals(13, BackupCodec.decode(text).version)
+            assertEquals(BackupFile.VERSION, BackupCodec.decode(text).version)
             assertThrows(IllegalArgumentException::class.java) {
                 BackupCodec.decode(text.replace("\"version\": ${BackupFile.VERSION}", "\"version\": 12"))
             }

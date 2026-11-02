@@ -49,6 +49,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.ImeAction
 import com.datadragon.app.data.ChoiceEdits
 import com.datadragon.app.data.ChoiceNameCheck
+import com.datadragon.app.ui.screens.SettingSwitchRow
 import com.datadragon.app.data.ChoiceOption
 import com.datadragon.app.data.TitleCase
 import com.datadragon.app.data.activeChoices
@@ -154,6 +155,8 @@ fun ChoiceOptionsEditor(
     capitalizeNew: Boolean,
     onDeletePermanently: (ChoiceOption) -> Unit,
     modifier: Modifier = Modifier,
+    alphabetical: Boolean? = null,
+    onAlphabeticalChange: (Boolean) -> Unit = {},
 ) {
     // The row being renamed, the label it had when editing began, and whether it
     // is a just-added row that hasn't been committed yet.
@@ -165,6 +168,11 @@ fun ChoiceOptionsEditor(
     var pendingRestore by remember { mutableStateOf<ChoiceOption?>(null) }
     var pendingDelete by remember { mutableStateOf<ChoiceOption?>(null) }
     val focusManager = LocalFocusManager.current
+
+    // Keep the text editor stationary while typing; sort when the edit commits.
+    fun publish(updated: List<ChoiceOption>) {
+        onChoicesChange(if (alphabetical == true && editingId == null) ChoiceEdits.alphabetical(updated) else updated)
+    }
 
     /**
      * Finish renaming [id] and return the resulting list: a valid new name is
@@ -203,24 +211,27 @@ fun ChoiceOptionsEditor(
     /** Commit [id]'s rename (if it is being edited) and publish the result. */
     fun commit(id: String) {
         val result = committed(id, choices)
-        if (result != choices) onChoicesChange(result)
+        if (result != choices || alphabetical == true) publish(result)
     }
 
     /**
      * Settle any rename in progress and return the list to build the next
      * change on, so a commit and a following change never overwrite each other.
      */
-    fun settled(): List<ChoiceOption> = editingId?.let { committed(it, choices) } ?: choices
+    fun settled(): List<ChoiceOption> {
+        val base = editingId?.let { committed(it, choices) } ?: choices
+        return if (alphabetical == true) ChoiceEdits.alphabetical(base) else base
+    }
 
     fun startEditing(option: ChoiceOption) {
         val base = settled()
-        if (base != choices) onChoicesChange(base)
+        if (base != choices) publish(base)
         editingId = option.id
         labelBeforeEdit = option.label
         editingIsNew = false
     }
 
-    val active = choices.activeChoices
+    val active = (if (alphabetical == true && editingId == null) ChoiceEdits.alphabetical(choices) else choices).activeChoices
     val retired = choices.retiredChoices
 
     Column(
@@ -236,6 +247,19 @@ fun ChoiceOptionsEditor(
             )
         }
 
+        if (alphabetical != null) {
+            SettingSwitchRow(
+                checked = alphabetical,
+                title = "Order Options Alphabetically",
+                onCheckedChange = { checked ->
+                    val settled = settled()
+                    val base = if (alphabetical) ChoiceEdits.alphabetical(settled) else settled
+                    onAlphabeticalChange(checked)
+                    publish(if (checked) ChoiceEdits.alphabetical(base) else base)
+                },
+            )
+        }
+
         // ReorderableColumn keeps per-item state sized to the list it first saw;
         // keying on the count rebuilds it when rows are added, retired or deleted.
         key(active.size) {
@@ -243,41 +267,43 @@ fun ChoiceOptionsEditor(
                 list = active,
                 onSettle = { from, to ->
                     active.getOrNull(from)?.let { moved ->
-                        onChoicesChange(ChoiceEdits.movedActive(choices, moved.id, to))
+                        if (alphabetical != true) publish(ChoiceEdits.movedActive(settled(), moved.id, to))
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
             ) { index, option, _ ->
+                key(option.id) {
                 ReorderableItem {
                     val isEditing = editingId == option.id
                     ActiveChoiceRow(
                         option = option,
+                        showGrip = alphabetical != true,
                         isEditing = isEditing,
                         preselection = preselection,
                         gripModifier = Modifier
-                            .draggableHandle(enabled = !isEditing)
+                            .draggableHandle(enabled = alphabetical != true)
                             .accessibleReorder(index, active.size) { offset ->
                                 val destination = index + offset
                                 if (destination in active.indices) {
-                                    onChoicesChange(ChoiceEdits.movedActive(choices, option.id, destination))
+                                    publish(ChoiceEdits.movedActive(settled(), option.id, destination))
                                     true
                                 } else {
                                     false
                                 }
                             },
-                        // Dragging is off while the row is being edited, so selecting
-                        // text or moving the cursor never reorders it.
-                        labelDragModifier = Modifier.longPressDraggableHandle(enabled = !isEditing),
+                        // Text gestures stay in the editor; the separate grip can
+                        // reorder a fresh option without leaving its text box.
+                        labelDragModifier = Modifier.longPressDraggableHandle(enabled = !isEditing && alphabetical != true),
                         onTap = { if (!isEditing) startEditing(option) },
-                        onLabelChange = { onChoicesChange(ChoiceEdits.renamed(choices, option.id, it)) },
+                        onLabelChange = { publish(ChoiceEdits.renamed(choices, option.id, it)) },
                         onCommit = { commit(option.id) },
                         onDone = { focusManager.clearFocus() },
                         onRemovePreselection = {
-                            onChoicesChange(ChoiceEdits.notPreselected(settled(), option.id))
+                            publish(ChoiceEdits.notPreselected(settled(), option.id))
                         },
                         onMakePreselected = {
-                            onChoicesChange(
+                            publish(
                                 ChoiceEdits.preselected(
                                     settled(),
                                     option.id,
@@ -285,14 +311,15 @@ fun ChoiceOptionsEditor(
                                 ),
                             )
                         },
-                        onRetire = { onChoicesChange(ChoiceEdits.retired(settled(), option.id)) },
+                        onRetire = { publish(ChoiceEdits.retired(settled(), option.id)) },
                         onDelete = {
                             val base = settled()
-                            if (base != choices) onChoicesChange(base)
+                            if (base != choices) publish(base)
                             // A just-added row that was never named is simply gone.
                             base.firstOrNull { it.id == option.id }?.let { pendingDelete = it }
                         },
                     )
+                }
                 }
             }
         }
@@ -304,7 +331,7 @@ fun ChoiceOptionsEditor(
                 editingId = option.id
                 labelBeforeEdit = ""
                 editingIsNew = true
-                onChoicesChange(ChoiceEdits.withNew(base, option))
+                publish(ChoiceEdits.withNew(base, option))
             },
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -336,7 +363,7 @@ fun ChoiceOptionsEditor(
             retired.forEach { option ->
                 RetiredChoiceRow(
                     option = option,
-                    onRestore = { onChoicesChange(ChoiceEdits.restored(settled(), option.id)) },
+                    onRestore = { publish(ChoiceEdits.restored(settled(), option.id)) },
                     onDelete = { pendingDelete = option },
                 )
             }
@@ -355,7 +382,7 @@ fun ChoiceOptionsEditor(
             dismissButton = { DialogDismissButton("Cancel") { pendingRestore = null } },
             confirmButton = {
                 DialogActionButton("Restore") {
-                    onChoicesChange(ChoiceEdits.restored(choices, option.id))
+                    publish(ChoiceEdits.restored(choices, option.id))
                     pendingRestore = null
                 }
             },
@@ -368,11 +395,11 @@ fun ChoiceOptionsEditor(
             wording = wording,
             onCancel = { pendingDelete = null },
             onRetire = {
-                onChoicesChange(ChoiceEdits.retired(choices, option.id))
+                publish(ChoiceEdits.retired(choices, option.id))
                 pendingDelete = null
             },
             onDelete = {
-                onChoicesChange(ChoiceEdits.withoutId(choices, option.id))
+                publish(ChoiceEdits.withoutId(choices, option.id))
                 onDeletePermanently(option)
                 pendingDelete = null
             },
@@ -428,6 +455,7 @@ private fun ChoiceLabelFrame(
 @Composable
 private fun ActiveChoiceRow(
     option: ChoiceOption,
+    showGrip: Boolean,
     isEditing: Boolean,
     preselection: ChoicePreselection,
     gripModifier: Modifier,
@@ -446,7 +474,7 @@ private fun ActiveChoiceRow(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
+        if (showGrip) Icon(
             imageVector = Icons.Filled.DragIndicator,
             contentDescription = "Reorder",
             tint = MaterialTheme.colorScheme.onSurfaceVariant,

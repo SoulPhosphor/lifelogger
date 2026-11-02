@@ -1,5 +1,9 @@
 package com.datadragon.app.ui.screens
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material3.TextButton
+import com.datadragon.app.ui.components.HomeGroupingList
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.foundation.background
@@ -126,6 +130,17 @@ fun HomeScreen(
     val visibleModes = MODE_META.filter { it.view in enabledModes }
     val currentMode = visibleModes.firstOrNull { it.view == view } ?: visibleModes.firstOrNull()
 
+    var reordering by rememberSaveable(currentMode?.view) { mutableStateOf(false) }
+    BackHandler(enabled = reordering) { reordering = false }
+    val reorderLabel = when (currentMode?.view) {
+        HomeView.FORMS -> "Reorder Forms"
+        HomeView.LISTS -> "Reorder Lists"
+        HomeView.IDEAS -> "Reorder Ideas"
+        HomeView.CLICKER -> "Reorder Clicker Data"
+        HomeView.LUCKY_LIST -> "Reorder Lucky Lists"
+        else -> null
+    }
+
     Scaffold(
         topBar = {
             // Daily Tasks has no Home list of its own — entering the mode drops
@@ -174,6 +189,8 @@ fun HomeScreen(
                     },
                     navigationIcon = {
                         AppMenuButton(
+                            reorderLabel = reorderLabel,
+                            onReorder = { reordering = true },
                             onOpenSettings = onOpenSettings,
                             onOpenBackupRestore = onOpenBackupRestore,
                             onOpenAbout = onOpenAbout,
@@ -183,7 +200,9 @@ fun HomeScreen(
                         // The trailing "+" creates a new item in whichever mode is
                         // showing; with no mode chosen there is nothing to add.
                         val activeView = currentMode?.view
-                        if (activeView != null) {
+                        if (reordering) {
+                            TextButton(onClick = { reordering = false }) { Text("Done") }
+                        } else if (activeView != null) {
                             IconButton(onClick = {
                                 when (activeView) {
                                     HomeView.FORMS -> onCreateForm()
@@ -215,23 +234,31 @@ fun HomeScreen(
     ) { padding ->
         when (currentMode?.view) {
             HomeView.FORMS -> FormsBody(
+                reordering = reordering,
+                onOrder = { viewModel.reorderGroupings(HomeView.FORMS, it) },
                 logs = logs,
                 modifier = Modifier.fillMaxSize().padding(padding),
                 onOpenLog = onOpenLog,
                 onAddEntry = onAddEntry,
             )
             HomeView.LUCKY_LIST -> ListsBody(
+                reordering = reordering,
+                onOrder = { viewModel.reorderGroupings(HomeView.LUCKY_LIST, it) },
                 checklists = luckyLists,
                 modifier = Modifier.fillMaxSize().padding(padding),
                 onOpenChecklist = onOpenLuckyList,
                 emptyTitle = "No lucky lists yet.",
             )
             HomeView.LISTS -> ListsBody(
+                reordering = reordering,
+                onOrder = { viewModel.reorderGroupings(HomeView.LISTS, it) },
                 checklists = checklists,
                 modifier = Modifier.fillMaxSize().padding(padding),
                 onOpenChecklist = onOpenChecklist,
             )
             HomeView.IDEAS -> IdeasBody(
+                reordering = reordering,
+                onOrder = { viewModel.reorderGroupings(HomeView.IDEAS, it) },
                 ideaLogs = ideaLogs,
                 modifier = Modifier.fillMaxSize().padding(padding),
                 onOpenIdeaLog = onOpenIdeaLog,
@@ -243,6 +270,8 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxSize().padding(padding),
             )
             HomeView.CLICKER -> ClickerBody(
+                reordering = reordering,
+                onOrder = { viewModel.reorderGroupings(HomeView.CLICKER, it) },
                 logs = clickerLogs,
                 modifier = Modifier.fillMaxSize().padding(padding),
                 onOpenClicker = onOpenClicker,
@@ -348,6 +377,8 @@ fun HomeScreen(
 /** The app-level menu opened from the cog on every non-Daily-Tasks Home screen. */
 @Composable
 private fun AppMenuButton(
+    reorderLabel: String?,
+    onReorder: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenBackupRestore: () -> Unit,
     onOpenAbout: () -> Unit,
@@ -378,6 +409,12 @@ private fun AppMenuButton(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
+            if (reorderLabel != null) {
+                DropdownMenuItem(
+                    text = { Text(reorderLabel) },
+                    onClick = { expanded = false; onReorder() },
+                )
+            }
             DropdownMenuItem(
                 text = { Text("Settings") },
                 onClick = {
@@ -575,28 +612,16 @@ private fun NavModeDropdown(
 private fun FormsBody(
     logs: List<HomeLog>,
     modifier: Modifier = Modifier,
+    reordering: Boolean,
+    onOrder: (List<String>) -> Unit,
     onOpenLog: (Long) -> Unit,
     onAddEntry: (Long) -> Unit,
 ) {
     if (logs.isEmpty()) {
-        EmptyMessage(
-            title = "No logs yet.",
-            body = "Click the plus in the top right to begin.",
-            modifier = modifier,
-        )
+        EmptyMessage(title = "No logs yet.", body = "Click the plus in the top right to begin.", modifier = modifier)
     } else {
-        LazyColumn(
-            modifier = modifier,
-            contentPadding = PaddingValues(AppTheme.spacing.rowInset),
-            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset),
-        ) {
-            items(logs, key = { it.template.id }) { log ->
-                LogRow(
-                    log = log,
-                    onOpen = { onOpenLog(log.template.id) },
-                    onAddEntry = { onAddEntry(log.template.id) },
-                )
-            }
+        HomeGroupingList(rows = logs, uuid = { it.template.uuid }, reordering = reordering, onOrder = onOrder, modifier = modifier) { row, handle ->
+            LogRow(log = row, onOpen = { onOpenLog(row.template.id) }, onAddEntry = { onAddEntry(row.template.id) }, dragHandle = handle)
         }
     }
 }
@@ -605,27 +630,16 @@ private fun FormsBody(
 private fun ListsBody(
     checklists: List<Checklist>,
     modifier: Modifier = Modifier,
+    reordering: Boolean,
+    onOrder: (List<String>) -> Unit,
     onOpenChecklist: (Long) -> Unit,
     emptyTitle: String = "No lists yet.",
 ) {
     if (checklists.isEmpty()) {
-        EmptyMessage(
-            title = emptyTitle,
-            body = "Click the plus in the top right to begin.",
-            modifier = modifier,
-        )
+        EmptyMessage(title = emptyTitle, body = "Click the plus in the top right to begin.", modifier = modifier)
     } else {
-        LazyColumn(
-            modifier = modifier,
-            contentPadding = PaddingValues(AppTheme.spacing.rowInset),
-            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset),
-        ) {
-            items(checklists, key = { it.id }) { checklist ->
-                ChecklistRow(
-                    checklist = checklist,
-                    onOpen = { onOpenChecklist(checklist.id) },
-                )
-            }
+        HomeGroupingList(rows = checklists, uuid = { it.uuid }, reordering = reordering, onOrder = onOrder, modifier = modifier) { row, handle ->
+            ChecklistRow(checklist = row, onOpen = { onOpenChecklist(row.id) }, dragHandle = handle)
         }
     }
 }
@@ -634,28 +648,16 @@ private fun ListsBody(
 private fun IdeasBody(
     ideaLogs: List<HomeIdeaLog>,
     modifier: Modifier = Modifier,
+    reordering: Boolean,
+    onOrder: (List<String>) -> Unit,
     onOpenIdeaLog: (Long) -> Unit,
     onAddIdea: (Long) -> Unit,
 ) {
     if (ideaLogs.isEmpty()) {
-        EmptyMessage(
-            title = "No idea logs yet.",
-            body = "Click the plus in the top right to begin.",
-            modifier = modifier,
-        )
+        EmptyMessage(title = "No idea logs yet.", body = "Click the plus in the top right to begin.", modifier = modifier)
     } else {
-        LazyColumn(
-            modifier = modifier,
-            contentPadding = PaddingValues(AppTheme.spacing.rowInset),
-            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset),
-        ) {
-            items(ideaLogs, key = { it.log.id }) { ideaLog ->
-                IdeaLogRow(
-                    ideaLog = ideaLog,
-                    onOpen = { onOpenIdeaLog(ideaLog.log.id) },
-                    onAddIdea = { onAddIdea(ideaLog.log.id) },
-                )
-            }
+        HomeGroupingList(rows = ideaLogs, uuid = { it.log.uuid }, reordering = reordering, onOrder = onOrder, modifier = modifier) { row, handle ->
+            IdeaLogRow(ideaLog = row, onOpen = { onOpenIdeaLog(row.log.id) }, onAddIdea = { onAddIdea(row.log.id) }, dragHandle = handle)
         }
     }
 }
@@ -669,8 +671,10 @@ private fun IdeaLogRow(
     ideaLog: HomeIdeaLog,
     onOpen: () -> Unit,
     onAddIdea: () -> Unit,
+    dragHandle: (@Composable () -> Unit)? = null,
 ) {
     HomeCard(
+        dragHandle = dragHandle,
         title = ideaLog.log.name,
         onClick = onOpen,
         subtitle = summaryLine(ideaLog.entryCount, ideaLog.lastEntryAt),
@@ -687,8 +691,10 @@ private fun LogRow(
     log: HomeLog,
     onOpen: () -> Unit,
     onAddEntry: () -> Unit,
+    dragHandle: (@Composable () -> Unit)? = null,
 ) {
     HomeCard(
+        dragHandle = dragHandle,
         title = log.template.name,
         onClick = onOpen,
         subtitle = entrySummaryLine(log),
@@ -718,6 +724,7 @@ private fun LogRow(
 private fun ChecklistRow(
     checklist: Checklist,
     onOpen: () -> Unit,
+    dragHandle: (@Composable () -> Unit)? = null,
 ) {
     Card(
         modifier = Modifier
@@ -728,6 +735,7 @@ private fun ChecklistRow(
             modifier = Modifier.fillMaxWidth().padding(AppTheme.spacing.screenInset),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            dragHandle?.invoke()
             Text(
                 text = checklist.name.ifBlank { "Untitled list" },
                 style = MaterialTheme.typography.titleMedium,
@@ -823,23 +831,15 @@ private fun summaryLine(entryCount: Int, lastEntryAt: String?): String {
 private fun ClickerBody(
     logs: List<HomeClickerLog>,
     modifier: Modifier = Modifier,
+    reordering: Boolean,
+    onOrder: (List<String>) -> Unit,
     onOpenClicker: (Long) -> Unit,
 ) {
     if (logs.isEmpty()) {
-        EmptyMessage(
-            title = "No clicker data lists yet.",
-            body = "Click the plus in the top right to begin.",
-            modifier = modifier,
-        )
+        EmptyMessage(title = "No clicker data lists yet.", body = "Click the plus in the top right to begin.", modifier = modifier)
     } else {
-        LazyColumn(
-            modifier = modifier,
-            contentPadding = PaddingValues(AppTheme.spacing.rowInset),
-            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset),
-        ) {
-            items(logs, key = { it.log.id }) { log ->
-                ClickerLogRow(log = log, onOpen = { onOpenClicker(log.log.id) })
-            }
+        HomeGroupingList(rows = logs, uuid = { it.log.uuid }, reordering = reordering, onOrder = onOrder, modifier = modifier) { row, handle ->
+            ClickerLogRow(log = row, onOpen = { onOpenClicker(row.log.id) }, dragHandle = handle)
         }
     }
 }
@@ -850,8 +850,9 @@ private fun ClickerBody(
  * Entry", since a clicker card is used over time rather than filed once.
  */
 @Composable
-private fun ClickerLogRow(log: HomeClickerLog, onOpen: () -> Unit) {
+private fun ClickerLogRow(log: HomeClickerLog, onOpen: () -> Unit, dragHandle: (@Composable () -> Unit)? = null) {
     HomeCard(
+        dragHandle = dragHandle,
         title = log.log.title,
         onClick = onOpen,
         subtitle = clickerSummaryLine(log),

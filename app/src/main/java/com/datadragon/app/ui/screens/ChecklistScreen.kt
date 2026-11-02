@@ -1,5 +1,9 @@
 package com.datadragon.app.ui.screens
 
+import com.datadragon.app.data.CardCopyText
+import com.datadragon.app.ui.components.NothingSavedDialog
+import com.datadragon.app.ui.components.rememberCopyText
+
 import com.datadragon.app.export.SaveExportDocument
 import com.datadragon.app.ui.components.reorderedItems
 import com.datadragon.app.ui.components.accessibleReorder
@@ -115,6 +119,7 @@ fun ChecklistScreen(
     val idLong = checklistId?.toLongOrNull()
     LaunchedEffect(checklistId) { viewModel.load(idLong) }
 
+    val copyText = rememberCopyText()
     val context = LocalContext.current
     val exportScope = rememberCoroutineScope()
     var menuOpen by remember { mutableStateOf(false) }
@@ -195,6 +200,8 @@ fun ChecklistScreen(
     // already been written to the database as crash protection. Back on an
     // established list (or an untouched empty draft) just leaves, flushing any
     // pending text first and waiting for it before navigating.
+    var showNothingSaved by rememberSaveable { mutableStateOf(false) }
+    if (showNothingSaved) NothingSavedDialog { showNothingSaved = false }
     val hasText = items.any { it.text.isNotBlank() }
     val hasContent = title.isNotBlank() || hasText
     var showDiscard by rememberSaveable { mutableStateOf(false) }
@@ -291,8 +298,10 @@ fun ChecklistScreen(
                     // gets a ⋮ menu holding Export and Delete List instead.
                     if (isDraft) {
                         TextButton(
-                            enabled = hasText,
-                            onClick = { if (!refuseEditingDuplicate()) viewModel.save(onBack) },
+                            onClick = {
+                                if (!hasText) showNothingSaved = true
+                                else if (!refuseEditingDuplicate()) viewModel.save(onBack)
+                            },
                         ) { Text("Save") }
                     } else {
                         Box {
@@ -300,6 +309,10 @@ fun ChecklistScreen(
                                 Icon(Icons.Filled.MoreVert, contentDescription = "List options")
                             }
                             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("Copy") },
+                                    onClick = { menuOpen = false; copyText(CardCopyText.list(title, items.map { CardCopyText.Item(it.text, it.completed, it.indent) }, lucky)) },
+                                )
                                 DropdownMenuItem(
                                     text = { Text("Export") },
                                     onClick = {

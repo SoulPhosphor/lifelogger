@@ -1,6 +1,9 @@
 package com.datadragon.app.data
 
 import android.content.Context
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 import android.content.SharedPreferences
 
 /**
@@ -47,6 +50,21 @@ class SettingsRepository(context: Context) {
                 .apply(block)
                 .putLong(KEY_PORTABLE_PREFERENCES_REVISION, portablePreferencesRevision + 1)
                 .apply()
+        }
+    }
+
+    /** Explicit portable Home ordering, keyed by mode and permanent grouping UUID. */
+    fun homeGroupingOrders(): Map<String, List<String>> = HomeGroupingOrder.modes.mapNotNull { mode ->
+        prefs.getString("$KEY_HOME_ORDER_PREFIX${mode.key}", null)?.let { raw ->
+            mode.key to runCatching { Json.decodeFromString<List<String>>(raw) }.getOrDefault(emptyList())
+        }
+    }.toMap()
+
+    fun setHomeGroupingOrder(mode: HomeView, ids: List<String>) {
+        require(mode in HomeGroupingOrder.modes)
+        HomeGroupingOrder.validate(mapOf(mode.key to ids))
+        editPortable({ homeGroupingOrders()[mode.key] != ids }) {
+            putString("$KEY_HOME_ORDER_PREFIX${mode.key}", Json.encodeToString(ids))
         }
     }
 
@@ -298,6 +316,7 @@ class SettingsRepository(context: Context) {
         dailyListCelebrationIcon = dailyListCelebrationIcon.key,
         dailyListProtectFavorited = dailyListProtectFavorited,
         dailyListRetention = dailyListRetentionRaw,
+        homeGroupingOrders = homeGroupingOrders(),
         clickerFollowUpShown = prefs.all
             .filterKeys { it.startsWith(KEY_CLICKER_FOLLOW_UP_SHOWN_PREFIX) }
             .mapNotNull { (key, value) ->
@@ -350,6 +369,16 @@ class SettingsRepository(context: Context) {
                     shown.forEach { (uuid, value) -> editor.putBoolean("$KEY_CLICKER_FOLLOW_UP_SHOWN_PREFIX$uuid", value) }
                 }
             }
+        // Older files have no Home order and leave it alone. Current files
+        // carry even an empty map, so Replace/Undo can clear a custom order.
+        preferences.homeGroupingOrders?.let { orders ->
+            HomeGroupingOrder.validate(orders)
+            HomeGroupingOrder.modes.forEach { mode ->
+                val key = "$KEY_HOME_ORDER_PREFIX${mode.key}"
+                val ids = orders[mode.key]
+                if (ids == null) editor.remove(key) else editor.putString(key, Json.encodeToString(ids))
+            }
+        }
         preferences.modeEnabledLuckyList?.let { editor.putBoolean(modeEnabledKey(HomeView.LUCKY_LIST), it) }
         // A version-3 backup never carried these, so the current values stay.
         preferences.automaticBackupCadence?.let { editor.putString(KEY_AUTO_BACKUP_CADENCE, it) }
@@ -369,6 +398,7 @@ class SettingsRepository(context: Context) {
         private const val KEY_AUTO_BACKUP_RETENTION = "automatic_backup_retention"
         private const val KEY_LABELS = "auto_capitalize_labels"
         private const val KEY_OPTIONS = "auto_capitalize_options"
+        private const val KEY_HOME_ORDER_PREFIX = "home_grouping_order_"
         private const val KEY_LAST_VIEW = "last_home_view"
         private const val KEY_CLICKER_FOLLOW_UP_SHOWN_PREFIX = "clicker_follow_up_shown_"
         private const val KEY_NAV_STYLE = "nav_style"

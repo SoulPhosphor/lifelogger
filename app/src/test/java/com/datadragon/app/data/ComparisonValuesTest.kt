@@ -346,7 +346,7 @@ class ComparisonValuesTest {
                 payload = BackupPayload(clickerData = listOf(BackupCodec.clickerOf(log, emptyList()))),
             ),
         )
-        assertEquals(13, BackupCodec.decode(text).version)
+        assertEquals(BackupFile.VERSION, BackupCodec.decode(text).version)
         org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
             BackupCodec.decode(text.replace("\"version\": ${BackupFile.VERSION}", "\"version\": 12"))
         }

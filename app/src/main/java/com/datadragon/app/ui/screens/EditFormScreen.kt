@@ -68,6 +68,7 @@ import com.datadragon.app.data.ChoiceOption
 import com.datadragon.app.data.StableUuid
 import com.datadragon.app.data.activeChoices
 import com.datadragon.app.data.hasItemRows
+import com.datadragon.app.data.hasChoices
 import com.datadragon.app.data.hasOptionList
 import com.datadragon.app.data.hasDuplicateLabels
 import com.datadragon.app.ui.components.ChoiceEditorWordings
@@ -857,6 +858,8 @@ private fun SettingsControls(
         FieldType.DROPDOWN, FieldType.MULTIPLE -> ChoiceOptionsEditor(
             choices = field.choices,
             onChoicesChange = { field.choices = it },
+            alphabetical = field.orderOptionsAlphabetically,
+            onAlphabeticalChange = { field.orderOptionsAlphabetically = it },
             wording = ChoiceEditorWordings.formOptions,
             preselection = if (field.type == FieldType.DROPDOWN) {
                 ChoicePreselection.SINGLE
@@ -1019,6 +1022,7 @@ private class EditDraft(
     from: String = "",
     to: String = "",
     choices: List<ChoiceOption> = emptyList(),
+    orderOptionsAlphabetically: Boolean = false,
     defaultNow: Boolean = false,
     allowOrderFiltering: Boolean = false,
     sortByTimestamp: Boolean = false,
@@ -1056,6 +1060,7 @@ private class EditDraft(
     var from by mutableStateOf(from)
     var to by mutableStateOf(to)
     var choices by mutableStateOf(choices)
+    var orderOptionsAlphabetically by mutableStateOf(orderOptionsAlphabetically)
     var defaultNow by mutableStateOf(defaultNow)
     var allowOrderFiltering by mutableStateOf(allowOrderFiltering)
     var sortByTimestamp by mutableStateOf(sortByTimestamp)
@@ -1095,7 +1100,7 @@ private class EditDraft(
     fun sameContentAs(o: EditDraft): Boolean =
         label == o.label && type == o.type && required == o.required &&
             lines == o.lines && digits == o.digits && from == o.from && to == o.to &&
-            choices == o.choices && defaultNow == o.defaultNow &&
+            choices == o.choices && orderOptionsAlphabetically == o.orderOptionsAlphabetically && defaultNow == o.defaultNow &&
             allowOrderFiltering == o.allowOrderFiltering &&
             sortByTimestamp == o.sortByTimestamp &&
             allowUnknown == o.allowUnknown &&
@@ -1186,6 +1191,7 @@ private class EditDraft(
         from = from,
         to = to,
         choices = choices,
+        orderOptionsAlphabetically = orderOptionsAlphabetically,
         defaultNow = defaultNow,
         allowOrderFiltering = allowOrderFiltering,
         sortByTimestamp = sortByTimestamp,
@@ -1225,6 +1231,7 @@ private class EditDraft(
         from = other.from
         to = other.to
         choices = other.savedChoices()
+        orderOptionsAlphabetically = other.orderOptionsAlphabetically
         defaultNow = other.defaultNow
         allowOrderFiltering = other.allowOrderFiltering
         sortByTimestamp = other.sortByTimestamp
@@ -1268,6 +1275,7 @@ private class EditDraft(
         from = if (type == FieldType.SCALE) effectiveFrom() else null,
         to = if (type == FieldType.SCALE) effectiveTo() else null,
         choices = if (type.hasOptionList) savedChoices() else emptyList(),
+        orderOptionsAlphabetically = type.hasChoices && orderOptionsAlphabetically,
         defaultNow = type == FieldType.DATETIME && defaultNow,
         allowOrderFiltering = type.sortEligible && allowOrderFiltering,
         allowUnknown = type == FieldType.YESNO && allowUnknown,
@@ -1303,6 +1311,7 @@ private class EditDraft(
         from = from,
         to = to,
         choices = choices,
+        orderOptionsAlphabetically = orderOptionsAlphabetically,
         defaultNow = defaultNow,
         allowOrderFiltering = allowOrderFiltering,
         sortByTimestamp = sortByTimestamp,
@@ -1349,6 +1358,7 @@ private data class EditDraftSnapshot(
     val from: String,
     val to: String,
     val choices: List<ChoiceOption> = emptyList(),
+    val orderOptionsAlphabetically: Boolean = false,
     val defaultNow: Boolean,
     val allowOrderFiltering: Boolean = false,
     val sortByTimestamp: Boolean = false,
@@ -1388,6 +1398,7 @@ private fun EditDraftSnapshot.toEditDraft(): EditDraft = EditDraft(
     from = from,
     to = to,
     choices = choices,
+    orderOptionsAlphabetically = orderOptionsAlphabetically,
     defaultNow = defaultNow,
     allowOrderFiltering = allowOrderFiltering,
     sortByTimestamp = sortByTimestamp,
@@ -1428,6 +1439,7 @@ private fun draftOf(f: FieldDef, sortByTimestamp: Boolean): EditDraft = EditDraf
     from = f.from?.toString() ?: "",
     to = f.to?.toString() ?: "",
     choices = f.choices,
+    orderOptionsAlphabetically = f.orderOptionsAlphabetically,
     defaultNow = f.defaultNow,
     allowOrderFiltering = f.allowOrderFiltering,
     sortByTimestamp = sortByTimestamp,

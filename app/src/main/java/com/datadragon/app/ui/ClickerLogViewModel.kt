@@ -222,6 +222,14 @@ class ClickerLogViewModel(app: Application) : AndroidViewModel(app) {
         return current to dao.getCardsForLog(id)
     }
 
+    suspend fun copySnapshot(cardId: Long): String? {
+        val waiting = synchronized(pendingWrites) { pendingWrites.toList() }
+        waiting.joinAll()
+        val card = dao.getCard(cardId) ?: return null
+        val log = dao.getLog(card.clickerLogId) ?: return null
+        return com.datadragon.app.data.CardCopyText.clicker(log, card, decodeFields(log.fieldsJson))
+    }
+
     fun deleteCard(card: ClickerCard) {
         viewModelScope.launch {
             dao.deleteCard(card)

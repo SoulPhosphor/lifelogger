@@ -74,6 +74,7 @@ import com.datadragon.app.data.OptionDuplicates
 import com.datadragon.app.data.StableUuid
 import com.datadragon.app.data.activeChoices
 import com.datadragon.app.data.hasItemRows
+import com.datadragon.app.data.hasChoices
 import com.datadragon.app.data.hasOptionList
 import com.datadragon.app.data.ComparisonValues
 import com.datadragon.app.data.ClickerIncrementDirection
@@ -958,6 +959,7 @@ private fun FieldEditorCard(
                     )
                 }
                 FieldType.DROPDOWN, FieldType.MULTIPLE -> {
+                    Text("Options (One per Line)", style = MaterialTheme.typography.labelLarge)
                     if (field.type == FieldType.MULTIPLE) {
                         Text(
                             "Put an * before a list item to make it pre-selected when opening the form. " +
@@ -966,10 +968,17 @@ private fun FieldEditorCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    SettingSwitchRow(
+                        checked = field.orderOptionsAlphabetically,
+                        title = "Order Options Alphabetically",
+                        onCheckedChange = { checked ->
+                            if (checked || field.orderOptionsAlphabetically) field.optionsText = field.optionList().sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.removePrefix("*") }).joinToString("\n")
+                            field.orderOptionsAlphabetically = checked
+                        },
+                    )
                     OutlinedTextField(
                         value = field.optionsText,
                         onValueChange = { field.optionsText = it },
-                        label = { Text("Options (One per Line)") },
                         modifier = Modifier.fillMaxWidth().heightIn(min = AppTheme.sizes.editorMinHeight),
                     )
                     if (field.type == FieldType.DROPDOWN) {
@@ -1243,6 +1252,7 @@ private class DraftField(
     from: String = "",
     to: String = "",
     optionsText: String = "",
+    orderOptionsAlphabetically: Boolean = false,
     defaultNow: Boolean = false,
     allowOrderFiltering: Boolean = false,
     sortByTimestamp: Boolean = false,
@@ -1278,6 +1288,7 @@ private class DraftField(
     var from by mutableStateOf(from)
     var to by mutableStateOf(to)
     var optionsText by mutableStateOf(optionsText)
+    var orderOptionsAlphabetically by mutableStateOf(orderOptionsAlphabetically)
     var defaultNow by mutableStateOf(defaultNow)
     var allowOrderFiltering by mutableStateOf(allowOrderFiltering)
     var sortByTimestamp by mutableStateOf(sortByTimestamp)
@@ -1379,6 +1390,7 @@ private class DraftField(
         from = if (type == FieldType.SCALE) effectiveFrom() else null,
         to = if (type == FieldType.SCALE) effectiveTo() else null,
         choices = if (type.hasOptionList) choiceList() else emptyList(),
+        orderOptionsAlphabetically = type.hasChoices && orderOptionsAlphabetically,
         defaultNow = type == FieldType.DATETIME && defaultNow,
         allowOrderFiltering = type.sortEligible && allowOrderFiltering,
         allowUnknown = type == FieldType.YESNO && allowUnknown,
@@ -1414,6 +1426,7 @@ private class DraftField(
         from = from,
         to = to,
         optionsText = optionsText,
+        orderOptionsAlphabetically = orderOptionsAlphabetically,
         defaultNow = defaultNow,
         allowOrderFiltering = allowOrderFiltering,
         sortByTimestamp = sortByTimestamp,
@@ -1462,6 +1475,7 @@ private data class DraftFieldSnapshot(
     val from: String,
     val to: String,
     val optionsText: String,
+    val orderOptionsAlphabetically: Boolean = false,
     val defaultNow: Boolean,
     val allowOrderFiltering: Boolean = false,
     val sortByTimestamp: Boolean = false,
@@ -1500,6 +1514,7 @@ private fun DraftFieldSnapshot.toDraftField(): DraftField = DraftField(
     from = from,
     to = to,
     optionsText = optionsText,
+    orderOptionsAlphabetically = orderOptionsAlphabetically,
     defaultNow = defaultNow,
     allowOrderFiltering = allowOrderFiltering,
     sortByTimestamp = sortByTimestamp,
@@ -1577,6 +1592,7 @@ private fun FieldDef.toDraft(): DraftField = DraftField(
     digits = digits?.toString() ?: "",
     from = from?.toString() ?: "",
     to = to?.toString() ?: "",
+    orderOptionsAlphabetically = orderOptionsAlphabetically,
     // Back to the creation syntax: `*` marks a pre-selected Multiple Choice
     // option; a Single Choice default goes in Pre-Selected Option.
     optionsText = activeChoices.joinToString("\n") { choice ->

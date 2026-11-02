@@ -252,6 +252,7 @@ class ChecklistDraftManager(
      * This is the only path that marks the list as saved.
      */
     fun save(onSaved: () -> Unit) {
+        if (_items.value.none { it.text.isNotBlank() }) return
         scope.launch {
             if (!_persisted.value && _items.value.any { it.text.isNotBlank() }) ensurePersisted()
             flushPending()
