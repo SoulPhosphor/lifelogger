@@ -52,6 +52,7 @@ class ChoiceOptionsEditorTest {
         compose.onNodeWithContentDescription("Option Name").performTextInput("Middle")
         compose.onNode(hasSetTextAction()).assertIsFocused()
         val handles = compose.onAllNodesWithContentDescription("Reorder")
+        val trace = mutableListOf("before=" + handles.fetchSemanticsNodes().map { it.boundsInRoot })
         val first = handles[0].getUnclippedBoundsInRoot()
         val last = handles[2].getUnclippedBoundsInRoot()
         val distance = with(compose.density) { (last.top - first.top).toPx() } + 24f
@@ -62,11 +63,12 @@ class ChoiceOptionsEditorTest {
             handles[2].performTouchInput { moveBy(Offset(0f, -distance / 4)) }
             compose.mainClock.advanceTimeByFrame()
             compose.waitForIdle()
+            trace.add("move=" + handles.fetchSemanticsNodes().map { it.boundsInRoot })
         }
         handles[2].performTouchInput { up() }
         compose.waitForIdle()
         compose.runOnIdle {
-            assertEquals("Middle", choices.value.first().label)
+            assertEquals("order=${choices.value.map { it.label }}; distance=$distance; trace=$trace", "Middle", choices.value.first().label)
             assertEquals(setOf("Alpha", "Middle", "Zed"), choices.value.map { it.label }.toSet())
         }
     }
