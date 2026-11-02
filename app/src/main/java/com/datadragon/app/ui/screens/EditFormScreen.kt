@@ -694,14 +694,17 @@ private fun FieldEditorScreen(
                 .padding(AppTheme.spacing.screenInset),
             verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.rowInset),
         ) {
-            OutlinedTextField(
-                value = draft.label,
-                onValueChange = { draft.label = it },
-                label = { Text("Label") },
-                placeholder = if (draft.type == FieldType.DAY_OF_WEEK) ({ Text(Weekday.LABEL) }) else null,
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            if (draft.type == FieldType.DAY_OF_WEEK) {
+                WeekdayLabelEditor(value = draft.label, onValueChange = { draft.label = it })
+            } else {
+                OutlinedTextField(
+                    value = draft.label,
+                    onValueChange = { draft.label = it },
+                    label = { Text("Label") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
 
             if (draft.existing) {
                 // Type is locked for existing fields so stored values stay valid.

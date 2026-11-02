@@ -756,7 +756,7 @@ object BackupCodec {
             clickerData.orEmpty().any { declaresFieldType(it.fieldsJson, "day_of_week") }
 
     private fun declaresFieldType(raw: String, token: String): Boolean =
-        (runCatching { json.parseToJsonElement(raw) }.getOrNull() as? JsonArray).orEmpty().any {
+        (runCatching { diskJson.parseToJsonElement(raw) }.getOrNull() as? JsonArray).orEmpty().any {
             (it as? JsonObject)?.get("type")?.let { value -> (value as? JsonPrimitive)?.contentOrNull }?.equals(token, ignoreCase = true) == true
         }
 

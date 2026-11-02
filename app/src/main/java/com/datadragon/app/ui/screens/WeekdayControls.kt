@@ -2,6 +2,9 @@ package com.datadragon.app.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.Modifier
+import com.datadragon.app.ui.components.AccessibleOutlinedTextField
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,6 +24,16 @@ import com.datadragon.app.ui.components.ChoicePreselection
 import com.datadragon.app.ui.components.DialogActionButton
 import com.datadragon.app.ui.components.DialogDismissButton
 import com.datadragon.app.ui.theme.AppTheme
+
+@Composable
+internal fun WeekdayLabelEditor(value: String, onValueChange: (String) -> Unit) {
+    Labeled("Label") {
+        AccessibleOutlinedTextField(
+            value = value, onValueChange = onValueChange, singleLine = true,
+            placeholder = { Text(Weekday.LABEL) }, modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
 
 /** Reuses the app's controls and theme; the owner explicitly places the subtext below this toggle. */
 @Composable

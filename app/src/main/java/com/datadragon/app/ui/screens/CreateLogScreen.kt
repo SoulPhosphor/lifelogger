@@ -907,14 +907,17 @@ private fun FieldEditorCard(
                 )
             }
 
-            OutlinedTextField(
-                value = field.label,
-                onValueChange = { field.label = it },
-                label = { Text("Label") },
-                placeholder = if (field.type == FieldType.DAY_OF_WEEK) ({ Text(Weekday.LABEL) }) else null,
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            if (field.type == FieldType.DAY_OF_WEEK) {
+                WeekdayLabelEditor(value = field.label, onValueChange = { field.label = it })
+            } else {
+                OutlinedTextField(
+                    value = field.label,
+                    onValueChange = { field.label = it },
+                    label = { Text("Label") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
 
             TypeDropdown(selected = field.type, onSelected = {
                 field.type = it

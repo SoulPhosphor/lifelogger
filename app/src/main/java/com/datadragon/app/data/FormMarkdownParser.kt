@@ -349,10 +349,18 @@ object FormMarkdownParser {
         var weekdaySettings = WeekdaySettings(defaultEnteredDay = b.defaultEnteredDay, onlyOne = b.onlyOneDay, choiceStyle = b.choiceStyle)
         val weekdayChoices = if (type == FieldType.DAY_OF_WEEK) {
             val initial = if (b.options.isEmpty()) Weekday.newChoices(newId) else buildChoices(b, type, issues, newId).mapIndexed { index, option ->
-                option.copy(weekday = b.weekdayNumbers?.getOrNull(index)?.takeIf { it in 1..7 })
+                val associatedDay = if (b.weekdayNumbers != null) b.weekdayNumbers?.getOrNull(index) else
+                    java.time.DayOfWeek.values().firstOrNull { it.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.ENGLISH).equals(option.label, ignoreCase = true) }?.value
+                option.copy(weekday = associatedDay?.takeIf { it in 1..7 })
             }
             val knownDays = initial.mapNotNull { it.weekday }.toSet()
-            val missing = Weekday.newChoices(newId).filter { it.weekday !in knownDays }
+            if (initial.mapNotNull { it.weekday }.size != knownDays.size) {
+                issues.add("Field \"${b.label}\": weekday_numbers repeats a weekday; skipped.")
+                return
+            }
+            val missing = (1..7).filter { it !in knownDays }.map { day ->
+                ChoiceOption(id = newId(), label = java.time.DayOfWeek.of(day).getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.ENGLISH), weekday = day)
+            }
             // Missing built-ins remain available for re-enabling Default Entered Day.
             val seeds = initial.filter { it.weekday != null } + missing
             weekdaySettings = weekdaySettings.copy(weekdayIds = Weekday.identities(seeds))

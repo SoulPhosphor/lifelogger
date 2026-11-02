@@ -568,3 +568,47 @@ are absent. Switching off keeps the current alphabetical order and restores
 manual dragging. Retired options preserve their identities and separate section.
 A focused, newly added option can be moved using its grip without first
 focusing another option; text gestures continue to edit the label.
+
+
+## Day of the Week (November 2026)
+
+Forms, Ideas and Clicker Data offer **Day of the Week** as a separate field.
+It never changes a date, time or automatic timestamp. A blank Label box shows
+`Day of the Week` as its grayed default before focus; typed text replaces it.
+Settings are ordered Required (off), Default Entered Day (on), and Only Allow
+Choosing One Day (on). Directly below Default Entered Day is the owner-specified
+subtext: `When enabled all 7 week days must be displayed.` This placement is an
+explicit exception to the general hint-above-control style rule.
+
+The field starts with Monday through Sunday, each with a permanent UUID and an
+ISO weekday association independent of its editable spelling. Renaming,
+reordering, changing defaults, retiring and restoring never replace identities.
+While Default Entered Day is on, all seven built-in weekdays are active and their
+menus omit Retire and Delete. Enabling it restores retired built-ins with their
+original UUIDs. Built-in identities also remain recorded when a never-saved
+weekday is removed, so enabling the toggle can reinstate that same identity.
+Custom options use the existing option editor and remain removable.
+
+In single-choice mode Default Entered Day overrides manual defaults and removes
+the ability to set them. Otherwise the existing pre-selection mechanics apply;
+multiple mode includes the entered weekday alongside any manual defaults when
+automatic selection is enabled. A user's entry selection can always replace the
+initial default. Existing entries keep their saved answers when reopened.
+Single-choice mode offers the existing Dropdown / Displayed radios. An unanswered
+dropdown reads `Select` and does not choose its first option. Multiple mode always
+uses displayed chips. Answers retain all saved option UUIDs when a grouping is
+changed between modes; only an explicit selection change replaces an answer.
+
+Switching to single choice with several manual defaults opens AppDialog:
+- Title: `Default Options Will Be Reset`
+- Body: `You had multiple items selected as default. These will be reset and you will have to select what you would like your new default option to be if any.`
+- Buttons: `Cancel`, `Okay`
+Cancel keeps multiple mode and its defaults; Okay clears manual defaults and
+switches to single mode. Required blocks saving an unanswered field. Clicker's
+immediate-add path opens an unsaved New Card editor only when a required weekday
+has no initial answer; normal card creation remains immediate when satisfied.
+
+A newly added choice that has never been saved is deleted outright, rather than
+retired. Single Choice, Multiple Choices and Day of the Week builders use the
+saved option UUIDs as this boundary. A persisted choice retains the existing
+Retire / Delete behavior. All controls use the existing theme roles and styles.

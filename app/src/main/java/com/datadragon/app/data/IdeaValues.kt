@@ -105,8 +105,7 @@ object IdeaValues {
     fun searchableText(values: JsonObject, fields: List<IdeaFieldDef>): List<String> =
         fields.flatMap { field ->
             when (field.type) {
-                FieldType.DAY_OF_WEEK -> Weekday.labels(field.choices, Weekday.selected(values[field.id]))
-        FieldType.TAGS -> tags(values, field)
+                FieldType.TAGS -> tags(values, field)
                 else -> listOfNotNull(displayValue(values, field))
             }
         }

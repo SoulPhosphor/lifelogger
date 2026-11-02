@@ -620,20 +620,24 @@ private fun IdeaFieldCard(
                 )
             }
 
-            OutlinedTextField(
-                value = field.label,
-                onValueChange = { field.label = it },
-                label = { Text("Label") },
-                placeholder = if (field.kind == IdeaFieldKind.DAY_OF_WEEK) ({ Text(Weekday.LABEL) }) else null,
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            if (field.kind == IdeaFieldKind.DAY_OF_WEEK) {
+                WeekdayLabelEditor(value = field.label, onValueChange = { field.label = it })
+            } else {
+                OutlinedTextField(
+                    value = field.label,
+                    onValueChange = { field.label = it },
+                    label = { Text("Label") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
 
             IdeaKindDropdown(selected = field.kind, onSelected = { kind ->
                 field.kind = kind
                 if (kind == IdeaFieldKind.DAY_OF_WEEK && field.weekday.weekdayIds.isEmpty()) {
-                    field.choices = Weekday.newChoices()
-                    field.weekday = field.weekday.copy(weekdayIds = Weekday.identities(field.choices))
+                    val days = Weekday.newChoices()
+                    field.choices = field.choices + days
+                    field.weekday = field.weekday.copy(weekdayIds = Weekday.identities(days))
                 }
                 // Only a date-bearing field can take part in ordering.
                 if (!kind.fieldType.sortEligible) {
