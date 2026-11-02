@@ -273,6 +273,7 @@ fun ChoiceOptionsEditor(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related),
             ) { index, option, _ ->
+                key(option.id) {
                 ReorderableItem {
                     val isEditing = editingId == option.id
                     ActiveChoiceRow(
@@ -318,6 +319,7 @@ fun ChoiceOptionsEditor(
                             base.firstOrNull { it.id == option.id }?.let { pendingDelete = it }
                         },
                     )
+                }
                 }
             }
         }

@@ -54,8 +54,16 @@ class ChoiceOptionsEditorTest {
         val handles = compose.onAllNodesWithContentDescription("Reorder")
         val first = handles[0].getUnclippedBoundsInRoot()
         val last = handles[2].getUnclippedBoundsInRoot()
-        val distance = with(compose.density) { (last.top - first.top).toPx() }
-        handles[2].performTouchInput { swipe(center, Offset(center.x, center.y - distance), durationMillis = 800) }
+        val distance = with(compose.density) { (last.top - first.top + first.height / 2).toPx() }
+        // The drag library updates animated offsets in launched coroutines.
+        // Let real UI frames run between pointer moves, as a physical drag does.
+        handles[2].performTouchInput { down(center) }
+        repeat(4) {
+            handles[2].performTouchInput { moveBy(Offset(0f, -distance / 4)) }
+            compose.mainClock.advanceTimeByFrame()
+            compose.waitForIdle()
+        }
+        handles[2].performTouchInput { up() }
         compose.waitForIdle()
         compose.runOnIdle {
             assertEquals("Middle", choices.value.first().label)
