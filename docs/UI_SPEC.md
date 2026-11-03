@@ -625,3 +625,30 @@ The saved editor baseline is updated too. Cancelling subsequent edits therefore
 cannot leave the saved automatic-day setting on with a missing weekday. Other
 unsaved settings remain pending, and custom-option deletion does not change the
 saved automatic-day setting.
+
+### Applying a newly added weekday field to past Form cards
+
+When adding Day of the Week to a Form with at least one saved card, show
+**Apply Day to Past Entries** directly below **Default Entered Day**, using
+`SettingSwitchRow`. It defaults on and is visible only while Default Entered
+Day is on. It is a one-time instruction for saving the new field, not a stored
+field preference. Existing saved weekday fields do not offer it.
+
+On Save, fill past cards from the Date or Date & Time field chosen as
+**Use as Default Timestamp** when that card has a usable value there; otherwise
+use the card's creation timestamp. Take the stored date without converting its
+time zone. Single choice selects that weekday; multiple choice includes it
+with the configured manual defaults. Preserve all UUIDs, other answers, and
+creation/update timestamps. Saving the schema and filling cards is atomic.
+Turning either toggle off fills nothing, and subsequent saves do not refill or
+overwrite saved weekday answers. The resulting answers participate in existing
+exports, manual/automatic backups, Restore, and Undo as ordinary field values.
+
+For Form weekday fields with **Default Entered Day** on, changing the Form's
+chosen default timestamp or editing a card's timestamp value recalculates the
+weekday when its effective date changes. Clearing the customized value or
+returning to the creation timestamp uses the creation date. Single choice
+replaces its selection; multiple choice replaces the previous automatic weekday
+and keeps other selections. Unrelated edits preserve user selections. New cards
+use the same timestamp hierarchy for untouched automatic weekday defaults.
+Fields with Default Entered Day off keep their chosen values.

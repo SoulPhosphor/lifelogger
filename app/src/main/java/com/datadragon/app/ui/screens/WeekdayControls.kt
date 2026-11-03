@@ -44,6 +44,8 @@ internal fun WeekdaySettingsControls(
     onRequiredChange: (Boolean) -> Unit,
     capitalizeNew: Boolean,
     onDeletePermanently: (ChoiceOption) -> Unit,
+    applyDayToPastEntries: Boolean? = null,
+    onApplyDayToPastEntriesChange: (Boolean) -> Unit = {},
 ) {
     var confirmReset by rememberSaveable { mutableStateOf(false) }
     fun changeToSingle() {
@@ -63,6 +65,13 @@ internal fun WeekdaySettingsControls(
             onSettingsChange(settings.copy(defaultEnteredDay = checked))
         },
     )
+    if (settings.defaultEnteredDay && applyDayToPastEntries != null) {
+        SettingSwitchRow(
+            checked = applyDayToPastEntries,
+            title = "Apply Day to Past Entries",
+            onCheckedChange = onApplyDayToPastEntriesChange,
+        )
+    }
     SettingSwitchRow(
         checked = settings.onlyOne,
         title = "Only Allow Choosing One Day",

@@ -48,14 +48,127 @@ class ExistingGroupingWeekdayTest {
         compose.onNodeWithText("Text (one line)").performScrollTo().performClick()
         selectWeekday()
         compose.onNodeWithText("Only Allow Choosing One Day").assertExists()
+        compose.onNodeWithText("Apply Day to Past Entries").assertIsOn()
         compose.onNodeWithText("Save").assertIsEnabled().performClick()
         compose.waitUntil(10_000) { runBlocking { db.logTemplateDao().getById(id) }!!.schemaJson.contains("DAY_OF_WEEK") }
         val saved = runBlocking { db.logTemplateDao().getById(id) }!!
         val fields = Json.decodeFromString<List<FieldDef>>(saved.schemaJson)
         assertEquals(original.uuid, saved.uuid)
         assertEquals(originalField, fields.first())
-        assertWeekday(fields.single { it.type == FieldType.DAY_OF_WEEK }.choices)
-        assertEquals(answer, runBlocking { db.logEntryDao().getById(entryId) }!!.valuesJson)
+        val weekday = fields.single { it.type == FieldType.DAY_OF_WEEK }
+        assertWeekday(weekday.choices)
+        val entry = runBlocking { db.logEntryDao().getById(entryId) }!!
+        val values = EntryValues.decode(entry.valuesJson)
+        assertEquals(EntryValues.decode(answer)[originalField.id], values[originalField.id])
+        assertEquals(listOf(weekday.choices.single { it.weekday == 7 }.id), Weekday.selected(values[weekday.id]))
+        assertEquals("2026-11-01T12:00:00Z", entry.createdAt)
+        assertNull(entry.updatedAt)
+        // A saved weekday field no longer offers a one-time application to old cards.
+        compose.onNodeWithText("Day of the Week", substring = true).performScrollTo().performClick()
+        compose.onNodeWithText("Apply Day to Past Entries").assertDoesNotExist()
+    }
+
+    @Test fun turningOffPastEntryApplicationLeavesOldAnswersUntouched() = addWeekdayWithoutBackfill(hasPastEntry = true)
+
+    @Test fun emptyFormsDoNotOfferPastEntryApplication() = addWeekdayWithoutBackfill(hasPastEntry = false)
+
+    private fun addWeekdayWithoutBackfill(hasPastEntry: Boolean) {
+        val original = FieldDef(id = StableUuid.createNew(), label = "Note", type = FieldType.TEXT)
+        val id = runBlocking { db.logTemplateDao().insert(LogTemplate(uuid = StableUuid.createNew(), name = "No Backfill", createdAt = 1,
+            schemaJson = FormMarkdownParser.encodeFields(listOf(original)), locked = false)) }
+        val answer = EntryValues.encode(mapOf(original.id to EntryValues.string("Keep me")))
+        val entryId = if (hasPastEntry) runBlocking { db.logEntryDao().insert(LogEntry(templateId = id,
+            createdAt = "2026-11-01T12:00:00Z", valuesJson = answer)) } else null
+        val vm = EditFormViewModel(app).also { store.put("opt-out", it) }
+        compose.setContent { DataDragonTheme(dynamicColor = false) {
+            EditFormScreen(logId = id.toString(), onBack = {}, onEditCalendar = {}, onOpenCalendar = {}, viewModel = vm)
+        } }
+        compose.waitUntil(10_000) { vm.fields.value.isNotEmpty() }
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Add Field", substring = true))
+        compose.onNodeWithText("Add Field", substring = true).performClick()
+        compose.onNodeWithText("Text (one line)").performScrollTo().performClick()
+        selectWeekday()
+        if (hasPastEntry) compose.onNodeWithText("Apply Day to Past Entries").assertIsOn().performClick().assertIsOff()
+        else compose.onNodeWithText("Apply Day to Past Entries").assertDoesNotExist()
+        compose.onNodeWithText("Save").performClick()
+        compose.waitUntil(10_000) { compose.waitForIdle(); runBlocking { db.logTemplateDao().getById(id) }!!.schemaJson.contains("DAY_OF_WEEK") }
+        if (entryId != null) assertEquals(answer, runBlocking { db.logEntryDao().getById(entryId) }!!.valuesJson)
+        else assertTrue(runBlocking { db.logEntryDao().getForTemplateOnce(id) }.isEmpty())
+    }
+
+    @Test fun changingTheFormsDefaultTimestampUpdatesSavedWeekdays() {
+        val days = Weekday.newChoices()
+        val dayField = FieldDef(id = StableUuid.createNew(), label = "Days", type = FieldType.DAY_OF_WEEK,
+            choices = days, weekday = WeekdaySettings(weekdayIds = Weekday.identities(days)))
+        val timestamp = FieldDef(id = StableUuid.createNew(), label = "Custom Date", type = FieldType.DATE)
+        val fields = listOf(timestamp, dayField)
+        val template = LogTemplate(uuid = StableUuid.createNew(), name = "Timestamp Hierarchy", createdAt = 1,
+            schemaJson = FormMarkdownParser.encodeFields(fields), locked = false)
+        val id = runBlocking { db.logTemplateDao().insert(template) }
+        val created = "2026-11-01T23:30:00-06:00"
+        val old = EntryValues.encode(mapOf(timestamp.id to EntryValues.string("2026-11-02"),
+            dayField.id to EntryValues.stringArray(listOf(days.single { it.weekday == 7 }.id))))
+        val entryId = runBlocking { db.logEntryDao().insert(LogEntry(templateId = id, createdAt = created, valuesJson = old)) }
+        val vm = EditFormViewModel(app).also { store.put("hierarchy", it) }
+        compose.setContent { DataDragonTheme(dynamicColor = false) {
+            EditFormScreen(logId = id.toString(), onBack = {}, onEditCalendar = {}, onOpenCalendar = {}, viewModel = vm)
+        } }
+        compose.waitUntil(10_000) { vm.name.value != null }
+        compose.runOnIdle {
+            vm.save(template.name, fields, false, timestamp.id, true, false, false, locked = false, onSaved = {})
+        }
+        compose.waitUntil(10_000) {
+            compose.waitForIdle()
+            runBlocking { db.logTemplateDao().getById(id) }!!.sortTimestampFieldId == timestamp.id
+        }
+        val custom = runBlocking { db.logEntryDao().getById(entryId) }!!
+        assertEquals(listOf(days.single { it.weekday == 1 }.id), Weekday.selected(EntryValues.decode(custom.valuesJson)[dayField.id]))
+        assertEquals(created, custom.createdAt)
+        assertEquals(template.uuid, runBlocking { db.logTemplateDao().getById(id) }!!.uuid)
+        compose.runOnIdle {
+            vm.save(template.name, fields, false, null, true, false, false, locked = false, onSaved = {})
+        }
+        compose.waitUntil(10_000) {
+            compose.waitForIdle()
+            runBlocking { db.logTemplateDao().getById(id) }!!.sortTimestampFieldId == null
+        }
+        val reset = runBlocking { db.logEntryDao().getById(entryId) }!!
+        assertEquals(old, reset.valuesJson)
+        assertEquals(created, reset.createdAt)
+        assertNull(reset.updatedAt)
+    }
+
+    @Test fun creatingAndEditingCardsUsesTheCustomizedTimestamp() {
+        val days = Weekday.newChoices()
+        val day = FieldDef(id = StableUuid.createNew(), label = "Days", type = FieldType.DAY_OF_WEEK,
+            choices = days, weekday = WeekdaySettings(weekdayIds = Weekday.identities(days)))
+        val timestamp = FieldDef(id = StableUuid.createNew(), label = "Timestamp", type = FieldType.DATETIME)
+        val template = LogTemplate(uuid = StableUuid.createNew(), name = "Custom Timestamp Form", createdAt = 1,
+            schemaJson = FormMarkdownParser.encodeFields(listOf(timestamp, day)), sortTimestampFieldId = timestamp.id, locked = false)
+        val id = runBlocking { db.logTemplateDao().insert(template) }
+        val vm = NewEntryViewModel(app).also { store.put("new-card", it) }
+        compose.setContent { DataDragonTheme(dynamicColor = false) { } }
+        compose.runOnIdle { vm.load(id) }
+        compose.waitUntil(10_000) { compose.waitForIdle(); vm.fields.value.isNotEmpty() }
+        compose.runOnIdle {
+            vm.save(mapOf(timestamp.id to EntryValues.string("2026-11-02T23:45")), onSaved = {}, untouchedWeekdayIds = setOf(day.id))
+        }
+        compose.waitUntil(10_000) { compose.waitForIdle(); runBlocking { db.logEntryDao().getForTemplateOnce(id) }.isNotEmpty() }
+        val created = runBlocking { db.logEntryDao().getForTemplateOnce(id) }.single()
+        assertEquals(listOf(days.single { it.weekday == 1 }.id), Weekday.selected(EntryValues.decode(created.valuesJson)[day.id]))
+        val edit = NewEntryViewModel(app).also { store.put("edit-card", it) }
+        compose.runOnIdle { edit.load(id, created.id) }
+        compose.waitUntil(10_000) { compose.waitForIdle(); edit.initialValues.value != null }
+        compose.runOnIdle {
+            edit.save(EntryValues.decode(created.valuesJson) + (timestamp.id to EntryValues.string("2026-11-03T00:15")), onSaved = {})
+        }
+        compose.waitUntil(10_000) {
+            compose.waitForIdle()
+            runBlocking { db.logEntryDao().getById(created.id) }!!.updatedAt != null
+        }
+        val changed = runBlocking { db.logEntryDao().getById(created.id) }!!
+        assertEquals(listOf(days.single { it.weekday == 2 }.id), Weekday.selected(EntryValues.decode(changed.valuesJson)[day.id]))
+        assertEquals(created.createdAt, changed.createdAt)
     }
 
     @Test fun addWeekdayToAnExistingIdeaLogWithSavedIdeas() {

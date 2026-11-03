@@ -12,6 +12,8 @@ import com.datadragon.app.data.FieldType
 import com.datadragon.app.data.savedComparisonDigits
 import com.datadragon.app.data.FormMarkdownGenerator
 import com.datadragon.app.data.FormMarkdownParser
+import com.datadragon.app.data.EntryValues
+import com.datadragon.app.data.WeekdayBackfill
 import com.datadragon.app.data.AutoFill
 import com.datadragon.app.data.hasItemRows
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -136,6 +138,7 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
         advancedSearchEnabled: Boolean = false,
         locked: Boolean,
         convertFieldIds: Set<String> = emptySet(),
+        weekdayBackfillIds: Set<String> = emptySet(),
         onSaved: () -> Unit,
     ) {
         if (templateId < 0) return
@@ -144,6 +147,10 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
             val savedName = name.trim()
             val markdown = FormMarkdownGenerator.generate(savedName, fields)
             db.withTransaction {
+                val previousTemplate = dao.getById(id)
+                val previousFields = previousTemplate?.let { json.decodeFromString<List<FieldDef>>(it.schemaJson) }.orEmpty()
+                val existingIds = previousFields.map { it.id }.toSet()
+                val previousEntries = entryDao.getForTemplateOnce(id).associateBy { it.id }
                 dao.updateForm(
                     id,
                     savedName,
@@ -158,6 +165,14 @@ class EditFormViewModel(app: Application) : AndroidViewModel(app) {
                 )
                 dao.setLocked(id, locked)
                 AutoFill.convert(entryDao, id, fields, convertFieldIds)
+                entryDao.getForTemplateOnce(id).forEach { entry ->
+                    val previous = previousEntries[entry.id] ?: return@forEach
+                    val values = EntryValues.decode(entry.valuesJson)
+                    val adjusted = WeekdayBackfill.adjust(values, entry.createdAt, fields, sortTimestampFieldId,
+                        EntryValues.decode(previous.valuesJson), previousFields, previousTemplate?.sortTimestampFieldId)
+                    if (adjusted != values) entryDao.update(entry.copy(valuesJson = EntryValues.encode(adjusted)))
+                }
+                WeekdayBackfill.apply(entryDao, id, fields, weekdayBackfillIds - existingIds, sortTimestampFieldId)
             }
             _locked.value = dao.getById(id)?.locked ?: locked
             _name.value = savedName
