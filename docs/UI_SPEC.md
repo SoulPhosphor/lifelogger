@@ -573,6 +573,8 @@ focusing another option; text gestures continue to edit the label.
 ## Day of the Week (November 2026)
 
 Forms, Ideas and Clicker Data offer **Day of the Week** as a separate field.
+In both Forms type pickers, it appears directly below **List Item Quantities**
+and above **Date**.
 It never changes a date, time or automatic timestamp. A blank Label box shows
 `Day of the Week` as its grayed default before focus; typed text replaces it.
 Settings are ordered Required (off), Default Entered Day (on), and Only Allow

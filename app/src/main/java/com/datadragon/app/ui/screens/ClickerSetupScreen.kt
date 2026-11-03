@@ -449,7 +449,7 @@ private fun ToggleRow(
 
 /** The "Add Field" button, opening a menu of the field types to add. */
 @Composable
-private fun AddFieldButton(onAdd: (ClickerFieldType) -> Unit) {
+internal fun AddFieldButton(onAdd: (ClickerFieldType) -> Unit) {
     var open by remember { mutableStateOf(false) }
     androidx.compose.foundation.layout.Box {
         AppButton(onClick = { open = true }) {
