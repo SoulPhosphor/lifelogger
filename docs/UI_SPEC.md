@@ -98,7 +98,8 @@ All primary screens are **full-screen**. The only floating dialogs allowed are *
 ```
 
 - Entries are listed newest first. A form may instead use one selected Date or
-  Date & Time field as its default sort timestamp, and may set its default
+  Date & Time field as its default timestamp (the checkbox reads
+  "Use as Default Timestamp"), and may set its default
   direction to Oldest to Newest. An entry with no value in the selected field is
   never interleaved — those entries collect at the bottom of the list in either
   direction.

@@ -462,7 +462,7 @@ internal fun SettingSwitchRow(
 }
 
 /**
- * The form's default entry order, shown under "Use as Default Sort Timestamp"
+ * The form's default entry order, shown under "Use as Default Timestamp"
  * once a field is chosen as the sort timestamp — a default is only meaningful
  * once we also know which way it runs.
  */
@@ -1068,7 +1068,7 @@ private fun FieldEditorCard(
                 CheckboxSettingRow(
                     checked = field.sortByTimestamp,
                     onCheckedChange = onSortChanged,
-                    title = "Use as Default Sort Timestamp",
+                    title = "Use as Default Timestamp",
                 )
                 if (field.sortByTimestamp) {
                     SortDirectionRadios(

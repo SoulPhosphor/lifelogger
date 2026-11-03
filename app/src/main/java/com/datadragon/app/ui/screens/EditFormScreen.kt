@@ -770,7 +770,7 @@ private fun FieldEditorScreen(
                         draft.sortByTimestamp = checked
                         if (checked && otherSortLabel != null) showSortReplacement = true
                     },
-                    title = "Use as Default Sort Timestamp",
+                    title = "Use as Default Timestamp",
                 )
                 if (draft.sortByTimestamp) {
                     SortDirectionRadios(
