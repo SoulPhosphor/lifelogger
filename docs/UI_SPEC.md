@@ -578,9 +578,11 @@ and above **Date**.
 It never changes a date, time or automatic timestamp. A blank Label box shows
 `Day of the Week` as its grayed default before focus; typed text replaces it.
 Settings are ordered Required (off), Default Entered Day (on), and Only Allow
-Choosing One Day (on). Directly below Default Entered Day is the owner-specified
-subtext: `When enabled all 7 week days must be displayed.` This placement is an
-explicit exception to the general hint-above-control style rule.
+Choosing One Day (on). The existing toggle-with-subtext row places the
+owner-specified subtext `When enabled all 7 week days must be displayed.` directly
+below Default Entered Day in the same text column. The switch sits to the right,
+vertically centered against the combined label and subtext. The description keeps
+the existing subtext typography and color.
 
 The field starts with Monday through Sunday, each with a permanent UUID and an
 ISO weekday association independent of its editable spelling. Renaming,
