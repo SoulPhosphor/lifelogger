@@ -276,6 +276,10 @@ fun EditFormScreen(
             advancedSearchEnabled = advancedSearchEnabled ?: false,
             locked = locked ?: false,
             convertFieldIds = pendingConversionIds(),
+            weekdayBackfillIds = if (hasEntries) rows.filter {
+                savedSnapshot?.none { saved -> saved.id == it.id } == true &&
+                    it.type == FieldType.DAY_OF_WEEK && it.weekday.defaultEnteredDay && it.applyDayToPastEntries
+            }.map { it.id }.toSet() else emptySet(),
             onSaved = {
                 formTitle = titleToSave
                 savedTitle = titleToSave
@@ -334,6 +338,7 @@ fun EditFormScreen(
             minimumDigits = savedComparisonDigits[draft.id],
             otherFields = rows.filter { it !== draft }.map { it.toFieldDef() },
             hasEntries = hasEntries,
+            newField = savedSnapshot?.none { it.id == draft.id } == true,
         )
         return
     }
@@ -631,6 +636,7 @@ private fun FieldEditorScreen(
     otherFields: List<FieldDef>,
     /** Whether the form has saved entries (offers the one-time conversion). */
     hasEntries: Boolean,
+    newField: Boolean,
 ) {
     val draft = remember(source) { source.copy() }
     val context = LocalContext.current
@@ -739,6 +745,7 @@ private fun FieldEditorScreen(
                 capitalizeNewOptions = settings.autoCapitalizeOptions,
                 onDeleteOption = onDeleteOption,
                 minimumDigits = minimumDigits,
+                offerWeekdayBackfill = hasEntries && newField,
             )
             if (draft.type.autoFillable) {
                 AutoFillSettings(
@@ -834,6 +841,7 @@ private fun SettingsControls(
     capitalizeNewOptions: Boolean,
     onDeleteOption: (ChoiceOption) -> Unit,
     minimumDigits: Int?,
+    offerWeekdayBackfill: Boolean,
 ) {
     when (field.type) {
         FieldType.MULTILINE -> EditNumberField(
@@ -877,6 +885,8 @@ private fun SettingsControls(
             onChoicesChange = { field.choices = it }, required = field.required,
             onRequiredChange = { field.required = it }, capitalizeNew = capitalizeNewOptions,
             onDeletePermanently = onDeleteOption,
+            applyDayToPastEntries = field.applyDayToPastEntries.takeIf { offerWeekdayBackfill },
+            onApplyDayToPastEntriesChange = { field.applyDayToPastEntries = it },
         )
         FieldType.DROPDOWN, FieldType.MULTIPLE -> ChoiceOptionsEditor(
             choices = field.choices,
@@ -1071,6 +1081,7 @@ private class EditDraft(
     autoFill: Boolean = false,
     autoFillSource: String = AutoFill.TIMESTAMP,
     convertOnce: Boolean = false,
+    applyDayToPastEntries: Boolean = true,
     addQuantities: Boolean = false,
     addCheckbox: Boolean = false,
     showCheckTotal: Boolean = false,
@@ -1117,6 +1128,7 @@ private class EditDraft(
     var autoFillSource by mutableStateOf(autoFillSource)
     /** One-time "Fill Existing Cards One Time"; never saved with the field. */
     var convertOnce by mutableStateOf(convertOnce)
+    var applyDayToPastEntries by mutableStateOf(applyDayToPastEntries)
 
     /** True when the next Save should fill this field across existing entries. */
     fun convertsOnSave(): Boolean = convertOnce && autoFill && type.autoFillable
@@ -1144,7 +1156,7 @@ private class EditDraft(
             addCheckbox == o.addCheckbox &&
             showCheckTotal == o.showCheckTotal &&
             showAverage == o.showAverage &&
-            autoFill == o.autoFill && autoFillSource == o.autoFillSource && convertOnce == o.convertOnce
+            autoFill == o.autoFill && autoFillSource == o.autoFillSource && convertOnce == o.convertOnce && applyDayToPastEntries == o.applyDayToPastEntries
 
     /** The options that will be saved: a row left blank is never stored. */
     fun savedChoices(): List<ChoiceOption> =
@@ -1246,6 +1258,7 @@ private class EditDraft(
         autoFill = autoFill,
         autoFillSource = autoFillSource,
         convertOnce = convertOnce,
+        applyDayToPastEntries = applyDayToPastEntries,
         addQuantities = addQuantities,
         addCheckbox = addCheckbox,
         showCheckTotal = showCheckTotal,
@@ -1287,6 +1300,7 @@ private class EditDraft(
         autoFill = other.autoFill
         autoFillSource = other.autoFillSource
         convertOnce = other.convertOnce
+        applyDayToPastEntries = other.applyDayToPastEntries
         addQuantities = other.addQuantities
         addCheckbox = other.addCheckbox
         showCheckTotal = other.showCheckTotal
@@ -1370,6 +1384,7 @@ private class EditDraft(
         autoFill = autoFill,
         autoFillSource = autoFillSource,
         convertOnce = convertOnce,
+        applyDayToPastEntries = applyDayToPastEntries,
         addQuantities = addQuantities,
         addCheckbox = addCheckbox,
         showCheckTotal = showCheckTotal,
@@ -1419,6 +1434,7 @@ private data class EditDraftSnapshot(
     val autoFill: Boolean = false,
     val autoFillSource: String = AutoFill.TIMESTAMP,
     val convertOnce: Boolean = false,
+    val applyDayToPastEntries: Boolean = true,
     val addQuantities: Boolean = false,
     val addCheckbox: Boolean = false,
     val showCheckTotal: Boolean = false,
@@ -1461,6 +1477,7 @@ private fun EditDraftSnapshot.toEditDraft(): EditDraft = EditDraft(
     autoFill = autoFill,
     autoFillSource = autoFillSource,
     convertOnce = convertOnce,
+    applyDayToPastEntries = applyDayToPastEntries,
     addQuantities = addQuantities,
     addCheckbox = addCheckbox,
     showCheckTotal = showCheckTotal,

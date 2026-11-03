@@ -54,6 +54,28 @@ class WeekdayControlsTest {
         compose.onNodeWithText("Default Entered Day").assertIsOff()
     }
 
+    @Test fun pastEntryToggleIsConditionalAndKeepsItsChoiceWhileHidden() {
+        val days = Weekday.newChoices()
+        val settings = mutableStateOf(WeekdaySettings(weekdayIds = Weekday.identities(days)))
+        val eligible = mutableStateOf(true)
+        val apply = mutableStateOf(true)
+        compose.setContent { DataDragonTheme(dynamicColor = false) {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                WeekdaySettingsControls(settings.value, days, days, emptySet(),
+                    { settings.value = it }, {}, false, {}, false, {},
+                    applyDayToPastEntries = apply.value.takeIf { eligible.value },
+                    onApplyDayToPastEntriesChange = { apply.value = it })
+            }
+        } }
+        compose.onNodeWithText("Apply Day to Past Entries").assertIsOn().performClick().assertIsOff()
+        compose.onNodeWithText("Default Entered Day").performClick()
+        compose.onNodeWithText("Apply Day to Past Entries").assertDoesNotExist()
+        compose.onNodeWithText("Default Entered Day").performClick()
+        compose.onNodeWithText("Apply Day to Past Entries").assertIsOff()
+        compose.runOnIdle { eligible.value = false }
+        compose.onNodeWithText("Apply Day to Past Entries").assertDoesNotExist()
+    }
+
     @Test fun protectedDaysHaveNoRemovalMenuAndEnablingRestoresTheRetiredUUID() {
         val days = Weekday.newChoices()
         val choices = mutableStateOf(ChoiceEdits.retired(days, days.first().id))

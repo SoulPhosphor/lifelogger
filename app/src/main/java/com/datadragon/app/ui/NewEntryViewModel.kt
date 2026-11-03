@@ -3,6 +3,7 @@ package com.datadragon.app.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.datadragon.app.data.WeekdayBackfill
 import com.datadragon.app.data.Weekday
 import com.datadragon.app.data.AppDatabase
 import com.datadragon.app.data.BackupRepository
@@ -149,16 +150,20 @@ class NewEntryViewModel(app: Application) : AndroidViewModel(app) {
         if (!com.datadragon.app.data.CardContent.hasFormData(_fields.value, values)) { onEmpty(); return }
         if (templateId < 0) return
         viewModelScope.launch {
+            val template = templateDao.getById(templateId) ?: return@launch
             val existing = editing
             if (existing != null) {
                 // Editing respects the saved lock state; a locked log's entry is left as is.
-                if (templateDao.getById(templateId)?.locked != false) {
+                if (template.locked) {
                     onSaved()
                     return@launch
                 }
                 entryDao.update(
                     existing.copy(
-                        valuesJson = EntryValues.encode(values),
+                        valuesJson = EntryValues.encode(WeekdayBackfill.adjust(
+                            values, existing.createdAt, _fields.value, template.sortTimestampFieldId,
+                            EntryValues.decode(existing.valuesJson),
+                        )),
                         updatedAt = BackupRepository.now(),
                     )
                 )
@@ -173,7 +178,8 @@ class NewEntryViewModel(app: Application) : AndroidViewModel(app) {
                         valuesJson = EntryValues.encode(Weekday.atCreation(
                             values, _fields.value.filter { it.type == FieldType.DAY_OF_WEEK }
                                 .map { Triple(it.id, it.choices, it.weekday) },
-                            OffsetDateTime.parse(now).toLocalDate(), untouchedWeekdayIds,
+                            WeekdayBackfill.timestampDate(values, now, _fields.value, template.sortTimestampFieldId)
+                                ?: OffsetDateTime.parse(now).toLocalDate(), untouchedWeekdayIds,
                         )),
                     )
                 )
