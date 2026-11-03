@@ -203,6 +203,38 @@ to the above-the-box default; screens using them keep that look until changed.
   "explanation" pulled from elsewhere in the code. No hint is correct far more
   often than a guessed one.
 
+### Toggle rows with subtext
+
+**Reuse `SettingSwitchRow(title = …, subtitle = …)`** from
+`ui/screens/CreateLogScreen.kt` for a switch with explanatory subtext. This is
+an existing shared style, including for Day of the Week's Default Entered Day.
+
+- The label and its subtext occupy **one left-aligned text column**. The
+  subtext starts directly beneath the label, with no extra paragraph or row gap.
+- The switch sits **to the right of that column**, vertically centered against
+  the combined label and subtext. It is not aligned only with the label or placed
+  above the description.
+- The text column takes the remaining width. Long labels and descriptions wrap
+  inside it, reserving space for the switch instead of running underneath it.
+- The existing label uses `MaterialTheme.typography.bodyLarge`; the existing
+  subtext uses `MaterialTheme.typography.bodySmall`, colored
+  `MaterialTheme.colorScheme.onSurfaceVariant`. These match the current named
+  `settingTitle` / `settingDescription` theme roles. Keep these theme values.
+- The existing row uses `AppTheme.spacing.related` for vertical outer padding
+  and `AppTheme.spacing.rowInset` between the text column and switch. Do not add
+  a separate gap between the label and subtext.
+- The whole row, including its subtext, toggles the setting. The child switch
+  has `onCheckedChange = null` and retains the named minimum touch target.
+- Pass the description through `subtitle`. Do not put a separate `Text` below
+  the entire toggle row. The subtext remains associated with its label, both
+  visually and for accessibility.
+
+For **Default Entered Day**, use exactly:
+`When enabled all 7 week days must be displayed.`
+
+This specifies the label/subtext relationship within a horizontal toggle row;
+other labeled controls keep their documented label → hint → control layout.
+
 ---
 
 ## 7. Export dialogs

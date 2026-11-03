@@ -779,7 +779,7 @@ private fun MultilineFieldSettings(field: IdeaDraftField) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun IdeaKindDropdown(selected: IdeaFieldKind, onSelected: (IdeaFieldKind) -> Unit) {
+internal fun IdeaKindDropdown(selected: IdeaFieldKind, onSelected: (IdeaFieldKind) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
         OutlinedTextField(

@@ -105,13 +105,14 @@ class ListItemQuantitiesTest {
     }
 
     @Test
-    fun theTypeListsBelowComparisonAndAboveTheDateTypes() {
+    fun theTypeListsBelowComparisonThenWeekdayThenTheDateTypes() {
         val order = FieldType.pickerOrder
         assertEquals(FieldType.entries.toSet(), order.toSet())
         assertEquals(FieldType.entries.size, order.size)
         assertEquals(order.indexOf(FieldType.YESNO) + 1, order.indexOf(FieldType.COMPARISON))
         assertEquals(order.indexOf(FieldType.COMPARISON) + 1, order.indexOf(FieldType.LIST_ITEM_QUANTITIES))
-        assertEquals(order.indexOf(FieldType.LIST_ITEM_QUANTITIES) + 1, order.indexOf(FieldType.DATE))
+        assertEquals(order.indexOf(FieldType.LIST_ITEM_QUANTITIES) + 1, order.indexOf(FieldType.DAY_OF_WEEK))
+        assertEquals(order.indexOf(FieldType.DAY_OF_WEEK) + 1, order.indexOf(FieldType.DATE))
     }
 
     private fun formFile(fieldDef: FieldDef, rows: List<ComparisonRow> = emptyList()): String {

@@ -999,7 +999,7 @@ private fun EditScaleBoundField(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EditTypeDropdown(selected: FieldType, onSelected: (FieldType) -> Unit) {
+internal fun EditTypeDropdown(selected: FieldType, onSelected: (FieldType) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
         OutlinedTextField(

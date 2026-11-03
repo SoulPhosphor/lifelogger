@@ -34,6 +34,26 @@ class WeekdayControlsTest {
         compose.onNodeWithText("Day of the Week").assertDoesNotExist()
     }
 
+    @Test fun enteredDayDescriptionBelongsToTheExistingToggleRowAndTogglesWithIt() {
+        val days = Weekday.newChoices()
+        val choices = mutableStateOf(days)
+        val settings = mutableStateOf(WeekdaySettings(weekdayIds = Weekday.identities(days)))
+        compose.setContent { DataDragonTheme(dynamicColor = false) {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                WeekdaySettingsControls(settings.value, choices.value, Weekday.seeds(settings.value), emptySet(),
+                    { settings.value = it }, { choices.value = it }, false, {}, false, {})
+            }
+        } }
+        val subtitle = compose.onNodeWithText("When enabled all 7 week days must be displayed.", useUnmergedTree = true)
+        subtitle.assert(hasAnyAncestor(isToggleable()))
+        val titleNode = compose.onNodeWithText("Default Entered Day", useUnmergedTree = true).fetchSemanticsNode()
+        val subtitleNode = subtitle.fetchSemanticsNode()
+        assertEquals("The label and its subtext should be in the same toggle text column", titleNode.parent!!.id, subtitleNode.parent!!.id)
+        compose.onNodeWithText("When enabled all 7 week days must be displayed.").performClick()
+        compose.runOnIdle { assertFalse(settings.value.defaultEnteredDay) }
+        compose.onNodeWithText("Default Entered Day").assertIsOff()
+    }
+
     @Test fun protectedDaysHaveNoRemovalMenuAndEnablingRestoresTheRetiredUUID() {
         val days = Weekday.newChoices()
         val choices = mutableStateOf(ChoiceEdits.retired(days, days.first().id))

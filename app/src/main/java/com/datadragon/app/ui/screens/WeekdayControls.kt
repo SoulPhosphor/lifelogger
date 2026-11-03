@@ -1,11 +1,8 @@
 package com.datadragon.app.ui.screens
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.Modifier
 import com.datadragon.app.ui.components.AccessibleOutlinedTextField
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,7 +20,6 @@ import com.datadragon.app.ui.components.ChoiceOptionsEditor
 import com.datadragon.app.ui.components.ChoicePreselection
 import com.datadragon.app.ui.components.DialogActionButton
 import com.datadragon.app.ui.components.DialogDismissButton
-import com.datadragon.app.ui.theme.AppTheme
 
 @Composable
 internal fun WeekdayLabelEditor(value: String, onValueChange: (String) -> Unit) {
@@ -35,7 +31,7 @@ internal fun WeekdayLabelEditor(value: String, onValueChange: (String) -> Unit) 
     }
 }
 
-/** Reuses the app's controls and theme; the owner explicitly places the subtext below this toggle. */
+/** Reuses the existing toggle row, including its subtitle under the label and centered switch. */
 @Composable
 internal fun WeekdaySettingsControls(
     settings: WeekdaySettings,
@@ -56,23 +52,17 @@ internal fun WeekdaySettingsControls(
         confirmReset = false
     }
     SettingSwitchRow(checked = required, title = "Required", onCheckedChange = onRequiredChange)
-    Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.related)) {
-        SettingSwitchRow(
-            checked = settings.defaultEnteredDay,
-            title = "Default Entered Day",
-            onCheckedChange = { checked ->
-                var updated = if (checked) Weekday.restoreWeekdays(choices, seeds) else choices
-                if (checked && settings.onlyOne) updated = updated.map { it.copy(preselected = false) }
-                onChoicesChange(updated)
-                onSettingsChange(settings.copy(defaultEnteredDay = checked))
-            },
-        )
-        Text(
-            "When enabled all 7 week days must be displayed.",
-            style = AppTheme.textStyles.settingDescription,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
+    SettingSwitchRow(
+        checked = settings.defaultEnteredDay,
+        title = "Default Entered Day",
+        subtitle = "When enabled all 7 week days must be displayed.",
+        onCheckedChange = { checked ->
+            var updated = if (checked) Weekday.restoreWeekdays(choices, seeds) else choices
+            if (checked && settings.onlyOne) updated = updated.map { it.copy(preselected = false) }
+            onChoicesChange(updated)
+            onSettingsChange(settings.copy(defaultEnteredDay = checked))
+        },
+    )
     SettingSwitchRow(
         checked = settings.onlyOne,
         title = "Only Allow Choosing One Day",
