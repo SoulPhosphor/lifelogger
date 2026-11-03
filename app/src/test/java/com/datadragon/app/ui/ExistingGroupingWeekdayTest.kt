@@ -76,7 +76,12 @@ class ExistingGroupingWeekdayTest {
         compose.onNodeWithText("Text (Multiline)").performScrollTo().performClick()
         selectWeekday()
         compose.onNodeWithText("Save").assertIsEnabled().performClick()
-        compose.waitUntil(10_000) { saved }
+        compose.waitUntil(10_000) {
+            compose.waitForIdle()
+            runBlocking { db.ideaLogDao().getById(id) }!!.fieldsJson.contains("DAY_OF_WEEK")
+        }
+        compose.waitForIdle()
+        assertTrue(saved)
         val log = runBlocking { db.ideaLogDao().getById(id) }!!
         val fields = Json.decodeFromString<List<IdeaFieldDef>>(log.fieldsJson)
         assertEquals(original.uuid, log.uuid)
@@ -103,7 +108,12 @@ class ExistingGroupingWeekdayTest {
         compose.onNodeWithText("Add Field", substring = true).performScrollTo().performClick()
         selectWeekday()
         compose.onNodeWithText("Save").assertIsEnabled().performClick()
-        compose.waitUntil(10_000) { saved }
+        compose.waitUntil(10_000) {
+            compose.waitForIdle()
+            runBlocking { db.clickerDao().getLog(id) }!!.fieldsJson.contains("DAY_OF_WEEK")
+        }
+        compose.waitForIdle()
+        assertTrue(saved)
         val log = runBlocking { db.clickerDao().getLog(id) }!!
         val fields = Json.decodeFromString<List<ClickerField>>(log.fieldsJson)
         assertEquals(original.uuid, log.uuid)

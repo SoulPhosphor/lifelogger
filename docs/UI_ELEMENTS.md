@@ -212,3 +212,12 @@ Opened Lists, Daily Task cards and Lucky Lists offer Copy above Export in
 the upper-right kebab menu. Lists and Daily Tasks copy bulleted items under
 Unfinished Items and Completed Items, omitting an empty section entirely.
 Sub-items retain indentation. Lucky Lists copy a single bulleted list.
+
+
+## Toggle with subtext
+
+`SettingSwitchRow` in `ui/screens/CreateLogScreen.kt` already supports a `subtitle`.
+Use it for a label with explanatory subtext and a switch centered at the right of
+both lines. The complete appearance and spacing contract is in STYLE.md §6,
+“Toggle rows with subtext.” A separate description below the whole row is not this
+pattern. Day of the Week's Default Entered Day uses this shared component.
