@@ -68,6 +68,34 @@ class ExistingGroupingWeekdayTest {
         compose.onNodeWithText("Apply Day to Past Entries").assertDoesNotExist()
     }
 
+    @Test fun turningOffPastEntryApplicationLeavesOldAnswersUntouched() = addWeekdayWithoutBackfill(hasPastEntry = true)
+
+    @Test fun emptyFormsDoNotOfferPastEntryApplication() = addWeekdayWithoutBackfill(hasPastEntry = false)
+
+    private fun addWeekdayWithoutBackfill(hasPastEntry: Boolean) {
+        val original = FieldDef(id = StableUuid.createNew(), label = "Note", type = FieldType.TEXT)
+        val id = runBlocking { db.logTemplateDao().insert(LogTemplate(uuid = StableUuid.createNew(), name = "No Backfill", createdAt = 1,
+            schemaJson = FormMarkdownParser.encodeFields(listOf(original)), locked = false)) }
+        val answer = EntryValues.encode(mapOf(original.id to EntryValues.string("Keep me")))
+        val entryId = if (hasPastEntry) runBlocking { db.logEntryDao().insert(LogEntry(templateId = id,
+            createdAt = "2026-11-01T12:00:00Z", valuesJson = answer)) } else null
+        val vm = EditFormViewModel(app).also { store.put("opt-out", it) }
+        compose.setContent { DataDragonTheme(dynamicColor = false) {
+            EditFormScreen(logId = id.toString(), onBack = {}, onEditCalendar = {}, onOpenCalendar = {}, viewModel = vm)
+        } }
+        compose.waitUntil(10_000) { vm.fields.value.isNotEmpty() }
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Add Field", substring = true))
+        compose.onNodeWithText("Add Field", substring = true).performClick()
+        compose.onNodeWithText("Text (one line)").performScrollTo().performClick()
+        selectWeekday()
+        if (hasPastEntry) compose.onNodeWithText("Apply Day to Past Entries").assertIsOn().performClick().assertIsOff()
+        else compose.onNodeWithText("Apply Day to Past Entries").assertDoesNotExist()
+        compose.onNodeWithText("Save").performClick()
+        compose.waitUntil(10_000) { compose.waitForIdle(); runBlocking { db.logTemplateDao().getById(id) }!!.schemaJson.contains("DAY_OF_WEEK") }
+        if (entryId != null) assertEquals(answer, runBlocking { db.logEntryDao().getById(entryId) }!!.valuesJson)
+        else assertTrue(runBlocking { db.logEntryDao().getForTemplateOnce(id) }.isEmpty())
+    }
+
     @Test fun changingTheFormsDefaultTimestampUpdatesSavedWeekdays() {
         val days = Weekday.newChoices()
         val dayField = FieldDef(id = StableUuid.createNew(), label = "Days", type = FieldType.DAY_OF_WEEK,
