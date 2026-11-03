@@ -692,7 +692,7 @@ private fun IdeaFieldCard(
                 CheckboxSettingRow(
                     checked = field.sortByTimestamp,
                     onCheckedChange = onSortChanged,
-                    title = "Use as Default Sort Timestamp",
+                    title = "Use as Default Timestamp",
                 )
                 if (field.sortByTimestamp) {
                     SortDirectionRadios(
