@@ -259,10 +259,10 @@ and not new phrasing for the formats it shares.
   | `.pdf` | PDF Document (.pdf) | Printable document format | Everything |
   | `.csv` | Spreadsheet (.csv) | Table of entries for a spreadsheet app | Forms, Data |
   | `.json` | Application Data (.json) | Use this file to import or restore this `<thing>` later | Everything |
-  | `.json` | Human Readable | Human-readable data for AI analysis | Forms, Data, Lists, Lucky Lists |
+  | `.json` | Human Readable JSON (.json) | Clean data json with no app specific information. | Forms, Data, Lists, Lucky Lists |
 
 - **Rows appear in that order**, always. Application Data (.json) is always
-  last, except where Human Readable is offered, where it sits directly below
+  last, except where Human Readable JSON (.json) is offered, where it sits directly below
   it (owner ruling, October 30 2026; extended to Data, Lists and Lucky Lists
   and renamed from "Clean JSON (.json)", owner ruling, November 13 2026).
 - **A row is left out only when that thing genuinely cannot produce that file.**

@@ -9,7 +9,7 @@ import java.math.BigDecimal
 import java.time.OffsetDateTime
 
 /**
- * Builds the "Human Readable" `.json` export for one form: the same report as
+ * Builds the "Human Readable JSON (.json)" export for one form: the same report as
  * the `.txt` export ([ReportBuilder]), as structured JSON for people, AI models
  * and data analysis. It is never read back by the app; restore and import keep
  * using the `datadragon-backup` file from "Application Data (.json)", which this

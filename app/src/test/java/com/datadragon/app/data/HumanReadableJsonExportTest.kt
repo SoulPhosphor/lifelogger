@@ -18,7 +18,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * The "Human Readable" `.json` exports for Clicker Data, Lists and Lucky Lists:
+ * The "Human Readable JSON (.json)" exports for Clicker Data, Lists and Lucky Lists:
  * each carries what its `.txt` export carries, structured, with no internal
  * ids or settings, under a `<name>_clean.json` file name.
  */

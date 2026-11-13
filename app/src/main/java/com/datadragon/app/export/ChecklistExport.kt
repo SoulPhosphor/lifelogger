@@ -29,7 +29,7 @@ object ChecklistExport {
         )
 
     /**
-     * The "Human Readable" `.json` file: the `.txt` export as structured JSON.
+     * The "Human Readable JSON (.json)" file: the `.txt` export as structured JSON.
      * `title` and `items` in the same order, blank items left out, as in the
      * `.txt`. Each item holds `text` and `completed`; a sub-item sits in the
      * `subItems` of the item above it (one with no item above stays in `items`).

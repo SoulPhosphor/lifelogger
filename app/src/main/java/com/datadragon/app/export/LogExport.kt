@@ -65,7 +65,7 @@ object LogExport {
     }
 
     /**
-     * The "Human Readable" `.json` file: the `.txt` report as structured JSON
+     * The "Human Readable JSON (.json)" file: the `.txt` report as structured JSON
      * ([CleanJsonBuilder]). Named `<name>_clean.json` so it never collides with
      * the restorable `.json`.
      */

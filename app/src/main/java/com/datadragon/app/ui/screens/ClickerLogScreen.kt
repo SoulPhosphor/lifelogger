@@ -392,8 +392,8 @@ fun ClickerLogScreen(
                     exportWith { l, c, n -> ClickerExport.json(l, c, n) }
                 },
                 ExportFormatOption(
-                    "Human Readable",
-                    "Human-readable data for AI analysis",
+                    "Human Readable JSON (.json)",
+                    "Clean data json with no app specific information.",
                 ) {
                     exportWith { l, c, n -> ClickerExport.cleanJson(l, fields, c, n) }
                 },

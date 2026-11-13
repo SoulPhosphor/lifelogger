@@ -18,7 +18,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * The Forms "Human Readable" `.json` export: the `.txt` report's header and
+ * The Forms "Human Readable JSON (.json)" export: the `.txt` report's header and
  * order, labels instead of ids, native values, the item-row summary lines, the
  * suffix rule for repeated keys, and the `<name>_clean.json` file name.
  */

@@ -476,8 +476,8 @@ fun ChecklistScreen(
                     if (lucky) "Use this file to import or restore this lucky list later" else "Use this file to import or restore this list later",
                 ) { startSave(ChecklistExportFormat.JSON) },
                 ExportFormatOption(
-                    "Human Readable",
-                    "Human-readable data for AI analysis",
+                    "Human Readable JSON (.json)",
+                    "Clean data json with no app specific information.",
                 ) { startSave(ChecklistExportFormat.CLEAN_JSON) },
             ),
         )

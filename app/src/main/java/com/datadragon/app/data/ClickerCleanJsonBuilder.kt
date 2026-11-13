@@ -7,7 +7,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import java.time.LocalDateTime
 
 /**
- * Builds the "Human Readable" `.json` export for one Clicker Data grouping: the
+ * Builds the "Human Readable JSON (.json)" export for one Clicker Data grouping: the
  * same report as its `.txt` export ([ClickerReport]), as structured JSON.
  * Restore and import keep using "Application Data (.json)", untouched here.
  *

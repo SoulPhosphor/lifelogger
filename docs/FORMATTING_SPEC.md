@@ -115,7 +115,7 @@ One file containing one template and that log's entries. Same structure as one l
 
 Timestamps stay in ISO-8601 exactly as stored. JSON files are for backup and data portability, not for human reading.
 
-### Human Readable export (export dialog → Human Readable)
+### Human Readable JSON export (export dialog → Human Readable JSON (.json))
 
 Offered for Forms, Clicker Data, Lists and Lucky Lists (owner ruling,
 November 13 2026). It is the `.txt` export's report as structured, indented
@@ -156,7 +156,7 @@ change the backup format, import or restore.
   marked `_report`.
 - Example: `My Log` → `my_log.txt`, `my_log.md`, `my_log.pdf`, `my_log.csv`,
   `my_log.json`
-- Exception (owner ruling, October 30 2026): the "Human Readable" `.json`
+- Exception (owner ruling, October 30 2026): the "Human Readable JSON (.json)"
   export (formerly "Clean JSON (.json)") adds `_clean` so it never collides
   with the restorable `.json`: `my_log_clean.json`. This applies to Forms,
   Clicker Data, Lists and Lucky Lists (owner ruling, November 13 2026).

@@ -392,8 +392,8 @@ fun LogScreen(
                     }
                 },
                 ExportFormatOption(
-                    "Human Readable",
-                    "Human-readable data for AI analysis",
+                    "Human Readable JSON (.json)",
+                    "Clean data json with no app specific information.",
                 ) {
                     if (current != null) {
                         startSave(LogExport.cleanJson(current, fields, entries, notesByEntry, includeFollowUps))

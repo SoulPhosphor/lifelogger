@@ -45,7 +45,7 @@ object ClickerExport {
             BackupCodec.encodeSingleClicker(log, cards, BackupRepository.now(), includeFollowUps).toByteArray(),
         )
 
-    /** The "Human Readable" `.json` file: the `.txt` report as structured JSON. */
+    /** The "Human Readable JSON (.json)" file: the `.txt` report as structured JSON. */
     fun cleanJson(log: ClickerLog, fields: List<ClickerField>, cards: List<ClickerCard>, includeFollowUps: Boolean): ExportContent =
         ExportContent(
             ExportNaming.cleanJsonFileName(log.title),
