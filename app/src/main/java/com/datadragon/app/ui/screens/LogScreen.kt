@@ -392,7 +392,7 @@ fun LogScreen(
                     }
                 },
                 ExportFormatOption(
-                    "Clean JSON (.json)",
+                    "Human Readable",
                     "Human-readable data for AI analysis",
                 ) {
                     if (current != null) {

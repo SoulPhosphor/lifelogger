@@ -115,6 +115,36 @@ One file containing one template and that log's entries. Same structure as one l
 
 Timestamps stay in ISO-8601 exactly as stored. JSON files are for backup and data portability, not for human reading.
 
+### Human Readable export (export dialog → Human Readable)
+
+Offered for Forms, Clicker Data, Lists and Lucky Lists (owner ruling,
+November 13 2026). It is the `.txt` export's report as structured, indented
+JSON, for people, AI models and data analysis. The `.txt` export is the source
+of truth for what it contains. It is never read back by the app and does not
+change the backup format, import or restore.
+
+- **No internal data:** no UUIDs, row ids, schemas, settings, export time,
+  edit time or mark flag. Fields and choices are named by their labels.
+- **Forms:** `title` (`"<Form> Report"`), `dateRange` (`start` / `end` ISO
+  dates, left out when there are no entries), `totalEntries`, and `entries`
+  oldest first. Each entry holds `createdAt` (stored ISO timestamp with its
+  offset), `values` (by field label, in field order, empty fields left out),
+  `Notes` (the Notes box) and `Follow-Up Notes` (`createdAt` + `text`, when
+  the dialog includes them).
+- **Clicker Data:** `title`, `dateRange` (only when the grouping shows date
+  stamps), `totalCards`, and `cards` in the report's order. A card shows
+  `dateTime`, `date` or `time` only for the stamps the grouping shows, then
+  `values` and `Follow-Up Notes` (when included).
+- **Lists:** `title` and `items` (`text`, `completed`, and `subItems` for the
+  items indented under it). Blank items are left out, as in the `.txt`.
+- **Lucky Lists:** `title` and `items`, an array of item texts in list order.
+- **Value types:** Single Choice is its label; Multiple Choice, Day of Week and
+  Tags are arrays; numbers are JSON numbers; Scale is `{ "value", "max" }`;
+  Ratio is `{ "value", "unit" }`; dates and times are ISO (no timezone is
+  added to values stored without one); Comparison and List Item Quantities
+  are `Rows` plus the report's summary lines. A repeated label gets a ` (2)`,
+  ` (3)`… suffix so nothing is overwritten.
+
 ---
 
 ## 5. Export file naming
@@ -126,9 +156,10 @@ Timestamps stay in ISO-8601 exactly as stored. JSON files are for backup and dat
   marked `_report`.
 - Example: `My Log` → `my_log.txt`, `my_log.md`, `my_log.pdf`, `my_log.csv`,
   `my_log.json`
-- Exception (owner ruling, October 30 2026): a form's "Clean JSON (.json)"
-  export adds `_clean` so it never collides with the restorable `.json`:
-  `my_log_clean.json`.
+- Exception (owner ruling, October 30 2026): the "Human Readable" `.json`
+  export (formerly "Clean JSON (.json)") adds `_clean` so it never collides
+  with the restorable `.json`: `my_log_clean.json`. This applies to Forms,
+  Clicker Data, Lists and Lucky Lists (owner ruling, November 13 2026).
 
 Files are saved through the Android system "Save to…" document picker
 (`ACTION_CREATE_DOCUMENT`): the user chooses the destination folder (Drive,

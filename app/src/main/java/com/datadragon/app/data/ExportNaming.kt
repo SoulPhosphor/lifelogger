@@ -17,4 +17,10 @@ object ExportNaming {
 
     /** The suggested file name for an export: the base plus the format's extension. */
     fun fileName(name: String, extension: String): String = "${base(name)}.$extension"
+
+    /**
+     * The "Human Readable" `.json` export's name: the base plus `_clean`, so it
+     * never collides with the restorable `.json` (e.g. `my_log_clean.json`).
+     */
+    fun cleanJsonFileName(name: String): String = "${base(name)}_clean.json"
 }

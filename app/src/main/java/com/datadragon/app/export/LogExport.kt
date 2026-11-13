@@ -65,8 +65,9 @@ object LogExport {
     }
 
     /**
-     * The human-readable "Clean JSON" file for analysis ([CleanJsonBuilder]).
-     * Named `<name>_clean.json` so it never collides with the restorable `.json`.
+     * The "Human Readable" `.json` file: the `.txt` report as structured JSON
+     * ([CleanJsonBuilder]). Named `<name>_clean.json` so it never collides with
+     * the restorable `.json`.
      */
     fun cleanJson(
         template: LogTemplate,
@@ -75,10 +76,8 @@ object LogExport {
         notesByEntry: Map<Long, List<EntryNote>> = emptyMap(),
         includeFollowUps: Boolean = false,
     ): ExportContent {
-        val json = CleanJsonBuilder.build(
-            template, fields, entries, BackupRepository.now(), notesByEntry, includeFollowUps,
-        )
-        return ExportContent(ExportNaming.fileName("${template.name} clean", "json"), json.toByteArray())
+        val json = CleanJsonBuilder.build(template, fields, entries, notesByEntry, includeFollowUps)
+        return ExportContent(ExportNaming.cleanJsonFileName(template.name), json.toByteArray())
     }
 
     fun csv(template: LogTemplate, fields: List<FieldDef>, entries: List<LogEntry>): ExportContent =

@@ -4,6 +4,7 @@ import android.graphics.pdf.PdfDocument
 import com.datadragon.app.data.BackupCodec
 import com.datadragon.app.data.BackupRepository
 import com.datadragon.app.data.ClickerCard
+import com.datadragon.app.data.ClickerCleanJsonBuilder
 import com.datadragon.app.data.ClickerField
 import com.datadragon.app.data.ClickerLog
 import com.datadragon.app.data.ClickerReport
@@ -42,6 +43,13 @@ object ClickerExport {
         ExportContent(
             ExportNaming.fileName(log.title, "json"),
             BackupCodec.encodeSingleClicker(log, cards, BackupRepository.now(), includeFollowUps).toByteArray(),
+        )
+
+    /** The "Human Readable" `.json` file: the `.txt` report as structured JSON. */
+    fun cleanJson(log: ClickerLog, fields: List<ClickerField>, cards: List<ClickerCard>, includeFollowUps: Boolean): ExportContent =
+        ExportContent(
+            ExportNaming.cleanJsonFileName(log.title),
+            ClickerCleanJsonBuilder.build(log, fields, cards, includeFollowUps).toByteArray(),
         )
 
     fun pdf(log: ClickerLog, fields: List<ClickerField>, cards: List<ClickerCard>, includeFollowUps: Boolean): ExportContent =

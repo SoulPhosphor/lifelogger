@@ -4,6 +4,19 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-11-13 — Human Readable JSON export
+
+- The Forms "Clean JSON (.json)" export option is now titled **Human
+  Readable** and now carries the same report as the `.txt` export: `title`,
+  `dateRange` (`start` / `end`), `totalEntries`, entries oldest first, `Notes`
+  and `Follow-Up Notes`. `exportedAt`, `updatedAt` and `marked` are gone.
+  Numbers are JSON numbers, Scale is `{ "value", "max" }`, Ratio is
+  `{ "value", "unit" }`.
+- Clicker Data, Lists and Lucky Lists gain the same **Human Readable** option,
+  directly below Application Data (.json), each mirroring its own `.txt`.
+- All use `<name>_clean.json`. Application Data (.json), backups, import and
+  restore are unchanged. Details: docs/FORMATTING_SPEC.md §4.
+
 ## 2026-10-22 — List Item Quantities check boxes and average
 
 - Three new List Item Quantities toggles, all off by default: **Show Average
