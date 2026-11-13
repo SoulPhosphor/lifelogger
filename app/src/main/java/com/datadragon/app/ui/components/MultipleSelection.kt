@@ -1,6 +1,7 @@
 package com.datadragon.app.ui.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -110,8 +112,9 @@ fun SelectionBar(
 
 /**
  * One card on a Main screen that Multiple Selection can pick. While [selecting],
- * a layer over the card takes every tap and toggles the card instead, so
- * nothing on it — its menu, a tracker button, a text box — reacts. A selected
+ * a layer over the card takes every tap and toggles the card instead, and
+ * keyboard focus can't enter the card, so nothing on it — its menu, a tracker
+ * button, a text box — reacts. A selected
  * card gets the dashed coupon outline just outside its edge.
  */
 @Composable
@@ -144,7 +147,15 @@ fun SelectableCard(
             }
         },
     ) {
-        content()
+        // While selecting, keyboard focus can't move into the card either, so no
+        // control on it can be reached with Tab and activated.
+        Box(
+            modifier = Modifier
+                .focusProperties { onEnter = { if (selecting) cancelFocusChange() } }
+                .focusGroup(),
+        ) {
+            content()
+        }
         if (selecting) {
             Box(
                 modifier = Modifier
