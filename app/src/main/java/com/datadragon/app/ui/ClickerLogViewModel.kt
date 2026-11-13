@@ -240,6 +240,18 @@ class ClickerLogViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Multiple Selection's Delete: the selected cards of this grouping, once any
+     * queued card writes have landed so none re-creates a deleted card's data.
+     */
+    fun deleteCards(ids: Set<Long>) {
+        val id = logId.value ?: return
+        viewModelScope.launch {
+            synchronized(pendingWrites) { pendingWrites.toList() }.joinAll()
+            CardSelection.deleteCards(dao, id, ids)
+        }
+    }
+
     fun deleteLog(onDeleted: () -> Unit) {
         val id = logId.value ?: return onDeleted()
         viewModelScope.launch {

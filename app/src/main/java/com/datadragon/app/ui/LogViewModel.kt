@@ -177,6 +177,12 @@ class LogViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Multiple Selection's Delete: the selected entries of this form and their Follow-Up Notes. */
+    fun deleteEntries(ids: Set<Long>) {
+        val id = templateId.value ?: return
+        viewModelScope.launch { CardSelection.deleteEntries(db, id, ids) }
+    }
+
     /** Turn follow-up notes on/off for this log (toggleable any time). */
     fun setAllowAppendedNotes(allow: Boolean) {
         val current = _template.value ?: return
@@ -285,7 +291,7 @@ internal fun sortLogEntries(
  * field with no time sorts at the start of its day, so a date and a date & time
  * field order against each other consistently.
  */
-private fun entrySortTime(entry: LogEntry, sortField: FieldDef?): LocalDateTime? {
+internal fun entrySortTime(entry: LogEntry, sortField: FieldDef?): LocalDateTime? {
     if (sortField == null) {
         return runCatching { OffsetDateTime.parse(entry.createdAt).toLocalDateTime() }.getOrNull()
     }

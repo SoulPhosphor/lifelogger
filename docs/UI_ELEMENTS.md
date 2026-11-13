@@ -221,3 +221,28 @@ Use it for a label with explanatory subtext and a switch centered at the right o
 both lines. The complete appearance and spacing contract is in STYLE.md §6,
 “Toggle rows with subtext.” A separate description below the whole row is not this
 pattern. Day of the Week's Default Entered Day uses this shared component.
+
+## Multiple Selection (November 2026)
+
+The selection mode on the Forms and Clicker Data **Main screens**, modeled on
+the owner's SpeakGPT reference screenshot. Behavior is in
+docs/UI_SPEC.md, "Multiple Selection".
+
+- **Selection bar** (`SelectionBar`, `ui/components/MultipleSelection.kt`): a
+  rounded panel directly under the top bar. Left: "N Selected" (`countText`)
+  over "Tap a card to toggle selection" (`subtitleText`, muted). Right, in
+  order: Copy, Delete, Export (the Material Symbols `file_save` icon,
+  `ic_file_save.xml`), then a `⋮` menu. Copy, Delete and Export stay visible
+  and are disabled (Material's greyed-out treatment) at 0 selected.
+- **`⋮` menu order:** Select All, Deselect All, Select Newest X, Select Oldest
+  X, Exit Selection.
+- **Selected card** (`SelectableCard`): a dashed "coupon" outline drawn just
+  outside the card's edge. Unselected cards draw nothing extra.
+- **Select Newest / Oldest dialog** (`SelectCountDialog`): built on
+  `AppDialog`. The title line is "Select Newest" (or "Select Oldest") in the
+  dialog-title style followed by a number box sized to the card count's
+  digits; buttons Cancel | Okay.
+- **Theme:** every value comes from `AppTheme.selection`
+  (`ui/theme/Selection.kt`): bar shape, colors and insets, the count and
+  subtitle text styles, and the outline's color, width, dash, gap, offset and
+  corner.

@@ -4,6 +4,19 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-11-13 — Multiple Selection on Forms and Clicker Data
+
+- New **Multiple Selection** item in the Forms and Clicker Data Main screens'
+  cog menus, above the final Delete. It shows a selection bar under the top
+  bar ("N Selected", "Tap a card to toggle selection", Copy, Delete, Export,
+  and a menu: Select All, Deselect All, Select Newest X, Select Oldest X, Exit
+  Selection). Selected cards get a dashed coupon outline.
+- Copy gives the selection's `.txt` report; Export uses the normal export
+  dialog for the selection only; Delete confirms once and deletes only the
+  selected cards. Details: docs/UI_SPEC.md and docs/UI_ELEMENTS.md,
+  "Multiple Selection".
+- All export option subtitles now end with a period.
+
 ## 2026-11-13 — Human Readable JSON export
 
 - The Forms "Clean JSON (.json)" export option is now titled **Human

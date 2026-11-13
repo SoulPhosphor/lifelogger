@@ -2,6 +2,11 @@ package com.datadragon.app.ui.screens
 
 import com.datadragon.app.data.CardCopyText
 import com.datadragon.app.ui.components.rememberCopyText
+import com.datadragon.app.ui.CardSelection
+import com.datadragon.app.ui.components.SelectCountDialog
+import com.datadragon.app.ui.components.SelectableCard
+import com.datadragon.app.ui.components.SelectionBar
+import androidx.compose.ui.platform.LocalFocusManager
 
 import com.datadragon.app.export.SaveExportDocument
 import com.datadragon.app.data.AdvancedSearch
@@ -117,6 +122,16 @@ fun LogScreen(
     var showFormatChooser by remember { mutableStateOf(false) }
     var entryToDelete by remember { mutableStateOf<LogEntry?>(null) }
     var gearMenuOpen by remember { mutableStateOf(false) }
+    // Multiple Selection: whether it is on, and the picked entries by row id.
+    // Screen-only state — it never touches an entry, its mark, or the filters.
+    var selecting by remember { mutableStateOf(false) }
+    var selectedIds by remember { mutableStateOf(emptySet<Long>()) }
+    var selectCountNewest by remember { mutableStateOf<Boolean?>(null) }
+    var confirmDeleteSelected by remember { mutableStateOf(false) }
+    // Whether the export dialog is exporting the selection rather than the whole form.
+    var exportSelection by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
+    val copySelection = rememberCopyText()
     // Export dialog: whether to include follow-up notes.
     var includeFollowUps by remember { mutableStateOf(true) }
 
@@ -130,6 +145,14 @@ fun LogScreen(
     val markedEntries = if (showMarkedOnly && anyMarked) entries.filter { it.marked } else entries
     val visibleEntries = remember(markedEntries, fields, advanced.applied) {
         AdvancedSearch.forms(markedEntries, fields, advanced.applied)
+    }
+    // Only entries that still exist count: one deleted elsewhere drops out. An
+    // entry hidden by a filter stays selected.
+    val selectedEntries = remember(selectedIds, entries) { entries.filter { it.id in selectedIds } }
+    val selectedIdSet = remember(selectedEntries) { selectedEntries.map { it.id }.toSet() }
+    fun exitSelection() {
+        selecting = false
+        selectedIds = emptySet()
     }
     val sorting: @Composable () -> Unit = {
         if (advancedEnabled) {
@@ -183,9 +206,12 @@ fun LogScreen(
 
     fun attemptBack() { viewModel.leaveAfterTitleFlush(onBack) }
     BackHandler { attemptBack() }
+    // Back leaves Multiple Selection before it leaves the screen.
+    BackHandler(enabled = selecting) { exitSelection() }
 
     Scaffold(
         topBar = {
+          Column {
             TopAppBar(
                 title = {
                     EditableTitleField(
@@ -225,6 +251,7 @@ fun LogScreen(
                                     text = { Text("Export") },
                                     onClick = {
                                         gearMenuOpen = false
+                                        exportSelection = false
                                         showFormatChooser = true
                                     },
                                 )
@@ -239,6 +266,15 @@ fun LogScreen(
                                     onClick = {
                                         gearMenuOpen = false
                                         viewModel.setAllowAppendedNotes(!allowAppendedNotes)
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Multiple Selection") },
+                                    onClick = {
+                                        gearMenuOpen = false
+                                        focusManager.clearFocus()
+                                        selectedIds = emptySet()
+                                        selecting = true
                                     },
                                 )
                                 DropdownMenuItem(
@@ -280,6 +316,22 @@ fun LogScreen(
                     }
                 },
             )
+            if (selecting) {
+                SelectionBar(
+                    count = selectedIdSet.size,
+                    onCopy = {
+                        template?.let { copySelection(CardSelection.formCopyText(it, fields, selectedEntries, notesByEntry)) }
+                    },
+                    onDelete = { confirmDeleteSelected = true },
+                    onExport = { exportSelection = true; showFormatChooser = true },
+                    onSelectAll = { selectedIds = selectedIdSet + visibleEntries.map { it.id } },
+                    onDeselectAll = { selectedIds = emptySet() },
+                    onSelectNewest = { selectCountNewest = true },
+                    onSelectOldest = { selectCountNewest = false },
+                    onExit = { exitSelection() },
+                )
+            }
+          }
         },
     ) { padding ->
         // Deliberately not saved: the list opens at the top every time rather than
@@ -317,6 +369,11 @@ fun LogScreen(
                     item(key = "no-search-results") { Text(if (entries.isEmpty()) "No entries yet. Tap + to add one." else "No search results.", style = MaterialTheme.typography.bodyMedium) }
                 }
                 items(visibleEntries, key = { it.id }) { entry ->
+                  SelectableCard(
+                    selecting = selecting,
+                    selected = entry.id in selectedIdSet,
+                    onToggle = { selectedIds = CardSelection.toggle(selectedIdSet, entry.id) },
+                  ) {
                     EntryRow(
                         entry = entry,
                         fields = fields,
@@ -330,6 +387,7 @@ fun LogScreen(
                         onAddNote = { onOpenFollowUp(entry.id, null) },
                         onEditNote = { noteId -> onOpenFollowUp(entry.id, noteId) },
                     )
+                  }
                 }
             }
         }
@@ -337,12 +395,16 @@ fun LogScreen(
 
     if (showFormatChooser) {
         val current = template
+        // Exporting the selection carries only the selected entries and their own
+        // Follow-Up Notes; otherwise the whole form, as before.
+        val exportEntries = if (exportSelection) selectedEntries else entries
+        val exportNotes = if (exportSelection) CardSelection.notesFor(notesByEntry, selectedIdSet) else notesByEntry
         ExportFormatDialog(
             thing = "Form",
             onDismiss = { showFormatChooser = false },
             header = {
                 // Only meaningful when this log actually has follow-up notes.
-                if (notesByEntry.isNotEmpty()) {
+                if (exportNotes.isNotEmpty()) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(
                             checked = includeFollowUps,
@@ -358,7 +420,7 @@ fun LogScreen(
                     "Simple plain text file.",
                 ) {
                     if (current != null) {
-                        startSave(LogExport.text(current, fields, entries, notesByEntry, includeFollowUps))
+                        startSave(LogExport.text(current, fields, exportEntries, exportNotes, includeFollowUps))
                     }
                 },
                 ExportFormatOption(
@@ -366,7 +428,7 @@ fun LogScreen(
                     "Formatted text document.",
                 ) {
                     if (current != null) {
-                        startSave(LogExport.markdown(current, fields, entries, notesByEntry, includeFollowUps))
+                        startSave(LogExport.markdown(current, fields, exportEntries, exportNotes, includeFollowUps))
                     }
                 },
                 ExportFormatOption(
@@ -374,21 +436,21 @@ fun LogScreen(
                     "Printable document format.",
                 ) {
                     if (current != null) {
-                        startSave(LogExport.pdf(current, fields, entries, notesByEntry, includeFollowUps))
+                        startSave(LogExport.pdf(current, fields, exportEntries, exportNotes, includeFollowUps))
                     }
                 },
                 ExportFormatOption(
                     "Spreadsheet (.csv)",
                     "Table of entries for a spreadsheet app.",
                 ) {
-                    if (current != null) startSave(LogExport.csv(current, fields, entries))
+                    if (current != null) startSave(LogExport.csv(current, fields, exportEntries))
                 },
                 ExportFormatOption(
                     "Application Data (.json)",
                     "Use this file to import or restore this form later.",
                 ) {
                     if (current != null) {
-                        startSave(LogExport.json(current, entries, notesByEntry, includeFollowUps))
+                        startSave(LogExport.json(current, exportEntries, exportNotes, includeFollowUps))
                     }
                 },
                 ExportFormatOption(
@@ -396,7 +458,7 @@ fun LogScreen(
                     "Clean data json with no app specific information.",
                 ) {
                     if (current != null) {
-                        startSave(LogExport.cleanJson(current, fields, entries, notesByEntry, includeFollowUps))
+                        startSave(LogExport.cleanJson(current, fields, exportEntries, exportNotes, includeFollowUps))
                     }
                 },
             ),
@@ -413,6 +475,40 @@ fun LogScreen(
                 DialogDestructiveButton("Delete Log") {
                     confirmDeleteLog = false
                     viewModel.deleteLog(onDeleted = onBack)
+                }
+            },
+        )
+    }
+
+    selectCountNewest?.let { newest ->
+        SelectCountDialog(
+            newest = newest,
+            cardCount = entries.size,
+            onDismiss = { selectCountNewest = null },
+            onConfirm = { count ->
+                selectCountNewest = null
+                // Replaces the selection, picking from the entries now shown.
+                selectedIds = CardSelection.formPick(visibleEntries, fields, template, count, newest)
+            },
+        )
+    }
+
+    if (confirmDeleteSelected) {
+        val count = selectedIdSet.size
+        AppDialog(
+            onDismissRequest = { confirmDeleteSelected = false },
+            title = if (count == 1) "Delete 1 entry?" else "Delete $count entries?",
+            body = if (count == 1) {
+                "This permanently deletes this entry. This can't be undone."
+            } else {
+                "This permanently deletes these $count entries. This can't be undone."
+            },
+            dismissButton = { DialogDismissButton("Cancel") { confirmDeleteSelected = false } },
+            confirmButton = {
+                DialogDestructiveButton(if (count == 1) "Delete Entry" else "Delete Entries") {
+                    confirmDeleteSelected = false
+                    viewModel.deleteEntries(selectedIdSet)
+                    selectedIds = emptySet()
                 }
             },
         )

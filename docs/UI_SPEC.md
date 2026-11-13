@@ -625,3 +625,43 @@ The saved editor baseline is updated too. Cancelling subsequent edits therefore
 cannot leave the saved automatic-day setting on with a missing weekday. Other
 unsaved settings remain pending, and custom-option deletion does not change the
 saved automatic-day setting.
+
+## Multiple Selection (November 2026)
+
+On the Forms and Clicker Data **Main screens** only, from the settings cog
+menu: **Multiple Selection**, directly above the menu's final Delete item.
+The look is in docs/UI_ELEMENTS.md, "Multiple Selection".
+
+- **Selecting:** while on, tapping a card toggles it and does nothing else —
+  it never opens, edits or marks the card, and a Clicker card's live controls
+  (trackers, number and text boxes, Day of Week, Comparison) never change.
+  The bar's count is always the number of selected cards that still exist.
+- **Leaving:** Exit Selection, or the phone's Back button (which leaves
+  selection before it leaves the screen). Leaving clears the selection.
+- **Select All** adds every card the current search/filter shows. **Deselect
+  All** clears everything, including selected cards a filter now hides. A
+  selected card stays selected while a filter hides it, and Copy, Delete and
+  Export act on it.
+- **Select Newest X / Select Oldest X** replace the selection with the X
+  newest / oldest of the cards shown. Okay is off for a blank or zero count;
+  only digits can be typed. A count above the number of cards selects them
+  all. Cancel leaves the selection as it was.
+- **Timestamps:** Forms use the form's designated sort timestamp field when it
+  has one, otherwise the automatic entry timestamp; an entry with that field
+  empty is never picked by Newest / Oldest (it can still be tapped or picked
+  by Select All). Clicker Data uses each card's date/time stamps, whether or
+  not the grouping shows them, with its creation time for any part it has no
+  stamp for — the order the Main screen sorts by. Equal timestamps fall back
+  to the card's row order.
+- **Copy** puts the selected cards on the clipboard as the `.txt` report:
+  title, date range and total of the selection, then each card oldest first
+  with Notes and Follow-Up Notes.
+- **Delete** asks once: "Delete N entries?" / "This permanently deletes these
+  N entries. This can't be undone." / Cancel | Delete Entries (Forms; "1
+  entry", "this entry", Delete Entry for one), and the same with "cards" /
+  Delete Cards on Clicker Data (owner ruling, November 13 2026). It deletes
+  only the selected cards — a form entry with its Follow-Up Notes — never the
+  form or grouping.
+- **Export** opens the usual export dialog with every format; the file holds
+  only the selected cards (and only their Follow-Up Notes) under the usual
+  file name.
