@@ -8,6 +8,18 @@ object LuckyListExport {
         val title = list.name.ifBlank { "Lucky List" }
         val base = ExportNaming.base(list.name)
         return when (format) {
+            ChecklistExportFormat.CLEAN_JSON -> ExportContent(
+                ExportNaming.cleanJsonFileName(list.name),
+                ChecklistExport.prettyJson.encodeToString(
+                    kotlinx.serialization.json.JsonElement.serializer(),
+                    kotlinx.serialization.json.JsonObject(
+                        linkedMapOf(
+                            "title" to kotlinx.serialization.json.JsonPrimitive(title),
+                            "items" to EntryValues.stringArray(ordered.filter { it.text.isNotBlank() }.map { it.text }),
+                        ),
+                    ),
+                ).toByteArray(),
+            )
             ChecklistExportFormat.JSON -> ExportContent("$base.json", BackupCodec.encodeSingleLuckyList(list, ordered, BackupRepository.now()).toByteArray())
             ChecklistExportFormat.TEXT -> ExportContent("$base.txt", (title + "\n\n" + ordered.filter { it.text.isNotBlank() }.joinToString("\n", postfix = "\n") { it.text }).toByteArray())
             ChecklistExportFormat.MARKDOWN -> ExportContent("$base.md", ("# $title\n\n" + ordered.filter { it.text.isNotBlank() }.joinToString("\n", postfix = "\n") { "- ${it.text}" }).toByteArray())

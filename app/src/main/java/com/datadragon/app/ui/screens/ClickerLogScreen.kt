@@ -2,6 +2,12 @@ package com.datadragon.app.ui.screens
 
 import com.datadragon.app.data.CardCopyText
 import com.datadragon.app.ui.components.rememberCopyText
+import com.datadragon.app.ui.CardSelection
+import com.datadragon.app.ui.components.SelectCountDialog
+import com.datadragon.app.ui.components.SelectableCard
+import com.datadragon.app.ui.components.SelectionBar
+import androidx.activity.compose.BackHandler
+import androidx.compose.ui.platform.LocalFocusManager
 
 import com.datadragon.app.export.SaveExportDocument
 import android.widget.Toast
@@ -141,6 +147,24 @@ fun ClickerLogScreen(
     var cogMenuOpen by remember { mutableStateOf(false) }
     var confirmDeleteLog by remember { mutableStateOf(false) }
     val copyText = rememberCopyText()
+
+    // Multiple Selection: whether it is on, and the picked cards by row id.
+    // While it is on a tap selects a card instead of reaching its live controls.
+    var selecting by remember { mutableStateOf(false) }
+    var selectedIds by remember { mutableStateOf(emptySet<Long>()) }
+    var selectCountNewest by remember { mutableStateOf<Boolean?>(null) }
+    var confirmDeleteSelected by remember { mutableStateOf(false) }
+    // Whether the export dialog is exporting the selection rather than every card.
+    var exportSelection by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
+    // Only cards that still exist count: one deleted elsewhere drops out.
+    val selectedIdSet = remember(selectedIds, cards) { cards.map { it.id }.filter { it in selectedIds }.toSet() }
+    fun exitSelection() {
+        selecting = false
+        selectedIds = emptySet()
+    }
+    // Back leaves Multiple Selection before it leaves the screen.
+    BackHandler(enabled = selecting) { exitSelection() }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -154,7 +178,7 @@ fun ClickerLogScreen(
     // "Save to…" sheet. The checkbox chooses whether Follow-Up Notes go along.
     var showFormatChooser by remember { mutableStateOf(false) }
     var includeFollowUps by remember { mutableStateOf(true) }
-    val hasFollowUps = cards.any {
+    val hasFollowUps = cards.filter { !exportSelection || it.id in selectedIdSet }.any {
         !ClickerValues.decode(it.valuesJson)[ClickerValues.FOLLOW_UP_KEY].isNullOrBlank()
     }
     var pendingExport by remember { mutableStateOf<ExportContent?>(null) }
@@ -202,6 +226,7 @@ fun ClickerLogScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
+          Column {
             TopAppBar(
                 title = { Text(log?.title ?: "Clicker Data") },
                 navigationIcon = {
@@ -224,7 +249,16 @@ fun ClickerLogScreen(
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Export") },
-                                    onClick = { cogMenuOpen = false; showFormatChooser = true },
+                                    onClick = { cogMenuOpen = false; exportSelection = false; showFormatChooser = true },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Multiple Selection") },
+                                    onClick = {
+                                        cogMenuOpen = false
+                                        focusManager.clearFocus()
+                                        selectedIds = emptySet()
+                                        selecting = true
+                                    },
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Delete") },
@@ -256,6 +290,26 @@ fun ClickerLogScreen(
                     }
                 },
             )
+            if (selecting) {
+                SelectionBar(
+                    count = selectedIdSet.size,
+                    onCopy = {
+                        // From a fresh read, so text just typed on a card is included.
+                        scope.launch {
+                            val (current, fresh) = viewModel.exportSnapshot() ?: return@launch
+                            copyText(CardSelection.clickerCopyText(current, fields, fresh.filter { it.id in selectedIdSet }))
+                        }
+                    },
+                    onDelete = { confirmDeleteSelected = true },
+                    onExport = { exportSelection = true; showFormatChooser = true },
+                    onSelectAll = { selectedIds = selectedIdSet + cards.map { it.id } },
+                    onDeselectAll = { selectedIds = emptySet() },
+                    onSelectNewest = { selectCountNewest = true },
+                    onSelectOldest = { selectCountNewest = false },
+                    onExit = { exitSelection() },
+                )
+            }
+          }
         },
     ) { padding ->
         // The sorting controls are always present, cards or not, as in Forms.
@@ -306,6 +360,11 @@ fun ClickerLogScreen(
                     )
                 }
                 items(cards, key = { it.id }) { card ->
+                  SelectableCard(
+                    selecting = selecting,
+                    selected = card.id in selectedIdSet,
+                    onToggle = { selectedIds = CardSelection.toggle(selectedIdSet, card.id) },
+                  ) {
                     ClickerCardView(
                         card = card,
                         fields = fields,
@@ -325,6 +384,7 @@ fun ClickerLogScreen(
                         onCopyCard = { scope.launch { viewModel.copySnapshot(card.id)?.let(copyText) } },
                         onDeleteCard = { viewModel.deleteCard(card) },
                     )
+                  }
                 }
             }
         }
@@ -338,7 +398,9 @@ fun ClickerLogScreen(
             (ClickerLog, List<ClickerCard>, Boolean) -> ExportContent
         ) -> Unit = { build ->
             scope.launch {
-                val (current, freshCards) = viewModel.exportSnapshot() ?: return@launch
+                val (current, stored) = viewModel.exportSnapshot() ?: return@launch
+                // Exporting the selection carries only the selected cards.
+                val freshCards = if (exportSelection) stored.filter { it.id in selectedIdSet } else stored
                 val freshHasFollowUps = freshCards.any {
                     !ClickerValues.decode(it.valuesJson)[ClickerValues.FOLLOW_UP_KEY].isNullOrBlank()
                 }
@@ -363,35 +425,75 @@ fun ClickerLogScreen(
             options = listOf(
                 ExportFormatOption(
                     "Text Document (.txt)",
-                    "Simple plain text file",
+                    "Simple plain text file.",
                 ) {
                     exportWith { l, c, n -> ClickerExport.text(l, fields, c, n) }
                 },
                 ExportFormatOption(
                     "Markdown (.md)",
-                    "Formatted text document",
+                    "Formatted text document.",
                 ) {
                     exportWith { l, c, n -> ClickerExport.markdown(l, fields, c, n) }
                 },
                 ExportFormatOption(
                     "PDF Document (.pdf)",
-                    "Printable document format",
+                    "Printable document format.",
                 ) {
                     exportWith { l, c, n -> ClickerExport.pdf(l, fields, c, n) }
                 },
                 ExportFormatOption(
                     "Spreadsheet (.csv)",
-                    "Table of entries for a spreadsheet app",
+                    "Table of entries for a spreadsheet app.",
                 ) {
                     exportWith { l, c, n -> ClickerExport.csv(l, fields, c, n) }
                 },
                 ExportFormatOption(
                     "Application Data (.json)",
-                    "Use this file to import or restore this data later",
+                    "Use this file to import or restore this data later.",
                 ) {
                     exportWith { l, c, n -> ClickerExport.json(l, c, n) }
                 },
+                ExportFormatOption(
+                    "Human Readable JSON (.json)",
+                    "Clean data json with no app specific information.",
+                ) {
+                    exportWith { l, c, n -> ClickerExport.cleanJson(l, fields, c, n) }
+                },
             ),
+        )
+    }
+
+    selectCountNewest?.let { newest ->
+        SelectCountDialog(
+            newest = newest,
+            cardCount = cards.size,
+            onDismiss = { selectCountNewest = null },
+            onConfirm = { count ->
+                selectCountNewest = null
+                // Replaces the selection.
+                selectedIds = CardSelection.clickerPick(cards, count, newest)
+            },
+        )
+    }
+
+    if (confirmDeleteSelected) {
+        val count = selectedIdSet.size
+        AppDialog(
+            onDismissRequest = { confirmDeleteSelected = false },
+            title = if (count == 1) "Delete 1 card?" else "Delete $count cards?",
+            body = if (count == 1) {
+                "This permanently deletes this card. This can't be undone."
+            } else {
+                "This permanently deletes these $count cards. This can't be undone."
+            },
+            dismissButton = { DialogDismissButton("Cancel") { confirmDeleteSelected = false } },
+            confirmButton = {
+                DialogDestructiveButton(if (count == 1) "Delete Card" else "Delete Cards") {
+                    confirmDeleteSelected = false
+                    viewModel.deleteCards(selectedIdSet)
+                    selectedIds = emptySet()
+                }
+            },
         )
     }
 

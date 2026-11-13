@@ -4,6 +4,33 @@ Append a new dated entry after each meaningful session. Do not overwrite earlier
 
 ---
 
+## 2026-11-13 — Multiple Selection on Forms and Clicker Data
+
+- New **Multiple Selection** item in the Forms and Clicker Data Main screens'
+  cog menus, above the final Delete. It shows a selection bar under the top
+  bar ("N Selected", "Tap a card to toggle selection", Copy, Delete, Export,
+  and a menu: Select All, Deselect All, Select Newest X, Select Oldest X, Exit
+  Selection). Selected cards get a dashed coupon outline.
+- Copy gives the selection's `.txt` report; Export uses the normal export
+  dialog for the selection only; Delete confirms once and deletes only the
+  selected cards. Details: docs/UI_SPEC.md and docs/UI_ELEMENTS.md,
+  "Multiple Selection".
+- All export option subtitles now end with a period.
+
+## 2026-11-13 — Human Readable JSON export
+
+- The Forms "Clean JSON (.json)" export option is now titled **Human
+  Readable JSON (.json)**, subtitle "Clean data json with no app specific
+  information.", and now carries the same report as the `.txt` export: `title`,
+  `dateRange` (`start` / `end`), `totalEntries`, entries oldest first, `Notes`
+  and `Follow-Up Notes`. `exportedAt`, `updatedAt` and `marked` are gone.
+  Numbers are JSON numbers, Scale is `{ "value", "max" }`, Ratio is
+  `{ "value", "unit" }`.
+- Clicker Data, Lists and Lucky Lists gain the same **Human Readable JSON (.json)** option,
+  directly below Application Data (.json), each mirroring its own `.txt`.
+- All use `<name>_clean.json`. Application Data (.json), backups, import and
+  restore are unchanged. Details: docs/FORMATTING_SPEC.md §4.
+
 ## 2026-10-22 — List Item Quantities check boxes and average
 
 - Three new List Item Quantities toggles, all off by default: **Show Average

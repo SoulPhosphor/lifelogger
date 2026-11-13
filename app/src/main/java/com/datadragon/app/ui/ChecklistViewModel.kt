@@ -133,6 +133,7 @@ open class ChecklistViewModel @JvmOverloads constructor(app: Application, privat
         return when (format) {
             ChecklistExportFormat.MARKDOWN -> ChecklistExport.markdown(checklist, items)
             ChecklistExportFormat.JSON -> ChecklistExport.json(checklist, items)
+            ChecklistExportFormat.CLEAN_JSON -> ChecklistExport.cleanJson(checklist, items)
             ChecklistExportFormat.TEXT -> ChecklistExport.text(checklist, items)
             ChecklistExportFormat.PDF -> ChecklistExport.pdf(checklist, items)
         }

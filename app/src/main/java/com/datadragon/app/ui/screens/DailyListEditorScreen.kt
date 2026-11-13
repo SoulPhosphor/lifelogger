@@ -378,19 +378,19 @@ fun DailyListEditorScreen(
             options = listOf(
                 ExportFormatOption(
                     "Text Document (.txt)",
-                    "Simple plain text file",
+                    "Simple plain text file.",
                 ) { startSave(DailyTaskExportFormat.TEXT) },
                 ExportFormatOption(
                     "Markdown (.md)",
-                    "Formatted text document",
+                    "Formatted text document.",
                 ) { startSave(DailyTaskExportFormat.MARKDOWN) },
                 ExportFormatOption(
                     "PDF Document (.pdf)",
-                    "Printable document format",
+                    "Printable document format.",
                 ) { startSave(DailyTaskExportFormat.PDF) },
                 ExportFormatOption(
                     "Application Data (.json)",
-                    "Use this file to import or restore this daily task log later",
+                    "Use this file to import or restore this daily task log later.",
                 ) { startSave(DailyTaskExportFormat.JSON) },
             ),
         )

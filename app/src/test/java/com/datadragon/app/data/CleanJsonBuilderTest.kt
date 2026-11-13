@@ -11,15 +11,16 @@ import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * The "Clean JSON (.json)" export: labels instead of ids, native values,
- * the item-row summary lines, the suffix rule for repeated keys, and the
- * `<name>_clean.json` file name.
+ * The Forms "Human Readable JSON (.json)" export: the `.txt` report's header and
+ * order, labels instead of ids, native values, the item-row summary lines, the
+ * suffix rule for repeated keys, and the `<name>_clean.json` file name.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -46,33 +47,77 @@ class CleanJsonBuilderTest {
         type = FieldType.COMPARISON,
         choices = listOf(ChoiceOption("c-amm", "Ammonia"), ChoiceOption("c-burn", "Burning")),
     )
-    private val notesField = FieldDef(id = "f-notes", label = "Entry Notes", type = FieldType.TEXT)
+    private val notesField = FieldDef(id = "f-notes", label = "Notes", type = FieldType.TEXT)
     private val repeated = FieldDef(id = "f-date-2", label = "Date", type = FieldType.DATE)
 
-    private fun entry(id: Long, values: String, marked: Boolean = false, updatedAt: String? = null) =
-        LogEntry(id = id, templateId = 1, createdAt = "2026-10-30T03:16:00-04:00", updatedAt = updatedAt, valuesJson = values, marked = marked)
+    private fun entry(
+        id: Long,
+        values: String,
+        marked: Boolean = false,
+        updatedAt: String? = null,
+        createdAt: String = "2026-10-30T03:16:00-04:00",
+    ) = LogEntry(id = id, templateId = 1, createdAt = createdAt, updatedAt = updatedAt, valuesJson = values, marked = marked)
 
     private fun build(fields: List<FieldDef>, entries: List<LogEntry>, notes: Map<Long, List<EntryNote>> = emptyMap(), include: Boolean = false) =
-        Json.parseToJsonElement(CleanJsonBuilder.build(template, fields, entries, "2026-10-30T12:00:00-04:00", notes, include)).jsonObject
+        Json.parseToJsonElement(CleanJsonBuilder.build(template, fields, entries, notes, include)).jsonObject
 
     @Test
-    fun rootHoldsFormNameExportedAtAndEntries() {
-        val root = build(listOf(dateTime), listOf(entry(1, "{}")))
-        assertEquals(listOf("formName", "exportedAt", "entries"), root.keys.toList())
-        assertEquals("Odor Log", root["formName"]!!.jsonPrimitive.content)
-        assertEquals("2026-10-30T12:00:00-04:00", root["exportedAt"]!!.jsonPrimitive.content)
+    fun rootMatchesTheReportHeader() {
+        val entries = listOf(
+            entry(2, "{}", createdAt = "2026-11-02T09:00:00-05:00"),
+            entry(1, "{}", createdAt = "2026-10-30T03:16:00-04:00"),
+        )
+        val root = build(listOf(dateTime), entries)
+        assertEquals(listOf("title", "dateRange", "totalEntries", "entries"), root.keys.toList())
+        assertEquals("Odor Log Report", root["title"]!!.jsonPrimitive.content)
+        val range = root["dateRange"]!!.jsonObject
+        assertEquals("2026-10-30", range["start"]!!.jsonPrimitive.content)
+        assertEquals("2026-11-02", range["end"]!!.jsonPrimitive.content)
+        assertEquals(JsonPrimitive(2), root["totalEntries"])
+        // Oldest first, as in the .txt report; timestamps kept with their offset.
+        assertEquals(
+            listOf("2026-10-30T03:16:00-04:00", "2026-11-02T09:00:00-05:00"),
+            root["entries"]!!.jsonArray.map { it.jsonObject["createdAt"]!!.jsonPrimitive.content },
+        )
+    }
+
+    @Test
+    fun noEntriesMeansNoDateRange() {
+        val root = build(listOf(dateTime), emptyList())
+        assertEquals(listOf("title", "totalEntries", "entries"), root.keys.toList())
+        assertEquals(JsonPrimitive(0), root["totalEntries"])
+    }
+
+    @Test
+    fun numbersScalesAndRatiosAreStructured() {
+        val number = FieldDef(id = "f-num", label = "Weight", type = FieldType.NUMBER)
+        val scale = FieldDef(id = "f-scale", label = "Pain", type = FieldType.SCALE, from = 1, to = 10)
+        val ratio = FieldDef(id = "f-ratio", label = "Pressure", type = FieldType.RATIO, unit = "mmHg")
+        val values = """{"f-num":"12.5","f-scale":"7","f-ratio":"120/80"}"""
+        val v = build(listOf(number, scale, ratio), listOf(entry(1, values)))["entries"]!!.jsonArray[0].jsonObject["values"]!!.jsonObject
+        assertTrue(v["Weight"]!!.jsonPrimitive.isString.not())
+        assertEquals("12.5", v["Weight"]!!.jsonPrimitive.content)
+        val pain = v["Pain"]!!.jsonObject
+        assertEquals(listOf("value", "max"), pain.keys.toList())
+        assertFalse(pain["value"]!!.jsonPrimitive.isString)
+        assertEquals("7", pain["value"]!!.jsonPrimitive.content)
+        assertEquals(JsonPrimitive(10), pain["max"])
+        val pressure = v["Pressure"]!!.jsonObject
+        assertEquals("120/80", pressure["value"]!!.jsonPrimitive.content)
+        assertEquals("mmHg", pressure["unit"]!!.jsonPrimitive.content)
     }
 
     @Test
     fun fieldsAndChoicesReadAsLabelsInStoredForm() {
         val values = """{"f-date":"2026-10-30T03:16","f-type":["c-amm","c-burn"],"f-strength":"c-strong","__notes__":"Smelled near vent"}"""
         val e = build(listOf(dateTime, type, strength), listOf(entry(1, values)))["entries"]!!.jsonArray[0].jsonObject
+        assertEquals(listOf("createdAt", "values", "Notes"), e.keys.toList())
         val v = e["values"]!!.jsonObject
-        assertEquals(listOf("Date", "Odor Type", "Strength", "Entry Notes"), v.keys.toList())
+        assertEquals(listOf("Date", "Odor Type", "Strength"), v.keys.toList())
         assertEquals("2026-10-30T03:16", v["Date"]!!.jsonPrimitive.content)
         assertEquals(listOf("Ammonia", "Burning"), v["Odor Type"]!!.jsonArray.map { it.jsonPrimitive.content })
         assertEquals("Strong", v["Strength"]!!.jsonPrimitive.content)
-        assertEquals("Smelled near vent", v["Entry Notes"]!!.jsonPrimitive.content)
+        assertEquals("Smelled near vent", e["Notes"]!!.jsonPrimitive.content)
     }
 
     @Test
@@ -84,14 +129,10 @@ class CleanJsonBuilderTest {
     }
 
     @Test
-    fun entryMetadataOmitsEmptyAndFalseKeys() {
-        val plain = build(listOf(dateTime), listOf(entry(1, "{}")))["entries"]!!.jsonArray[0].jsonObject
-        assertEquals(listOf("createdAt", "values"), plain.keys.toList())
-
+    fun internalEntryMetadataIsLeftOut() {
         val full = build(listOf(dateTime), listOf(entry(1, "{}", marked = true, updatedAt = "2026-10-31T09:00:00-04:00")))["entries"]!!
             .jsonArray[0].jsonObject
-        assertEquals(listOf("createdAt", "updatedAt", "marked", "values"), full.keys.toList())
-        assertEquals(JsonPrimitive(true), full["marked"])
+        assertEquals(listOf("createdAt", "values"), full.keys.toList())
     }
 
     @Test
@@ -100,22 +141,25 @@ class CleanJsonBuilderTest {
         val entries = listOf(entry(1, "{}"), entry(2, "{}"))
 
         val off = build(listOf(dateTime), entries, notes, include = false)["entries"]!!.jsonArray
-        assertFalse(off[0].jsonObject.containsKey("FollowUpNotes"))
+        assertFalse(off[0].jsonObject.containsKey("Follow-Up Notes"))
 
         val on = build(listOf(dateTime), entries, notes, include = true)["entries"]!!.jsonArray
-        val note = on[0].jsonObject["FollowUpNotes"]!!.jsonArray[0].jsonObject
+        val note = on[0].jsonObject["Follow-Up Notes"]!!.jsonArray[0].jsonObject
         assertEquals("2026-10-30T05:00:00-04:00", note["createdAt"]!!.jsonPrimitive.content)
         assertEquals("Gone now", note["text"]!!.jsonPrimitive.content)
-        assertFalse(on[1].jsonObject.containsKey("FollowUpNotes"))
+        assertFalse(on[1].jsonObject.containsKey("Follow-Up Notes"))
     }
 
     @Test
     fun repeatedKeysGetANumberSuffix() {
         val values = """{"f-date":"2026-10-30T03:16","f-date-2":"2026-10-29","f-notes":"typed","__notes__":"box"}"""
-        val v = build(listOf(dateTime, repeated, notesField), listOf(entry(1, values)))["entries"]!!.jsonArray[0].jsonObject["values"]!!.jsonObject
-        assertEquals(listOf("Date", "Date (2)", "Entry Notes", "Entry Notes (2)"), v.keys.toList())
+        val e = build(listOf(dateTime, repeated, notesField), listOf(entry(1, values)))["entries"]!!.jsonArray[0].jsonObject
+        val v = e["values"]!!.jsonObject
+        assertEquals(listOf("Date", "Date (2)", "Notes"), v.keys.toList())
         assertEquals("2026-10-29", v["Date (2)"]!!.jsonPrimitive.content)
-        assertEquals("box", v["Entry Notes (2)"]!!.jsonPrimitive.content)
+        // A field labelled "Notes" and the Notes box never collide.
+        assertEquals("typed", v["Notes"]!!.jsonPrimitive.content)
+        assertEquals("box", e["Notes"]!!.jsonPrimitive.content)
     }
 
     @Test

@@ -254,16 +254,17 @@ and not new phrasing for the formats it shares.
 
   | Format | Title | Subtitle | Offered for |
   | --- | --- | --- | --- |
-  | `.txt` | Text Document (.txt) | Simple plain text file | Everything |
-  | `.md` | Markdown (.md) | Formatted text document | Everything |
-  | `.pdf` | PDF Document (.pdf) | Printable document format | Everything |
-  | `.csv` | Spreadsheet (.csv) | Table of entries for a spreadsheet app | Forms, Data |
-  | `.json` | Application Data (.json) | Use this file to import or restore this `<thing>` later | Everything |
-  | `.json` | Clean JSON (.json) | Human-readable data for AI analysis | Forms |
+  | `.txt` | Text Document (.txt) | Simple plain text file. | Everything |
+  | `.md` | Markdown (.md) | Formatted text document. | Everything |
+  | `.pdf` | PDF Document (.pdf) | Printable document format. | Everything |
+  | `.csv` | Spreadsheet (.csv) | Table of entries for a spreadsheet app. | Forms, Data |
+  | `.json` | Application Data (.json) | Use this file to import or restore this `<thing>` later. | Everything |
+  | `.json` | Human Readable JSON (.json) | Clean data json with no app specific information. | Forms, Data, Lists, Lucky Lists |
 
 - **Rows appear in that order**, always. Application Data (.json) is always
-  last, except on forms, where Clean JSON (.json) sits directly below it
-  (owner ruling, October 30 2026).
+  last, except where Human Readable JSON (.json) is offered, where it sits directly below
+  it (owner ruling, October 30 2026; extended to Data, Lists and Lucky Lists
+  and renamed from "Clean JSON (.json)", owner ruling, November 13 2026).
 - **A row is left out only when that thing genuinely cannot produce that file.**
   Lists have no rows of entries, so they offer no `.csv`; forms and Data
   (Clicker) groupings do, so they offer it. "Not one of the usual formats" is

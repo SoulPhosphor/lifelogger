@@ -73,7 +73,7 @@ class WeekdayTest {
         val entry = LogEntry(templateId = 1, createdAt = "2026-11-02T12:00:00Z", valuesJson = EntryValues.encode(mapOf(source.id to EntryValues.stringArray(listOf(monday.id, custom.id)))))
         assertTrue(CsvBuilder.build(listOf(source), listOf(entry)).contains("My Munday; Odd Day"))
         assertEquals("My Munday, Odd Day", EntryValues.displayValue(source, EntryValues.decode(entry.valuesJson)))
-        assertTrue(CleanJsonBuilder.build(LogTemplate(uuid = "test", name = "Test", createdAt = 1, schemaJson = "[]"), listOf(source), listOf(entry), "now").contains("My Munday"))
+        assertTrue(CleanJsonBuilder.build(LogTemplate(uuid = "test", name = "Test", createdAt = 1, schemaJson = "[]"), listOf(source), listOf(entry)).contains("My Munday"))
     }
 
     @Test fun requiredClickerWeekdaysBlockOnlyWhenTheyHaveNoAnswer() {
