@@ -461,19 +461,19 @@ fun ChecklistScreen(
             options = listOf(
                 ExportFormatOption(
                     "Text Document (.txt)",
-                    "Simple plain text file",
+                    "Simple plain text file.",
                 ) { startSave(ChecklistExportFormat.TEXT) },
                 ExportFormatOption(
                     "Markdown (.md)",
-                    "Formatted text document",
+                    "Formatted text document.",
                 ) { startSave(ChecklistExportFormat.MARKDOWN) },
                 ExportFormatOption(
                     "PDF Document (.pdf)",
-                    "Printable document format",
+                    "Printable document format.",
                 ) { startSave(ChecklistExportFormat.PDF) },
                 ExportFormatOption(
                     "Application Data (.json)",
-                    if (lucky) "Use this file to import or restore this lucky list later" else "Use this file to import or restore this list later",
+                    if (lucky) "Use this file to import or restore this lucky list later." else "Use this file to import or restore this list later.",
                 ) { startSave(ChecklistExportFormat.JSON) },
                 ExportFormatOption(
                     "Human Readable JSON (.json)",

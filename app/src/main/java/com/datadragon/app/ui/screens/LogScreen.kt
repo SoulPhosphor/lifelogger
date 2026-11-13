@@ -355,7 +355,7 @@ fun LogScreen(
             options = listOf(
                 ExportFormatOption(
                     "Text Document (.txt)",
-                    "Simple plain text file",
+                    "Simple plain text file.",
                 ) {
                     if (current != null) {
                         startSave(LogExport.text(current, fields, entries, notesByEntry, includeFollowUps))
@@ -363,7 +363,7 @@ fun LogScreen(
                 },
                 ExportFormatOption(
                     "Markdown (.md)",
-                    "Formatted text document",
+                    "Formatted text document.",
                 ) {
                     if (current != null) {
                         startSave(LogExport.markdown(current, fields, entries, notesByEntry, includeFollowUps))
@@ -371,7 +371,7 @@ fun LogScreen(
                 },
                 ExportFormatOption(
                     "PDF Document (.pdf)",
-                    "Printable document format",
+                    "Printable document format.",
                 ) {
                     if (current != null) {
                         startSave(LogExport.pdf(current, fields, entries, notesByEntry, includeFollowUps))
@@ -379,13 +379,13 @@ fun LogScreen(
                 },
                 ExportFormatOption(
                     "Spreadsheet (.csv)",
-                    "Table of entries for a spreadsheet app",
+                    "Table of entries for a spreadsheet app.",
                 ) {
                     if (current != null) startSave(LogExport.csv(current, fields, entries))
                 },
                 ExportFormatOption(
                     "Application Data (.json)",
-                    "Use this file to import or restore this form later",
+                    "Use this file to import or restore this form later.",
                 ) {
                     if (current != null) {
                         startSave(LogExport.json(current, entries, notesByEntry, includeFollowUps))

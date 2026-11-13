@@ -254,11 +254,11 @@ and not new phrasing for the formats it shares.
 
   | Format | Title | Subtitle | Offered for |
   | --- | --- | --- | --- |
-  | `.txt` | Text Document (.txt) | Simple plain text file | Everything |
-  | `.md` | Markdown (.md) | Formatted text document | Everything |
-  | `.pdf` | PDF Document (.pdf) | Printable document format | Everything |
-  | `.csv` | Spreadsheet (.csv) | Table of entries for a spreadsheet app | Forms, Data |
-  | `.json` | Application Data (.json) | Use this file to import or restore this `<thing>` later | Everything |
+  | `.txt` | Text Document (.txt) | Simple plain text file. | Everything |
+  | `.md` | Markdown (.md) | Formatted text document. | Everything |
+  | `.pdf` | PDF Document (.pdf) | Printable document format. | Everything |
+  | `.csv` | Spreadsheet (.csv) | Table of entries for a spreadsheet app. | Forms, Data |
+  | `.json` | Application Data (.json) | Use this file to import or restore this `<thing>` later. | Everything |
   | `.json` | Human Readable JSON (.json) | Clean data json with no app specific information. | Forms, Data, Lists, Lucky Lists |
 
 - **Rows appear in that order**, always. Application Data (.json) is always

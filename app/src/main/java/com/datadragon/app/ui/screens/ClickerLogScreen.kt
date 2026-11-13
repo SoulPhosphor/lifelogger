@@ -363,31 +363,31 @@ fun ClickerLogScreen(
             options = listOf(
                 ExportFormatOption(
                     "Text Document (.txt)",
-                    "Simple plain text file",
+                    "Simple plain text file.",
                 ) {
                     exportWith { l, c, n -> ClickerExport.text(l, fields, c, n) }
                 },
                 ExportFormatOption(
                     "Markdown (.md)",
-                    "Formatted text document",
+                    "Formatted text document.",
                 ) {
                     exportWith { l, c, n -> ClickerExport.markdown(l, fields, c, n) }
                 },
                 ExportFormatOption(
                     "PDF Document (.pdf)",
-                    "Printable document format",
+                    "Printable document format.",
                 ) {
                     exportWith { l, c, n -> ClickerExport.pdf(l, fields, c, n) }
                 },
                 ExportFormatOption(
                     "Spreadsheet (.csv)",
-                    "Table of entries for a spreadsheet app",
+                    "Table of entries for a spreadsheet app.",
                 ) {
                     exportWith { l, c, n -> ClickerExport.csv(l, fields, c, n) }
                 },
                 ExportFormatOption(
                     "Application Data (.json)",
-                    "Use this file to import or restore this data later",
+                    "Use this file to import or restore this data later.",
                 ) {
                     exportWith { l, c, n -> ClickerExport.json(l, c, n) }
                 },
